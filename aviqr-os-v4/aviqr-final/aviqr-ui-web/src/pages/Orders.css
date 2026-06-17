@@ -1,0 +1,287 @@
+/* ─── Orders page ─────────────────────────────────────────────────────────── */
+.orders-page { display: flex; flex-direction: column; gap: 20px; }
+
+.live-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-left: 8px;
+  animation: ticker-pulse 2s infinite;
+  vertical-align: middle;
+}
+
+/* ─── Toolbar ─────────────────────────────────────────────────────────────── */
+.search-wrap { position: relative; display: flex; align-items: center; }
+.search-icon { position: absolute; left: 10px; color: var(--gray-400); pointer-events: none; }
+.search-input {
+  height: 38px;
+  width: 240px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 0 12px 0 32px;
+  font-size: 13px;
+  color: var(--gray-900);
+  background: var(--white);
+  transition: border-color .15s;
+}
+.search-input:focus { outline: none; border-color: var(--green); }
+
+.view-toggle { display: flex; border: 1px solid var(--gray-200); border-radius: var(--radius-md); overflow: hidden; }
+.view-btn {
+  height: 38px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--gray-500);
+  background: var(--white);
+  transition: background .12s, color .12s;
+}
+.view-btn.active { background: var(--gray-900); color: var(--white); }
+
+.btn-icon-only { width: 38px; padding: 0; justify-content: center; }
+
+/* ─── Kanban board ────────────────────────────────────────────────────────── */
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.kanban-col {
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 200px;
+}
+.kanban-col-amber  { background: #FFFBF0; border: 1px solid #FDE68A; }
+.kanban-col-blue   { background: #EFF6FF; border: 1px solid #BFDBFE; }
+.kanban-col-green  { background: #F0FAF6; border: 1px solid #A7F3D0; }
+.kanban-col-gray   { background: var(--gray-50); border: 1px solid var(--gray-200); }
+
+.kanban-col-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--gray-700);
+  padding: 2px 0 6px;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+}
+.kanban-col-amber  .kanban-col-header { color: var(--amber); }
+.kanban-col-blue   .kanban-col-header { color: var(--blue); }
+.kanban-col-green  .kanban-col-header { color: var(--green-darker); }
+.kanban-col-count {
+  margin-left: auto;
+  background: rgba(0,0,0,.08);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  padding: 1px 7px;
+  font-weight: 700;
+}
+.kanban-empty { text-align: center; font-size: 12px; color: var(--gray-400); padding: 24px 0; }
+
+/* ─── Kanban card ─────────────────────────────────────────────────────────── */
+.kanban-card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow .15s, border-color .15s;
+}
+.kanban-card:hover { box-shadow: var(--shadow-md); border-color: var(--gray-300); }
+.kanban-card.is-expanded { border-color: var(--green); }
+
+.kc-top { cursor: pointer; }
+
+.kc-id-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+}
+.kc-id { font-size: 12.5px; font-weight: 700; color: var(--gray-900); }
+.kc-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--gray-400);
+  margin-left: auto;
+}
+
+.kc-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+.kc-table {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--gray-700);
+  font-weight: 500;
+}
+.kc-customer { font-size: 12px; color: var(--gray-500); }
+
+.kc-notes {
+  font-size: 11.5px;
+  color: var(--amber);
+  background: var(--amber-bg);
+  border-radius: 6px;
+  padding: 4px 8px;
+  margin-bottom: 6px;
+}
+
+.kc-summary { font-size: 12px; color: var(--gray-500); }
+.kc-summary strong { color: var(--gray-900); }
+
+.kc-items {
+  border-top: 1px solid var(--gray-100);
+  margin-top: 10px;
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kc-item-row { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.kc-item-qty { width: 20px; color: var(--gray-400); font-weight: 600; }
+.kc-item-name { flex: 1; color: var(--gray-800); }
+.kc-item-price { color: var(--gray-600); font-weight: 600; }
+
+.kc-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--gray-100);
+}
+.kc-action-icon {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gray-400);
+  border: 1px solid var(--gray-200);
+  transition: background .12s, color .12s;
+}
+.kc-action-icon:hover { background: var(--gray-100); color: var(--gray-700); }
+.kc-action-primary {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--gray-900);
+  color: var(--white);
+  transition: background .12s;
+}
+.kc-action-primary:hover { background: var(--gray-700); }
+.kc-action-reject {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--red-bg);
+  color: var(--red);
+  transition: background .12s;
+}
+.kc-action-reject:hover { background: #FECACA; }
+
+/* Payment badges */
+.pay-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+}
+.pay-online { background: var(--blue-bg); color: var(--blue); }
+.pay-cash   { background: var(--green-light); color: var(--green-darker); }
+
+/* ─── List view table ─────────────────────────────────────────────────────── */
+.orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.orders-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding: 0 12px 12px;
+  border-bottom: 1px solid var(--gray-100);
+}
+.orders-table td { padding: 12px; border-bottom: 1px solid var(--gray-100); vertical-align: top; }
+.orders-table tr:last-child td { border-bottom: none; }
+.orders-table tr:hover td { background: var(--gray-50); }
+.list-order-id { font-weight: 700; color: var(--gray-900); }
+.list-time { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+.list-phone { font-size: 11.5px; color: var(--gray-500); }
+.list-item-line { font-size: 12px; color: var(--gray-600); line-height: 1.7; }
+.list-amount { font-weight: 700; font-variant-numeric: tabular-nums; }
+.list-actions { display: flex; gap: 6px; align-items: center; }
+
+.order-status-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+}
+.status-new       { background: var(--amber-bg);    color: var(--amber); }
+.status-preparing { background: var(--blue-bg);      color: var(--blue); }
+.status-ready     { background: var(--green-light);  color: var(--green-darker); }
+.status-served    { background: var(--gray-100);     color: var(--gray-600); }
+.status-rejected  { background: var(--red-bg);       color: var(--red); }
+
+.btn-sm { height: 30px; padding: 0 12px; font-size: 12px; border-radius: 8px; display: inline-flex; align-items: center; }
+.btn-danger { background: var(--red-bg); color: var(--red); font-weight: 600; }
+.btn-danger:hover { background: #FECACA; }
+
+/* ─── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .kanban-board { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .kanban-board { grid-template-columns: 1fr; }
+  .search-input { width: 160px; }
+}
+
+.demo-notice { background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;padding:10px 16px;font-size:13px;color:#92400E;margin-bottom:16px; }
+.orders-controls { display:flex;gap:10px;margin-bottom:12px; }
+.search-input { flex:1;height:40px;border:1px solid #E5E7EB;border-radius:8px;padding:0 14px;font-size:14px; }
+.icon-btn { width:40px;height:40px;border:1px solid #E5E7EB;border-radius:8px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center; }
+.filter-chips { display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px; }
+.chip { height:32px;padding:0 12px;border-radius:999px;border:1px solid #E5E7EB;background:#fff;font-size:12px;font-weight:600;color:#6B7280;cursor:pointer;white-space:nowrap; }
+.chip.active { background:#111827;border-color:#111827;color:#fff; }
+.chip-count { margin-left:4px;opacity:0.6; }
+.orders-list-full { display:flex;flex-direction:column;gap:10px; }
+.order-card { background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px; }
+.order-card-top { display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px; }
+.order-num { font-size:15px;font-weight:800;color:#111827;margin-right:8px; }
+.order-customer { font-size:13px;color:#6B7280; }
+.order-table { font-size:11px;background:#F3F4F6;border-radius:4px;padding:2px 6px;margin-left:6px;color:#374151; }
+.status-pill { font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px; }
+.order-items-list { display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px; }
+.order-item-tag { font-size:12px;background:#F3F4F6;border-radius:4px;padding:3px 8px;color:#374151; }
+.order-card-footer { display:flex;align-items:center;gap:10px; }
+.order-time { font-size:12px;color:#9CA3AF;flex:1; }
+.order-amt { font-size:15px;font-weight:800;color:#111827; }
+.advance-btn { background:#1D9E75;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer; }
+.empty-state { text-align:center;color:#9CA3AF;padding:48px;font-size:14px; }

@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AviQR — Service Health Dashboard</title>
+    <style>
+        /* ── Reset & base ─────────────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --green:       #1D9E75;
+            --green-dark:  #0F6E56;
+            --green-light: #E1F5EE;
+            --red:         #DC2626;
+            --red-light:   #FEE2E2;
+            --amber:       #D97706;
+            --amber-light: #FEF3C7;
+            --blue:        #2563EB;
+            --blue-light:  #DBEAFE;
+            --gray-50:     #FAFAFA;
+            --gray-100:    #F3F4F6;
+            --gray-200:    #E5E7EB;
+            --gray-300:    #D1D5DB;
+            --gray-400:    #9CA3AF;
+            --gray-500:    #6B7280;
+            --gray-700:    #374151;
+            --gray-900:    #111827;
+            --white:       #FFFFFF;
+            --radius:      12px;
+            --shadow:      0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+            --shadow-md:   0 4px 12px rgba(0,0,0,.08);
+        }
+        html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-900);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* ── Topbar ──────────────────────────────────────────────────────── */
+        .topbar {
+            background: var(--gray-900);
+            color: var(--white);
+            padding: 0 28px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,.3);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -.02em;
+        }
+        .brand-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%,100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: .6; transform: scale(1.3); }
+        }
+        .brand em { color: var(--green); font-style: normal; }
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 13px;
+            color: var(--gray-400);
+        }
+        .refresh-btn {
+            height: 32px;
+            padding: 0 14px;
+            border-radius: 8px;
+            background: rgba(255,255,255,.1);
+            color: var(--white);
+            border: 1px solid rgba(255,255,255,.2);
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background .15s;
+        }
+        .refresh-btn:hover { background: rgba(255,255,255,.2); }
+        .last-refresh { font-size: 12px; }
+        #auto-timer {
+            font-size: 11px;
+            background: rgba(255,255,255,.08);
+            padding: 3px 8px;
+            border-radius: 6px;
+            color: var(--gray-300);
+        }
+
+        /* ── Main layout ─────────────────────────────────────────────────── */
+        .main { max-width: 1400px; margin: 0 auto; padding: 28px 24px; }
+
+        /* ── Overall status banner ───────────────────────────────────────── */
+        .status-banner {
+            border-radius: var(--radius);
+            padding: 18px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .status-banner.HEALTHY  { background: var(--green-light); border: 1.5px solid #A7F3D0; }
+        .status-banner.DEGRADED { background: var(--amber-light); border: 1.5px solid #FCD34D; }
+        .status-banner.CRITICAL { background: var(--red-light);   border: 1.5px solid #FCA5A5; }
+
+        .banner-left { display: flex; align-items: center; gap: 14px; }
+        .banner-icon { font-size: 28px; }
+        .banner-title {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--gray-900);
+        }
+        .banner-sub { font-size: 13px; color: var(--gray-500); margin-top: 2px; }
+        .banner-uptime {
+            font-size: 12.5px;
+            color: var(--gray-500);
+            text-align: right;
+        }
+
+        /* ── KPI cards ───────────────────────────────────────────────────── */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .kpi-card {
+            background: var(--white);
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .kpi-icon {
+            width: 48px; height: 48px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+        .kpi-icon.green  { background: var(--green-light); }
+        .kpi-icon.red    { background: var(--red-light); }
+        .kpi-icon.amber  { background: var(--amber-light); }
+        .kpi-icon.blue   { background: var(--blue-light); }
+        .kpi-value { font-size: 32px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+        .kpi-label { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+
+        /* ── Alert bar ───────────────────────────────────────────────────── */
+        .alerts { margin-bottom: 24px; display: flex; flex-direction: column; gap: 8px; }
+        .alert-item {
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13.5px;
+            font-weight: 500;
+            border: 1px solid;
+        }
+        .alert-ok     { background: var(--green-light); border-color: #A7F3D0; color: var(--green-dark); }
+        .alert-warn   { background: var(--amber-light); border-color: #FCD34D; color: #92400E; }
+        .alert-error  { background: var(--red-light);   border-color: #FCA5A5; color: #991B1B; }
+
+        /* ── Section headers ──────────────────────────────────────────────── */
+        .section-title {
+            font-size: 11.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--gray-400);
+            margin-bottom: 12px;
+            margin-top: 28px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--gray-200);
+        }
+
+        /* ── Service cards grid ──────────────────────────────────────────── */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+            gap: 14px;
+        }
+        .service-card {
+            background: var(--white);
+            border: 1.5px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 18px;
+            box-shadow: var(--shadow);
+            transition: box-shadow .15s, border-color .15s;
+            cursor: pointer;
+        }
+        .service-card:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--gray-300);
+        }
+        .service-card.UP     { border-left: 4px solid var(--green); }
+        .service-card.DOWN   { border-left: 4px solid var(--red); background: #FFFAFA; }
+        .service-card.UNKNOWN{ border-left: 4px solid var(--amber); }
+
+        .card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .card-title-row { display: flex; align-items: center; gap: 10px; }
+        .card-emoji { font-size: 22px; flex-shrink: 0; }
+        .card-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+        .card-desc {
+            font-size: 12px;
+            color: var(--gray-400);
+            margin-top: 2px;
+            line-height: 1.4;
+        }
+
+        /* Status badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            height: 24px;
+            padding: 0 10px;
+            border-radius: 99px;
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .status-badge::before {
+            content: '';
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        .status-badge.UP      { background: var(--green-light); color: var(--green-dark); }
+        .status-badge.DOWN    { background: var(--red-light);   color: var(--red); }
+        .status-badge.UNKNOWN { background: var(--amber-light); color: var(--amber); }
+
+        /* Instance list */
+        .instances { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+        .instance-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--gray-50);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+        .instance-id {
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--gray-500);
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .instance-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .instance-port {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--blue);
+            background: var(--blue-light);
+            padding: 2px 7px;
+            border-radius: 5px;
+        }
+        .instance-uptime {
+            font-size: 11px;
+            color: var(--gray-400);
+        }
+
+        /* No instances */
+        .no-instances {
+            padding: 12px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--red);
+            background: var(--red-light);
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+
+        /* Card footer */
+        .card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid var(--gray-100);
+            font-size: 12px;
+            color: var(--gray-400);
+        }
+        .instance-count-badge {
+            font-size: 11px;
+            font-weight: 700;
+            background: var(--gray-100);
+            color: var(--gray-600);
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+        .health-link {
+            font-size: 11px;
+            color: var(--blue);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .health-link:hover { text-decoration: underline; }
+
+        /* ── Footer ──────────────────────────────────────────────────────── */
+        .footer {
+            text-align: center;
+            padding: 32px;
+            font-size: 12px;
+            color: var(--gray-400);
+            border-top: 1px solid var(--gray-200);
+            margin-top: 40px;
+        }
+        .footer a { color: var(--green); text-decoration: none; }
+
+        /* ── Responsive ──────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+            .services-grid { grid-template-columns: 1fr; }
+            .topbar { padding: 0 16px; }
+            .main { padding: 20px 16px; }
+        }
+        @media (max-width: 480px) {
+            .kpi-grid { grid-template-columns: 1fr 1fr; }
+            .brand span { display: none; }
+        }
+
+        /* ── Loading spinner ─────────────────────────────────────────────── */
+        .spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Fade in on refresh */
+        .fade-refresh { animation: fadeIn .3s ease; }
+        @keyframes fadeIn { from { opacity: .6; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<!-- ── Topbar ──────────────────────────────────────────────────────────────── -->
+<div class="topbar">
+    <div class="brand">
+        <div class="brand-dot"></div>
+        Avi<em>QR</em> <span style="font-weight:400;color:var(--gray-400);font-size:14px;margin-left:4px">Service Health</span>
+    </div>
+    <div class="topbar-right">
+        <span class="last-refresh">Last updated: <strong th:text="${summary.lastRefreshed}">—</strong></span>
+        <span id="auto-timer">Auto-refresh in <span id="countdown">30</span>s</span>
+        <button class="refresh-btn" onclick="manualRefresh()">
+            <span id="refresh-icon">⟳</span> Refresh
+        </button>
+    </div>
+</div>
+
+<div class="main" id="dashboard-root">
+
+    <!-- ── Status Banner ──────────────────────────────────────────────────── -->
+    <div class="status-banner" th:classappend="${summary.overallStatus}">
+        <div class="banner-left">
+            <span class="banner-icon"
+                  th:text="${summary.overallStatus == 'HEALTHY'} ? '✅' : (${summary.overallStatus == 'DEGRADED'} ? '⚠️' : '🚨')">✅</span>
+            <div>
+                <div class="banner-title"
+                     th:text="${summary.overallStatus == 'HEALTHY'} ? 'All Systems Operational' : (${summary.overallStatus == 'DEGRADED'} ? 'Some Services Degraded' : 'Critical — Services Down')">
+                    All Systems Operational
+                </div>
+                <div class="banner-sub">
+                    <span th:text="${summary.upServices}">0</span> of
+                    <span th:text="${summary.totalServices}">0</span> services healthy ·
+                    <span th:text="${summary.totalInstances}">0</span> instances running
+                </div>
+            </div>
+        </div>
+        <div class="banner-uptime">
+            <div>Registry uptime: <strong th:text="${summary.serverUptime}">0s</strong></div>
+            <div style="margin-top:3px">Open: <code style="font-size:11px">localhost:8761</code> or <code style="font-size:11px">localhost:8761/health</code></div>
+        </div>
+    </div>
+
+    <!-- ── KPI Cards ──────────────────────────────────────────────────────── -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-icon green">✅</div>
+            <div>
+                <div class="kpi-value" th:text="${summary.upServices}" style="color: var(--green)">0</div>
+                <div class="kpi-label">Services Up</div>
+            </div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon red">❌</div>
+            <div>
+                <div class="kpi-value" th:text="${summary.downServices}" style="color: var(--red)">0</div>
+                <div class="kpi-label">Services Down</div>
+            </div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon blue">🔢</div>
+            <div>
+                <div class="kpi-value" th:text="${summary.totalInstances}" style="color: var(--blue)">0</div>
+                <div class="kpi-label">Total Instances</div>
+            </div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-icon amber">⚡</div>
+            <div>
+                <div class="kpi-value" th:text="${summary.totalServices}" style="color: var(--amber)">0</div>
+                <div class="kpi-label">Registered Services</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Alerts ──────────────────────────────────────────────────────────── -->
+    <div class="alerts" th:if="${not #lists.isEmpty(summary.alerts)}">
+        <div th:each="alert : ${summary.alerts}"
+             th:classappend="${alert.startsWith('✅')} ? 'alert-ok' : (${alert.startsWith('⚠️')} ? 'alert-warn' : 'alert-error')"
+             class="alert-item"
+             th:text="${alert}">Alert message</div>
+    </div>
+
+    <!-- ── Services by Category ───────────────────────────────────────────── -->
+
+    <!-- INFRA -->
+    <div th:if="${not #lists.isEmpty(grouped['INFRA'])}">
+        <div class="section-title">🔀 Infrastructure</div>
+        <div class="services-grid">
+            <div th:each="svc : ${grouped['INFRA']}" th:classappend="${svc.status}" class="service-card">
+                <div class="card-header">
+                    <div class="card-title-row">
+                        <span class="card-emoji" th:text="${svc.emoji}">🔀</span>
+                        <div>
+                            <div class="card-name" th:text="${svc.displayName}">Service</div>
+                            <div class="card-desc" th:text="${svc.description}">Description</div>
+                        </div>
+                    </div>
+                    <span th:classappend="${svc.status}" class="status-badge" th:text="${svc.status}">UP</span>
+                </div>
+                <div class="instances" th:if="${not #lists.isEmpty(svc.instances)}">
+                    <div th:each="inst : ${svc.instances}" class="instance-row">
+                        <span class="instance-id" th:text="${inst.instanceId}">id</span>
+                        <div class="instance-meta">
+                            <span class="instance-port" th:text="':' + ${inst.port}">:8080</span>
+                            <span class="instance-uptime" th:text="'up ' + ${inst.upSince}">up 1h</span>
+                            <span th:classappend="${inst.status}" class="status-badge" th:text="${inst.status}"
+                                  style="height:18px;font-size:9px;padding:0 6px">UP</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="no-instances" th:if="${#lists.isEmpty(svc.instances)}">
+                    ⚠ No instances registered
+                </div>
+                <div class="card-footer">
+                    <span class="instance-count-badge" th:text="${svc.instanceCount} + ' instance' + (${svc.instanceCount == 1} ? '' : 's')">0 instances</span>
+                    <a class="health-link"
+                       th:if="${not #lists.isEmpty(svc.instances)}"
+                       th:href="${svc.instances[0].healthUrl}"
+                       target="_blank">Actuator health ↗</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CORE -->
+    <div th:if="${not #lists.isEmpty(grouped['CORE'])}">
+        <div class="section-title">🔐 Core Services</div>
+        <div class="services-grid">
+            <div th:each="svc : ${grouped['CORE']}" th:classappend="${svc.status}" class="service-card">
+                <div class="card-header">
+                    <div class="card-title-row">
+                        <span class="card-emoji" th:text="${svc.emoji}">🔐</span>
+                        <div>
+                            <div class="card-name" th:text="${svc.displayName}">Service</div>
+                            <div class="card-desc" th:text="${svc.description}">Description</div>
+                        </div>
+                    </div>
+                    <span th:classappend="${svc.status}" class="status-badge" th:text="${svc.status}">UP</span>
+                </div>
+                <div class="instances" th:if="${not #lists.isEmpty(svc.instances)}">
+                    <div th:each="inst : ${svc.instances}" class="instance-row">
+                        <span class="instance-id" th:text="${inst.instanceId}">id</span>
+                        <div class="instance-meta">
+                            <span class="instance-port" th:text="':' + ${inst.port}">:8081</span>
+                            <span class="instance-uptime" th:text="'up ' + ${inst.upSince}">up 1h</span>
+                            <span th:classappend="${inst.status}" class="status-badge" th:text="${inst.status}"
+                                  style="height:18px;font-size:9px;padding:0 6px">UP</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="no-instances" th:if="${#lists.isEmpty(svc.instances)}">
+                    ⚠ No instances registered
+                </div>
+                <div class="card-footer">
+                    <span class="instance-count-badge" th:text="${svc.instanceCount} + ' instance' + (${svc.instanceCount == 1} ? '' : 's')">0</span>
+                    <a class="health-link" th:if="${not #lists.isEmpty(svc.instances)}"
+                       th:href="${svc.instances[0].healthUrl}" target="_blank">Actuator health ↗</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BUSINESS -->
+    <div th:if="${not #lists.isEmpty(grouped['BUSINESS'])}">
+        <div class="section-title">⚙️ Business Services</div>
+        <div class="services-grid">
+            <div th:each="svc : ${grouped['BUSINESS']}" th:classappend="${svc.status}" class="service-card">
+                <div class="card-header">
+                    <div class="card-title-row">
+                        <span class="card-emoji" th:text="${svc.emoji}">⚙️</span>
+                        <div>
+                            <div class="card-name" th:text="${svc.displayName}">Service</div>
+                            <div class="card-desc" th:text="${svc.description}">Description</div>
+                        </div>
+                    </div>
+                    <span th:classappend="${svc.status}" class="status-badge" th:text="${svc.status}">UP</span>
+                </div>
+                <div class="instances" th:if="${not #lists.isEmpty(svc.instances)}">
+                    <div th:each="inst : ${svc.instances}" class="instance-row">
+                        <span class="instance-id" th:text="${inst.instanceId}">id</span>
+                        <div class="instance-meta">
+                            <span class="instance-port" th:text="':' + ${inst.port}">:8082</span>
+                            <span class="instance-uptime" th:text="'up ' + ${inst.upSince}">up 1h</span>
+                            <span th:classappend="${inst.status}" class="status-badge" th:text="${inst.status}"
+                                  style="height:18px;font-size:9px;padding:0 6px">UP</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="no-instances" th:if="${#lists.isEmpty(svc.instances)}">
+                    ⚠ No instances registered
+                </div>
+                <div class="card-footer">
+                    <span class="instance-count-badge" th:text="${svc.instanceCount} + ' instance' + (${svc.instanceCount == 1} ? '' : 's')">0</span>
+                    <a class="health-link" th:if="${not #lists.isEmpty(svc.instances)}"
+                       th:href="${svc.instances[0].healthUrl}" target="_blank">Actuator health ↗</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUPPORT -->
+    <div th:if="${not #lists.isEmpty(grouped['SUPPORT'])}">
+        <div class="section-title">🛠️ Support & Operations</div>
+        <div class="services-grid">
+            <div th:each="svc : ${grouped['SUPPORT']}" th:classappend="${svc.status}" class="service-card">
+                <div class="card-header">
+                    <div class="card-title-row">
+                        <span class="card-emoji" th:text="${svc.emoji}">🛠️</span>
+                        <div>
+                            <div class="card-name" th:text="${svc.displayName}">Service</div>
+                            <div class="card-desc" th:text="${svc.description}">Description</div>
+                        </div>
+                    </div>
+                    <span th:classappend="${svc.status}" class="status-badge" th:text="${svc.status}">UP</span>
+                </div>
+                <div class="instances" th:if="${not #lists.isEmpty(svc.instances)}">
+                    <div th:each="inst : ${svc.instances}" class="instance-row">
+                        <span class="instance-id" th:text="${inst.instanceId}">id</span>
+                        <div class="instance-meta">
+                            <span class="instance-port" th:text="':' + ${inst.port}">:8090</span>
+                            <span class="instance-uptime" th:text="'up ' + ${inst.upSince}">up 1h</span>
+                            <span th:classappend="${inst.status}" class="status-badge" th:text="${inst.status}"
+                                  style="height:18px;font-size:9px;padding:0 6px">UP</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="no-instances" th:if="${#lists.isEmpty(svc.instances)}">
+                    ⚠ No instances registered
+                </div>
+                <div class="card-footer">
+                    <span class="instance-count-badge" th:text="${svc.instanceCount} + ' instance' + (${svc.instanceCount == 1} ? '' : 's')">0</span>
+                    <a class="health-link" th:if="${not #lists.isEmpty(svc.instances)}"
+                       th:href="${svc.instances[0].healthUrl}" target="_blank">Actuator health ↗</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /main -->
+
+<div class="footer">
+    AviQR Service Health Dashboard · Built with Spring Cloud Netflix Eureka ·
+    <a href="/eureka/apps" target="_blank">Eureka Apps XML</a> ·
+    <a href="/api/health" target="_blank">JSON Health API</a> ·
+    <a href="/actuator/health" target="_blank">Registry Actuator</a>
+</div>
+
+<script>
+    // ── Auto-refresh every 30 seconds ──────────────────────────────────────
+    let countdown = 30;
+    const countdownEl = document.getElementById('countdown');
+    const refreshIcon = document.getElementById('refresh-icon');
+
+    const timer = setInterval(() => {
+        countdown--;
+        if (countdownEl) countdownEl.textContent = countdown;
+        if (countdown <= 0) {
+            countdown = 30;
+            doRefresh();
+        }
+    }, 1000);
+
+    function doRefresh() {
+        refreshIcon.innerHTML = '<span class="spinner"></span>';
+        fetch('/api/health')
+            .then(r => r.json())
+            .then(data => {
+                // Update KPIs without full page reload
+                updateKPIs(data);
+                countdown = 30;
+                refreshIcon.textContent = '⟳';
+            })
+            .catch(() => {
+                // Fall back to full page reload
+                window.location.reload();
+            });
+    }
+
+    function manualRefresh() {
+        countdown = 30;
+        if (countdownEl) countdownEl.textContent = countdown;
+        // Full reload for manual refresh to get fresh Thymeleaf render
+        refreshIcon.innerHTML = '<span class="spinner"></span>';
+        setTimeout(() => window.location.reload(), 200);
+    }
+
+    function updateKPIs(data) {
+        // Update cards with live data without full reload
+        const cards = document.querySelectorAll('.service-card');
+        if (!data.services) return;
+
+        data.services.forEach(svc => {
+            const statusBadges = document.querySelectorAll('.status-badge');
+            // Simple banner update
+        });
+
+        // Update last refresh time
+        const lastRefresh = document.querySelector('.last-refresh strong');
+        if (lastRefresh) lastRefresh.textContent = data.lastRefreshed;
+    }
+
+    // ── Keyboard shortcut: R to refresh ──────────────────────────────────
+    document.addEventListener('keydown', e => {
+        if (e.key === 'r' || e.key === 'R') manualRefresh();
+    });
+</script>
+
+</body>
+</html>

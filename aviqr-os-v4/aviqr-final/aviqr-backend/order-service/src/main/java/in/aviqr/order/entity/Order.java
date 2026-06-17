@@ -1,0 +1,34 @@
+package in.aviqr.order.entity;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
+
+@Entity @Table(name="orders") @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class Order {
+    @Id @GeneratedValue(strategy=GenerationType.UUID) private UUID id;
+    @Column(unique=true, nullable=false) private String orderNumber;
+    @Column(nullable=false) private String shopId;
+    private String customerId;
+    @Column(nullable=false) private String customerName;
+    private String customerPhone;
+    private String tableNumber;
+    @Enumerated(EnumType.STRING) @Builder.Default private OrderType type = OrderType.DINE_IN;
+    @Enumerated(EnumType.STRING) @Builder.Default private OrderStatus status = OrderStatus.NEW;
+    @Enumerated(EnumType.STRING) @Builder.Default private PaymentMethod paymentMethod = PaymentMethod.ONLINE;
+    @Enumerated(EnumType.STRING) @Builder.Default private PaymentStatus paymentStatus = PaymentStatus.PENDING;
+    private String paymentId;
+    @Column(nullable=false, precision=10, scale=2) private BigDecimal subtotal;
+    @Column(precision=10, scale=2) @Builder.Default private BigDecimal tax = BigDecimal.ZERO;
+    @Column(nullable=false, precision=10, scale=2) private BigDecimal totalAmount;
+    private String notes;
+    @OneToMany(mappedBy="order", cascade=CascadeType.ALL, orphanRemoval=true, fetch=FetchType.EAGER)
+    @Builder.Default private List<OrderItem> items = new ArrayList<>();
+    @CreationTimestamp private LocalDateTime createdAt;
+    @UpdateTimestamp  private LocalDateTime updatedAt;
+    private LocalDateTime acceptedAt;
+    private LocalDateTime completedAt;
+}

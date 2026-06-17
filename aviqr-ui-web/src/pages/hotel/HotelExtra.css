@@ -1,0 +1,22 @@
+.rooms-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
+.room-card { background:var(--white); border:1px solid var(--gray-200); border-radius:var(--radius-lg); padding:16px; box-shadow:var(--shadow-card); }
+.room-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.room-number { font-size:17px; font-weight:800; color:var(--gray-900); }
+.room-status-badge { font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:99px; }
+.rs-occupied    { background:var(--green-light); color:var(--green-darker); }
+.rs-vacant      { background:var(--gray-100);    color:var(--gray-600); }
+.rs-maintenance { background:var(--amber-bg);    color:var(--amber); }
+.room-type { font-size:12.5px; color:var(--gray-500); margin-bottom:10px; }
+.room-guest { background:var(--blue-bg); border-radius:8px; padding:8px 10px; margin-bottom:10px; }
+.room-guest-name { font-size:13px; font-weight:600; color:var(--blue); }
+.room-guest-dates { font-size:11.5px; color:var(--gray-500); margin-top:2px; }
+.room-qr-row { display:flex; align-items:center; justify-content:space-between; font-size:12.5px; }
+.btn-room-action { height:28px; padding:0 10px; border-radius:7px; font-size:11.5px; font-weight:600; background:var(--gray-100); color:var(--gray-700); transition:background .12s; }
+.btn-room-action:hover { background:var(--gray-200); }
+.icon-red { background:var(--red-bg)!important; color:var(--red)!important; }
+.support-alert-banner { display:flex; align-items:center; gap:12px; background:var(--red-bg); border:1px solid #FECACA; border-radius:var(--radius-md); padding:12px 16px; font-size:13.5px; color:var(--red); }
+.support-alert-action { margin-left:auto; font-size:12.5px; font-weight:700; color:var(--red); white-space:nowrap; }
+.support-filter-tab { display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:99px; font-size:12.5px; font-weight:500; background:var(--white); color:var(--gray-600); border:1px solid var(--gray-200); transition:all .12s; }
+.support-filter-tab.active { background:var(--gray-900); color:var(--white); border-color:var(--gray-900); }
+.support-filter-count { background:var(--gray-100); color:var(--gray-500); font-size:10px; font-weight:700; padding:1px 6px; border-radius:99px; }
+.support-filter-tab.active .support-filter-count { background:rgba(255,255,255,.15); color:var(--white); }

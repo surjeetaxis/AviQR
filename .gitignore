@@ -1,0 +1,86 @@
+# =========================
+# Java 21 / Spring Boot
+# =========================
+target/
+build/
+out/
+.gradle/
+.mvn/wrapper/maven-wrapper.jar
+
+*.class
+*.jar
+*.war
+*.ear
+
+# Logs
+logs/
+*.log
+
+# Spring Boot
+application-local.yml
+application-local.properties
+application-dev.yml
+application-dev.properties
+.env
+.env.*
+!.env.example
+
+# =========================
+# React / React Native / Expo
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+dist/
+build/
+web-build/
+.expo/
+.expo-shared/
+.metro-cache/
+.cache/
+.parcel-cache/
+
+# React Native
+android/app/build/
+android/build/
+ios/build/
+ios/Pods/
+ios/Podfile.lock
+
+# Hermes / Metro
+*.hbc
+*.jsbundle
+
+# =========================
+# IDE / Editor
+# =========================
+.idea/
+.vscode/
+*.iml
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Test / Coverage
+# =========================
+coverage/
+.nyc_output/
+
+# =========================
+# Docker / Local
+# =========================
+docker-compose.override.yml
+
+# =========================
+# Generated files
+# =========================
+*.tmp
+*.bak
+*.swp

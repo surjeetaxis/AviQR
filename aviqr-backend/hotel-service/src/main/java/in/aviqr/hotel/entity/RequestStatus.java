@@ -1,0 +1,1 @@
+package in.aviqr.hotel.entity; public enum RequestStatus { NEW, ACCEPTED, PREPARING, CONFIRMED, DONE, CANCELLED }

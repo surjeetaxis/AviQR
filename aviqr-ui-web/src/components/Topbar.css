@@ -1,0 +1,191 @@
+.topbar {
+  height: var(--topbar-h);
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-200);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.topbar-menu {
+  display: none;
+  padding: 8px;
+  border-radius: 8px;
+  color: var(--gray-700);
+}
+.topbar-menu:hover { background: var(--gray-100); }
+
+.topbar-search {
+  flex: 1;
+  max-width: 440px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.topbar-search input {
+  width: 100%;
+  height: 38px;
+  padding: 0 56px 0 38px;
+  background: var(--gray-100);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--gray-900);
+  transition: background .15s, border-color .15s;
+}
+.topbar-search input:focus {
+  outline: none;
+  background: var(--white);
+  border-color: var(--green);
+}
+.topbar-search input::placeholder { color: var(--gray-400); }
+
+.topbar-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--gray-400);
+  pointer-events: none;
+}
+
+.topbar-kbd {
+  position: absolute;
+  right: 10px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--gray-500);
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: 4px;
+  padding: 2px 6px;
+  pointer-events: none;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.topbar-icon-btn {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-600);
+  transition: background .15s, color .15s;
+}
+.topbar-icon-btn:hover {
+  background: var(--gray-100);
+  color: var(--gray-900);
+}
+
+.topbar-notif-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  border: 2px solid var(--white);
+}
+
+.topbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--gray-200);
+  margin: 0 4px;
+}
+
+.topbar-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 4px 4px;
+  border-radius: var(--radius-pill);
+  transition: background .15s;
+}
+.topbar-profile:hover { background: var(--gray-100); }
+
+.topbar-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--green);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.topbar-profile-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+.topbar-profile-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+.topbar-profile-role {
+  font-size: 11px;
+  color: var(--gray-500);
+}
+
+@media (max-width: 900px) {
+  .topbar { padding: 0 16px; }
+  .topbar-menu { display: flex; }
+  .topbar-search { max-width: none; }
+  .topbar-kbd { display: none; }
+  .topbar-profile-text { display: none; }
+  .topbar-profile { padding: 4px; }
+}
+
+/* ─── Profile dropdown ────────────────────────────────────────────────────── */
+.topbar-profile-wrap { position: relative; }
+.topbar-profile { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: var(--radius-md); transition: background .12s; }
+.topbar-profile:hover { background: var(--gray-100); }
+
+.topbar-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  overflow: hidden;
+}
+.topbar-dropdown-header { padding: 12px 14px; }
+.topbar-dropdown-name { font-size: 13px; font-weight: 700; color: var(--gray-900); }
+.topbar-dropdown-email { font-size: 11.5px; color: var(--gray-400); margin-top: 2px; }
+.topbar-dropdown-divider { height: 1px; background: var(--gray-100); }
+.topbar-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--gray-700);
+  text-align: left;
+  transition: background .12s;
+}
+.topbar-dropdown-item:hover { background: var(--gray-50); }
+.topbar-dropdown-logout { color: var(--red); }
+.topbar-dropdown-logout:hover { background: var(--red-bg); }
