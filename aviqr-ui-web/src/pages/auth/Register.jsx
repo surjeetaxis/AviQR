@@ -20,7 +20,7 @@ const STEPS = ['Choose type','Your details','Done'];
 
 export default function Register() {
   const nav = useNavigate();
-  const { register, demoLogin } = useAuth();
+  const { register } = useAuth();
   const [step, setStep]     = useState(1);
   const [role, setRole]     = useState('OWNER');
   const [form, setForm]     = useState({ name:'', email:'', phone:'', password:'' });

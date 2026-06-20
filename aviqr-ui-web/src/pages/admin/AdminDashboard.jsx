@@ -75,7 +75,7 @@ const NAV = [
 ];
 
 export default function AdminDashboard() {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const { lang } = useLang();
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
@@ -108,14 +108,6 @@ export default function AdminDashboard() {
           ))}
         </nav>
         <div className="admin-sidebar-footer">
-          <div className="admin-switch-label">Switch role</div>
-          <div className="admin-switch-btns">
-            {['owner','support','hotel','mall'].map(r=>(
-              <button key={r} className="admin-switch-btn" onClick={()=>{switchRole(r);navigate(`/${r==='owner'?'dashboard':r}`);}}>
-                {r.charAt(0).toUpperCase()+r.slice(1)}
-              </button>
-            ))}
-          </div>
           <button className="admin-logout" onClick={()=>{logout();navigate('/')}}><LogOut size={14}/> {t('logout',lang)}</button>
         </div>
       </aside>

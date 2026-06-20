@@ -464,6 +464,82 @@
 
     <!-- ── Services by Category ───────────────────────────────────────────── -->
 
+    <!-- BUSINESS -->
+    <div th:if="${not #lists.isEmpty(grouped['BUSINESS'])}">
+        <div class="section-title">⚙️ Business Services</div>
+        <div class="services-grid">
+            <div th:each="svc : ${grouped['BUSINESS']}" th:classappend="${svc.status}" class="service-card">
+                <div class="card-header">
+                    <div class="card-title-row">
+                        <span class="card-emoji" th:text="${svc.emoji}">⚙️</span>
+                        <div>
+                            <div class="card-name" th:text="${svc.displayName}">Service</div>
+                            <div class="card-desc" th:text="${svc.description}">Description</div>
+                        </div>
+                    </div>
+                    <span th:classappend="${svc.status}" class="status-badge" th:text="${svc.status}">UP</span>
+                </div>
+                <div class="instances" th:if="${not #lists.isEmpty(svc.instances)}">
+                    <div th:each="inst : ${svc.instances}" class="instance-row">
+                        <span class="instance-id" th:text="${inst.instanceId}">id</span>
+                        <div class="instance-meta">
+                            <span class="instance-port" th:text="':' + ${inst.port}">:8082</span>
+                            <span class="instance-uptime" th:text="'up ' + ${inst.upSince}">up 1h</span>
+                            <span th:classappend="${inst.status}" class="status-badge" th:text="${inst.status}"
+                                  style="height:18px;font-size:9px;padding:0 6px">UP</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="no-instances" th:if="${#lists.isEmpty(svc.instances)}">
+                    ⚠ No instances registered
+                </div>
+                <div class="card-footer">
+                    <span class="instance-count-badge" th:text="${svc.instanceCount} + ' instance' + (${svc.instanceCount == 1} ? '' : 's')">0</span>
+                    <a class="health-link" th:if="${not #lists.isEmpty(svc.instances)}"
+                       th:href="${svc.instances[0].healthUrl}" target="_blank">Actuator health ↗</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUPPORT -->
+    <div th:if="${not #lists.isEmpty(grouped['SUPPORT'])}">
+        <div class="section-title">🛠️ Support & Operations</div>
+        <div class="services-grid">
+            <div th:each="svc : ${grouped['SUPPORT']}" th:classappend="${svc.status}" class="service-card">
+                <div class="card-header">
+                    <div class="card-title-row">
+                        <span class="card-emoji" th:text="${svc.emoji}">🛠️</span>
+                        <div>
+                            <div class="card-name" th:text="${svc.displayName}">Service</div>
+                            <div class="card-desc" th:text="${svc.description}">Description</div>
+                        </div>
+                    </div>
+                    <span th:classappend="${svc.status}" class="status-badge" th:text="${svc.status}">UP</span>
+                </div>
+                <div class="instances" th:if="${not #lists.isEmpty(svc.instances)}">
+                    <div th:each="inst : ${svc.instances}" class="instance-row">
+                        <span class="instance-id" th:text="${inst.instanceId}">id</span>
+                        <div class="instance-meta">
+                            <span class="instance-port" th:text="':' + ${inst.port}">:8090</span>
+                            <span class="instance-uptime" th:text="'up ' + ${inst.upSince}">up 1h</span>
+                            <span th:classappend="${inst.status}" class="status-badge" th:text="${inst.status}"
+                                  style="height:18px;font-size:9px;padding:0 6px">UP</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="no-instances" th:if="${#lists.isEmpty(svc.instances)}">
+                    ⚠ No instances registered
+                </div>
+                <div class="card-footer">
+                    <span class="instance-count-badge" th:text="${svc.instanceCount} + ' instance' + (${svc.instanceCount == 1} ? '' : 's')">0</span>
+                    <a class="health-link" th:if="${not #lists.isEmpty(svc.instances)}"
+                       th:href="${svc.instances[0].healthUrl}" target="_blank">Actuator health ↗</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- INFRA -->
     <div th:if="${not #lists.isEmpty(grouped['INFRA'])}">
         <div class="section-title">🔀 Infrastructure</div>
@@ -524,82 +600,6 @@
                         <span class="instance-id" th:text="${inst.instanceId}">id</span>
                         <div class="instance-meta">
                             <span class="instance-port" th:text="':' + ${inst.port}">:8081</span>
-                            <span class="instance-uptime" th:text="'up ' + ${inst.upSince}">up 1h</span>
-                            <span th:classappend="${inst.status}" class="status-badge" th:text="${inst.status}"
-                                  style="height:18px;font-size:9px;padding:0 6px">UP</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="no-instances" th:if="${#lists.isEmpty(svc.instances)}">
-                    ⚠ No instances registered
-                </div>
-                <div class="card-footer">
-                    <span class="instance-count-badge" th:text="${svc.instanceCount} + ' instance' + (${svc.instanceCount == 1} ? '' : 's')">0</span>
-                    <a class="health-link" th:if="${not #lists.isEmpty(svc.instances)}"
-                       th:href="${svc.instances[0].healthUrl}" target="_blank">Actuator health ↗</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- BUSINESS -->
-    <div th:if="${not #lists.isEmpty(grouped['BUSINESS'])}">
-        <div class="section-title">⚙️ Business Services</div>
-        <div class="services-grid">
-            <div th:each="svc : ${grouped['BUSINESS']}" th:classappend="${svc.status}" class="service-card">
-                <div class="card-header">
-                    <div class="card-title-row">
-                        <span class="card-emoji" th:text="${svc.emoji}">⚙️</span>
-                        <div>
-                            <div class="card-name" th:text="${svc.displayName}">Service</div>
-                            <div class="card-desc" th:text="${svc.description}">Description</div>
-                        </div>
-                    </div>
-                    <span th:classappend="${svc.status}" class="status-badge" th:text="${svc.status}">UP</span>
-                </div>
-                <div class="instances" th:if="${not #lists.isEmpty(svc.instances)}">
-                    <div th:each="inst : ${svc.instances}" class="instance-row">
-                        <span class="instance-id" th:text="${inst.instanceId}">id</span>
-                        <div class="instance-meta">
-                            <span class="instance-port" th:text="':' + ${inst.port}">:8082</span>
-                            <span class="instance-uptime" th:text="'up ' + ${inst.upSince}">up 1h</span>
-                            <span th:classappend="${inst.status}" class="status-badge" th:text="${inst.status}"
-                                  style="height:18px;font-size:9px;padding:0 6px">UP</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="no-instances" th:if="${#lists.isEmpty(svc.instances)}">
-                    ⚠ No instances registered
-                </div>
-                <div class="card-footer">
-                    <span class="instance-count-badge" th:text="${svc.instanceCount} + ' instance' + (${svc.instanceCount == 1} ? '' : 's')">0</span>
-                    <a class="health-link" th:if="${not #lists.isEmpty(svc.instances)}"
-                       th:href="${svc.instances[0].healthUrl}" target="_blank">Actuator health ↗</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- SUPPORT -->
-    <div th:if="${not #lists.isEmpty(grouped['SUPPORT'])}">
-        <div class="section-title">🛠️ Support & Operations</div>
-        <div class="services-grid">
-            <div th:each="svc : ${grouped['SUPPORT']}" th:classappend="${svc.status}" class="service-card">
-                <div class="card-header">
-                    <div class="card-title-row">
-                        <span class="card-emoji" th:text="${svc.emoji}">🛠️</span>
-                        <div>
-                            <div class="card-name" th:text="${svc.displayName}">Service</div>
-                            <div class="card-desc" th:text="${svc.description}">Description</div>
-                        </div>
-                    </div>
-                    <span th:classappend="${svc.status}" class="status-badge" th:text="${svc.status}">UP</span>
-                </div>
-                <div class="instances" th:if="${not #lists.isEmpty(svc.instances)}">
-                    <div th:each="inst : ${svc.instances}" class="instance-row">
-                        <span class="instance-id" th:text="${inst.instanceId}">id</span>
-                        <div class="instance-meta">
-                            <span class="instance-port" th:text="':' + ${inst.port}">:8090</span>
                             <span class="instance-uptime" th:text="'up ' + ${inst.upSince}">up 1h</span>
                             <span th:classappend="${inst.status}" class="status-badge" th:text="${inst.status}"
                                   style="height:18px;font-size:9px;padding:0 6px">UP</span>

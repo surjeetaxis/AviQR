@@ -1,1 +1,0 @@
-package in.aviqr.hotel.entity; public enum RoomStatus { OCCUPIED, VACANT, MAINTENANCE, CLEANING }

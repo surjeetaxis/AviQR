@@ -2,20 +2,11 @@ import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAuth, DEMO_USERS } from '../src/context/AuthContext.js';
+import { useAuth } from '../src/context/AuthContext.js';
 import { authApi } from '../src/api/index.js';
 import { Button } from '../src/components/common/Button.js';
 import { Input } from '../src/components/common/Input.js';
 import { Colors, Radius, Spacing, FontSize } from '../src/theme/index.js';
-
-const DEMO_BTNS = [
-  {role:'owner',    label:'Owner',    color:'#1D9E75'},
-  {role:'admin',    label:'Admin',    color:'#DC2626'},
-  {role:'hotel',    label:'Hotel',    color:'#7C3AED'},
-  {role:'mall',     label:'Mall',     color:'#2563EB'},
-  {role:'support',  label:'Support',  color:'#0891B2'},
-  {role:'customer', label:'Customer', color:'#059669'},
-];
 
 function homeFor(role) {
   const r=(role||'').toUpperCase();
@@ -26,7 +17,7 @@ function homeFor(role) {
 }
 
 export default function Login() {
-  const { login, loginOtp, demoLogin } = useAuth();
+  const { login, loginOtp } = useAuth();
   const [tab, setTab]     = useState('password');
   const [email, setEmail] = useState('');
   const [pw, setPw]       = useState('');
@@ -40,7 +31,7 @@ export default function Login() {
     if(!email||!pw) return setErr('Enter email and password');
     setLoad(true); setErr('');
     try { const u=await login(email,pw); router.replace(homeFor(u.role)); }
-    catch(e){ setErr(e.response?.data?.message||'Invalid credentials. Try a demo button below.'); }
+    catch(e){ setErr(e.response?.data?.message||'Invalid credentials.'); }
     finally { setLoad(false); }
   };
 
@@ -58,11 +49,6 @@ export default function Login() {
     try { const u=await loginOtp(phone,otp); router.replace(homeFor(u.role)); }
     catch { setErr('Invalid OTP'); }
     finally { setLoad(false); }
-  };
-
-  const quickDemo = async (role) => {
-    const u = await demoLogin(role);
-    router.replace(homeFor(u.role));
   };
 
   return (
@@ -105,17 +91,6 @@ export default function Login() {
           </View>
         )}
 
-        <View style={ss.divider}><View style={ss.divLine}/><Text style={ss.divTxt}>Quick Demo</Text><View style={ss.divLine}/></View>
-
-        <View style={ss.demoGrid}>
-          {DEMO_BTNS.map(d=>(
-            <TouchableOpacity key={d.role} style={[ss.demoBtn,{borderColor:d.color}]} onPress={()=>quickDemo(d.role)}>
-              <View style={[ss.demoDot,{backgroundColor:d.color}]}/>
-              <Text style={[ss.demoTxt,{color:d.color}]}>{d.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         <TouchableOpacity onPress={()=>router.push('/register')} style={ss.registerLink}>
           <Text style={ss.registerTxt}>New to AviQR? <Text style={{color:Colors.primary,fontWeight:'700'}}>Create account</Text></Text>
         </TouchableOpacity>
@@ -140,13 +115,6 @@ const ss = StyleSheet.create({
   tabActive:{backgroundColor:Colors.white,shadowColor:'#000',shadowOpacity:0.06,shadowRadius:4,elevation:2},
   tabTxt:{fontSize:FontSize.sm,fontWeight:'600',color:Colors.gray500},
   tabTxtActive:{color:Colors.gray900},
-  divider:{flexDirection:'row',alignItems:'center',gap:10,marginVertical:20},
-  divLine:{flex:1,height:1,backgroundColor:Colors.gray200},
-  divTxt:{fontSize:FontSize.xs,color:Colors.gray400,fontWeight:'600'},
-  demoGrid:{flexDirection:'row',flexWrap:'wrap',gap:8},
-  demoBtn:{flexDirection:'row',alignItems:'center',gap:5,paddingVertical:7,paddingHorizontal:14,borderRadius:Radius.full,borderWidth:1.5},
-  demoDot:{width:7,height:7,borderRadius:4},
-  demoTxt:{fontSize:FontSize.sm,fontWeight:'700'},
   resend:{alignSelf:'center',marginTop:10},
   resendTxt:{color:Colors.primary,fontWeight:'600',fontSize:FontSize.sm},
   registerLink:{alignItems:'center',marginTop:24},

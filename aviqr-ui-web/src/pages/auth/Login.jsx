@@ -1,6 +1,7 @@
+
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, ArrowRight, Zap } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { authApi } from '../../api/index.js';
 import './Auth.css';
@@ -33,15 +34,6 @@ export function AuthBrand() {
   );
 }
 
-const DEMO_ROLES = [
-  { role:'owner',    label:'Owner',    color:'#1D9E75', email:'sujeet@spiceroute.in' },
-  { role:'admin',    label:'Admin',    color:'#DC2626', email:'admin@aviqr.in' },
-  { role:'hotel',    label:'Hotel',    color:'#7C3AED', email:'gm@grandpalace.in' },
-  { role:'mall',     label:'Mall',     color:'#2563EB', email:'admin@forum.in' },
-  { role:'support',  label:'Support',  color:'#0891B2', email:'support@aviqr.in' },
-  { role:'customer', label:'Customer', color:'#059669', email:'anjali@gmail.com' },
-];
-
 const ROLE_HOME = {
   OWNER:'/dashboard', MANAGER:'/dashboard', CASHIER:'/dashboard', KITCHEN:'/dashboard',
   ADMIN:'/admin', SUPPORT:'/support', HOTEL:'/hotel', MALL:'/mall',
@@ -50,7 +42,7 @@ const ROLE_HOME = {
 
 export default function Login() {
   const nav = useNavigate();
-  const { login, loginWithOtp, demoLogin } = useAuth();
+  const { login, loginWithOtp } = useAuth();
 
   const [tab,   setTab]   = useState('password');
   const [email, setEmail] = useState('');
@@ -60,7 +52,6 @@ export default function Login() {
   const [otp,   setOtp]   = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState('');
   const [error, setError] = useState('');
 
   const goHome = (role) => nav(ROLE_HOME[(role||'').toUpperCase()] || '/dashboard');
@@ -73,7 +64,7 @@ export default function Login() {
       const u = await login(email, pw);
       goHome(u.role);
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Try a demo button below.');
+      setError(err.response?.data?.message || 'Login failed. Check your email and password.');
     } finally { setLoading(false); }
   };
 
@@ -97,15 +88,6 @@ export default function Login() {
       goHome(u.role);
     } catch { setError('Invalid OTP. Dev code: 123456'); }
     finally { setLoading(false); }
-  };
-
-  const handleDemo = async (role) => {
-    setDemoLoading(role); setError('');
-    try {
-      const u = await demoLogin(role);
-      goHome(u.role);
-    } catch { setError('Demo login failed'); }
-    finally { setDemoLoading(''); }
   };
 
   return (
@@ -222,25 +204,6 @@ export default function Login() {
               )}
             </div>
           )}
-
-          {/* Demo quick-login */}
-          <div className="demo-logins">
-            <div className="demo-logins-label"><Zap size={11} style={{ display:'inline', marginRight:4 }}/>Quick demo login</div>
-            <div className="demo-logins-grid">
-              {DEMO_ROLES.map(d => (
-                <button key={d.role} className="demo-btn" onClick={() => handleDemo(d.role)}
-                  disabled={!!demoLoading}
-                  style={{ borderColor: demoLoading === d.role ? d.color : undefined,
-                           background:  demoLoading === d.role ? d.color + '18' : undefined,
-                           color:       demoLoading === d.role ? d.color : undefined }}>
-                  {demoLoading === d.role ? '...' : d.label}
-                </button>
-              ))}
-            </div>
-            <p style={{ fontSize:11, color:'var(--gray-400)', marginTop:8 }}>
-              Password for all: <strong>Test@1234</strong> · OTP dev code: <strong>123456</strong>
-            </p>
-          </div>
 
           <p style={{ textAlign:'center', fontSize:13, color:'var(--gray-500)' }}>
             New to AviQR? <Link to="/register" className="auth-link">Create account</Link>

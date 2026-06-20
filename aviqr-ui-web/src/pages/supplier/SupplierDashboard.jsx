@@ -27,7 +27,7 @@ const NAV = [
 ];
 
 export default function SupplierDashboard() {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -57,11 +57,6 @@ export default function SupplierDashboard() {
           ))}
         </nav>
         <div className="admin-sidebar-footer">
-          <div className="admin-switch-label">Switch to:</div>
-          <div className="admin-switch-btns">
-            <button className="admin-switch-btn" onClick={()=>{ switchRole('owner'); navigate('/dashboard'); }}>Owner</button>
-            <button className="admin-switch-btn" onClick={()=>{ switchRole('admin'); navigate('/admin'); }}>Admin</button>
-          </div>
           <button className="admin-logout" onClick={()=>{logout();navigate('/')}}><LogOut size={14}/> Sign out</button>
         </div>
       </aside>

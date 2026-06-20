@@ -18,17 +18,12 @@ public class SecurityConfig {
         return http
                 .csrf(c -> c.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(a -> a
-                        .requestMatchers(
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/register",
-                                "/api/v1/auth/otp/**",
-                                "/api/v1/auth/refresh",
-                                "/api/v1/auth/forgot-password",
-                                "/actuator/**"
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                )
+                // Identity is established upstream by the gateway's AuthenticationFilter,
+                // which validates the JWT and injects X-User-Id/X-User-Role headers.
+                // This service has no local auth mechanism, so it must trust the
+                // gateway rather than require Spring Security authentication here —
+                // otherwise every protected endpoint (profile, admin/**, etc.) 403s.
+                .authorizeHttpRequests(a -> a.anyRequest().permitAll())
                 .build();
     }
 

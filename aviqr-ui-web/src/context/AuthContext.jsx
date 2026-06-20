@@ -12,19 +12,6 @@ export const ROLE_LABELS = {
   hotel:'Hotel Owner', mall:'Mall Admin', customer:'Customer',
 };
 
-export const DEMO_USERS = {
-  owner:    { id:'00000000-0000-0000-0000-000000000003', name:'Sujeet Narayanan',  email:'sujeet@spiceroute.in',  role:'OWNER',    shopId:'00000000-0000-0000-0000-000000000101', avatar:'SN' },
-  admin:    { id:'00000000-0000-0000-0000-000000000001', name:'Priya Mehta',        email:'admin@aviqr.in',        role:'ADMIN',    avatar:'PM' },
-  support:  { id:'00000000-0000-0000-0000-000000000002', name:'Arjun Nair',         email:'support@aviqr.in',      role:'SUPPORT',  avatar:'AN' },
-  hotel:    { id:'00000000-0000-0000-0000-000000000006', name:'Grand Palace Hotel', email:'gm@grandpalace.in',     role:'HOTEL',    hotelId:'00000000-0000-0000-0006-000000000001', avatar:'GP' },
-  mall:     { id:'00000000-0000-0000-0000-000000000007', name:'Forum Mall Admin',   email:'admin@forum.in',        role:'MALL',     mallId:'00000000-0000-0000-0009-000000000001', avatar:'FM' },
-  supplier: { id:'00000000-0000-0000-0000-000000000008', name:'Ramesh Enterprises', email:'ramesh@teas.in',        role:'SUPPLIER', avatar:'RE' },
-  customer: { id:'00000000-0000-0000-0000-000000000010', name:'Anjali Singh',       email:'anjali@gmail.com',      role:'CUSTOMER', avatar:'AS' },
-  manager:  { id:'00000000-0000-0000-0000-000000000009', name:'Vikram Sharma',      email:'vikram@gmail.com',      role:'MANAGER',  shopId:'00000000-0000-0000-0000-000000000101', avatar:'VS' },
-  cashier:  { id:'00000000-0000-0000-0000-000000000014', name:'Deepa Cashier',      email:'cashier@spiceroute.in', role:'CASHIER',  shopId:'00000000-0000-0000-0000-000000000101', avatar:'DC' },
-  kitchen:  { id:'00000000-0000-0000-0000-000000000013', name:'Chef Rangan',        email:'kitchen@spiceroute.in', role:'KITCHEN',  shopId:'00000000-0000-0000-0000-000000000101', avatar:'CR' },
-};
-
 export function AuthProvider({ children }) {
   const [user, setUser]     = useState(null);
   const [token, setToken]   = useState(null);
@@ -65,20 +52,6 @@ export function AuthProvider({ children }) {
     return saveSession(res.data.data);
   };
 
-  const demoLogin = (role) => {
-    const u = DEMO_USERS[role.toLowerCase()] || DEMO_USERS.owner;
-    localStorage.setItem('aviqr_user',  JSON.stringify(u));
-    localStorage.setItem('aviqr_token', 'demo-token');
-    setUser(u);
-    setToken('demo-token');
-    return u;
-  };
-
-  // switchRole — lets sidebar switch between demo dashboards
-  const switchRole = (role) => {
-    return demoLogin(role);
-  };
-
   const logout = async () => {
     try { await authApi.logout(); } catch {}
     localStorage.removeItem('aviqr_token');
@@ -98,7 +71,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, token, lang, loading,
-      login, loginWithOtp, register, demoLogin, switchRole, logout, changeLang,
+      login, loginWithOtp, register, logout, changeLang,
       isOwner:    ['owner','manager','cashier','kitchen'].includes(role),
       isAdmin:    role === 'admin',
       isSupport:  role === 'support',

@@ -6,6 +6,7 @@ import in.aviqr.auth.repository.*;
 import in.aviqr.auth.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,14 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditService;
+
+    // Dev convenience only — application-production.properties forces this to false,
+    // so production always verifies the real OTP that was generated and sent via SMS.
+    @Value("${app.otp.dev-mode:false}")
+    private boolean otpDevMode;
+
+    @Value("${app.otp.fixed-code:000000}")
+    private String otpFixedCode;
 
     @Transactional
     public AuthResponse register(RegisterRequest req) {
@@ -87,13 +96,20 @@ public class AuthService {
 
     @Transactional
     public AuthResponse loginWithOtp(OtpLoginRequest req) {
-        // Find valid OTP — note: in production compare hash
-        var otpRecord = otpRepo.findByTargetAndOtpAndTypeAndUsedFalseAndExpiresAtAfter(
-                req.getPhone(), req.getOtp(), OtpType.PHONE_LOGIN, LocalDateTime.now()
-        ).orElseThrow(() -> new RuntimeException("Invalid or expired OTP"));
+        boolean devBypass = otpDevMode && otpFixedCode.equals(req.getOtp());
 
-        otpRecord.setUsed(true);
-        otpRepo.save(otpRecord);
+        if (!devBypass) {
+            var candidates = otpRepo.findByTargetAndTypeAndUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
+                    req.getPhone(), OtpType.PHONE_LOGIN, LocalDateTime.now());
+
+            var otpRecord = candidates.stream()
+                    .filter(r -> passwordEncoder.matches(req.getOtp(), r.getOtp()))
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("Invalid or expired OTP"));
+
+            otpRecord.setUsed(true);
+            otpRepo.save(otpRecord);
+        }
 
         User user = userRepo.findByPhone(req.getPhone()).orElseThrow(
                 () -> new RuntimeException("No account found for this number. Please register first."));

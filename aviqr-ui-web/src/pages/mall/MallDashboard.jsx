@@ -32,7 +32,7 @@ const NAV = [
 ];
 
 export default function MallDashboard() {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const { lang } = useLang();
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
@@ -68,11 +68,6 @@ export default function MallDashboard() {
           ))}
         </nav>
         <div className="admin-sidebar-footer">
-          <div className="admin-switch-label">Switch role</div>
-          <div className="admin-switch-btns">
-            <button className="admin-switch-btn" onClick={()=>{switchRole('owner');navigate('/dashboard');}}>Owner</button>
-            <button className="admin-switch-btn" onClick={()=>{switchRole('admin');navigate('/admin');}}>Admin</button>
-          </div>
           <button className="admin-logout" onClick={()=>{logout();navigate('/')}}><LogOut size={14}/> {t('logout',lang)}</button>
         </div>
       </aside>

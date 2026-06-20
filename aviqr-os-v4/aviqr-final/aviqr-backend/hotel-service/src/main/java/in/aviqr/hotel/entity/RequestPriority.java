@@ -1,1 +1,0 @@
-package in.aviqr.hotel.entity; public enum RequestPriority { NORMAL, HIGH, URGENT }

@@ -2,6 +2,14 @@
 --  AviQR OS — Complete Database Setup
 --  PostgreSQL 17+
 --  Run as superuser: psql -U postgres -f aviqr_setup.sql
+--
+--  Databases created: aviqr_auth, aviqr_shop, aviqr_menu, aviqr_order,
+--                      aviqr_payment, aviqr_qr, aviqr_hotel, aviqr_mall,
+--                      aviqr_support, aviqr_report  (10 total)
+--
+--  Includes hand-written demo records (Spice Route, Coconut Grove, etc.)
+--  plus a bulk-generated block of 100+ customers and 100+ orders
+--  (with matching order_items) — see SECTION 13.
 -- ============================================================
 
 -- ============================================================
@@ -16,7 +24,7 @@ BEGIN
   END IF;
 END $$;
 
--- Create all 9 service databases
+-- Create all 10 service databases
 CREATE DATABASE aviqr_auth     OWNER aviqr;
 CREATE DATABASE aviqr_shop     OWNER aviqr;
 CREATE DATABASE aviqr_menu     OWNER aviqr;
@@ -26,6 +34,7 @@ CREATE DATABASE aviqr_qr       OWNER aviqr;
 CREATE DATABASE aviqr_hotel    OWNER aviqr;
 CREATE DATABASE aviqr_mall     OWNER aviqr;
 CREATE DATABASE aviqr_support  OWNER aviqr;
+CREATE DATABASE aviqr_report   OWNER aviqr;
 
 -- Grant all privileges
 GRANT ALL PRIVILEGES ON DATABASE aviqr_auth    TO aviqr;
@@ -37,6 +46,7 @@ GRANT ALL PRIVILEGES ON DATABASE aviqr_qr      TO aviqr;
 GRANT ALL PRIVILEGES ON DATABASE aviqr_hotel   TO aviqr;
 GRANT ALL PRIVILEGES ON DATABASE aviqr_mall    TO aviqr;
 GRANT ALL PRIVILEGES ON DATABASE aviqr_support TO aviqr;
+GRANT ALL PRIVILEGES ON DATABASE aviqr_report  TO aviqr;
 
 
 -- ============================================================
@@ -111,7 +121,7 @@ CREATE SEQUENCE seq_user_ref START 1001 INCREMENT 1;
 -- Passwords are all: Test@1234  (bcrypt $2a$12$)
 INSERT INTO users (id, email, phone, password_hash, name, role, status, avatar, shop_id, email_verified, phone_verified, preferred_language, created_at) VALUES
   ('00000000-0000-0000-0000-000000000001', 'admin@aviqr.in',        '9999000001', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj7JQupJyuXa', 'Priya Mehta',       'ADMIN',    'ACTIVE', 'PM', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '180 days'),
-  ('00000000-0000-0000-0000-000000000002', 'support@aviqr.in',      '9999000002', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj7JQupJyuXa', 'Arjun Nair',        'SUPPORT',  'ACTIVE', 'AN', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '150 days'),
+  ('00000000-0000-0000-0000-000000000002', 'support@aviqr.in',      '9999000002', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj7JQupJyuXa', 'Arjun Nair',        'super Admin',  'ACTIVE', 'AN', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '150 days'),
   ('00000000-0000-0000-0000-000000000003', 'sujeet@spiceroute.in',  '9845012345', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj7JQupJyuXa', 'Sujeet Narayanan',  'OWNER',    'ACTIVE', 'SN', '00000000-0000-0000-0000-000000000101', TRUE,  TRUE,  'kn', NOW() - INTERVAL '90 days'),
   ('00000000-0000-0000-0000-000000000004', 'meena@coconut.in',      '9876500001', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj7JQupJyuXa', 'Meena Pillai',      'OWNER',    'ACTIVE', 'MP', '00000000-0000-0000-0000-000000000102', TRUE,  TRUE,  'ml', NOW() - INTERVAL '80 days'),
   ('00000000-0000-0000-0000-000000000005', 'farhan@biryani.in',     '9988776600', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj7JQupJyuXa', 'Farhan Khan',       'OWNER',    'SUSPENDED','FK', '00000000-0000-0000-0000-000000000103', TRUE,  TRUE,  'hi', NOW() - INTERVAL '70 days'),
@@ -866,7 +876,96 @@ INSERT INTO impersonation_logs (id, agent_id, agent_name, target_user_id, target
 
 
 -- ============================================================
---  SECTION 11 — FINAL GRANTS
+--  SECTION 11 — BULK DUMMY DATA (100+ customers, 100+ orders)
+-- ============================================================
+-- Hand-written demo rows above are realistic but few — not enough to
+-- exercise pagination, search, or report charts. This section generates
+-- a much larger, FK-safe batch on top of them.
+
+-- ── 100 extra customer accounts ───────────────────────────────
+\connect aviqr_auth aviqr
+
+INSERT INTO users (id, email, phone, password_hash, name, role, status,
+                    avatar, email_verified, phone_verified, preferred_language, created_at)
+SELECT
+  gen_random_uuid(),
+  'customer' || g || '@example.com',
+  '70000' || lpad(g::text, 5, '0'),
+  '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj7JQupJyuXa',  -- same Test@1234 hash as above
+  (ARRAY['Anita Rao','Vivek Iyer','Sara Thomas','Imran Sheikh','Divya Krishnan',
+         'Aakash Gupta','Lavanya Pillai','Rohit Bose','Fatima Sheikh','Nikhil Joshi'])[1 + (g % 10)]
+    || ' ' || g,
+  'CUSTOMER',
+  'ACTIVE',
+  'C' || lpad(g::text, 2, '0'),
+  TRUE, TRUE, 'en',
+  NOW() - ((g % 365) || ' days')::interval
+FROM generate_series(1, 100) AS g;
+
+-- ── 100 extra orders (+ matching order_items) for Spice Route ──
+\connect aviqr_order aviqr
+
+WITH menu_lookup(idx, item_id, item_name, unit_price) AS (
+  VALUES
+    (0, '00000000-0000-0000-0002-000000000001'::uuid, 'Paneer Tikka',          280.00),
+    (1, '00000000-0000-0000-0002-000000000006'::uuid, 'Paneer Butter Masala',  320.00),
+    (2, '00000000-0000-0000-0002-000000000008'::uuid, 'Butter Chicken',        380.00),
+    (3, '00000000-0000-0000-0002-000000000012'::uuid, 'Butter Naan',            55.00),
+    (4, '00000000-0000-0000-0002-000000000017'::uuid, 'Chicken Biryani',       360.00),
+    (5, '00000000-0000-0000-0002-000000000021'::uuid, 'Masala Chai',            40.00),
+    (6, '00000000-0000-0000-0002-000000000007'::uuid, 'Dal Makhani',           280.00),
+    (7, '00000000-0000-0000-0002-000000000019'::uuid, 'Gulab Jamun (2 pcs)',    90.00)
+),
+new_orders AS (
+  INSERT INTO orders (id, order_number, shop_id, customer_id, customer_name, customer_phone,
+                       table_number, type, status, payment_method, payment_status, payment_id,
+                       subtotal, tax, total_amount, created_at, accepted_at, completed_at)
+  SELECT
+    gen_random_uuid(),
+    'ORD-BULK-' || g,
+    '00000000-0000-0000-0000-000000000101',                       -- Spice Route
+    NULL,
+    (ARRAY['Anita Rao','Vivek Iyer','Sara Thomas','Imran Sheikh','Divya Krishnan',
+           'Aakash Gupta','Lavanya Pillai','Rohit Bose','Fatima Sheikh','Nikhil Joshi'])[1 + (g % 10)],
+    '70000' || lpad(g::text, 5, '0'),
+    ((g % 12) + 1)::text,
+    CASE WHEN g % 5 = 0 THEN 'TAKEAWAY' ELSE 'DINE_IN' END,
+    (ARRAY['COMPLETED','COMPLETED','COMPLETED','READY','PREPARING','NEW'])[1 + (g % 6)],
+    CASE WHEN g % 3 = 0 THEN 'CASH' ELSE 'ONLINE' END,
+    CASE WHEN g % 3 = 0 THEN 'CASH' ELSE 'PAID' END,
+    CASE WHEN g % 3 = 0 THEN NULL ELSE 'pay_bulk' || g END,
+    (200 + (g % 15) * 35)::decimal(10,2),
+    ROUND((200 + (g % 15) * 35) * 0.05, 2),
+    ROUND((200 + (g % 15) * 35) * 1.05, 2),
+    NOW() - ((g % 30) || ' days')::interval - ((g % 24) || ' hours')::interval,
+    NOW() - ((g % 30) || ' days')::interval - ((g % 24) || ' hours')::interval + INTERVAL '10 minutes',
+    CASE WHEN g % 6 < 3
+      THEN NOW() - ((g % 30) || ' days')::interval - ((g % 24) || ' hours')::interval + INTERVAL '30 minutes'
+      ELSE NULL
+    END
+  FROM generate_series(1, 100) AS g
+  RETURNING id, order_number
+),
+numbered AS (
+  SELECT id, split_part(order_number, '-', 3)::int AS g FROM new_orders
+)
+INSERT INTO order_items (id, order_id, menu_item_id, item_name, quantity, unit_price, total_price)
+SELECT
+  gen_random_uuid(),
+  n.id,
+  m.item_id,
+  m.item_name,
+  1 + (n.g % 3),
+  m.unit_price,
+  m.unit_price * (1 + (n.g % 3))
+FROM numbered n
+JOIN menu_lookup m ON m.idx = (n.g % 8);
+-- amounts are approximate (dummy data) — not reconciled to the cent like the
+-- hand-written orders above; fine for pagination/report/demo purposes.
+
+
+-- ============================================================
+--  SECTION 12 — FINAL GRANTS
 -- ============================================================
 \connect aviqr_auth aviqr
 GRANT ALL ON ALL TABLES IN SCHEMA public TO aviqr;

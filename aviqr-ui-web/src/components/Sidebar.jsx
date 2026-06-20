@@ -16,31 +16,11 @@ const OWNER_NAV = [
   { to: '/settings',  label: 'Settings',  icon: Settings },
 ];
 
-const ROLE_ROUTES = {
-  admin:'/admin', support:'/support', supplier:'/supplier',
-  hotel:'/hotel', mall:'/mall', customer:'/customer',
-};
-
-const SWITCH_ROLES = [
-  { r:'admin',    l:'Admin' },
-  { r:'support',  l:'Support' },
-  { r:'hotel',    l:'Hotel' },
-  { r:'mall',     l:'Mall' },
-  { r:'supplier', l:'Supplier' },
-  { r:'customer', l:'Customer' },
-];
-
 export default function Sidebar({ mobileOpen, onClose }) {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => { onClose(); logout(); navigate('/'); };
-
-  const handleSwitch = (role) => {
-    onClose();
-    switchRole(role);
-    navigate(ROLE_ROUTES[role] || '/dashboard');
-  };
 
   return (
     <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''}`}>
@@ -87,15 +67,6 @@ export default function Sidebar({ mobileOpen, onClose }) {
           </NavLink>
         ))}
       </nav>
-
-      <div className="sidebar-role-switcher">
-        <div className="sidebar-role-label">Switch dashboard</div>
-        <div className="sidebar-role-btns">
-          {SWITCH_ROLES.map(({ r, l }) => (
-            <button key={r} className="sidebar-role-btn" onClick={() => handleSwitch(r)}>{l}</button>
-          ))}
-        </div>
-      </div>
 
       <div className="sidebar-footer">
         <button className="sidebar-logout" onClick={handleLogout}>

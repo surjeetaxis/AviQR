@@ -1,3 +1,0 @@
-.mall-tag { background: rgba(37,99,235,.2)!important; color: #93C5FD!important; }
-.btn-outline { height: 36px; padding: 0 16px; border-radius: var(--radius-md); font-size: 13px; font-weight: 600; border: 1.5px solid var(--gray-200); color: var(--gray-700); background: var(--white); transition: border-color .12s; cursor: pointer; }
-.btn-outline:hover { border-color: var(--green); color: var(--green-dark); }
