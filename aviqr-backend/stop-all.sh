@@ -4,7 +4,7 @@ LOG_DIR="$BASE/logs"
 
 echo "Stopping all AviQR services..."
 
-SERVICES=(service-registry api-gateway auth-service shop-service menu-service order-service payment-service qr-service hotel-service mall-service support-service notification-service report-service ocr-service)
+SERVICES=(service-registry api-gateway auth-service shop-service menu-service order-service payment-service qr-service hotel-service mall-service support-service notification-service report-service ocr-service review-service)
 
 for svc in "${SERVICES[@]}"; do
   pid_file="$LOG_DIR/${svc}.pid"
@@ -19,8 +19,11 @@ for svc in "${SERVICES[@]}"; do
   fi
 done
 
-# Also kill any stragglers by name
-pkill -f "aviqr-backend" 2>/dev/null || true
+# Also kill any stragglers by name. Matching on "aviqr-backend" alone would
+# also match this very script's own invocation path (it lives under
+# aviqr-backend/) and kill itself before it finishes — match the running
+# app JVMs' classpath instead, which is specific to them.
+pkill -f "build/classes/java/main" 2>/dev/null || true
 
 # Free the critical ports in case something is still holding them
 fuser -k 8761/tcp 2>/dev/null || true

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Tag, Upload, X, Check, AlertCircle } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Tag, Upload, X, Check, AlertCircle, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { menuApi } from '../api/index.js';
+import Pagination from '../components/shared/Pagination.jsx';
 import './Menu.css';
 
 const TAG_CFG = {
@@ -16,11 +17,18 @@ export default function Menu() {
   const { user } = useAuth();
   const shopId = user?.shopId || '00000000-0000-0000-0000-000000000101';
 
-  const [categories, setCats]   = useState(DEMO_CATEGORIES);
+  const [categories, setCats]   = useState([]);
   const [expanded, setExpanded] = useState({ cat1:true, cat2:true });
   const [search, setSearch]     = useState('');
   const [selCat, setSelCat]     = useState(null);
   const [isDemo, setIsDemo]     = useState(false);
+  const [error, setError]       = useState('');
+
+  // Product Ranking — flat paginated/ranked results, shown instead of the
+  // category accordion whenever the owner is searching.
+  const [ranked, setRanked]     = useState(null); // Page<MenuItem> | null
+  const [rankedPage, setRankedPage] = useState(0);
+  const [rankedSize, setRankedSize] = useState(20);
 
   // Add/edit modal state
   const [modal, setModal]   = useState(null); // null | { mode:'add'|'edit', catId, item }
@@ -31,11 +39,24 @@ export default function Menu() {
 
   useEffect(() => { loadMenu(); }, [shopId]);
 
+  // Debounced fetch of ranked search results when the owner types a search term
+  useEffect(() => {
+    if (!search.trim()) { setRanked(null); return; }
+    const id = setTimeout(() => {
+      menuApi.getItems(shopId, { search, page: rankedPage, size: rankedSize, sort: 'ranking' })
+        .then(res => setRanked(res.data.data))
+        .catch(() => setRanked(null));
+    }, 300);
+    return () => clearTimeout(id);
+  }, [search, rankedPage, rankedSize, shopId]);
+
+  useEffect(() => { setRankedPage(0); }, [search]);
+
   const loadMenu = async () => {
     try {
       const [cRes, iRes] = await Promise.all([
         menuApi.getCategories(shopId),
-        menuApi.getItems(shopId),
+        menuApi.getAllItems(shopId),
       ]);
       const cats = cRes.data.data || [];
       const items = iRes.data.data || [];
@@ -47,7 +68,7 @@ export default function Menu() {
         setCats(merged);
         setIsDemo(false);
       }
-    } catch { setIsDemo(true); }
+    } catch { setIsDemo(true); setError('Could not reach the menu service — showing demo data.'); }
   };
 
   const toggleAvail = async (catId, itemId, current) => {
@@ -106,10 +127,9 @@ export default function Menu() {
     setModal(null);
   };
 
-  const filteredCats = categories.map(c => ({
-    ...c,
-    items: c.items.filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()))
-  })).filter(c => !selCat || c.id === selCat);
+  // While searching, results come from the ranked API instead (see effect above).
+  const filteredCats = categories
+    .filter(c => !selCat || c.id === selCat);
 
   return (
     <div className="page-content">
@@ -130,7 +150,46 @@ export default function Menu() {
         </div>
       </div>
 
-      {/* Category filter pills */}
+      {/* Product Ranking — flat search results, paginated, ranked by ranking_score */}
+      {search.trim() && (
+        <div className="card" style={{marginBottom:12}}>
+          {!ranked ? (
+            <p style={{textAlign:'center',color:'var(--gray-400)',padding:'20px 0',fontSize:13}}>Searching…</p>
+          ) : ranked.content.length === 0 ? (
+            <p style={{textAlign:'center',color:'var(--gray-400)',padding:'20px 0',fontSize:13}}>No items match "{search}"</p>
+          ) : (
+            <>
+              {ranked.content.map(item => (
+                <div key={item.id} style={{display:'flex',alignItems:'center',gap:14,padding:'10px 0',borderBottom:'1px solid var(--gray-100)'}}>
+                  <div style={{width:12,height:12,borderRadius:2,border:`2px solid ${item.veg!==false?'#1D9E75':'#DC2626'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    <div style={{width:5,height:5,borderRadius:1,background:item.veg!==false?'#1D9E75':'#DC2626'}}/>
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <span style={{fontSize:14,fontWeight:600}}>{item.name}</span>
+                      {item.tag && TAG_CFG[item.tag] && <span className={`menu-tag ${TAG_CFG[item.tag].cls}`}>{TAG_CFG[item.tag].label}</span>}
+                    </div>
+                    {item.ratingCount > 0 && (
+                      <div style={{display:'flex',alignItems:'center',gap:3,fontSize:12,color:'var(--gray-500)',marginTop:1}}>
+                        <Star size={11} fill="#F59E0B" color="#F59E0B"/> {Number(item.rating).toFixed(1)} ({item.ratingCount})
+                      </div>
+                    )}
+                  </div>
+                  <span style={{fontSize:14,fontWeight:700,color:'var(--gray-900)',flexShrink:0}}>₹{item.price}</span>
+                  <div style={{display:'flex',gap:6}}>
+                    <button style={{background:'var(--gray-100)',border:'none',borderRadius:6,padding:'5px 8px',cursor:'pointer'}} onClick={()=>openEdit(item.categoryId,item)} title="Edit"><Edit2 size={13}/></button>
+                    <button style={{background:'var(--red-bg)',border:'none',borderRadius:6,padding:'5px 8px',cursor:'pointer',color:'var(--red)'}} onClick={()=>deleteItem(item.categoryId,item)} title="Delete"><Trash2 size={13}/></button>
+                  </div>
+                </div>
+              ))}
+              <Pagination page={ranked} onPageChange={setRankedPage} onSizeChange={s => { setRankedSize(s); setRankedPage(0); }}/>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Category filter pills + accordion — hidden while searching (ranked results above instead) */}
+      {!search.trim() && <>
       <div className="seg-control" style={{marginBottom:16,flexWrap:'wrap',gap:4}}>
         <button className={`seg-btn${!selCat?' is-active':''}`} onClick={() => setSelCat(null)}>All</button>
         {categories.map(c => (
@@ -140,7 +199,6 @@ export default function Menu() {
         ))}
       </div>
 
-      {/* Category cards */}
       {filteredCats.map(cat => (
         <div key={cat.id} className="card" style={{marginBottom:12}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',userSelect:'none'}}
@@ -202,6 +260,7 @@ export default function Menu() {
           )}
         </div>
       ))}
+      </>}
 
       {/* Add/Edit Modal */}
       {modal && (

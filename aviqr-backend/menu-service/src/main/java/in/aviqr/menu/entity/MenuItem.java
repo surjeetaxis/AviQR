@@ -23,6 +23,23 @@ public class MenuItem {
     @Builder.Default private Boolean available = true;
     private String tag; // bestseller, spicy, veg, new
     private Integer sortOrder;
+
+    // ── Product Ranking ──────────────────────────────────────
+    private String slug;
+    @Builder.Default private BigDecimal rating = BigDecimal.ZERO;
+    @Builder.Default private Integer ratingCount = 0;
+    @Builder.Default private BigDecimal seoScore = BigDecimal.ZERO;
+    @Builder.Default private BigDecimal conversionRate = BigDecimal.ZERO;
+    @Builder.Default private Integer salesVolume = 0;
+    @Builder.Default private BigDecimal rankingScore = BigDecimal.ZERO;
+
     @CreationTimestamp private LocalDateTime createdAt;
     @UpdateTimestamp  private LocalDateTime updatedAt;
+
+    @PrePersist @PreUpdate
+    private void ensureSlug() {
+        if ((slug == null || slug.isBlank()) && name != null) {
+            slug = name.toLowerCase().replaceAll("[^a-z0-9 ]", "").trim().replaceAll("\\s+", "-");
+        }
+    }
 }

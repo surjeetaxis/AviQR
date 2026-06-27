@@ -24,4 +24,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
                                                         @Param("to") LocalDateTime to);
     long countByShopId(String shopId);
     long countByShopIdAndStatus(String shopId, OrderStatus status);
+
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.shopId=:shopId AND o.status='COMPLETED'")
+    java.math.BigDecimal sumRevenueByShop(@Param("shopId") String shopId);
 }

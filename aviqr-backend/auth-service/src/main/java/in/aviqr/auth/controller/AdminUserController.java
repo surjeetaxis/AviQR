@@ -31,7 +31,8 @@ public class AdminUserController {
         if (!"ADMIN".equals(callerRole) && !"SUPPORT".equals(callerRole))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        int clampedSize = switch (size) { case 10, 20, 50, 100 -> size; default -> 20; };
+        Pageable pageable = PageRequest.of(page, clampedSize, Sort.by("createdAt").descending());
         Page<User> users;
 
         if (search != null && !search.isBlank()) {
@@ -50,7 +51,12 @@ public class AdminUserController {
 
     // GET /api/v1/auth/admin/users/{id}
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<UserDto>> getUser(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<UserDto>> getUser(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Role") String callerRole) {
+        if (!"ADMIN".equals(callerRole) && !"SUPPORT".equals(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+
         return userRepo.findById(id)
                 .map(u -> ResponseEntity.ok(ApiResponse.ok(toDto(u))))
                 .orElse(ResponseEntity.notFound().build());
@@ -61,7 +67,11 @@ public class AdminUserController {
     public ResponseEntity<ApiResponse<Void>> changeStatus(
             @PathVariable UUID id,
             @RequestParam String status,
-            @RequestHeader("X-User-Id") String adminId) {
+            @RequestHeader("X-User-Id") String adminId,
+            @RequestHeader("X-User-Role") String callerRole) {
+        if (!"ADMIN".equals(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+
         userRepo.findById(id).ifPresent(u -> {
             u.setStatus(UserStatus.valueOf(status.toUpperCase()));
             userRepo.save(u);
@@ -75,7 +85,11 @@ public class AdminUserController {
     public ResponseEntity<ApiResponse<Void>> changeRole(
             @PathVariable UUID id,
             @RequestParam String role,
-            @RequestHeader("X-User-Id") String adminId) {
+            @RequestHeader("X-User-Id") String adminId,
+            @RequestHeader("X-User-Role") String callerRole) {
+        if (!"ADMIN".equals(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+
         userRepo.findById(id).ifPresent(u -> {
             u.setRole(UserRole.valueOf(role.toUpperCase()));
             userRepo.save(u);
@@ -88,7 +102,11 @@ public class AdminUserController {
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteUser(
             @PathVariable UUID id,
-            @RequestHeader("X-User-Id") String adminId) {
+            @RequestHeader("X-User-Id") String adminId,
+            @RequestHeader("X-User-Role") String callerRole) {
+        if (!"ADMIN".equals(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+
         userRepo.deleteById(id);
         auditService.log("USER_DELETED", adminId, "Deleted user: " + id);
         return ResponseEntity.ok(ApiResponse.ok("User deleted", null));
@@ -96,7 +114,10 @@ public class AdminUserController {
 
     // GET /api/v1/auth/admin/users/stats
     @GetMapping("/stats")
-    public ResponseEntity<ApiResponse<?>> stats() {
+    public ResponseEntity<ApiResponse<?>> stats(@RequestHeader("X-User-Role") String callerRole) {
+        if (!"ADMIN".equals(callerRole) && !"SUPPORT".equals(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+
         var data = new java.util.HashMap<String, Long>();
         data.put("total", userRepo.count());
         for (UserRole r : UserRole.values()) data.put(r.name().toLowerCase(), userRepo.countByRole(r));

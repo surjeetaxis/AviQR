@@ -14,5 +14,6 @@ include(
     'mall-service',
     'support-service',
     'report-service',
-    'ocr-service'
+    'ocr-service',
+    'review-service'
 )

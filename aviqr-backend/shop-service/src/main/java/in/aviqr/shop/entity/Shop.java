@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -33,6 +34,17 @@ public class Shop {
 
     @Enumerated(EnumType.STRING)
     @Builder.Default private ShopStatus status = ShopStatus.ACTIVE;
+
+    // ── Seller Tier System ───────────────────────────────────
+    @Builder.Default private BigDecimal rating = BigDecimal.ZERO;
+    @Builder.Default private Integer ratingCount = 0;
+    @Builder.Default private BigDecimal completionRate = BigDecimal.ZERO;
+    @Builder.Default private BigDecimal salesVolume = BigDecimal.ZERO;
+    @Builder.Default private BigDecimal returnPercentage = BigDecimal.ZERO;
+    @Builder.Default private BigDecimal satisfactionScore = BigDecimal.ZERO;
+    @Enumerated(EnumType.STRING)
+    @Builder.Default private SellerTier tier = SellerTier.NEW;
+    private LocalDateTime tierUpdatedAt;
 
     // Properly mapped collection table with FK column
     @ElementCollection(fetch=FetchType.LAZY)
