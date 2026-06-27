@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { TrendingUp, ThumbsUp, ThumbsDown, AlertTriangle, Sparkles } from 'lucide-react';
+import { TrendingUp, ThumbsUp, ThumbsDown, AlertTriangle, Sparkles, WifiOff, Zap } from 'lucide-react';
 import { callAIJson } from './aiClient.js';
+import { sentimentFallback } from './aiFallback.js';
 
 const SYSTEM = `You are a restaurant review sentiment analysis AI. Analyse customer reviews and return ONLY this JSON:
 {
@@ -25,16 +26,25 @@ const SAMPLE_REVIEWS = [
 ];
 
 export default function AIReviewSentiment() {
-  const [reviews, setReviews] = useState(SAMPLE_REVIEWS.join('\n---\n'));
-  const [result, setResult]   = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [reviews, setReviews]   = useState(SAMPLE_REVIEWS.join('\n---\n'));
+  const [result, setResult]     = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [aiOffline, setAiOffline] = useState(false);
 
   const analyse = async () => {
     setLoading(true);
-    const r = await callAIJson(SYSTEM, `Analyse these ${reviews.split('---').length} restaurant reviews:\n\n${reviews}`);
-    setResult(r);
+    try {
+      const r = await callAIJson(SYSTEM, `Analyse these ${reviews.split('---').length} restaurant reviews:\n\n${reviews}`);
+      if (r) { setResult(r); setAiOffline(false); }
+      else { setResult(sentimentFallback(reviews)); setAiOffline(true); }
+    } catch {
+      setResult(sentimentFallback(reviews));
+      setAiOffline(true);
+    }
     setLoading(false);
   };
+
+  const analyseOffline = () => { setResult(sentimentFallback(reviews)); setAiOffline(true); };
 
   const sentimentColor = s => s === 'positive' ? '#059669' : s === 'negative' ? '#DC2626' : '#D97706';
   const sentimentBg    = s => s === 'positive' ? '#DCFCE7' : s === 'negative' ? '#FEE2E2' : '#FEF3C7';
@@ -55,10 +65,23 @@ export default function AIReviewSentiment() {
         placeholder="Paste customer reviews, one per line or separated by ---"
         style={{ width:'100%', border:'1px solid var(--gray-200)', borderRadius:10, padding:'12px', fontSize:13, lineHeight:1.6, outline:'none', resize:'vertical', marginBottom:12 }}/>
 
-      <button onClick={analyse} disabled={loading || !reviews.trim()}
-        style={{ width:'100%', padding:'11px', fontSize:14, fontWeight:600, background:'var(--green)', color:'white', border:'none', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:20 }}>
-        <Sparkles size={15}/> {loading ? 'Analysing…' : `Analyse ${reviews.split('---').length} reviews`}
-      </button>
+      {aiOffline && (
+        <div style={{ background:'#FEF3C7', border:'1px solid #FDE68A', borderRadius:8, padding:'8px 14px', marginBottom:12, fontSize:12, color:'#92400E', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ display:'flex', alignItems:'center', gap:6 }}><WifiOff size={12}/> AI offline — using keyword sentiment analysis</span>
+          <button onClick={analyse} style={{ fontSize:11, background:'none', border:'1px solid #D97706', color:'#92400E', padding:'3px 10px', borderRadius:6, cursor:'pointer' }}>Retry AI</button>
+        </div>
+      )}
+
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        <button onClick={analyse} disabled={loading || !reviews.trim()}
+          style={{ flex:1, padding:'11px', fontSize:14, fontWeight:600, background:'var(--green)', color:'white', border:'none', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+          <Sparkles size={15}/> {loading ? 'Analysing…' : `Analyse ${reviews.split('---').length} reviews`}
+        </button>
+        <button onClick={analyseOffline} disabled={loading || !reviews.trim()} title="Keyword-based analysis — no AI required"
+          style={{ padding:'11px 16px', fontSize:13, fontWeight:600, background:'var(--gray-100)', color:'var(--gray-600)', border:'1px solid var(--gray-200)', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
+          <Zap size={14}/> Without AI
+        </button>
+      </div>
 
       {result && (
         <>

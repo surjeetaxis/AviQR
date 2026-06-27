@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { TrendingUp, Sparkles, Package, Clock, Users } from 'lucide-react';
+import { TrendingUp, Sparkles, Package, Clock, Users, WifiOff, Zap } from 'lucide-react';
 import { callAIJson } from './aiClient.js';
+import { forecastFallback } from './aiFallback.js';
 
 const SYSTEM = `You are a demand forecasting AI for an Indian restaurant. Return ONLY JSON:
 {
@@ -19,16 +20,25 @@ const SYSTEM = `You are a demand forecasting AI for an Indian restaurant. Return
 }`;
 
 export default function AIDemandForecast({ shopId }) {
-  const [result, setResult]   = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [result, setResult]     = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [aiOffline, setAiOffline] = useState(false);
 
   const forecast = async () => {
     setLoading(true);
-    const r = await callAIJson(SYSTEM,
-      `Restaurant: ${shopId||'Spice Route'}, Bengaluru\nLast 7 days: Mon ₹18k, Tue ₹22k, Wed ₹19k, Thu ₹26k, Fri ₹34k, Sat ₹42k, Sun ₹38k\nTop items: Paneer Tikka, Butter Naan, Biryani\nAvg daily customers: 85\nForecast next 7 days.`);
-    setResult(r);
+    try {
+      const r = await callAIJson(SYSTEM,
+        `Restaurant: ${shopId||'Spice Route'}, Bengaluru\nLast 7 days: Mon ₹18k, Tue ₹22k, Wed ₹19k, Thu ₹26k, Fri ₹34k, Sat ₹42k, Sun ₹38k\nTop items: Paneer Tikka, Butter Naan, Biryani\nAvg daily customers: 85\nForecast next 7 days.`);
+      if (r) { setResult(r); setAiOffline(false); }
+      else { setResult(forecastFallback()); setAiOffline(true); }
+    } catch {
+      setResult(forecastFallback());
+      setAiOffline(true);
+    }
     setLoading(false);
   };
+
+  const forecastOffline = () => { setResult(forecastFallback()); setAiOffline(true); };
 
   return (
     <div style={{ maxWidth:720, margin:'0 auto' }}>
@@ -42,10 +52,23 @@ export default function AIDemandForecast({ shopId }) {
         </div>
       </div>
 
-      <button onClick={forecast} disabled={loading}
-        style={{ width:'100%', padding:'11px', fontSize:14, fontWeight:600, background:'#7C3AED', color:'white', border:'none', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:20 }}>
-        <Sparkles size={15}/> {loading ? 'Forecasting…' : 'Forecast next 7 days'}
-      </button>
+      {aiOffline && (
+        <div style={{ background:'#FEF3C7', border:'1px solid #FDE68A', borderRadius:8, padding:'8px 14px', marginBottom:12, fontSize:12, color:'#92400E', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ display:'flex', alignItems:'center', gap:6 }}><WifiOff size={12}/> AI offline — showing standard forecast template</span>
+          <button onClick={forecast} style={{ fontSize:11, background:'none', border:'1px solid #D97706', color:'#92400E', padding:'3px 10px', borderRadius:6, cursor:'pointer' }}>Retry AI</button>
+        </div>
+      )}
+
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        <button onClick={forecast} disabled={loading}
+          style={{ flex:1, padding:'11px', fontSize:14, fontWeight:600, background:'#7C3AED', color:'white', border:'none', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+          <Sparkles size={15}/> {loading ? 'Forecasting…' : 'Forecast next 7 days'}
+        </button>
+        <button onClick={forecastOffline} disabled={loading} title="Instant forecast using industry benchmarks"
+          style={{ padding:'11px 16px', fontSize:13, fontWeight:600, background:'var(--gray-100)', color:'var(--gray-600)', border:'1px solid var(--gray-200)', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
+          <Zap size={14}/> Without AI
+        </button>
+      </div>
 
       {result && (
         <>

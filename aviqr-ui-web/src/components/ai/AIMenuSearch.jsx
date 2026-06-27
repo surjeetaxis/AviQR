@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Search, Sparkles, Leaf, Flame, X } from 'lucide-react';
+import { Search, Sparkles, Leaf, Flame, X, WifiOff, Zap } from 'lucide-react';
 import { callAIJson } from './aiClient.js';
+import { menuSearchFallback } from './aiFallback.js';
 
 const SYSTEM = `You are an intelligent menu search engine for an Indian restaurant. Given a natural language query and a menu, return matching items.
 
@@ -33,16 +34,29 @@ const EXAMPLES = [
 ];
 
 export default function AIMenuSearch({ shopId }) {
-  const [query, setQuery]     = useState('');
-  const [results, setResults] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [query, setQuery]       = useState('');
+  const [results, setResults]   = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [aiOffline, setAiOffline] = useState(false);
 
   const search = async (q = query) => {
     if (!q.trim()) return;
     setLoading(true);
-    const r = await callAIJson(SYSTEM, `${SAMPLE_MENU}\n\nUSER QUERY: "${q}"`);
-    setResults(r);
+    try {
+      const r = await callAIJson(SYSTEM, `${SAMPLE_MENU}\n\nUSER QUERY: "${q}"`);
+      if (r) { setResults(r); setAiOffline(false); }
+      else { setResults(menuSearchFallback(q)); setAiOffline(true); }
+    } catch {
+      setResults(menuSearchFallback(q));
+      setAiOffline(true);
+    }
     setLoading(false);
+  };
+
+  const searchOffline = (q = query) => {
+    if (!q.trim()) return;
+    setResults(menuSearchFallback(q));
+    setAiOffline(true);
   };
 
   return (
@@ -56,6 +70,13 @@ export default function AIMenuSearch({ shopId }) {
           <div style={{ fontSize:12, color:'var(--gray-400)' }}>Natural language · Spell-tolerant · Multilingual</div>
         </div>
       </div>
+
+      {aiOffline && (
+        <div style={{ background:'#FEF3C7', border:'1px solid #FDE68A', borderRadius:8, padding:'8px 14px', marginBottom:14, fontSize:12, color:'#92400E', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ display:'flex', alignItems:'center', gap:6 }}><WifiOff size={12}/> AI offline — using keyword search</span>
+          <button onClick={() => search(query)} style={{ fontSize:11, background:'none', border:'1px solid #D97706', color:'#92400E', padding:'3px 10px', borderRadius:6, cursor:'pointer' }}>Retry AI</button>
+        </div>
+      )}
 
       <div style={{ position:'relative', marginBottom:14 }}>
         <Search size={16} style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)' }}/>
@@ -71,7 +92,7 @@ export default function AIMenuSearch({ shopId }) {
         </button>}
       </div>
 
-      <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:20 }}>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:12 }}>
         {EXAMPLES.map(e => (
           <button key={e} onClick={() => { setQuery(e); search(e); }}
             style={{ fontSize:12, padding:'4px 10px', background:'var(--gray-100)', border:'none', borderRadius:20, cursor:'pointer', color:'var(--gray-700)' }}>
@@ -79,6 +100,11 @@ export default function AIMenuSearch({ shopId }) {
           </button>
         ))}
       </div>
+      <button onClick={() => searchOffline(query)} disabled={!query.trim() || loading}
+        title="Search without AI — instant keyword matching"
+        style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, fontWeight:600, color:'var(--gray-500)', background:'var(--gray-50)', border:'1px solid var(--gray-200)', padding:'6px 14px', borderRadius:8, cursor:'pointer', marginBottom:16 }}>
+        <Zap size={12}/> Search without AI
+      </button>
 
       {loading && (
         <div style={{ textAlign:'center', padding:40, color:'var(--gray-400)' }}>

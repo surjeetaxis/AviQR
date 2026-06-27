@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Zap, Sparkles, Clock, Tag, TrendingUp } from 'lucide-react';
+import { Zap, Sparkles, Clock, Tag, TrendingUp, WifiOff } from 'lucide-react';
 import { callAIJson } from './aiClient.js';
+import { pricingFallback } from './aiFallback.js';
 
 const SYSTEM = `You are a dynamic pricing AI for an Indian restaurant. Generate pricing promotions. Return ONLY JSON:
 {
@@ -20,17 +21,26 @@ const SYSTEM = `You are a dynamic pricing AI for an Indian restaurant. Generate 
 }`;
 
 export default function AIDynamicPricing({ shopId }) {
-  const [result, setResult]   = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [context, setContext] = useState('Indian restaurant, Bengaluru, weekday lunch is slow, weekends are packed');
+  const [result, setResult]     = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [context, setContext]   = useState('Indian restaurant, Bengaluru, weekday lunch is slow, weekends are packed');
+  const [aiOffline, setAiOffline] = useState(false);
 
   const generate = async () => {
     setLoading(true);
-    const r = await callAIJson(SYSTEM,
-      `Restaurant context: ${context}\nShop: ${shopId||'demo'}\nGenerate dynamic pricing promotions and peak surcharge recommendations.`);
-    setResult(r);
+    try {
+      const r = await callAIJson(SYSTEM,
+        `Restaurant context: ${context}\nShop: ${shopId||'demo'}\nGenerate dynamic pricing promotions and peak surcharge recommendations.`);
+      if (r) { setResult(r); setAiOffline(false); }
+      else { setResult(pricingFallback()); setAiOffline(true); }
+    } catch {
+      setResult(pricingFallback());
+      setAiOffline(true);
+    }
     setLoading(false);
   };
+
+  const generateOffline = () => { setResult(pricingFallback()); setAiOffline(true); };
 
   return (
     <div style={{ maxWidth:720, margin:'0 auto' }}>
@@ -48,10 +58,23 @@ export default function AIDynamicPricing({ shopId }) {
         placeholder="Describe your restaurant context, busy times, slow periods…"
         style={{ width:'100%', border:'1px solid var(--gray-200)', borderRadius:8, padding:'10px 12px', fontSize:13, outline:'none', resize:'none', marginBottom:12 }}/>
 
-      <button onClick={generate} disabled={loading}
-        style={{ width:'100%', padding:'11px', fontSize:14, fontWeight:600, background:'#D97706', color:'white', border:'none', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:20 }}>
-        <Sparkles size={15}/> {loading ? 'Generating…' : 'Generate pricing strategy'}
-      </button>
+      {aiOffline && (
+        <div style={{ background:'#FEF3C7', border:'1px solid #FDE68A', borderRadius:8, padding:'8px 14px', marginBottom:12, fontSize:12, color:'#92400E', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ display:'flex', alignItems:'center', gap:6 }}><WifiOff size={12}/> AI offline — showing standard pricing strategy</span>
+          <button onClick={generate} style={{ fontSize:11, background:'none', border:'1px solid #D97706', color:'#92400E', padding:'3px 10px', borderRadius:6, cursor:'pointer' }}>Retry AI</button>
+        </div>
+      )}
+
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        <button onClick={generate} disabled={loading}
+          style={{ flex:1, padding:'11px', fontSize:14, fontWeight:600, background:'#D97706', color:'white', border:'none', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+          <Sparkles size={15}/> {loading ? 'Generating…' : 'Generate pricing strategy'}
+        </button>
+        <button onClick={generateOffline} disabled={loading} title="Industry-standard promotions — no AI required"
+          style={{ padding:'11px 16px', fontSize:13, fontWeight:600, background:'var(--gray-100)', color:'var(--gray-600)', border:'1px solid var(--gray-200)', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
+          <Zap size={14}/> Without AI
+        </button>
+      </div>
 
       {result && (
         <>

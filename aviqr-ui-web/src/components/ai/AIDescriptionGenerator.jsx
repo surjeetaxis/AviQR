@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Sparkles, Copy, Check, RefreshCw } from 'lucide-react';
+import { Sparkles, Copy, Check, RefreshCw, WifiOff, Zap } from 'lucide-react';
 import { callAI } from './aiClient.js';
+import { descriptionFallback } from './aiFallback.js';
 
 const SYSTEM = `You are a professional menu copywriter specialising in Indian restaurants.
 Given a dish name and optional details, generate compelling menu copy.
@@ -32,13 +33,26 @@ export default function AIDescriptionGenerator() {
   const [result, setResult]     = useState('');
   const [loading, setLoading]   = useState(false);
   const [copied, setCopied]     = useState('');
+  const [aiOffline, setAiOffline] = useState(false);
 
   const generate = async () => {
     if (!name.trim()) return;
     setLoading(true); setResult('');
-    const text = await callAI(SYSTEM, `Dish name: ${name}\nAdditional details: ${details || 'none'}`);
-    setResult(text);
+    try {
+      const text = await callAI(SYSTEM, `Dish name: ${name}\nAdditional details: ${details || 'none'}`);
+      setResult(text);
+      setAiOffline(false);
+    } catch {
+      setResult(descriptionFallback(name, details));
+      setAiOffline(true);
+    }
     setLoading(false);
+  };
+
+  const generateOffline = () => {
+    if (!name.trim()) return;
+    setResult(descriptionFallback(name, details));
+    setAiOffline(true);
   };
 
   const copy = (text, key) => {
@@ -73,6 +87,13 @@ export default function AIDescriptionGenerator() {
         </div>
       </div>
 
+      {aiOffline && (
+        <div style={{ background:'#FEF3C7', border:'1px solid #FDE68A', borderRadius:8, padding:'8px 14px', marginBottom:14, fontSize:12, color:'#92400E', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ display:'flex', alignItems:'center', gap:6 }}><WifiOff size={12}/> AI offline — showing template-based copy</span>
+          <button onClick={generate} style={{ fontSize:11, background:'none', border:'1px solid #D97706', color:'#92400E', padding:'3px 10px', borderRadius:6, cursor:'pointer' }}>Retry AI</button>
+        </div>
+      )}
+
       <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:16 }}>
         <div>
           <label style={{ fontSize:12, fontWeight:600, color:'var(--gray-600)', display:'block', marginBottom:6 }}>Dish name *</label>
@@ -97,10 +118,17 @@ export default function AIDescriptionGenerator() {
         ))}
       </div>
 
-      <button onClick={generate} disabled={!name.trim() || loading}
-        style={{ width:'100%', padding:'12px', fontSize:14, fontWeight:600, background:name.trim()?'var(--green)':'var(--gray-200)', color:name.trim()?'white':'var(--gray-400)', border:'none', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:20 }}>
-        <Sparkles size={15}/> {loading ? 'Writing…' : 'Generate menu copy'}
-      </button>
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        <button onClick={generate} disabled={!name.trim() || loading}
+          style={{ flex:1, padding:'12px', fontSize:14, fontWeight:600, background:name.trim()?'var(--green)':'var(--gray-200)', color:name.trim()?'white':'var(--gray-400)', border:'none', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+          <Sparkles size={15}/> {loading ? 'Writing…' : 'Generate menu copy'}
+        </button>
+        <button onClick={generateOffline} disabled={!name.trim() || loading}
+          title="Generate using templates — no AI required"
+          style={{ padding:'12px 16px', fontSize:13, fontWeight:600, background:'var(--gray-100)', color:'var(--gray-600)', border:'1px solid var(--gray-200)', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap' }}>
+          <Zap size={14}/> Without AI
+        </button>
+      </div>
 
       {result && !loading && (
         <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
