@@ -6,7 +6,7 @@ echo "================================================"
 echo " AviQR Service Status"
 echo "================================================"
 
-SERVICES=(service-registry api-gateway auth-service shop-service menu-service order-service payment-service qr-service hotel-service mall-service support-service notification-service report-service ocr-service review-service)
+SERVICES=(service-registry api-gateway auth-service shop-service menu-service order-service payment-service qr-service hotel-service mall-service support-service notification-service report-service ocr-service)
 
 for svc in "${SERVICES[@]}"; do
   pid_file="$LOG_DIR/${svc}.pid"

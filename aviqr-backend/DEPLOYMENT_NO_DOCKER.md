@@ -682,7 +682,7 @@ curl http://localhost:8080/actuator/health
 # 3. Register and login
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@aviqr.in","password":"Admin@1234"}'
+  -d '{"email":"surjeet@axisrooms.com","password":"Admin@1234"}'
 # Returns: {"success":true,"data":{"accessToken":"eyJ..."}}
 
 # 4. Frontend
@@ -705,7 +705,7 @@ open http://localhost:15672   # aviqr / aviqr_secret
 | PostgreSQL | localhost:5432 |
 | MongoDB | localhost:27017 |
 | Redis | localhost:6379 |
-| Default admin | admin@aviqr.in / Admin@1234 |
+| Default admin | surjeet@axisrooms.com / Admin@1234 |
 
 ---
 
@@ -1303,7 +1303,7 @@ curl https://api.yourdomain.com/actuator/health
 # Login
 curl -X POST https://api.yourdomain.com/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@aviqr.in","password":"Admin@1234"}'
+  -d '{"email":"surjeet@axisrooms.com","password":"Admin@1234"}'
 
 # Frontend loads?
 curl -I https://yourdomain.com

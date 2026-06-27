@@ -10,6 +10,8 @@ CREATE DATABASE aviqr_qr;
 CREATE DATABASE aviqr_hotel;
 CREATE DATABASE aviqr_mall;
 CREATE DATABASE aviqr_support;
+CREATE DATABASE aviqr_report;
+CREATE DATABASE aviqr_review;
 
 -- Grant all privileges to aviqr user
 GRANT ALL PRIVILEGES ON DATABASE aviqr_auth     TO aviqr;
@@ -21,3 +23,5 @@ GRANT ALL PRIVILEGES ON DATABASE aviqr_qr       TO aviqr;
 GRANT ALL PRIVILEGES ON DATABASE aviqr_hotel    TO aviqr;
 GRANT ALL PRIVILEGES ON DATABASE aviqr_mall     TO aviqr;
 GRANT ALL PRIVILEGES ON DATABASE aviqr_support  TO aviqr;
+GRANT ALL PRIVILEGES ON DATABASE aviqr_report   TO aviqr;
+GRANT ALL PRIVILEGES ON DATABASE aviqr_review   TO aviqr;

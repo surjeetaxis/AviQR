@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Tag, Upload, X, Check, AlertCircle, Star } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Tag, Upload, X, Check, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { menuApi } from '../api/index.js';
-import Pagination from '../components/shared/Pagination.jsx';
 import './Menu.css';
 
 const TAG_CFG = {
@@ -11,7 +10,11 @@ const TAG_CFG = {
   veg:       { label:'🌿 Veg',        cls:'tag-veg' },
 };
 
-const EMPTY_ITEM = { name:'', desc:'', price:'', veg:true, spicy:false, popular:false };
+const EMPTY_ITEM = {
+  name:'', desc:'', price:'', veg:true, spicy:false, popular:false,
+  nameHi:'', nameTa:'', nameKn:'', nameTe:'', nameMl:'',
+  stockQty:'', trackStock:false,
+};
 
 export default function Menu() {
   const { user } = useAuth();
@@ -22,13 +25,7 @@ export default function Menu() {
   const [search, setSearch]     = useState('');
   const [selCat, setSelCat]     = useState(null);
   const [isDemo, setIsDemo]     = useState(false);
-  const [error, setError]       = useState('');
-
-  // Product Ranking — flat paginated/ranked results, shown instead of the
-  // category accordion whenever the owner is searching.
-  const [ranked, setRanked]     = useState(null); // Page<MenuItem> | null
-  const [rankedPage, setRankedPage] = useState(0);
-  const [rankedSize, setRankedSize] = useState(20);
+  const [error, setError]       = useState(null);
 
   // Add/edit modal state
   const [modal, setModal]   = useState(null); // null | { mode:'add'|'edit', catId, item }
@@ -39,24 +36,11 @@ export default function Menu() {
 
   useEffect(() => { loadMenu(); }, [shopId]);
 
-  // Debounced fetch of ranked search results when the owner types a search term
-  useEffect(() => {
-    if (!search.trim()) { setRanked(null); return; }
-    const id = setTimeout(() => {
-      menuApi.getItems(shopId, { search, page: rankedPage, size: rankedSize, sort: 'ranking' })
-        .then(res => setRanked(res.data.data))
-        .catch(() => setRanked(null));
-    }, 300);
-    return () => clearTimeout(id);
-  }, [search, rankedPage, rankedSize, shopId]);
-
-  useEffect(() => { setRankedPage(0); }, [search]);
-
   const loadMenu = async () => {
     try {
       const [cRes, iRes] = await Promise.all([
         menuApi.getCategories(shopId),
-        menuApi.getAllItems(shopId),
+        menuApi.getItems(shopId),
       ]);
       const cats = cRes.data.data || [];
       const items = iRes.data.data || [];
@@ -68,7 +52,7 @@ export default function Menu() {
         setCats(merged);
         setIsDemo(false);
       }
-    } catch { setIsDemo(true); setError('Could not reach the menu service — showing demo data.'); }
+    } catch (e) { setIsDemo(true); setError(e.response?.data?.message || null); }
   };
 
   const toggleAvail = async (catId, itemId, current) => {
@@ -127,9 +111,10 @@ export default function Menu() {
     setModal(null);
   };
 
-  // While searching, results come from the ranked API instead (see effect above).
-  const filteredCats = categories
-    .filter(c => !selCat || c.id === selCat);
+  const filteredCats = categories.map(c => ({
+    ...c,
+    items: c.items.filter(i => !search || i.name.toLowerCase().includes(search.toLowerCase()))
+  })).filter(c => !selCat || c.id === selCat);
 
   return (
     <div className="page-content">
@@ -150,46 +135,7 @@ export default function Menu() {
         </div>
       </div>
 
-      {/* Product Ranking — flat search results, paginated, ranked by ranking_score */}
-      {search.trim() && (
-        <div className="card" style={{marginBottom:12}}>
-          {!ranked ? (
-            <p style={{textAlign:'center',color:'var(--gray-400)',padding:'20px 0',fontSize:13}}>Searching…</p>
-          ) : ranked.content.length === 0 ? (
-            <p style={{textAlign:'center',color:'var(--gray-400)',padding:'20px 0',fontSize:13}}>No items match "{search}"</p>
-          ) : (
-            <>
-              {ranked.content.map(item => (
-                <div key={item.id} style={{display:'flex',alignItems:'center',gap:14,padding:'10px 0',borderBottom:'1px solid var(--gray-100)'}}>
-                  <div style={{width:12,height:12,borderRadius:2,border:`2px solid ${item.veg!==false?'#1D9E75':'#DC2626'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                    <div style={{width:5,height:5,borderRadius:1,background:item.veg!==false?'#1D9E75':'#DC2626'}}/>
-                  </div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:'flex',alignItems:'center',gap:6}}>
-                      <span style={{fontSize:14,fontWeight:600}}>{item.name}</span>
-                      {item.tag && TAG_CFG[item.tag] && <span className={`menu-tag ${TAG_CFG[item.tag].cls}`}>{TAG_CFG[item.tag].label}</span>}
-                    </div>
-                    {item.ratingCount > 0 && (
-                      <div style={{display:'flex',alignItems:'center',gap:3,fontSize:12,color:'var(--gray-500)',marginTop:1}}>
-                        <Star size={11} fill="#F59E0B" color="#F59E0B"/> {Number(item.rating).toFixed(1)} ({item.ratingCount})
-                      </div>
-                    )}
-                  </div>
-                  <span style={{fontSize:14,fontWeight:700,color:'var(--gray-900)',flexShrink:0}}>₹{item.price}</span>
-                  <div style={{display:'flex',gap:6}}>
-                    <button style={{background:'var(--gray-100)',border:'none',borderRadius:6,padding:'5px 8px',cursor:'pointer'}} onClick={()=>openEdit(item.categoryId,item)} title="Edit"><Edit2 size={13}/></button>
-                    <button style={{background:'var(--red-bg)',border:'none',borderRadius:6,padding:'5px 8px',cursor:'pointer',color:'var(--red)'}} onClick={()=>deleteItem(item.categoryId,item)} title="Delete"><Trash2 size={13}/></button>
-                  </div>
-                </div>
-              ))}
-              <Pagination page={ranked} onPageChange={setRankedPage} onSizeChange={s => { setRankedSize(s); setRankedPage(0); }}/>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Category filter pills + accordion — hidden while searching (ranked results above instead) */}
-      {!search.trim() && <>
+      {/* Category filter pills */}
       <div className="seg-control" style={{marginBottom:16,flexWrap:'wrap',gap:4}}>
         <button className={`seg-btn${!selCat?' is-active':''}`} onClick={() => setSelCat(null)}>All</button>
         {categories.map(c => (
@@ -199,6 +145,7 @@ export default function Menu() {
         ))}
       </div>
 
+      {/* Category cards */}
       {filteredCats.map(cat => (
         <div key={cat.id} className="card" style={{marginBottom:12}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',userSelect:'none'}}
@@ -260,7 +207,6 @@ export default function Menu() {
           )}
         </div>
       ))}
-      </>}
 
       {/* Add/Edit Modal */}
       {modal && (
@@ -278,6 +224,31 @@ export default function Menu() {
               <div className="field">
                 <label className="field-label">Description</label>
                 <textarea className="field-input" style={{height:72,resize:'vertical',paddingTop:10}} placeholder="Brief description of the dish" value={form.desc} onChange={e=>set('desc',e.target.value)}/>
+              </div>
+
+              {/* Multilingual names */}
+              <details style={{marginBottom:4}}>
+                <summary style={{fontSize:13,fontWeight:600,color:'var(--gray-600)',cursor:'pointer',padding:'6px 0'}}>🌐 Translated names (optional)</summary>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:10}}>
+                  {[['nameHi','Hindi (हिंदी)'],['nameTa','Tamil (தமிழ்)'],['nameKn','Kannada (ಕನ್ನಡ)'],['nameTe','Telugu (తెలుగు)'],['nameMl','Malayalam (മലയാളം)']].map(([k,l])=>(
+                    <div key={k} className="field">
+                      <label className="field-label" style={{fontSize:11}}>{l}</label>
+                      <input className="field-input" placeholder={`Name in ${l.split(' ')[0]}`} value={form[k]||''} onChange={e=>set(k,e.target.value)}/>
+                    </div>
+                  ))}
+                </div>
+              </details>
+
+              {/* Stock quantity */}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                <div className="field">
+                  <label className="field-label">Stock qty <span style={{fontSize:11,color:'var(--gray-400)'}}>(blank = unlimited)</span></label>
+                  <input className="field-input" type="number" min="0" placeholder="e.g. 50" value={form.stockQty||''} onChange={e=>set('stockQty',e.target.value)}/>
+                </div>
+                <div className="field" style={{display:'flex',alignItems:'center',gap:8,paddingTop:24}}>
+                  <input type="checkbox" id="trackStock" checked={!!form.trackStock} onChange={e=>set('trackStock',e.target.checked)} style={{accentColor:'#1D9E75',width:16,height:16}}/>
+                  <label htmlFor="trackStock" style={{fontSize:13,fontWeight:500,cursor:'pointer'}}>Auto-disable when 0</label>
+                </div>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                 <div className="field">

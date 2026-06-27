@@ -1,99 +1,85 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Store, Hotel, Building2, ShoppingBag, ArrowRight,
-         Check, ChefHat, Utensils } from 'lucide-react';
+         Check, Utensils } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import './Auth.css';
 
 const TYPES = [
-  { key:'OWNER',    Icon:Utensils,   label:'Restaurant / Café',   desc:'Single outlet, food stall, bakery, cloud kitchen' },
-  { key:'SUPPLIER', Icon:ShoppingBag,label:'Supplier / Brand',    desc:'Multi-outlet brand, franchise, chain' },
-  { key:'HOTEL',    Icon:Hotel,      label:'Hotel / Resort',      desc:'Room service, spa, housekeeping via QR' },
-  { key:'MALL',     Icon:Building2,  label:'Mall / Food Court',   desc:'Multi-vendor food court or mall' },
+  { key:'OWNER',    Icon:Utensils,    label:'Restaurant / Café',  desc:'Single outlet, food stall, bakery, cloud kitchen' },
+  { key:'SUPPLIER', Icon:ShoppingBag, label:'Supplier / Brand',   desc:'Multi-outlet brand, franchise, chain' },
+  { key:'HOTEL',    Icon:Hotel,       label:'Hotel / Resort',     desc:'Room service, spa, housekeeping via QR' },
+  { key:'MALL',     Icon:Building2,   label:'Mall / Food Court',  desc:'Multi-vendor food court or mall' },
 ];
 
-const ROLE_HOME = {
-  OWNER:'/dashboard', SUPPLIER:'/supplier', HOTEL:'/hotel', MALL:'/mall',
-};
-
+const ROLE_HOME = { OWNER:'/dashboard', SUPPLIER:'/supplier', HOTEL:'/hotel', MALL:'/mall' };
 const STEPS = ['Choose type','Your details','Done'];
 
 export default function Register() {
   const nav = useNavigate();
   const { register } = useAuth();
-  const [step, setStep]     = useState(1);
-  const [role, setRole]     = useState('OWNER');
-  const [form, setForm]     = useState({ name:'', email:'', phone:'', password:'' });
-  const [loading, setLoad]  = useState(false);
-  const [error, setErr]     = useState('');
+  const [step, setStep]         = useState(1);
+  const [role, setRole]         = useState('OWNER');
+  const [form, setForm]         = useState({ name:'', email:'', phone:'', password:'' });
+  const [agreed, setAgreed]     = useState(false);
+  const [loading, setLoad]      = useState(false);
+  const [error, setErr]         = useState('');
   const set = (k,v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.password) return setErr('Please fill all required fields');
+    if (!agreed) return setErr('Please accept the Terms of Service and Privacy Policy to continue');
     setLoad(true); setErr('');
     try {
       const user = await register({ ...form, role });
       nav(ROLE_HOME[user.role] || '/dashboard');
     } catch (err) {
-      setErr(err.response?.data?.message || 'Registration failed. Use a demo button to test without backend.');
+      setErr(err.response?.data?.message || 'Registration failed. Please try again.');
     } finally { setLoad(false); }
   };
 
   return (
     <div className="auth-page">
-      {/* ── Left panel ── */}
       <div className="auth-left">
         <div className="auth-brand">
-          <div className="auth-brand-logo">
-            <span>🍽️</span>
-          </div>
+          <div className="auth-brand-logo"><span>🍽️</span></div>
           <h1 className="auth-brand-name">Avi<em>QR</em></h1>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 14, marginTop: 6 }}>
+          <p style={{ color:'rgba(255,255,255,0.55)', fontSize:14, marginTop:6 }}>
             Restaurant &amp; Hotel OS
           </p>
         </div>
 
-        {/* Step tracker */}
         <div className="register-steps-visual">
           {STEPS.map((s, i) => (
             <div key={s} className={`reg-step${step > i+1 ? ' done' : step === i+1 ? ' active' : ''}`}>
-              <div className="reg-step-dot">
-                {step > i+1 ? <Check size={12}/> : i+1}
-              </div>
+              <div className="reg-step-dot">{step > i+1 ? <Check size={12}/> : i+1}</div>
               <span>{s}</span>
             </div>
           ))}
         </div>
 
-        <div style={{ marginTop: 'auto', paddingTop: 24 }}>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+        <div style={{ marginTop:'auto', paddingTop:24 }}>
+          <p style={{ color:'rgba(255,255,255,0.4)', fontSize:12 }}>
             Already have an account?{' '}
-            <Link to="/login" style={{ color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>Sign in</Link>
+            <Link to="/login" style={{ color:'rgba(255,255,255,0.7)', fontWeight:600 }}>Sign in</Link>
           </p>
         </div>
       </div>
 
-      {/* ── Right panel ── */}
       <div className="auth-right">
         <div className="auth-form-wrap">
-
           {step === 1 && (
             <>
               <div className="auth-form-header">
                 <h1 className="auth-title">Create your account</h1>
                 <p className="auth-subtitle">What best describes your business?</p>
               </div>
-
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                 {TYPES.map(({ key, Icon, label, desc }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setRole(key)}
+                  <button key={key} type="button" onClick={() => setRole(key)}
                     style={{
-                      display:'flex', alignItems:'center', gap:16,
-                      padding:'16px 20px',
+                      display:'flex', alignItems:'center', gap:16, padding:'16px 20px',
                       background: role===key ? '#E1F5EE' : '#fff',
                       border: `2px solid ${role===key ? '#1D9E75' : '#E5E7EB'}`,
                       borderRadius:12, cursor:'pointer', textAlign:'left',
@@ -111,17 +97,13 @@ export default function Register() {
                       <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>{desc}</div>
                     </div>
                     {role===key && (
-                      <div style={{
-                        width:22, height:22, borderRadius:11,
-                        background:'#1D9E75', display:'flex', alignItems:'center', justifyContent:'center',
-                      }}>
+                      <div style={{ width:22, height:22, borderRadius:11, background:'#1D9E75', display:'flex', alignItems:'center', justifyContent:'center' }}>
                         <Check size={12} color="#fff"/>
                       </div>
                     )}
                   </button>
                 ))}
               </div>
-
               <button className="auth-btn" onClick={() => setStep(2)}>
                 Continue <ArrowRight size={15}/>
               </button>
@@ -131,9 +113,7 @@ export default function Register() {
           {step === 2 && (
             <>
               <div className="auth-form-header">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
+                <button type="button" onClick={() => setStep(1)}
                   style={{ background:'none', border:'none', cursor:'pointer', color:'#6B7280', fontSize:13, fontWeight:600, padding:0, marginBottom:12, display:'flex', alignItems:'center', gap:4 }}>
                   ← Back
                 </button>
@@ -166,13 +146,31 @@ export default function Register() {
                   <input className="field-input" type="password" placeholder="Minimum 8 characters"
                     value={form.password} onChange={e=>set('password',e.target.value)} required/>
                 </div>
-                <button type="submit" className="auth-btn" disabled={loading}>
+
+                {/* ── Terms checkbox (legally required) ────────────────── */}
+                <label style={{ display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer', padding:'10px 14px', borderRadius:10, background: agreed ? '#E1F5EE' : '#F9FAFB', border:`1.5px solid ${agreed?'#1D9E75':'#E5E7EB'}`, transition:'all .15s' }}>
+                  <input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)}
+                    style={{ marginTop:2, accentColor:'#1D9E75', width:16, height:16, flexShrink:0 }}/>
+                  <span style={{ fontSize:13, color:'#374151', lineHeight:1.5 }}>
+                    I have read and agree to the{' '}
+                    <a href="/terms" target="_blank" rel="noreferrer"
+                      style={{ color:'#1D9E75', fontWeight:600, textDecoration:'none' }}>
+                      Terms of Service
+                    </a>{' '}and{' '}
+                    <a href="/privacy" target="_blank" rel="noreferrer"
+                      style={{ color:'#1D9E75', fontWeight:600, textDecoration:'none' }}>
+                      Privacy Policy
+                    </a>
+                  </span>
+                </label>
+
+                <button type="submit" className="auth-btn" disabled={loading || !agreed}
+                  style={{ opacity: (!agreed || loading) ? 0.6 : 1 }}>
                   {loading ? 'Creating account…' : <><span>Create account</span> <ArrowRight size={15}/></>}
                 </button>
               </form>
             </>
           )}
-
         </div>
       </div>
     </div>

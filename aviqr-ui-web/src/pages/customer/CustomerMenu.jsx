@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { menuApi } from '../../api/index.js';
 import {
   ShoppingCart, Plus, Minus, Search, Star, Clock, MapPin,
   X, ChevronRight, CheckCircle, QrCode, Globe, ChevronDown,
@@ -169,27 +170,89 @@ const SHOPS = {
 // Fall back to spiceroute data for demo
 SHOPS.demo.categories = SHOPS.spiceroute.categories;
 
+// ─── Map API response to SHOPS shape ─────────────────────────────────────────
+function normalizeApiShop(data) {
+  if (!data) return null;
+  const shop = data.shop || data;
+  const categories = (data.categories || []).map(c => ({
+    id: c.id,
+    name: c.name,
+    nameHi: c.nameHi || c.name,
+    nameTa: c.nameTa || c.name,
+    nameTe: c.nameTe || c.name,
+    nameKn: c.nameKn || c.name,
+    nameMl: c.nameMl || c.name,
+    nameBn: c.nameBn || c.name,
+    nameMr: c.nameMr || c.name,
+    nameGu: c.nameGu || c.name,
+    emoji: c.emoji || '🍽',
+    items: (c.items || []).filter(i => i.available !== false).map(i => ({
+      id: i.id,
+      name: i.name,
+      nameHi: i.nameHi || i.name,
+      nameTa: i.nameTa || i.name,
+      desc: i.description || i.desc || '',
+      descHi: i.descHi || i.description || '',
+      price: i.price,
+      popular: !!i.popular,
+      veg: i.veg !== false,
+      spicy: !!i.spicy,
+    })),
+  }));
+  return {
+    id: shop.id,
+    name: shop.name || 'Restaurant',
+    nameHi: shop.nameHi || shop.name,
+    tagline: shop.tagline || '',
+    emoji: shop.emoji || '🍽',
+    rating: shop.rating || 4.5,
+    reviews: shop.reviews || 0,
+    timing: shop.timing || shop.openingHours || '9 AM – 11 PM',
+    phone: shop.phone || '',
+    location: shop.address || shop.location || '',
+    minOrder: shop.minOrder || 0,
+    color: shop.color || '#1D9E75',
+    categories,
+  };
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function CustomerMenu() {
   const { shopId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // Resolve shop from URL param
-  const shop = SHOPS[shopId] || SHOPS.spiceroute;
-
   // URL params
   const tableFromQR  = searchParams.get('table') || '';
-  const qrType       = searchParams.get('type') || 'shop';   // shop | table | group | mall
+  const qrType       = searchParams.get('type') || 'shop';
   const groupFilter  = searchParams.get('cat') || '';
 
   // State
   const [lang, setLang]                 = useState('en');
+  const [apiShop, setApiShop]           = useState(null);
+  const [menuLoading, setMenuLoading]   = useState(true);
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [vegOnly, setVegOnly]           = useState(false);
   const [search, setSearch]             = useState('');
-  const [activeCategory, setActiveCategory] = useState(shop.categories[0]?.id || '');
+  const [activeCategory, setActiveCategory] = useState('');
   const [cart, setCart]                 = useState({});
+
+  // Resolve shop: prefer API data, fall back to mock
+  const shop = apiShop || SHOPS[shopId] || SHOPS.spiceroute;
+
+  useEffect(() => {
+    if (!shopId || SHOPS[shopId]) { setMenuLoading(false); return; }
+    menuApi.getPublicMenu(shopId, lang)
+      .then(res => {
+        const normalized = normalizeApiShop(res.data.data || res.data);
+        if (normalized) {
+          setApiShop(normalized);
+          setActiveCategory(normalized.categories[0]?.id || '');
+        }
+      })
+      .catch(() => {})
+      .finally(() => setMenuLoading(false));
+  }, [shopId]);
   const [showCart, setShowCart]         = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [orderPlaced, setOrderPlaced]   = useState(false);
@@ -254,6 +317,14 @@ export default function CustomerMenu() {
     Object.values(catRefs.current).forEach(el => el && obs.observe(el));
     return () => obs.disconnect();
   }, [shop]);
+
+  if (menuLoading) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',flexDirection:'column',gap:12}}>
+      <div style={{width:40,height:40,border:'3px solid #E5E7EB',borderTopColor:'#1D9E75',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+      <p style={{fontSize:14,color:'#6B7280'}}>Loading menu…</p>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
 
   if (orderPlaced) return (
     <OrderConfirmed

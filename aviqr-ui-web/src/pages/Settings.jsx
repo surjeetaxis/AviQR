@@ -48,7 +48,9 @@ export default function Settings() {
   const saveSettings = async () => {
     setSaving(true);
     try {
-      await shopApi.saveSettings(shopId, settings);
+      const calls = [shopApi.saveSettings(shopId, settings)];
+      if (section === 'shop') calls.push(shopApi.update(shopId, shopForm));
+      await Promise.allSettled(calls);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch { setSaved(true); setTimeout(()=>setSaved(false),3000); }

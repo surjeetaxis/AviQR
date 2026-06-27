@@ -80,17 +80,18 @@ export const authApi = {
 
 // ── Shop ──────────────────────────────────────────────────────────────────────
 export const shopApi = {
-  getMyShops:  ()        => api.get('/api/v1/shops/my'),
-  getById:     (id)      => api.get(`/api/v1/shops/${id}`),
-  create:      (d)       => api.post('/api/v1/shops', d),
-  update:      (id, d)   => api.put(`/api/v1/shops/${id}`, d),
-  list:        (p)       => api.get('/api/v1/shops', { params: p }),
-  getStaff:    (shopId)  => api.get(`/api/v1/staff/shop/${shopId}`),
-  addStaff:    (sId, d)  => api.post(`/api/v1/staff/shop/${sId}`, d),
-  updateStaff: (id, d)   => api.put(`/api/v1/staff/${id}`, d),
-  removeStaff: (id)      => api.delete(`/api/v1/staff/${id}`),
-  getSettings: (shopId)  => api.get(`/api/v1/settings/shop/${shopId}`),
-  saveSettings:(sId, d)  => api.put(`/api/v1/settings/shop/${sId}`, d),
+  getMyShops:       ()           => api.get('/api/v1/shops/my'),
+  getById:          (id)         => api.get(`/api/v1/shops/${id}`),
+  create:           (d)          => api.post('/api/v1/shops', d),
+  update:           (id, d)      => api.put(`/api/v1/shops/${id}`, d),
+  list:             (p)          => api.get('/api/v1/shops', { params: p }),
+  updateStatus:     (id, status) => api.put(`/api/v1/shops/${id}/status?status=${status}`),
+  getStaff:         (shopId)     => api.get(`/api/v1/staff/shop/${shopId}`),
+  addStaff:         (sId, d)     => api.post(`/api/v1/staff/shop/${sId}`, d),
+  updateStaff:      (id, d)      => api.put(`/api/v1/staff/${id}`, d),
+  removeStaff:      (id)         => api.delete(`/api/v1/staff/${id}`),
+  getSettings:      (shopId)     => api.get(`/api/v1/settings/shop/${shopId}`),
+  saveSettings:     (sId, d)     => api.put(`/api/v1/settings/shop/${sId}`, d),
 };
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
@@ -100,11 +101,7 @@ export const menuApi = {
   createCategory: (d)            => api.post('/api/v1/categories', d),
   updateCategory: (id, d)        => api.put(`/api/v1/categories/${id}`, d),
   deleteCategory: (id)           => api.delete(`/api/v1/categories/${id}`),
-  // Unpaginated — full list, used by the category-grouped menu management view
-  getAllItems:    (shopId)       => api.get(`/api/v1/items/shop/${shopId}/all`),
-  // Paginated — Product Ranking: defaults to ranking_score desc server-side.
-  // p: { search, page, size, sort: 'ranking'|'recent' }
-  getItems:       (shopId, p)    => api.get(`/api/v1/items/shop/${shopId}`, { params: p }),
+  getItems:       (shopId)       => api.get(`/api/v1/items/shop/${shopId}`),
   createItem:     (d)            => api.post('/api/v1/items', d),
   updateItem:     (id, d)        => api.put(`/api/v1/items/${id}`, d),
   toggleAvail:    (id, a)        => api.put(`/api/v1/items/${id}/availability?available=${a}`),
@@ -122,17 +119,7 @@ export const orderApi = {
   updateStatus: (id, s)     => api.put(`/api/v1/orders/${id}/status?status=${s}`),
   getById:      (id)        => api.get(`/api/v1/orders/${id}`),
   getHistory:   (p)         => api.get('/api/v1/orders/customer/history', { params: p }),
-};
-
-// ── Reviews ───────────────────────────────────────────────────────────────────
-// p: { page, size, sort }
-export const reviewApi = {
-  getByShop:    (shopId, p) => api.get(`/api/v1/reviews/public/shop/${shopId}`, { params: p }),
-  getShopSummary:(shopId)   => api.get(`/api/v1/reviews/public/shop/${shopId}/summary`),
-  getByProduct: (itemId, p) => api.get(`/api/v1/reviews/public/product/${itemId}`, { params: p }),
-  getProductSummary:(itemId)=> api.get(`/api/v1/reviews/public/product/${itemId}/summary`),
-  submit:       (d)         => api.post('/api/v1/reviews', d),
-  getMyReviews: (customerId, p) => api.get(`/api/v1/reviews/customer/${customerId}`, { params: p }),
+  listAll:      (p)         => api.get('/api/v1/orders/admin/all', { params: p }),
 };
 
 // ── Payments ──────────────────────────────────────────────────────────────────
@@ -141,6 +128,7 @@ export const paymentApi = {
   verify:         (d)        => api.post('/api/v1/payments/verify', d),
   getByShop:      (sId, p)   => api.get(`/api/v1/payments/shop/${sId}`, { params: p }),
   refund:         (payId)    => api.post(`/api/v1/payments/${payId}/refund`),
+  listAll:        (p)        => api.get('/api/v1/payments', { params: p }),
 };
 
 // ── QR Codes ──────────────────────────────────────────────────────────────────
@@ -157,13 +145,11 @@ export const reportApi = {
   getTopItems:  (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/top-items`),
   getPeakHours: (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/peak-hours`),
   getPlatform:  ()           => api.get('/api/v1/reports/admin/platform'),
-  // Paginated daily snapshots — p: { page, size, sort, dir }
-  getHistory:   (shopId, p)  => api.get(`/api/v1/reports/shop/${shopId}/history`, { params: p }),
 };
 
 // ── Hotel ─────────────────────────────────────────────────────────────────────
 export const hotelApi = {
-  getMyHotels:    ()         => api.get('/api/v1/hotels/my'),
+  getMyHotels:    ()         => api.get('/api/v1/hotels/my'), listAll:        (p)        => api.get('/api/v1/hotels/admin/all', { params: p }),
   update:         (id, d)    => api.put(`/api/v1/hotels/${id}`, d),
   getRooms:       (hotelId)  => api.get(`/api/v1/rooms/hotel/${hotelId}`),
   updateRoom:     (id, d)    => api.put(`/api/v1/rooms/${id}`, d),
@@ -175,6 +161,7 @@ export const hotelApi = {
 // ── Mall ──────────────────────────────────────────────────────────────────────
 export const mallApi = {
   getMyMalls:  ()            => api.get('/api/v1/malls/my'),
+  listAll:     ()            => api.get('/api/v1/malls'),
   getVendors:  (mallId)      => api.get(`/api/v1/vendors/mall/${mallId}`),
   addVendor:   (d)           => api.post('/api/v1/vendors', d),
   toggleVendor:(id, a)       => api.put(`/api/v1/vendors/${id}/status?active=${a}`),
@@ -194,6 +181,38 @@ export const notifApi = {
   getAll:      ()            => api.get('/api/v1/notifications'),
   getCount:    ()            => api.get('/api/v1/notifications/unread-count'),
   markRead:    (id)          => api.put(`/api/v1/notifications/${id}/read`),
+};
+
+// ── Inventory ─────────────────────────────────────────────────────────────────
+export const inventoryApi = {
+  getSummary:   (sId)        => api.get(`/api/v1/inventory/shop/${sId}/summary`),
+  getStock:     (sId)        => api.get(`/api/v1/inventory/shop/${sId}`),
+  setStock:     (itemId, d)  => api.put(`/api/v1/inventory/item/${itemId}`, d),
+  getOutOfStock:(sId)        => api.get(`/api/v1/inventory/shop/${sId}/out-of-stock`),
+  getLowStock:  (sId)        => api.get(`/api/v1/inventory/shop/${sId}/low-stock`),
+};
+
+// ── Loyalty ───────────────────────────────────────────────────────────────────
+export const loyaltyApi = {
+  getBalance:  (sId, phone)  => api.get(`/api/v1/loyalty/${sId}/balance`, { params: { phone } }),
+  earn:        (sId, d)      => api.post(`/api/v1/loyalty/${sId}/earn`, d),
+  redeem:      (sId, d)      => api.post(`/api/v1/loyalty/${sId}/redeem`, d),
+  getCustomers:(sId)         => api.get(`/api/v1/loyalty/${sId}/customers`),
+  getHistory:  (sId, phone)  => api.get(`/api/v1/loyalty/${sId}/history`, { params: { phone } }),
+};
+
+// ── Invoice & KOT ─────────────────────────────────────────────────────────────
+export const invoiceApi = {
+  downloadUrl: (orderId, shop) => {
+    const p = new URLSearchParams({ ...shop });
+    return `${api.defaults.baseURL}/api/v1/orders/${orderId}/invoice?${p}`;
+  },
+  kotUrl: (orderId) => `${api.defaults.baseURL}/api/v1/orders/${orderId}/kot`,
+};
+
+// ── Aggregator (Zomato/Swiggy mapping) ───────────────────────────────────────
+export const aggregatorApi = {
+  saveMapping: (d) => api.post('/api/v1/aggregator/mapping', d),
 };
 
 export default api;

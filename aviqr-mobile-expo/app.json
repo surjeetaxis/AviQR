@@ -8,6 +8,7 @@
     "scheme": "aviqr",
     "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
+    "privacy": "https://aviqr.in/privacy",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -16,9 +17,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "in.aviqr.app",
+      "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "Scan QR codes to order from restaurants",
-        "NSPhotoLibraryUsageDescription": "Upload menu images for OCR scanning"
+        "NSCameraUsageDescription": "AviQR uses your camera to scan QR codes and upload menu images for text recognition.",
+        "NSPhotoLibraryUsageDescription": "AviQR accesses your photo library to upload menu images for automatic menu creation.",
+        "NSUserNotificationsUsageDescription": "AviQR sends notifications for new orders, order status updates, and low-stock alerts."
       }
     },
     "android": {
@@ -26,7 +29,18 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1D9E75"
       },
-      "package": "in.aviqr.app"
+      "package": "in.aviqr.app",
+      "versionCode": 1,
+      "targetSdkVersion": 34,
+      "compileSdkVersion": 34,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -38,11 +52,29 @@
       "expo-secure-store",
       [
         "expo-camera",
-        { "cameraPermission": "Allow AviQR to access your camera to scan QR codes." }
+        {
+          "cameraPermission": "Allow AviQR to access your camera to scan QR codes and capture menu images."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#1D9E75",
+          "sounds": []
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "https://api.aviqr.in",
+      "privacyPolicyUrl": "https://aviqr.in/privacy",
+      "termsUrl": "https://aviqr.in/terms",
+      "supportEmail": "support@aviqr.in",
+      "sentryDsn": "",
+      "sentryNote": "Set sentryDsn to your Sentry DSN from sentry.io project settings"
     }
   }
 }

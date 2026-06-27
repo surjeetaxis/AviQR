@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { hotelApi } from '../../api/index.js';
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
@@ -77,6 +78,31 @@ export default function HotelDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [requests, setRequests] = useState(INITIAL_REQUESTS);
   const [rooms, setRooms] = useState(INITIAL_ROOMS);
+  const [loadingData, setLoadingData] = useState(true);
+
+  useEffect(() => {
+    hotelApi.getMyHotels()
+      .then(res => {
+        const hotels = res.data.data || [];
+        const hotelId = hotels[0]?.id;
+        if (!hotelId) { setLoadingData(false); return; }
+        return Promise.allSettled([
+          hotelApi.getRooms(hotelId),
+          hotelApi.getRequests(hotelId, { status: 'new,preparing,confirmed' }),
+        ]).then(([rRes, reqRes]) => {
+          if (rRes.status === 'fulfilled') {
+            const r = rRes.value.data.data || [];
+            if (r.length) setRooms(r);
+          }
+          if (reqRes.status === 'fulfilled') {
+            const req = reqRes.value.data.data || [];
+            if (req.length) setRequests(req);
+          }
+        });
+      })
+      .catch(() => {})
+      .finally(() => setLoadingData(false));
+  }, []);
 
   const advanceRequest = id => {
     setRequests(prev=>prev.map(r=>{

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Download, Share2, Eye, Trash2, RefreshCw, Link } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { qrApi } from '../api/index.js';
@@ -11,7 +11,8 @@ export default function QRCodes() {
   const [codes, setCodes]     = useState([]);
   const [preview, setPreview] = useState(null);
   const [creating, setCreating] = useState(false);
-    const [copied, setCopied]   = useState(null);
+  const [copied, setCopied]     = useState(null);
+  const [error, setError]       = useState(null);
 
   useEffect(() => {
     qrApi.getByShop(shopId)
@@ -46,18 +47,26 @@ export default function QRCodes() {
     }
   };
 
-  const QrBox = ({ url, size = 120 }) => {
-    // Simple QR placeholder using the backend's QR image endpoint
+  const QrBox = ({ code, size = 120 }) => {
+    const imgSrc = qrApi.imageUrl(code?.qrCode || code?.id || 'unknown');
+    const [imgErr, setImgErr] = React.useState(false);
     return (
-      <div style={{ width:size, height:size, background:'#fff', border:'1px solid var(--gray-200)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', overflow:'hidden' }}>
-        {/* Corner markers */}
-        {[[0,'00%','00%'],[1,'auto','00%'],[2,'00%','auto']].map(([i,b,r])=>(
-          <div key={i} style={{position:'absolute',top:b==='auto'?'auto':8,bottom:b==='auto'?8:'auto',left:r==='auto'?'auto':8,right:r==='auto'?8:'auto',width:size*0.22,height:size*0.22,border:'3px solid var(--gray-900)',borderRadius:4}}/>
-        ))}
-        <div style={{width:size*0.28,height:size*0.28,background:'var(--gray-900)',borderRadius:3,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          <div style={{width:size*0.14,height:size*0.14,background:'white',borderRadius:2}}/>
-        </div>
-        <div style={{position:'absolute',bottom:4,right:6,fontSize:8,fontWeight:700,color:'var(--gray-400)'}}>aviqr</div>
+      <div style={{ width:size, height:size, background:'#fff', border:'1px solid var(--gray-200)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', position:'relative' }}>
+        {!imgErr ? (
+          <img src={imgSrc} alt="QR code" width={size} height={size}
+            style={{ objectFit:'contain', display:'block' }}
+            onError={() => setImgErr(true)}/>
+        ) : (
+          <>
+            {[[0,'00%','00%'],[1,'auto','00%'],[2,'00%','auto']].map(([i,b,r])=>(
+              <div key={i} style={{position:'absolute',top:b==='auto'?'auto':8,bottom:b==='auto'?8:'auto',left:r==='auto'?'auto':8,right:r==='auto'?8:'auto',width:size*0.22,height:size*0.22,border:'3px solid var(--gray-900)',borderRadius:4}}/>
+            ))}
+            <div style={{width:size*0.28,height:size*0.28,background:'var(--gray-900)',borderRadius:3,display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <div style={{width:size*0.14,height:size*0.14,background:'white',borderRadius:2}}/>
+            </div>
+            <div style={{position:'absolute',bottom:4,right:6,fontSize:8,fontWeight:700,color:'var(--gray-400)'}}>aviqr</div>
+          </>
+        )}
       </div>
     );
   };
@@ -86,7 +95,7 @@ export default function QRCodes() {
           <div key={code.id} className="card" style={{display:'flex',flexDirection:'column',gap:14}}>
             <div style={{display:'flex',gap:14,alignItems:'flex-start'}}>
               <div style={{background:'var(--gray-50)',borderRadius:8,padding:6,flexShrink:0,cursor:'pointer'}} onClick={()=>setPreview(code)}>
-                <QrBox url={code.targetUrl} size={72}/>
+                <QrBox code={code} size={72}/>
               </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontWeight:700,fontSize:14}}>{code.label || 'QR Code'}</div>
@@ -118,7 +127,7 @@ export default function QRCodes() {
             <h2 style={{fontSize:20,fontWeight:700,marginBottom:4}}>{preview.label}</h2>
             <p style={{fontSize:13,color:'var(--gray-500)',marginBottom:20}}>{preview.type}</p>
             <div style={{display:'flex',justifyContent:'center',padding:20,background:'var(--gray-50)',borderRadius:12,marginBottom:16}}>
-              <QrBox url={preview.targetUrl} size={200}/>
+              <QrBox code={preview} size={200}/>
             </div>
             <p style={{fontSize:11,fontFamily:'monospace',color:'var(--gray-400)',marginBottom:20,wordBreak:'break-all'}}>{preview.targetUrl}</p>
             <div style={{display:'flex',gap:10}}>

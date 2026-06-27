@@ -35,19 +35,17 @@ public class Shop {
     @Enumerated(EnumType.STRING)
     @Builder.Default private ShopStatus status = ShopStatus.ACTIVE;
 
-    // ── Seller Tier System ───────────────────────────────────
-    @Builder.Default private BigDecimal rating = BigDecimal.ZERO;
-    @Builder.Default private Integer ratingCount = 0;
-    @Builder.Default private BigDecimal completionRate = BigDecimal.ZERO;
-    @Builder.Default private BigDecimal salesVolume = BigDecimal.ZERO;
-    @Builder.Default private BigDecimal returnPercentage = BigDecimal.ZERO;
-    @Builder.Default private BigDecimal satisfactionScore = BigDecimal.ZERO;
     @Enumerated(EnumType.STRING)
     @Builder.Default private SellerTier tier = SellerTier.NEW;
+    private BigDecimal rating;
+    private Integer ratingCount;
+    private BigDecimal salesVolume;
+    private BigDecimal completionRate;
+    private BigDecimal satisfactionScore;
     private LocalDateTime tierUpdatedAt;
 
     // Properly mapped collection table with FK column
-    @ElementCollection(fetch=FetchType.LAZY)
+    @ElementCollection(fetch=FetchType.EAGER)
     @CollectionTable(name="shop_opening_hours", joinColumns=@JoinColumn(name="shop_id"))
     private List<OpeningHour> openingHours;
 

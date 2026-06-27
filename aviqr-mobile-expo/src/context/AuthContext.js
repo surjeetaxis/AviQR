@@ -117,3 +117,16 @@ export const useAuth = () => {
   if (!ctx) throw new Error('useAuth must be inside AuthProvider');
   return ctx;
 };
+
+export const ROLE_CONFIG = {
+  OWNER:    { label: 'Shop Owner',      color: '#1D9E75' },
+  MANAGER:  { label: 'Manager',         color: '#2563EB' },
+  CASHIER:  { label: 'Cashier',         color: '#7C3AED' },
+  KITCHEN:  { label: 'Kitchen Staff',   color: '#D97706' },
+  ADMIN:    { label: 'Super Admin',     color: '#DC2626' },
+  SUPPORT:  { label: 'Support Agent',   color: '#D97706' },
+  SUPPLIER: { label: 'Supplier',        color: '#2563EB' },
+  HOTEL:    { label: 'Hotel Manager',   color: '#7C3AED' },
+  MALL:     { label: 'Mall Manager',    color: '#059669' },
+  CUSTOMER: { label: 'Customer',        color: '#6B7280' },
+};

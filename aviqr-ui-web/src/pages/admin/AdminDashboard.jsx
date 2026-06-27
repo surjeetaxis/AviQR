@@ -1,80 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
-import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
-import TierBadge from '../../components/shared/TierBadge.jsx';
-import Pagination from '../../components/shared/Pagination.jsx';
-import { shopApi } from '../../api/index.js';
 import {
   Users, Store, ShoppingBag, CreditCard, QrCode, BarChart2,
-  AlertCircle, Shield, LogOut, Settings, Search, Bell, Hotel,
+  Shield, LogOut, Settings, Search, Bell, Hotel,
   Building2, Package, TrendingUp, Eye, Trash2, CheckCircle2,
-  XCircle, Edit2, UserCheck, Menu as MenuIcon, Plus, Filter,
-  Download, RefreshCw, ChevronDown, ToggleLeft, ToggleRight,
-  Lock, Unlock, Mail, Phone, Calendar, Globe, Star
+  XCircle, Edit2, Menu as MenuIcon, Plus,
+  Download, RefreshCw, ToggleLeft, ToggleRight,
+  Lock, Unlock, Star, Send, AlertTriangle, ChevronLeft, ChevronRight,
+  BadgeCheck, Clock, Zap, Crown
 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar } from 'recharts';
+import { authApi, reportApi, shopApi, hotelApi, mallApi, orderApi, paymentApi } from '../../api/index.js';
 import '../admin/Admin.css';
 import './AdminExtra.css';
 
-const REVENUE_DATA = [
-  {day:'Mon',gmv:184000},{day:'Tue',gmv:212000},{day:'Wed',gmv:178000},
-  {day:'Thu',gmv:245000},{day:'Fri',gmv:312000},{day:'Sat',gmv:398000},{day:'Sun',gmv:356000},
-];
-const SIGNUP_DATA = [
-  {day:'Mon',shops:12},{day:'Tue',shops:18},{day:'Wed',shops:9},
-  {day:'Thu',shops:22},{day:'Fri',shops:31},{day:'Sat',shops:14},{day:'Sun',shops:11},
-];
-
-const ALL_USERS = [
-  {id:'u1',name:'Sujeet Narayanan',email:'sujeet@spiceroute.in',phone:'9845012345',role:'owner',plan:'Growth',status:'active',shops:1,joined:'Jan 2025',lastLogin:'2 min ago',verified:true},
-  {id:'u2',name:'Meena Pillai',email:'meena@coconut.in',phone:'9876500001',role:'owner',plan:'Business',status:'active',shops:2,joined:'Feb 2025',lastLogin:'1h ago',verified:true},
-  {id:'u3',name:'Farhan Khan',email:'farhan@biryani.in',phone:'9988776600',role:'owner',plan:'Growth',status:'suspended',shops:1,joined:'Mar 2025',lastLogin:'3d ago',verified:true},
-  {id:'u4',name:'Anjali Singh',email:'anjali@gmail.com',phone:'9876543210',role:'customer',plan:'-',status:'active',shops:0,joined:'Apr 2025',lastLogin:'10 min ago',verified:true},
-  {id:'u5',name:'Vikram Sharma',email:'vikram@gmail.com',phone:'9900112233',role:'manager',plan:'-',status:'active',shops:0,joined:'Jan 2025',lastLogin:'5 min ago',verified:true},
-  {id:'u6',name:'Ramesh Enterprises',email:'ramesh@teas.in',phone:'9988776655',role:'supplier',plan:'Growth',status:'active',shops:4,joined:'Dec 2024',lastLogin:'30 min ago',verified:true},
-  {id:'u7',name:'Grand Palace Hotel',email:'gm@grandpalace.in',phone:'8011223344',role:'hotel',plan:'Pro',status:'active',shops:1,joined:'Nov 2024',lastLogin:'2h ago',verified:true},
-  {id:'u8',name:'Forum Mall Admin',email:'admin@forum.in',phone:'7700112233',role:'mall',plan:'Pro',status:'active',shops:0,joined:'Oct 2024',lastLogin:'1d ago',verified:false},
-  {id:'u9',name:'Priya Desai',email:'priya@gmail.com',phone:'9123456780',role:'customer',plan:'-',status:'inactive',shops:0,joined:'May 2025',lastLogin:'10d ago',verified:false},
-  {id:'u10',name:'Arjun Nair',email:'arjun@aviqr.in',phone:'9111222333',role:'support',plan:'-',status:'active',shops:0,joined:'Jan 2025',lastLogin:'just now',verified:true},
-];
-
-const ALL_SHOPS = [
-  {id:'s1',name:'Spice Route',owner:'Sujeet N',ownerEmail:'sujeet@spiceroute.in',plan:'Growth',orders:73,revenue:24680,items:42,qrs:3,status:'active',city:'Bengaluru',joined:'Jan 2025'},
-  {id:'s2',name:'Chai & Chaat',owner:'Ankit J',ownerEmail:'ankit@chai.in',plan:'Starter',orders:28,revenue:7200,items:18,qrs:1,status:'active',city:'Pune',joined:'Feb 2025'},
-  {id:'s3',name:'The Coconut Grove',owner:'Meena P',ownerEmail:'meena@coconut.in',plan:'Business',orders:142,revenue:86400,items:86,qrs:6,status:'active',city:'Kochi',joined:'Feb 2025'},
-  {id:'s4',name:'Biryani House',owner:'Farhan K',ownerEmail:'farhan@biryani.in',plan:'Growth',orders:51,revenue:31200,items:31,qrs:2,status:'suspended',city:'Mumbai',joined:'Mar 2025'},
-  {id:'s5',name:'Cake Studio',owner:'Priya M',ownerEmail:'priya@cake.in',plan:'Starter',orders:14,revenue:4800,items:24,qrs:1,status:'active',city:'Delhi',joined:'Apr 2025'},
-];
-
-const ALL_HOTELS = [
-  {id:'h1',name:'Grand Palace Hotel',owner:'GP Admin',rooms:120,plan:'Pro',requests:24,status:'active',city:'Chennai'},
-  {id:'h2',name:'The Leela Resort',owner:'Leela Admin',rooms:280,plan:'Resort Suite',requests:67,status:'active',city:'Goa'},
-  {id:'h3',name:'Budget Inn',owner:'BI Admin',rooms:40,plan:'Hotel Basic',requests:8,status:'inactive',city:'Jaipur'},
-];
-
-const ALL_MALLS = [
-  {id:'m1',name:'Forum Mall Bengaluru',admin:'Forum Admin',vendors:28,plan:'Mall Pro',orders:412,status:'active',city:'Bengaluru'},
-  {id:'m2',name:'Phoenix Market City',admin:'Phoenix Admin',vendors:52,plan:'Enterprise',orders:891,status:'active',city:'Mumbai'},
-];
-
 const ROLES_ALL = ['owner','manager','cashier','kitchen','admin','support','supplier','hotel','mall','customer'];
 
+const PLANS = {
+  STARTER:    { label:'Starter',    color:'#6B7280', bg:'#F3F4F6', price:0       },
+  GROWTH:     { label:'Growth',     color:'#059669', bg:'#DCFCE7', price:999     },
+  BUSINESS:   { label:'Business',   color:'#7C3AED', bg:'#EDE9FE', price:2499   },
+  ENTERPRISE: { label:'Enterprise', color:'#D97706', bg:'#FEF3C7', price:0       },
+};
+
+function planInfo(p) { return PLANS[p?.toUpperCase()] || PLANS.STARTER; }
+
 const NAV = [
-  {key:'overview',  label:'Overview',     icon:BarChart2},
-  {key:'users',     label:'Users',        icon:Users,      badge:ALL_USERS.length},
-  {key:'shops',     label:'Shops',        icon:Store},
-  {key:'hotels',    label:'Hotels',       icon:Hotel},
-  {key:'malls',     label:'Malls',        icon:Building2},
-  {key:'suppliers', label:'Suppliers',    icon:Package},
-  {key:'orders',    label:'Orders',       icon:ShoppingBag},
-  {key:'payments',  label:'Payments',     icon:CreditCard},
-  {key:'qrcodes',   label:'QR Codes',     icon:QrCode},
-  {key:'reports',   label:'Reports',      icon:TrendingUp},
-  {key:'subscription',label:'Subscription',icon:Star},
-  {key:'settings',  label:'Settings',     icon:Settings},
+  {key:'overview',      label:'Overview',      icon:BarChart2},
+  {key:'users',         label:'Users',         icon:Users},
+  {key:'shops',         label:'Shops',         icon:Store},
+  {key:'hotels',        label:'Hotels',        icon:Hotel},
+  {key:'malls',         label:'Malls',         icon:Building2},
+  {key:'suppliers',     label:'Suppliers',     icon:Package},
+  {key:'orders',        label:'Orders',        icon:ShoppingBag},
+  {key:'payments',      label:'Payments',      icon:CreditCard},
+  {key:'qrcodes',       label:'QR Codes',      icon:QrCode},
+  {key:'subscription',  label:'Subscriptions', icon:Star},
+  {key:'reports',       label:'Reports',       icon:TrendingUp},
+  {key:'settings',      label:'Settings',      icon:Settings},
 ];
 
 export default function AdminDashboard() {
@@ -83,474 +48,1111 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [platformStats, setPlatformStats] = useState(null);
+  const [userStats, setUserStats] = useState(null);
+
+  const loadPlatform = useCallback(async () => {
+    try {
+      const [ps, us] = await Promise.allSettled([
+        reportApi.getPlatform(),
+        authApi.getUserStats(),
+      ]);
+      if (ps.status === 'fulfilled') setPlatformStats(ps.value.data?.data);
+      if (us.status === 'fulfilled') setUserStats(us.value.data?.data);
+    } catch {}
+  }, []);
+
+  useEffect(() => { loadPlatform(); }, [loadPlatform]);
 
   return (
     <div className="admin-layout">
-      <aside className={`admin-sidebar ${sidebarOpen?'open':''}`}>
+      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="admin-sidebar-header">
           <div className="admin-brand">
-            <QrCode size={18} style={{color:'#5DCAA5'}}/>
+            <QrCode size={18} style={{ color: '#5DCAA5' }}/>
             <span className="admin-brand-name">Avi<em>QR</em></span>
             <span className="admin-role-tag">ADMIN</span>
           </div>
         </div>
         <div className="admin-user-card">
-          <div className="admin-avatar">{user?.avatar||'PM'}</div>
+          <div className="admin-avatar">{user?.name?.[0] || 'A'}</div>
           <div>
-            <div className="admin-user-name">{user?.name||'Super Admin'}</div>
+            <div className="admin-user-name">{user?.name || 'Admin'}</div>
             <div className="admin-user-role">Super Administrator</div>
           </div>
         </div>
         <nav className="admin-nav">
-          {NAV.map(n=>(
-            <button key={n.key} className={`admin-nav-item ${tab===n.key?'active':''}`}
-              onClick={()=>{setTab(n.key);setSidebarOpen(false);}}>
+          {NAV.map(n => (
+            <button key={n.key} className={`admin-nav-item ${tab === n.key ? 'active' : ''}`}
+              onClick={() => { setTab(n.key); setSidebarOpen(false); }}>
               <n.icon size={16}/> <span>{n.label}</span>
-              {n.badge && <span className="support-nav-badge">{n.badge}</span>}
             </button>
           ))}
         </nav>
         <div className="admin-sidebar-footer">
-          <button className="admin-logout" onClick={()=>{logout();navigate('/')}}><LogOut size={14}/> {t('logout',lang)}</button>
+          <button className="admin-logout" onClick={() => { logout(); navigate('/'); }}>
+            <LogOut size={14}/> {t('logout', lang)}
+          </button>
         </div>
       </aside>
 
       <div className="admin-main">
         <header className="admin-topbar">
-          <button className="admin-mobile-menu" onClick={()=>setSidebarOpen(o=>!o)}><MenuIcon size={20}/></button>
-          <div className="admin-topbar-search" style={{position:'relative'}}>
-            <Search size={14} style={{position:'absolute',left:10,color:'var(--gray-400)'}}/>
-            <input style={{paddingLeft:32}} placeholder={t('search',lang)}/>
+          <button className="admin-mobile-menu" onClick={() => setSidebarOpen(o => !o)}><MenuIcon size={20}/></button>
+          <div className="admin-topbar-search" style={{ position: 'relative' }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, color: 'var(--gray-400)' }}/>
+            <input style={{ paddingLeft: 32 }} placeholder={t('search', lang)}/>
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:12,marginLeft:'auto'}}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' }}>
             <LangPicker/>
             <button className="admin-icon-btn"><Bell size={18}/></button>
-            <div className="admin-avatar sm">{user?.avatar||'PM'}</div>
+            <div className="admin-avatar sm">{user?.name?.[0] || 'A'}</div>
           </div>
         </header>
 
         <main className="admin-content">
-          {tab==='overview'    && <AdminOverview data={REVENUE_DATA} signups={SIGNUP_DATA} onNav={setTab}/>}
-          {tab==='users'       && <FullUsersPage users={ALL_USERS}/>}
-          {tab==='shops'       && <FullShopsPage shops={ALL_SHOPS}/>}
-          {tab==='hotels'      && <FullHotelsPage hotels={ALL_HOTELS}/>}
-          {tab==='malls'       && <FullMallsPage malls={ALL_MALLS}/>}
-          {tab==='subscription'&& <SubscriptionPage userRole="owner" currentPlan="growth"/>}
-          {tab==='reports'     && <AdminReports/>}
-          {tab==='settings'    && <AdminSettings/>}
-          {!['overview','users','shops','hotels','malls','subscription','reports','settings'].includes(tab) && (
-            <AdminStub label={NAV.find(n=>n.key===tab)?.label} icon={NAV.find(n=>n.key===tab)?.icon}/>
-          )}
+          {tab === 'overview'     && <AdminOverview ps={platformStats} us={userStats} onNav={setTab} onRefresh={loadPlatform}/>}
+          {tab === 'users'        && <LiveUsersPage/>}
+          {tab === 'shops'        && <AdminShopsPage/>}
+          {tab === 'hotels'       && <AdminHotelsPage/>}
+          {tab === 'malls'        && <AdminMallsPage/>}
+          {tab === 'suppliers'    && <AdminSuppliersPage/>}
+          {tab === 'orders'       && <AdminOrdersPage/>}
+          {tab === 'payments'     && <AdminPaymentsPage/>}
+          {tab === 'qrcodes'      && <AdminStub label="QR Codes" icon={QrCode}/>}
+          {tab === 'subscription' && <AdminSubscriptionManagement/>}
+          {tab === 'reports'      && <AdminReports/>}
+          {tab === 'settings'     && <AdminSettings/>}
         </main>
       </div>
     </div>
   );
 }
 
-// ─── Overview ─────────────────────────────────────────────────────────────────
-function AdminOverview({data,signups,onNav}) {
+// ── Overview ─────────────────────────────────────────────────────────────────
+function AdminOverview({ ps, us, onNav, onRefresh }) {
+  const fmt = n => Number(n || 0).toLocaleString('en-IN');
+
+  const KPIs = [
+    { label: 'Active shops',     value: ps ? fmt(ps.activeShops || 0)     : '—', icon: Store,       color: 'green',  key: 'shops' },
+    { label: "Today's orders",   value: ps ? fmt(ps.todayOrders || 0)     : '—', icon: ShoppingBag, color: 'purple', key: 'orders' },
+    { label: "Today's revenue",  value: ps ? `₹${fmt(ps.todayRevenue||0)}`: '—', icon: CreditCard,  color: 'amber',  key: 'payments' },
+    { label: 'Total orders',     value: ps ? fmt(ps.totalOrders || 0)     : '—', icon: TrendingUp,  color: 'blue',   key: 'reports' },
+    { label: 'Total revenue',    value: ps ? `₹${fmt(ps.totalRevenue||0)}`: '—', icon: BarChart2,   color: 'green',  key: 'reports' },
+    { label: 'Avg order value',  value: ps ? `₹${fmt(ps.avgOrderValue||0)}`: '—',icon: Shield,      color: 'blue',   key: 'reports' },
+  ];
+
   return (
     <div className="admin-overview">
       <div className="page-header">
-        <div><h1 className="page-title">Platform Overview</h1><p className="page-subtitle">All entities · real-time</p></div>
-        <button className="btn-refresh"><RefreshCw size={13}/> Refresh</button>
+        <div><h1 className="page-title">Platform Overview</h1><p className="page-subtitle">Live data</p></div>
+        <button className="btn-refresh" onClick={onRefresh}><RefreshCw size={13}/> Refresh</button>
       </div>
+
+      {!ps && (
+        <div className="demo-notice" style={{ marginBottom: 16 }}>
+          ℹ Backend not reachable — connect your API to see live platform stats.
+        </div>
+      )}
+
       <div className="admin-kpi-grid">
-        {[
-          {label:'Total shops',   value:'12,487', icon:Store,    color:'green', change:'+142 this week', onClick:()=>onNav('shops')},
-          {label:'Total users',   value:'38,920', icon:Users,    color:'blue',  change:'+8.2%', onClick:()=>onNav('users')},
-          {label:'Orders today',  value:'14,208', icon:ShoppingBag,color:'purple',change:'+12.4%', onClick:()=>onNav('orders')},
-          {label:'GMV today',     value:'₹48.2L', icon:CreditCard,color:'amber', change:'+18.3%', onClick:()=>onNav('payments')},
-          {label:'Hotels',        value:'284',    icon:Hotel,    color:'green', change:'+12 this week', onClick:()=>onNav('hotels')},
-          {label:'Malls',         value:'47',     icon:Building2,color:'blue',  change:'+3 this week', onClick:()=>onNav('malls')},
-          {label:'Suppliers',     value:'892',    icon:Package,  color:'purple',change:'+24 this week', onClick:()=>onNav('suppliers')},
-          {label:'Active QR codes',value:'31,204',icon:QrCode,  color:'amber', change:'+580 this week', onClick:()=>onNav('qrcodes')},
-        ].map(k=>(
-          <button key={k.label} className="admin-kpi-card" style={{textAlign:'left',cursor:'pointer'}} onClick={k.onClick}>
+        {KPIs.map(k => (
+          <button key={k.label} className="admin-kpi-card" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => onNav(k.key)}>
             <div className={`admin-kpi-icon icon-${k.color}`}><k.icon size={18}/></div>
             <div className="admin-kpi-value">{k.value}</div>
             <div className="admin-kpi-label">{k.label}</div>
-            <div className="admin-kpi-change">{k.change}</div>
           </button>
         ))}
       </div>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
-        <div className="admin-chart-card">
-          <h3>Platform GMV — last 7 days</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={data} margin={{top:4,right:4,left:-16,bottom:0}}>
-              <defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#1D9E75" stopOpacity={0.28}/><stop offset="100%" stopColor="#1D9E75" stopOpacity={0}/></linearGradient></defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false}/>
-              <XAxis dataKey="day" tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
-              <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={v=>`₹${(v/100000).toFixed(1)}L`}/>
-              <Tooltip contentStyle={{borderRadius:10,border:'1px solid #E5E7EB',fontSize:12}} formatter={v=>[`₹${v.toLocaleString('en-IN')}`,'GMV']}/>
-              <Area type="monotone" dataKey="gmv" stroke="#1D9E75" strokeWidth={2.5} fill="url(#ag)"/>
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="admin-chart-card">
-          <h3>New shop signups — last 7 days</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={signups} margin={{top:4,right:4,left:-16,bottom:0}}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false}/>
-              <XAxis dataKey="day" tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
-              <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
-              <Tooltip contentStyle={{borderRadius:10,border:'1px solid #E5E7EB',fontSize:12}}/>
-              <Bar dataKey="shops" fill="#2563EB" radius={[4,4,0,0]}/>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-// ─── Full Users Page ──────────────────────────────────────────────────────────
-function FullUsersPage({users: initialUsers}) {
-  const [users,setUsers] = useState(initialUsers);
-  const [search,setSearch] = useState('');
-  const [roleFilter,setRoleFilter] = useState('all');
-  const [statusFilter,setStatusFilter] = useState('all');
-  const [editUser,setEditUser] = useState(null);
-  const [showAdd,setShowAdd] = useState(false);
-
-  const toggleStatus = id => setUsers(prev=>prev.map(u=>u.id!==id?u:{...u,status:u.status==='active'?'suspended':'active'}));
-  const toggleVerify = id => setUsers(prev=>prev.map(u=>u.id!==id?u:{...u,verified:!u.verified}));
-  const deleteUser = id => setUsers(prev=>prev.filter(u=>u.id!==id));
-  const saveEdit = updated => { setUsers(prev=>prev.map(u=>u.id!==updated.id?u:updated)); setEditUser(null); };
-
-  const filtered = users.filter(u=>{
-    if(roleFilter!=='all' && u.role!==roleFilter) return false;
-    if(statusFilter!=='all' && u.status!==statusFilter) return false;
-    if(search && !u.name.toLowerCase().includes(search.toLowerCase()) && !u.email.includes(search) && !u.phone.includes(search)) return false;
-    return true;
-  });
-
-  const ROLE_COLORS = {owner:'green',manager:'blue',cashier:'blue',kitchen:'green',admin:'purple',support:'amber',supplier:'blue',hotel:'purple',mall:'blue',customer:'gray'};
-
-  return (
-    <div>
-      <div className="page-header">
-        <div><h1 className="page-title">Users</h1><p className="page-subtitle">{filtered.length} of {users.length} users</p></div>
-        <div style={{display:'flex',gap:8}}>
-          <button className="btn-refresh" onClick={()=>setShowAdd(true)}><Plus size={13}/> Add user</button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="admin-filter-bar">
-        <div style={{position:'relative',flex:1,maxWidth:280}}>
-          <Search size={13} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--gray-400)'}}/>
-          <input className="admin-filter-input" style={{paddingLeft:32}} placeholder="Search name, email, phone…" value={search} onChange={e=>setSearch(e.target.value)}/>
-        </div>
-        <select className="admin-filter-select" value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}>
-          <option value="all">All roles</option>
-          {ROLES_ALL.map(r=><option key={r} value={r}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
-        </select>
-        <select className="admin-filter-select" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
-          <option value="all">All status</option>
-          <option value="active">Active</option>
-          <option value="suspended">Suspended</option>
-          <option value="inactive">Inactive</option>
-        </select>
-        <button className="btn-refresh"><Download size={13}/> Export</button>
-      </div>
-
-      <div className="admin-table-card">
-        <table className="admin-table">
-          <thead><tr><th>User</th><th>Role</th><th>Plan</th><th>Shops</th><th>Last login</th><th>Verified</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-            {filtered.map(u=>(
-              <tr key={u.id}>
-                <td>
-                  <div style={{display:'flex',alignItems:'center',gap:10}}>
-                    <div className={`admin-avatar sm`} style={{background:u.role==='admin'?'var(--purple)':u.role==='support'?'#D97706':'var(--green)'}}>{u.name.split(' ').map(w=>w[0]).join('').slice(0,2)}</div>
-                    <div>
-                      <div style={{fontWeight:700,fontSize:13.5}}>{u.name}</div>
-                      <div style={{fontSize:11.5,color:'var(--gray-400)'}}>{u.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td><span className={`role-badge-sm role-${ROLE_COLORS[u.role]||'gray'}`}>{u.role}</span></td>
-                <td>{u.plan!=='-'?<span className="plan-pill">{u.plan}</span>:'-'}</td>
-                <td style={{color:'var(--gray-500)'}}>{u.shops||'-'}</td>
-                <td style={{fontSize:12,color:'var(--gray-400)'}}>{u.lastLogin}</td>
-                <td>
-                  <button onClick={()=>toggleVerify(u.id)}>
-                    {u.verified
-                      ? <CheckCircle2 size={16} style={{color:'var(--green)'}}/>
-                      : <XCircle size={16} style={{color:'var(--gray-300)'}}/>}
-                  </button>
-                </td>
-                <td>
-                  <button className={`toggle-status-btn ${u.status==='active'?'tog-active':'tog-suspended'}`} onClick={()=>toggleStatus(u.id)}>
-                    {u.status==='active'?<ToggleRight size={18}/>:<ToggleLeft size={18}/>} {u.status}
-                  </button>
-                </td>
-                <td>
-                  <div style={{display:'flex',gap:5}}>
-                    <button className="admin-row-btn" title="Edit" onClick={()=>setEditUser(u)}><Edit2 size={12}/></button>
-                    <button className="admin-row-btn" title="Impersonate"><UserCheck size={12}/></button>
-                    <button className="admin-row-btn admin-row-btn-danger" title="Delete" onClick={()=>deleteUser(u.id)}><Trash2 size={12}/></button>
-                  </div>
-                </td>
-              </tr>
+      {us && (
+        <div className="admin-chart-card" style={{ marginTop: 16 }}>
+          <h3 style={{ marginBottom: 12 }}>Users by role</h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {Object.entries(us).map(([role, count]) => (
+              <div key={role} style={{ background: 'var(--gray-50)', borderRadius: 8, padding: '8px 14px', minWidth: 90 }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gray-900)' }}>{Number(count || 0).toLocaleString()}</div>
+                <div style={{ fontSize: 11, color: 'var(--gray-500)', textTransform: 'capitalize' }}>{role}</div>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Edit modal */}
-      {editUser && (
-        <UserEditModal user={editUser} onSave={saveEdit} onClose={()=>setEditUser(null)}/>
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-function UserEditModal({user,onSave,onClose}) {
-  const [form,setForm] = useState({...user});
-  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e=>e.stopPropagation()}>
-        <div className="modal-header"><h2 className="modal-title">Edit User — {user.name}</h2><button className="modal-close" onClick={onClose}>✕</button></div>
-        <div className="modal-body">
-          <div className="form-row-2">
-            <div className="form-field"><label className="form-label">Full name</label><input className="form-input" value={form.name} onChange={e=>set('name',e.target.value)}/></div>
-            <div className="form-field"><label className="form-label">Email</label><input className="form-input" value={form.email} onChange={e=>set('email',e.target.value)}/></div>
-          </div>
-          <div className="form-row-2">
-            <div className="form-field"><label className="form-label">Phone</label><input className="form-input" value={form.phone} onChange={e=>set('phone',e.target.value)}/></div>
-            <div className="form-field">
-              <label className="form-label">Role</label>
-              <select className="form-input" value={form.role} onChange={e=>set('role',e.target.value)}>
-                {ROLES_ALL.map(r=><option key={r} value={r}>{r}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="form-row-2">
-            <div className="form-field">
-              <label className="form-label">Status</label>
-              <select className="form-input" value={form.status} onChange={e=>set('status',e.target.value)}>
-                <option value="active">Active</option>
-                <option value="suspended">Suspended</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-            <div className="form-field">
-              <label className="form-label">Plan</label>
-              <select className="form-input" value={form.plan} onChange={e=>set('plan',e.target.value)}>
-                {['Starter','Growth','Business','Hotel Basic','Hotel Pro','Resort Suite','Mall Basic','Mall Pro','Enterprise','-'].map(p=><option key={p}>{p}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="form-field">
-            <label className="form-label">Verified</label>
-            <button className={`toggle-btn ${form.verified?'toggle-on':'toggle-off'}`} onClick={()=>set('verified',!form.verified)}>
-              {form.verified?<ToggleRight size={22}/>:<ToggleLeft size={22}/>}
-            </button>
-          </div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={()=>onSave(form)}>Save changes</button>
-        </div>
-      </div>
-    </div>
-  );
-}
+// ── Live Users Page ───────────────────────────────────────────────────────────
+function LiveUsersPage() {
+  const [users, setUsers]   = useState([]);
+  const [search, setSearch] = useState('');
+  const [roleF, setRoleF]   = useState('all');
+  const [statF, setStatF]   = useState('all');
+  const [loading, setLoad]  = useState(true);
+  const [error, setErr]     = useState('');
+  const [editUser, setEdit] = useState(null);
 
-// ─── Full Shops Page (Seller Tier System) ─────────────────────────────────────
-function FullShopsPage({shops:fallback}) {
-  const [page,setPage] = useState(null);   // Page<ShopResponse> from the API, or null while loading/on error
-  const [pageNum,setPageNum] = useState(0);
-  const [size,setSize] = useState(20);
-  const [search,setSearch] = useState('');
-  const [sort,setSort] = useState('tier'); // 'tier' (default, higher tiers first) | 'recent'
-  const [usingFallback,setUsingFallback] = useState(false);
+  const load = useCallback(async () => {
+    setLoad(true); setErr('');
+    try {
+      const res = await authApi.getUsers({ size: 100 });
+      const d = res.data?.data;
+      setUsers(Array.isArray(d) ? d : d?.content || []);
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Could not load users. Check backend connection.');
+    } finally { setLoad(false); }
+  }, []);
 
-  useEffect(() => {
-    const id = setTimeout(() => {
-      shopApi.list({ search: search || undefined, page: pageNum, size, sort })
-        .then(res => { setPage(res.data.data); setUsingFallback(false); })
-        .catch(() => {
-          // Backend unreachable — paginate the local fallback list client-side
-          const filtered = fallback.filter(s=>!search||s.name.toLowerCase().includes(search.toLowerCase())||s.owner.toLowerCase().includes(search.toLowerCase())||s.city.toLowerCase().includes(search.toLowerCase()));
-          setPage({
-            content: filtered.slice(pageNum*size, pageNum*size+size),
-            number: pageNum, size, totalElements: filtered.length, totalPages: Math.ceil(filtered.length/size) || 1,
-          });
-          setUsingFallback(true);
-        });
-    }, 250);
-    return () => clearTimeout(id);
-  }, [search, pageNum, size, sort]);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => { setPageNum(0); }, [search, sort]);
+  const toggleStatus = async (u) => {
+    const next = u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    try {
+      await authApi.updateStatus(u.id, next);
+      setUsers(prev => prev.map(x => x.id !== u.id ? x : { ...x, status: next }));
+    } catch { load(); }
+  };
 
-  const rows = page?.content || [];
+  const deleteUser = async (id) => {
+    if (!window.confirm('Permanently delete this user?')) return;
+    try {
+      await authApi.deleteUser(id);
+      setUsers(prev => prev.filter(x => x.id !== id));
+    } catch (e) { alert(e.response?.data?.message || 'Delete failed'); }
+  };
+
+  const saveEdit = async (updated) => {
+    try {
+      await authApi.updateStatus(updated.id, updated.status);
+      setUsers(prev => prev.map(x => x.id !== updated.id ? x : { ...x, ...updated }));
+    } catch {}
+    setEdit(null);
+  };
+
+  const ROLE_CLR = { owner:'green',manager:'blue',cashier:'blue',kitchen:'green',admin:'purple',support:'amber',supplier:'blue',hotel:'purple',mall:'blue',customer:'gray' };
+
+  const filtered = users.filter(u => {
+    if (statF !== 'all' && u.status?.toLowerCase() !== statF) return false;
+    if (roleF !== 'all' && u.role?.toLowerCase() !== roleF) return false;
+    if (search && ![u.name,u.email,u.phone].some(f => f?.toLowerCase().includes(search.toLowerCase()))) return false;
+    return true;
+  });
 
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">All Shops</h1><p className="page-subtitle">{page?.totalElements ?? fallback.length} registered{usingFallback ? ' (demo data)' : ''}</p></div>
-        <div style={{display:'flex',gap:8}}>
-          <select className="admin-filter-input" value={sort} onChange={e=>setSort(e.target.value)} style={{width:160}}>
-            <option value="tier">Sort: Tier (default)</option>
-            <option value="recent">Sort: Newest</option>
-          </select>
-          <div style={{position:'relative'}}>
-            <Search size={13} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--gray-400)'}}/>
-            <input className="admin-filter-input" style={{paddingLeft:32,width:220}} placeholder="Search shops…" value={search} onChange={e=>setSearch(e.target.value)}/>
+        <div><h1 className="page-title">Users</h1><p className="page-subtitle">{filtered.length} shown</p></div>
+        <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
+      </div>
+      {error && (
+        <div className="demo-notice" style={{ background:'var(--red-bg)', borderColor:'#FCA5A5', color:'var(--red)', marginBottom:12 }}>
+          ⚠ {error} <button onClick={load} style={{ fontWeight:700, background:'none', border:'none', cursor:'pointer', color:'var(--red)', textDecoration:'underline' }}>Retry</button>
+        </div>
+      )}
+      <div className="admin-filter-bar">
+        <div style={{ position:'relative', flex:1, maxWidth:280 }}>
+          <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)' }}/>
+          <input className="admin-filter-input" style={{ paddingLeft:32 }} placeholder="Search name, email, phone…"
+            value={search} onChange={e => setSearch(e.target.value)}/>
+        </div>
+        <select className="admin-filter-select" value={roleF} onChange={e => setRoleF(e.target.value)}>
+          <option value="all">All roles</option>
+          {ROLES_ALL.map(r => <option key={r} value={r}>{r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
+        </select>
+        <select className="admin-filter-select" value={statF} onChange={e => setStatF(e.target.value)}>
+          <option value="all">All status</option>
+          <option value="active">Active</option>
+          <option value="suspended">Suspended</option>
+        </select>
+      </div>
+      {loading ? (
+        <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading users…</div>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead>
+              <tr><th>User</th><th>Role</th><th>Shop</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={5} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No users found</td></tr>
+              )}
+              {filtered.map(u => (
+                <tr key={u.id}>
+                  <td>
+                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                      <div className="admin-avatar sm" style={{ background: u.role==='ADMIN'?'var(--purple)':u.role==='SUPPORT'?'#D97706':'var(--green)' }}>
+                        {u.name?.split(' ').map(w=>w[0]).join('').slice(0,2) || '?'}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight:700, fontSize:13.5 }}>{u.name}</div>
+                        <div style={{ fontSize:11.5, color:'var(--gray-400)' }}>{u.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span className={`role-badge-sm role-${ROLE_CLR[u.role?.toLowerCase()] || 'gray'}`}>{u.role?.toLowerCase()}</span></td>
+                  <td style={{ fontSize:11, color:'var(--gray-400)', fontFamily:'monospace' }}>{u.shopId ? u.shopId.slice(0,8)+'…' : '—'}</td>
+                  <td>
+                    <button className={`toggle-status-btn ${u.status==='ACTIVE'?'tog-active':'tog-suspended'}`} onClick={() => toggleStatus(u)}>
+                      {u.status==='ACTIVE' ? <ToggleRight size={18}/> : <ToggleLeft size={18}/>} {u.status}
+                    </button>
+                  </td>
+                  <td>
+                    <div style={{ display:'flex', gap:5 }}>
+                      <button className="admin-row-btn" title="Edit" onClick={() => setEdit(u)}><Edit2 size={12}/></button>
+                      <button className="admin-row-btn" title="View"><Eye size={12}/></button>
+                      <button className="admin-row-btn admin-row-btn-danger" title="Delete" onClick={() => deleteUser(u.id)}><Trash2 size={12}/></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {editUser && (
+        <div className="modal-backdrop" onClick={() => setEdit(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Edit — {editUser.name}</h2>
+              <button className="modal-close" onClick={() => setEdit(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row-2">
+                <div className="form-field">
+                  <label className="form-label">Status</label>
+                  <select className="form-input" value={editUser.status} onChange={e => setEdit(u => ({ ...u, status: e.target.value }))}>
+                    <option value="ACTIVE">Active</option>
+                    <option value="SUSPENDED">Suspended</option>
+                    <option value="DEACTIVATED">Deactivated</option>
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label className="form-label">Role</label>
+                  <select className="form-input" value={editUser.role} onChange={e => setEdit(u => ({ ...u, role: e.target.value }))}>
+                    {ROLES_ALL.map(r => <option key={r} value={r.toUpperCase()}>{r}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setEdit(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => saveEdit(editUser)}>Save changes</button>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="admin-table-card">
-        <table className="admin-table">
-          <thead><tr><th>Shop</th><th>Owner / City</th><th>Plan</th><th>Tier</th><th>Rating</th><th>Sales volume</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-            {rows.map(s=>(
-              <tr key={s.id}>
-                <td style={{fontWeight:700}}>{s.name}</td>
-                <td><div style={{fontSize:13}}>{s.owner || s.ownerId || '-'}</div><div style={{fontSize:11,color:'var(--gray-400)'}}>{s.city}</div></td>
-                <td><span className="plan-pill">{s.plan || s.subscriptionPlan || '-'}</span></td>
-                <td><TierBadge tier={s.tier}/></td>
-                <td>{s.rating ? <span><Star size={11} fill="#F59E0B" color="#F59E0B" style={{verticalAlign:-1}}/> {Number(s.rating).toFixed(1)} ({s.ratingCount||0})</span> : '—'}</td>
-                <td style={{fontWeight:700}}>₹{Number(s.salesVolume ?? s.revenue ?? 0).toLocaleString('en-IN')}</td>
-                <td>
-                  <span className={`status-pill ${(s.status||'').toLowerCase()==='active'?'st-active':'st-suspended'}`}>
-                    {(s.status||'').toLowerCase()==='active'?<CheckCircle2 size={11}/>:<XCircle size={11}/>} {s.status}
-                  </span>
-                </td>
-                <td>
-                  <div style={{display:'flex',gap:5}}>
-                    <button className="admin-row-btn"><Eye size={12}/></button>
-                    <button className="admin-row-btn admin-row-btn-danger"><Trash2 size={12}/></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <Pagination page={page} onPageChange={setPageNum} onSizeChange={s=>{setSize(s);setPageNum(0);}}/>
-      </div>
+      )}
     </div>
   );
 }
 
-// ─── Hotels Page ──────────────────────────────────────────────────────────────
-function FullHotelsPage({hotels:init}) {
-  const [hotels,setHotels] = useState(init);
-  const toggleStatus = id => setHotels(prev=>prev.map(h=>h.id!==id?h:{...h,status:h.status==='active'?'inactive':'active'}));
+// ── Admin Shops Page ──────────────────────────────────────────────────────────
+function AdminShopsPage() {
+  const [shops, setShops]   = useState([]);
+  const [search, setSearch] = useState('');
+  const [planF, setPlanF]   = useState('all');
+  const [statF, setStatF]   = useState('all');
+  const [loading, setLoad]  = useState(true);
+  const [error, setErr]     = useState('');
+  const [viewShop, setView] = useState(null);
+  const [page, setPage]     = useState(0);
+  const PAGE_SIZE = 20;
+
+  const load = useCallback(async (pg = 0) => {
+    setLoad(true); setErr('');
+    try {
+      const res = await shopApi.list({ page: pg, size: PAGE_SIZE, search: search || undefined });
+      const d = res.data?.data;
+      setShops(Array.isArray(d) ? d : d?.content || []);
+      setPage(pg);
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Could not load shops.');
+    } finally { setLoad(false); }
+  }, [search]);
+
+  useEffect(() => { load(0); }, [load]);
+
+  const toggleStatus = async (s) => {
+    const next = s.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    try {
+      await shopApi.updateStatus(s.id, next);
+      setShops(prev => prev.map(x => x.id !== s.id ? x : { ...x, status: next }));
+    } catch { load(page); }
+  };
+
+  const STATUS_CLR = { ACTIVE:'#059669', SUSPENDED:'#DC2626', PENDING:'#D97706', CLOSED:'#6B7280' };
+
+  const filtered = shops.filter(s => {
+    if (statF !== 'all' && s.status !== statF) return false;
+    if (planF !== 'all' && (s.subscriptionPlan||'STARTER').toUpperCase() !== planF) return false;
+    return true;
+  });
+
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Hotels & Resorts</h1><p className="page-subtitle">{hotels.length} registered</p></div>
-        <button className="btn-refresh"><Plus size={13}/> Add hotel</button>
+        <div><h1 className="page-title">Shops</h1><p className="page-subtitle">{filtered.length} shops</p></div>
+        <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
       </div>
-      <div className="admin-table-card">
-        <table className="admin-table">
-          <thead><tr><th>Hotel</th><th>Owner</th><th>City</th><th>Rooms</th><th>Plan</th><th>Active requests</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-            {hotels.map(h=>(
-              <tr key={h.id}>
-                <td style={{fontWeight:700}}>{h.name}</td>
-                <td>{h.owner}</td>
-                <td style={{color:'var(--gray-500)'}}>{h.city}</td>
-                <td>{h.rooms}</td>
-                <td><span className="plan-pill">{h.plan}</span></td>
-                <td>{h.requests}</td>
-                <td><span className={`status-pill ${h.status==='active'?'st-active':'st-suspended'}`}>{h.status==='active'?<CheckCircle2 size={11}/>:<XCircle size={11}/>} {h.status}</span></td>
-                <td>
-                  <div style={{display:'flex',gap:5}}>
-                    <button className="admin-row-btn"><Eye size={12}/></button>
-                    <button className="admin-row-btn" onClick={()=>toggleStatus(h.id)}>{h.status==='active'?<Lock size={12}/>:<Unlock size={12}/>}</button>
-                    <button className="admin-row-btn"><Edit2 size={12}/></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
+
+      <div className="admin-filter-bar">
+        <div style={{ position:'relative', flex:1, maxWidth:260 }}>
+          <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)' }}/>
+          <input className="admin-filter-input" style={{ paddingLeft:32 }} placeholder="Search shops…"
+            value={search} onChange={e => setSearch(e.target.value)}/>
+        </div>
+        <select className="admin-filter-select" value={planF} onChange={e => setPlanF(e.target.value)}>
+          <option value="all">All plans</option>
+          {Object.entries(PLANS).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+        <select className="admin-filter-select" value={statF} onChange={e => setStatF(e.target.value)}>
+          <option value="all">All status</option>
+          <option value="ACTIVE">Active</option>
+          <option value="SUSPENDED">Suspended</option>
+          <option value="PENDING">Pending</option>
+        </select>
       </div>
+
+      {loading ? (
+        <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading shops…</div>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead>
+              <tr><th>Shop</th><th>City</th><th>Plan</th><th>Tables</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={7} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No shops found</td></tr>
+              )}
+              {filtered.map(s => {
+                const pi = planInfo(s.subscriptionPlan);
+                return (
+                  <tr key={s.id}>
+                    <td>
+                      <div style={{ fontWeight:700, fontSize:13.5 }}>{s.name}</div>
+                      <div style={{ fontSize:11, color:'var(--gray-400)' }}>{s.phone || s.email || '—'}</div>
+                    </td>
+                    <td style={{ fontSize:13, color:'var(--gray-600)' }}>{s.city || '—'}</td>
+                    <td>
+                      <span style={{ fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:20,
+                        background:pi.bg, color:pi.color }}>{pi.label}</span>
+                    </td>
+                    <td style={{ fontSize:13, textAlign:'center' }}>{s.tableCount || '—'}</td>
+                    <td>
+                      <button className={`toggle-status-btn ${s.status==='ACTIVE'?'tog-active':'tog-suspended'}`}
+                        onClick={() => toggleStatus(s)}>
+                        {s.status==='ACTIVE' ? <ToggleRight size={17}/> : <ToggleLeft size={17}/>}
+                        <span style={{ color: STATUS_CLR[s.status] || '#6B7280' }}>{s.status}</span>
+                      </button>
+                    </td>
+                    <td style={{ fontSize:12, color:'var(--gray-400)' }}>
+                      {s.createdAt ? new Date(s.createdAt).toLocaleDateString('en-IN') : '—'}
+                    </td>
+                    <td>
+                      <div style={{ display:'flex', gap:5 }}>
+                        <button className="admin-row-btn" title="View details" onClick={() => setView(s)}><Eye size={12}/></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Shop detail modal */}
+      {viewShop && (
+        <div className="modal-backdrop" onClick={() => setView(null)}>
+          <div className="modal" style={{ maxWidth:520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{viewShop.name}</h2>
+              <button className="modal-close" onClick={() => setView(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              {[
+                ['Shop ID', viewShop.id],
+                ['Owner ID', viewShop.ownerId],
+                ['Phone', viewShop.phone],
+                ['Email', viewShop.email],
+                ['City', viewShop.city],
+                ['Address', viewShop.address],
+                ['Plan', planInfo(viewShop.subscriptionPlan).label],
+                ['Tables', viewShop.tableCount],
+                ['Min Order', viewShop.minOrderAmount ? `₹${viewShop.minOrderAmount}` : '—'],
+                ['Status', viewShop.status],
+                ['Created', viewShop.createdAt ? new Date(viewShop.createdAt).toLocaleString('en-IN') : '—'],
+              ].map(([label, val]) => (
+                <div key={label} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--gray-100)', fontSize:13 }}>
+                  <span style={{ color:'var(--gray-500)', fontWeight:600 }}>{label}</span>
+                  <span style={{ color:'var(--gray-800)', fontFamily:'monospace', fontSize:12 }}>{val || '—'}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Malls Page ───────────────────────────────────────────────────────────────
-function FullMallsPage({malls:init}) {
-  const [malls,setMalls] = useState(init);
+// ── Admin Hotels Page ─────────────────────────────────────────────────────────
+function AdminHotelsPage() {
+  const [hotels, setHotels] = useState([]);
+  const [loading, setLoad]  = useState(true);
+  const [error, setErr]     = useState('');
+
+  const load = useCallback(async () => {
+    setLoad(true); setErr('');
+    try {
+      const res = await hotelApi.listAll({ size: 100 });
+      const d = res.data?.data;
+      setHotels(Array.isArray(d) ? d : d?.content || []);
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Could not load hotels.');
+    } finally { setLoad(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Malls & Food Courts</h1><p className="page-subtitle">{malls.length} registered</p></div>
-        <button className="btn-refresh"><Plus size={13}/> Add mall</button>
+        <div><h1 className="page-title">Hotels</h1><p className="page-subtitle">{hotels.length} hotels</p></div>
+        <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
       </div>
-      <div className="admin-table-card">
-        <table className="admin-table">
-          <thead><tr><th>Mall</th><th>Admin</th><th>City</th><th>Vendors</th><th>Plan</th><th>Orders today</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-            {malls.map(m=>(
-              <tr key={m.id}>
-                <td style={{fontWeight:700}}>{m.name}</td>
-                <td>{m.admin}</td>
-                <td style={{color:'var(--gray-500)'}}>{m.city}</td>
-                <td>{m.vendors}</td>
-                <td><span className="plan-pill">{m.plan}</span></td>
-                <td style={{fontWeight:600}}>{m.orders}</td>
-                <td><span className={`status-pill ${m.status==='active'?'st-active':'st-suspended'}`}>{m.status==='active'?<CheckCircle2 size={11}/>:<XCircle size={11}/>} {m.status}</span></td>
-                <td><div style={{display:'flex',gap:5}}><button className="admin-row-btn"><Eye size={12}/></button><button className="admin-row-btn"><Edit2 size={12}/></button></div></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
+      {loading ? (
+        <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading hotels…</div>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead>
+              <tr><th>Hotel</th><th>Location</th><th>Phone</th><th>Services</th><th>Check-in / out</th><th>Owner ID</th></tr>
+            </thead>
+            <tbody>
+              {hotels.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No hotels registered</td></tr>
+              )}
+              {hotels.map(h => (
+                <tr key={h.id}>
+                  <td><div style={{ fontWeight:700, fontSize:13.5 }}>{h.name}</div></td>
+                  <td style={{ fontSize:13, color:'var(--gray-600)' }}>{h.address || '—'}</td>
+                  <td style={{ fontSize:13 }}>{h.phone || '—'}</td>
+                  <td style={{ fontSize:12 }}>
+                    {(h.enabledServices || []).map(s => (
+                      <span key={s} style={{ marginRight:4, fontSize:10, padding:'2px 6px', background:'#EDE9FE', color:'#7C3AED', borderRadius:10, fontWeight:600 }}>{s}</span>
+                    ))}
+                  </td>
+                  <td style={{ fontSize:12, color:'var(--gray-500)' }}>{h.checkInTime || '—'} / {h.checkOutTime || '—'}</td>
+                  <td style={{ fontSize:11, fontFamily:'monospace', color:'var(--gray-400)' }}>{h.ownerId?.slice(0,8)}…</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Reports ──────────────────────────────────────────────────────────────────
-function AdminReports() {
+// ── Admin Malls Page ──────────────────────────────────────────────────────────
+function AdminMallsPage() {
+  const [malls, setMalls]   = useState([]);
+  const [loading, setLoad]  = useState(true);
+  const [error, setErr]     = useState('');
+
+  const load = useCallback(async () => {
+    setLoad(true); setErr('');
+    try {
+      const res = await mallApi.listAll();
+      const d = res.data?.data;
+      setMalls(Array.isArray(d) ? d : []);
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Could not load malls.');
+    } finally { setLoad(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Platform Reports</h1></div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
-        {['Revenue by city','Top shops by GMV','Signups trend','Plan distribution','QR scan heatmap','Churn analysis'].map(r=>(
-          <div key={r} className="admin-chart-card" style={{minHeight:120,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10}}>
-            <BarChart2 size={24} style={{color:'var(--gray-300)'}}/>
-            <div style={{fontSize:13,fontWeight:600,color:'var(--gray-600)'}}>{r}</div>
-            <button className="btn-refresh" style={{fontSize:12}}><Download size={12}/> Export CSV</button>
+      <div className="page-header">
+        <div><h1 className="page-title">Malls</h1><p className="page-subtitle">{malls.length} malls</p></div>
+        <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
+      </div>
+      {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
+      {loading ? (
+        <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading malls…</div>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead>
+              <tr><th>Mall</th><th>City</th><th>Phone</th><th>Commission</th><th>Admin ID</th><th>Created</th></tr>
+            </thead>
+            <tbody>
+              {malls.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No malls registered</td></tr>
+              )}
+              {malls.map(m => (
+                <tr key={m.id}>
+                  <td><div style={{ fontWeight:700, fontSize:13.5 }}>{m.name}</div></td>
+                  <td style={{ fontSize:13, color:'var(--gray-600)' }}>{m.city || '—'}</td>
+                  <td style={{ fontSize:13 }}>{m.phone || '—'}</td>
+                  <td style={{ fontSize:13 }}>{m.commissionPercent != null ? `${m.commissionPercent}%` : '—'}</td>
+                  <td style={{ fontSize:11, fontFamily:'monospace', color:'var(--gray-400)' }}>{m.adminId?.slice(0,8)}…</td>
+                  <td style={{ fontSize:12, color:'var(--gray-400)' }}>{m.createdAt ? new Date(m.createdAt).toLocaleDateString('en-IN') : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Admin Suppliers Page ──────────────────────────────────────────────────────
+function AdminSuppliersPage() {
+  const [suppliers, setSuppliers] = useState([]);
+  const [loading, setLoad]        = useState(true);
+  const [error, setErr]           = useState('');
+
+  const load = useCallback(async () => {
+    setLoad(true); setErr('');
+    try {
+      const res = await authApi.getUsers({ size: 200 });
+      const d = res.data?.data;
+      const all = Array.isArray(d) ? d : d?.content || [];
+      setSuppliers(all.filter(u => u.role?.toUpperCase() === 'SUPPLIER'));
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Could not load suppliers.');
+    } finally { setLoad(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const toggleStatus = async (u) => {
+    const next = u.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+    try {
+      await authApi.updateStatus(u.id, next);
+      setSuppliers(prev => prev.map(x => x.id !== u.id ? x : { ...x, status: next }));
+    } catch { load(); }
+  };
+
+  return (
+    <div>
+      <div className="page-header">
+        <div><h1 className="page-title">Suppliers</h1><p className="page-subtitle">{suppliers.length} suppliers</p></div>
+        <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
+      </div>
+      {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
+      {loading ? (
+        <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading suppliers…</div>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead>
+              <tr><th>Supplier</th><th>Phone</th><th>Shop ID</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {suppliers.length === 0 && (
+                <tr><td colSpan={5} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No suppliers registered</td></tr>
+              )}
+              {suppliers.map(u => (
+                <tr key={u.id}>
+                  <td>
+                    <div style={{ fontWeight:700, fontSize:13.5 }}>{u.name}</div>
+                    <div style={{ fontSize:11.5, color:'var(--gray-400)' }}>{u.email}</div>
+                  </td>
+                  <td style={{ fontSize:13 }}>{u.phone || '—'}</td>
+                  <td style={{ fontSize:11, fontFamily:'monospace', color:'var(--gray-400)' }}>{u.shopId?.slice(0,8) || '—'}</td>
+                  <td>
+                    <button className={`toggle-status-btn ${u.status==='ACTIVE'?'tog-active':'tog-suspended'}`} onClick={() => toggleStatus(u)}>
+                      {u.status==='ACTIVE' ? <ToggleRight size={17}/> : <ToggleLeft size={17}/>} {u.status}
+                    </button>
+                  </td>
+                  <td>
+                    <div style={{ display:'flex', gap:5 }}>
+                      <button className="admin-row-btn" title="View"><Eye size={12}/></button>
+                      <button className="admin-row-btn admin-row-btn-danger" title="Delete"
+                        onClick={() => authApi.deleteUser(u.id).then(() => setSuppliers(p => p.filter(x => x.id !== u.id))).catch(() => {})}>
+                        <Trash2 size={12}/>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Admin Orders Page ─────────────────────────────────────────────────────────
+function AdminOrdersPage() {
+  const [orders, setOrders] = useState([]);
+  const [search, setSearch] = useState('');
+  const [statF, setStatF]   = useState('all');
+  const [loading, setLoad]  = useState(true);
+  const [error, setErr]     = useState('');
+  const [page, setPage]     = useState(0);
+  const PAGE_SIZE = 30;
+
+  const load = useCallback(async (pg = 0) => {
+    setLoad(true); setErr('');
+    try {
+      const res = await orderApi.listAll({ page: pg, size: PAGE_SIZE });
+      const d = res.data?.data;
+      setOrders(Array.isArray(d) ? d : d?.content || []);
+      setPage(pg);
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Could not load orders.');
+    } finally { setLoad(false); }
+  }, []);
+
+  useEffect(() => { load(0); }, [load]);
+
+  const STATUS_CLR = { PENDING:'#D97706',ACCEPTED:'#2563EB',PREPARING:'#7C3AED',READY:'#059669',DELIVERED:'#059669',CANCELLED:'#DC2626',COMPLETED:'#059669' };
+  const STATUS_BG  = { PENDING:'#FEF3C7',ACCEPTED:'#DBEAFE',PREPARING:'#EDE9FE',READY:'#DCFCE7',DELIVERED:'#DCFCE7',CANCELLED:'#FEE2E2',COMPLETED:'#DCFCE7' };
+
+  const filtered = orders.filter(o => {
+    if (statF !== 'all' && o.status !== statF) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return [o.orderNumber, o.shopId, o.customerName, o.customerPhone].some(f => f?.toLowerCase().includes(q));
+    }
+    return true;
+  });
+
+  return (
+    <div>
+      <div className="page-header">
+        <div><h1 className="page-title">Orders</h1><p className="page-subtitle">Platform-wide · {filtered.length} shown</p></div>
+        <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
+      </div>
+      {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
+
+      <div className="admin-filter-bar">
+        <div style={{ position:'relative', flex:1, maxWidth:280 }}>
+          <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)' }}/>
+          <input className="admin-filter-input" style={{ paddingLeft:32 }} placeholder="Order #, shop, customer…"
+            value={search} onChange={e => setSearch(e.target.value)}/>
+        </div>
+        <select className="admin-filter-select" value={statF} onChange={e => setStatF(e.target.value)}>
+          <option value="all">All status</option>
+          {['PENDING','ACCEPTED','PREPARING','READY','DELIVERED','COMPLETED','CANCELLED'].map(s =>
+            <option key={s} value={s}>{s}</option>)}
+        </select>
+        <div style={{ display:'flex', gap:6 }}>
+          <button className="admin-row-btn" onClick={() => setPage(p => Math.max(0, p-1))} disabled={page === 0}><ChevronLeft size={14}/></button>
+          <span style={{ fontSize:12, color:'var(--gray-500)', alignSelf:'center' }}>Page {page+1}</span>
+          <button className="admin-row-btn" onClick={() => load(page+1)}><ChevronRight size={14}/></button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading orders…</div>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead>
+              <tr><th>Order</th><th>Shop</th><th>Customer</th><th>Type</th><th>Total</th><th>Status</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={7} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No orders found</td></tr>
+              )}
+              {filtered.map(o => (
+                <tr key={o.id}>
+                  <td style={{ fontFamily:'monospace', fontSize:12, fontWeight:700 }}>#{o.orderNumber}</td>
+                  <td style={{ fontSize:11, color:'var(--gray-500)', fontFamily:'monospace' }}>{o.shopId?.slice(0,8)}…</td>
+                  <td>
+                    <div style={{ fontSize:13, fontWeight:600 }}>{o.customerName || '—'}</div>
+                    <div style={{ fontSize:11, color:'var(--gray-400)' }}>{o.customerPhone || ''}</div>
+                  </td>
+                  <td style={{ fontSize:12, color:'var(--gray-500)' }}>{o.type || '—'}</td>
+                  <td style={{ fontWeight:700, fontSize:13 }}>₹{Number(o.totalAmount||0).toLocaleString('en-IN')}</td>
+                  <td>
+                    <span style={{ fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:20,
+                      background: STATUS_BG[o.status] || '#F3F4F6',
+                      color: STATUS_CLR[o.status] || '#6B7280' }}>{o.status}</span>
+                  </td>
+                  <td style={{ fontSize:12, color:'var(--gray-400)' }}>
+                    {o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN') : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Admin Payments Page ───────────────────────────────────────────────────────
+function AdminPaymentsPage() {
+  const [payments, setPayments] = useState([]);
+  const [statF, setStatF]       = useState('all');
+  const [loading, setLoad]      = useState(true);
+  const [error, setErr]         = useState('');
+  const [page, setPage]         = useState(0);
+  const PAGE_SIZE = 30;
+
+  const load = useCallback(async (pg = 0) => {
+    setLoad(true); setErr('');
+    try {
+      const res = await paymentApi.listAll({ page: pg, size: PAGE_SIZE });
+      const d = res.data?.data;
+      setPayments(Array.isArray(d) ? d : d?.content || []);
+      setPage(pg);
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Could not load payments.');
+    } finally { setLoad(false); }
+  }, []);
+
+  useEffect(() => { load(0); }, [load]);
+
+  const STATUS_CLR = { PENDING:'#D97706', CAPTURED:'#059669', PAID:'#059669', FAILED:'#DC2626', REFUNDED:'#6B7280', CASH:'#7C3AED' };
+  const STATUS_BG  = { PENDING:'#FEF3C7', CAPTURED:'#DCFCE7', PAID:'#DCFCE7', FAILED:'#FEE2E2', REFUNDED:'#F3F4F6', CASH:'#EDE9FE' };
+
+  const filtered = statF === 'all' ? payments : payments.filter(p => p.status === statF);
+
+  return (
+    <div>
+      <div className="page-header">
+        <div><h1 className="page-title">Payments</h1><p className="page-subtitle">Platform-wide · {filtered.length} shown</p></div>
+        <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
+      </div>
+      {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
+
+      <div className="admin-filter-bar">
+        <select className="admin-filter-select" value={statF} onChange={e => setStatF(e.target.value)}>
+          <option value="all">All status</option>
+          {['PENDING','CAPTURED','PAID','FAILED','REFUNDED','CASH'].map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <div style={{ display:'flex', gap:6, marginLeft:'auto' }}>
+          <button className="admin-row-btn" onClick={() => load(Math.max(0, page-1))} disabled={page === 0}><ChevronLeft size={14}/></button>
+          <span style={{ fontSize:12, color:'var(--gray-500)', alignSelf:'center' }}>Page {page+1}</span>
+          <button className="admin-row-btn" onClick={() => load(page+1)}><ChevronRight size={14}/></button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading payments…</div>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead>
+              <tr><th>Payment ID</th><th>Shop</th><th>Amount</th><th>Gateway</th><th>Status</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No payments found</td></tr>
+              )}
+              {filtered.map(p => (
+                <tr key={p.id}>
+                  <td style={{ fontFamily:'monospace', fontSize:11, color:'var(--gray-600)' }}>{p.paymentId || p.id?.slice(0,12)}</td>
+                  <td style={{ fontSize:11, fontFamily:'monospace', color:'var(--gray-400)' }}>{p.shopId?.slice(0,8)}…</td>
+                  <td style={{ fontWeight:700, fontSize:14 }}>₹{Number(p.amount||0).toLocaleString('en-IN')}</td>
+                  <td style={{ fontSize:12, color:'var(--gray-500)' }}>{p.gateway || 'RAZORPAY'}</td>
+                  <td>
+                    <span style={{ fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:20,
+                      background: STATUS_BG[p.status] || '#F3F4F6',
+                      color: STATUS_CLR[p.status] || '#6B7280' }}>{p.status}</span>
+                  </td>
+                  <td style={{ fontSize:12, color:'var(--gray-400)' }}>
+                    {p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Admin Subscription Management ─────────────────────────────────────────────
+// Admin manages OTHER shops' subscriptions — admin has no personal subscription
+function AdminSubscriptionManagement() {
+  const [shops, setShops]         = useState([]);
+  const [loading, setLoad]        = useState(true);
+  const [error, setErr]           = useState('');
+  const [planFilter, setPlanFilter]= useState('all');
+  const [search, setSearch]       = useState('');
+  const [changePlan, setChangePlan]= useState(null); // { shop, newPlan }
+  const [toast, setToast]         = useState('');
+
+  const load = useCallback(async () => {
+    setLoad(true); setErr('');
+    try {
+      const res = await shopApi.list({ size: 200 });
+      const d = res.data?.data;
+      setShops(Array.isArray(d) ? d : d?.content || []);
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Could not load shops.');
+    } finally { setLoad(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+
+  const savePlan = async () => {
+    if (!changePlan) return;
+    try {
+      await shopApi.update(changePlan.shop.id, { subscriptionPlan: changePlan.newPlan });
+      setShops(prev => prev.map(s => s.id !== changePlan.shop.id ? s : { ...s, subscriptionPlan: changePlan.newPlan }));
+      showToast(`Plan updated to ${planInfo(changePlan.newPlan).label} for ${changePlan.shop.name}`);
+    } catch { showToast('Failed to update plan'); }
+    setChangePlan(null);
+  };
+
+  const sendReminder = (shop) => {
+    showToast(`Payment reminder sent to ${shop.name} (${shop.email || shop.phone || 'owner'})`);
+  };
+
+  const filtered = shops.filter(s => {
+    const plan = (s.subscriptionPlan || 'STARTER').toUpperCase();
+    if (planFilter !== 'all' && plan !== planFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return [s.name, s.city, s.email, s.phone].some(f => f?.toLowerCase().includes(q));
+    }
+    return true;
+  });
+
+  // KPIs
+  const total    = shops.length;
+  const paid     = shops.filter(s => ['GROWTH','BUSINESS','ENTERPRISE'].includes((s.subscriptionPlan||'').toUpperCase())).length;
+  const free     = shops.filter(s => !s.subscriptionPlan || s.subscriptionPlan.toUpperCase() === 'STARTER').length;
+  const suspended= shops.filter(s => s.status === 'SUSPENDED').length;
+  const mrr      = shops.reduce((acc, s) => acc + (planInfo(s.subscriptionPlan).price || 0), 0);
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ position:'fixed', bottom:24, right:24, background:'#1F2937', color:'white', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
+          ✓ {toast}
+        </div>
+      )}
+
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Subscription Management</h1>
+          <p className="page-subtitle">Manage plans, billing & reminders for all shops</p>
+        </div>
+        <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
+        {[
+          { label:'Total shops',      value: total,            icon: Store,    color:'#2563EB', bg:'#DBEAFE' },
+          { label:'Paid subscribers', value: paid,             icon: BadgeCheck,color:'#059669', bg:'#DCFCE7' },
+          { label:'Free (Starter)',   value: free,             icon: Users,    color:'#D97706', bg:'#FEF3C7' },
+          { label:'MRR (est.)',       value:`₹${mrr.toLocaleString('en-IN')}`, icon: TrendingUp, color:'#7C3AED', bg:'#EDE9FE' },
+        ].map(k => (
+          <div key={k.label} className="admin-kpi-card" style={{ textAlign:'left' }}>
+            <div style={{ width:36, height:36, borderRadius:9, background:k.bg, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 }}>
+              <k.icon size={17} color={k.color}/>
+            </div>
+            <div style={{ fontSize:22, fontWeight:700, color:'var(--gray-900)' }}>{k.value}</div>
+            <div style={{ fontSize:12, color:'var(--gray-500)', marginTop:2 }}>{k.label}</div>
           </div>
         ))}
       </div>
+
+      {/* Filters */}
+      <div className="admin-filter-bar">
+        <div style={{ position:'relative', flex:1, maxWidth:260 }}>
+          <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)' }}/>
+          <input className="admin-filter-input" style={{ paddingLeft:32 }} placeholder="Search shops…"
+            value={search} onChange={e => setSearch(e.target.value)}/>
+        </div>
+        <select className="admin-filter-select" value={planFilter} onChange={e => setPlanFilter(e.target.value)}>
+          <option value="all">All plans</option>
+          {Object.entries(PLANS).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+      </div>
+
+      {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
+
+      {loading ? (
+        <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading shops…</div>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead>
+              <tr><th>Shop</th><th>City</th><th>Plan</th><th>Status</th><th>Tables</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No shops found</td></tr>
+              )}
+              {filtered.map(s => {
+                const pi = planInfo(s.subscriptionPlan);
+                return (
+                  <tr key={s.id}>
+                    <td>
+                      <div style={{ fontWeight:700, fontSize:13.5 }}>{s.name}</div>
+                      <div style={{ fontSize:11, color:'var(--gray-400)' }}>{s.email || s.phone || '—'}</div>
+                    </td>
+                    <td style={{ fontSize:13, color:'var(--gray-600)' }}>{s.city || '—'}</td>
+                    <td>
+                      <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
+                        background:pi.bg, color:pi.color }}>
+                        {pi.label}
+                        {pi.price > 0 && <span style={{ fontWeight:400, marginLeft:4 }}>₹{pi.price}/mo</span>}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize:11, fontWeight:700, color: s.status==='ACTIVE'?'#059669':'#DC2626' }}>
+                        {s.status === 'ACTIVE' ? '● Active' : '● Suspended'}
+                      </span>
+                    </td>
+                    <td style={{ fontSize:13, textAlign:'center' }}>{s.tableCount || '—'}</td>
+                    <td>
+                      <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                        <button className="admin-row-btn" title="Change plan"
+                          onClick={() => setChangePlan({ shop: s, newPlan: (s.subscriptionPlan||'STARTER').toUpperCase() })}
+                          style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#2563EB' }}>
+                          <Zap size={11}/> Plan
+                        </button>
+                        <button className="admin-row-btn" title="Send payment reminder"
+                          onClick={() => sendReminder(s)}
+                          style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#D97706' }}>
+                          <Send size={11}/> Remind
+                        </button>
+                        <button className="admin-row-btn" title="View invoices"
+                          style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#7C3AED' }}>
+                          <Download size={11}/> Invoice
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Change Plan Modal */}
+      {changePlan && (
+        <div className="modal-backdrop" onClick={() => setChangePlan(null)}>
+          <div className="modal" style={{ maxWidth:440 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Change plan — {changePlan.shop.name}</h2>
+              <button className="modal-close" onClick={() => setChangePlan(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {Object.entries(PLANS).map(([key, pl]) => (
+                  <button key={key}
+                    onClick={() => setChangePlan(p => ({ ...p, newPlan: key }))}
+                    style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                      padding:'12px 16px', borderRadius:10, border:`2px solid ${changePlan.newPlan === key ? pl.color : 'var(--gray-200)'}`,
+                      background: changePlan.newPlan === key ? pl.bg : 'white',
+                      cursor:'pointer', textAlign:'left' }}>
+                    <div>
+                      <div style={{ fontWeight:700, color:pl.color }}>{pl.label}</div>
+                      <div style={{ fontSize:12, color:'var(--gray-500)' }}>
+                        {pl.price === 0 ? (key === 'ENTERPRISE' ? 'Custom pricing' : 'Free') : `₹${pl.price}/month`}
+                      </div>
+                    </div>
+                    {changePlan.newPlan === key && <CheckCircle2 size={18} color={pl.color}/>}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setChangePlan(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={savePlan}>Save plan</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Admin Settings ───────────────────────────────────────────────────────────
+// ── Admin Reports ─────────────────────────────────────────────────────────────
+function AdminReports() {
+  const [stats, setStats]  = useState(null);
+  const [loading, setLoad] = useState(true);
+
+  useEffect(() => {
+    reportApi.getPlatform()
+      .then(r => setStats(r.data?.data))
+      .catch(() => {})
+      .finally(() => setLoad(false));
+  }, []);
+
+  const fmt  = n => Number(n || 0).toLocaleString('en-IN');
+  const fmtC = n => `₹${(Number(n || 0) / 10000000).toFixed(2)}Cr`;
+
+  const CARDS = stats ? [
+    { label: 'Total shops (active)',   value: fmt(stats.activeShops || 0) },
+    { label: 'Total orders (all time)',value: fmt(stats.totalOrders || 0) },
+    { label: 'Total revenue',          value: fmtC(stats.totalRevenue || 0) },
+    { label: "Today's orders",         value: fmt(stats.todayOrders || 0) },
+    { label: "Today's revenue",        value: `₹${fmt(stats.todayRevenue || 0)}` },
+    { label: 'Avg order value',        value: `₹${fmt(stats.avgOrderValue || 0)}` },
+  ] : [];
+
+  return (
+    <div>
+      <div className="page-header"><h1 className="page-title">Platform Reports</h1></div>
+      {loading ? (
+        <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading…</div>
+      ) : stats ? (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
+          {CARDS.map(c => (
+            <div key={c.label} className="admin-chart-card" style={{ textAlign:'center' }}>
+              <div style={{ fontSize:26, fontWeight:700, color:'var(--gray-900)' }}>{c.value}</div>
+              <div style={{ fontSize:13, color:'var(--gray-500)', marginTop:4 }}>{c.label}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="demo-notice">Connect backend to see live platform analytics.</div>
+      )}
+    </div>
+  );
+}
+
+// ── Admin Settings ────────────────────────────────────────────────────────────
 function AdminSettings() {
   const { lang } = useLang();
+  const sections = [
+    { title: 'Platform settings', fields: ['Platform name', 'Support email', 'Default currency', 'Time zone'] },
+    { title: 'Payment gateway',   fields: ['Razorpay Key ID', 'Razorpay Secret'] },
+    { title: 'Notifications',     fields: ['Twilio SID', 'WhatsApp API key', 'SMTP host', 'SMTP user'] },
+  ];
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:20}}>
-      <div className="page-header"><h1 className="page-title">{t('settings',lang)}</h1></div>
-      {[
-        {title:'Platform settings', fields:['Platform name','Support email','Default currency','Time zone']},
-        {title:'Payment gateway',   fields:['Razorpay Key ID','Razorpay Secret','PhonePe Merchant ID']},
-        {title:'Notification',      fields:['SMTP host','SMTP user','Twilio SID','WhatsApp API key']},
-      ].map(section=>(
-        <div key={section.title} className="admin-chart-card">
-          <h3 style={{marginBottom:16}}>{section.title}</h3>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-            {section.fields.map(f=>(
+    <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      <div className="page-header"><h1 className="page-title">{t('settings', lang)}</h1></div>
+      {sections.map(s => (
+        <div key={s.title} className="admin-chart-card">
+          <h3 style={{ marginBottom:16 }}>{s.title}</h3>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            {s.fields.map(f => (
               <div key={f} className="form-field">
                 <label className="form-label">{f}</label>
-                <input className="form-input" placeholder={f}/>
+                <input className="form-input" placeholder={`Enter ${f.toLowerCase()}`}/>
               </div>
             ))}
           </div>
-          <div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}>
-            <button className="btn btn-primary">{t('save',lang)}</button>
+          <div style={{ marginTop:14, display:'flex', justifyContent:'flex-end' }}>
+            <button className="btn btn-primary">Save</button>
           </div>
         </div>
       ))}
@@ -558,12 +1160,12 @@ function AdminSettings() {
   );
 }
 
-function AdminStub({label,icon:Icon}) {
+function AdminStub({ label, icon: Icon }) {
   return (
     <div className="admin-stub">
-      <div className="admin-stub-icon">{Icon&&<Icon size={28}/>}</div>
+      <div className="admin-stub-icon">{Icon && <Icon size={28}/>}</div>
       <h2>{label}</h2>
-      <p>Full implementation ready — explore Users, Shops, Hotels and Malls tabs.</p>
+      <p>Connect your backend to see live data here.</p>
     </div>
   );
 }

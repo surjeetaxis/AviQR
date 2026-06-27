@@ -29,11 +29,7 @@ public class ShopStaff {
 
     @Builder.Default private Boolean active = true;
 
-    // EAGER: this entity is returned directly from the controller (no DTO) with
-    // open-in-view disabled, so a LAZY collection throws LazyInitializationException
-    // during JSON serialization. The list is small (a handful of permission strings),
-    // so eager-loading it is cheap.
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch=jakarta.persistence.FetchType.EAGER)
     @CollectionTable(name="staff_permissions", joinColumns=@JoinColumn(name="shop_staff_id"))
     @Column(name="permissions")
     @Builder.Default private List<String> permissions = new ArrayList<>();

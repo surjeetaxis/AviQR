@@ -6,12 +6,14 @@ import in.aviqr.auth.repository.*;
 import in.aviqr.auth.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 
@@ -24,6 +26,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditService;
+    private final RabbitTemplate rabbit;
 
     // Dev convenience only — application-production.properties forces this to false,
     // so production always verifies the real OTP that was generated and sent via SMS.
@@ -50,6 +53,13 @@ public class AuthService {
 
         user = userRepo.save(user);
         auditService.log("USER_REGISTERED", user.getId().toString(), "User registered: " + user.getEmail());
+
+        // Publish welcome email event to notification-service
+        try {
+            rabbit.convertAndSend("aviqr.users", "user.registered",
+                Map.of("email", user.getEmail(), "name", user.getName(),
+                       "role",  user.getRole().name()));
+        } catch (Exception e) { log.warn("Failed to publish user.registered event: {}", e.getMessage()); }
 
         return buildAuthResponse(user);
     }
