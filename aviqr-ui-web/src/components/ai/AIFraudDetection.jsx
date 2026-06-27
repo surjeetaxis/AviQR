@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Shield, AlertTriangle, CheckCircle, XCircle, Sparkles } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle, XCircle, Sparkles, WifiOff, Zap } from 'lucide-react';
 import { callAIJson } from './aiClient.js';
+import { fraudFallback } from './aiFallback.js';
 
 const SYSTEM = `You are a fraud detection AI for AviQR restaurant platform. Analyse order/user data for suspicious patterns.
 
@@ -26,17 +27,26 @@ const DEMO_ORDERS = [
 ];
 
 export default function AIFraudDetection() {
-  const [result, setResult]   = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [result, setResult]     = useState(null);
+  const [loading, setLoading]   = useState(false);
   const [selOrder, setSelOrder] = useState(DEMO_ORDERS[0]);
+  const [aiOffline, setAiOffline] = useState(false);
 
   const analyse = async () => {
     setLoading(true);
-    const r = await callAIJson(SYSTEM,
-      `Analyse this order for fraud:\n${JSON.stringify(selOrder, null, 2)}\n\nContext: Order 1 and 2 are from same phone, same table, same amount within 3 minutes.`);
-    setResult(r);
+    try {
+      const r = await callAIJson(SYSTEM,
+        `Analyse this order for fraud:\n${JSON.stringify(selOrder, null, 2)}\n\nContext: Order 1 and 2 are from same phone, same table, same amount within 3 minutes.`);
+      if (r) { setResult(r); setAiOffline(false); }
+      else { setResult(fraudFallback(selOrder)); setAiOffline(true); }
+    } catch {
+      setResult(fraudFallback(selOrder));
+      setAiOffline(true);
+    }
     setLoading(false);
   };
+
+  const analyseOffline = () => { setResult(fraudFallback(selOrder)); setAiOffline(true); };
 
   const riskColor = l => l==='high'?'#DC2626':l==='medium'?'#D97706':'#059669';
   const riskBg    = l => l==='high'?'#FEE2E2':l==='medium'?'#FEF3C7':'#DCFCE7';
@@ -74,10 +84,23 @@ export default function AIFraudDetection() {
         </div>
       </div>
 
-      <button onClick={analyse} disabled={loading}
-        style={{ width:'100%', padding:'11px', fontSize:14, fontWeight:600, background:'var(--red)', color:'white', border:'none', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:20 }}>
-        <Sparkles size={15}/> {loading ? 'Analysing…' : 'Analyse for fraud'}
-      </button>
+      {aiOffline && (
+        <div style={{ background:'#FEF3C7', border:'1px solid #FDE68A', borderRadius:8, padding:'8px 14px', marginBottom:12, fontSize:12, color:'#92400E', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ display:'flex', alignItems:'center', gap:6 }}><WifiOff size={12}/> AI offline — using rule-based fraud detection</span>
+          <button onClick={analyse} style={{ fontSize:11, background:'none', border:'1px solid #D97706', color:'#92400E', padding:'3px 10px', borderRadius:6, cursor:'pointer' }}>Retry AI</button>
+        </div>
+      )}
+
+      <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+        <button onClick={analyse} disabled={loading}
+          style={{ flex:1, padding:'11px', fontSize:14, fontWeight:600, background:'var(--red)', color:'white', border:'none', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+          <Sparkles size={15}/> {loading ? 'Analysing…' : 'Analyse for fraud'}
+        </button>
+        <button onClick={analyseOffline} disabled={loading} title="Rule-based checks — no AI required"
+          style={{ padding:'11px 16px', fontSize:13, fontWeight:600, background:'var(--gray-100)', color:'var(--gray-600)', border:'1px solid var(--gray-200)', borderRadius:10, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
+          <Zap size={14}/> Without AI
+        </button>
+      </div>
 
       {result && (
         <>

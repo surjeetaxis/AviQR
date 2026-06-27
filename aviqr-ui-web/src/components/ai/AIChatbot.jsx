@@ -1,22 +1,38 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Phone, RefreshCw, Sparkles } from 'lucide-react';
+import { MessageSquare, Send, Phone, RefreshCw, Sparkles, WifiOff } from 'lucide-react';
 import { callAIStream } from './aiClient.js';
+import { chatbotFallback } from './aiFallback.js';
 
-const SYSTEM = `You are a friendly customer support chatbot for AviQR — a restaurant ordering platform.
+const SYSTEM = `You are the friendly menu and order assistant for an AviQR restaurant, available via the QR menu. Your personality: warm, helpful, knowledgeable about the food — like a great waiter who knows the menu inside-out but is never pushy.
 
-You can help customers with:
-- Order status and tracking
-- Menu questions (ingredients, allergens, veg/non-veg)
-- Payment questions and refunds
-- Restaurant information (hours, location, contact)
-- Promotions and offers
-- How to place or modify an order
+WHAT YOU CAN HELP WITH (CUS-1):
+• Explaining what a dish is and how it tastes
+• Finding veg/non-veg options ("Show me only veg")
+• Dietary needs ("I'm Jain — what can I eat?", "Does this have dairy?")
+• Price-based questions ("What's good under ₹200?")
+• Spice level guidance ("I can't handle spicy food")
+• Portion size ("Is this enough for 2 people?")
+• Recommendations based on mood ("Something light and refreshing")
+• Order status and tracking
 
-Keep responses brief (under 80 words). Be warm and helpful. If a question requires human intervention (refund disputes, allergies, complaints), say "Let me connect you to our team" and offer to take their phone number.
+WHAT YOU CANNOT DO:
+• Process payments — direct to checkout
+• Change prices or apply discounts — direct to cashier
+• Promise delivery times — direct to staff
 
-You speak in English by default but switch languages if customer uses Hindi or another Indian language.`;
+LOYALTY AWARENESS (CUS-2):
+If customer asks about points: "You can earn 1 point for every ₹10 spent. 100 points = ₹10 off your next order. Double points on your birthday month. Milestones: 500 points = free dessert, 1000 = free starter."
+If customer is close to a milestone, mention it enthusiastically.
 
-const QUICK_REPLIES = ['Where is my order?', 'Is this item veg?', 'Can I get a refund?', 'What are today\'s specials?', 'Speak to a human'];
+POST-ORDER FEEDBACK (CUS-3):
+If collecting feedback: ask ONE question at a time. Start with star rating. If 4–5 stars: "What was the highlight?" If 1–3 stars: "What can we do better?" Then: "Was the issue with: Food quality / Wait time / Staff / Something else?" Finally: "Would you recommend us?" (Yes/No/Maybe). Keep tone conversational — "How was it?" not "Please rate your experience."
+
+LANGUAGE: Match the customer — English → English, Hindi → Hindi, Hinglish → Hinglish.
+NEVER make up information about a dish. If unsure about an ingredient, say "Please ask our staff to confirm."
+When a customer decides what they want, say: "Great choice! You can add it by tapping the + button next to [ITEM_NAME]."
+Keep responses brief (under 100 words). Be warm, specific, and genuine.`;
+
+const QUICK_REPLIES = ['What\'s good under ₹200?', 'Show me veg options', 'Is this dish spicy?', 'My order is taking long', 'Speak to a human'];
 
 export default function AIChatbot({ shopId }) {
   const [messages, setMessages] = useState([{
@@ -26,6 +42,7 @@ export default function AIChatbot({ shopId }) {
   const [input, setInput]         = useState('');
   const [loading, setLoading]     = useState(false);
   const [escalated, setEscalated] = useState(false);
+  const [aiOffline, setAiOffline] = useState(false);
   const bottomRef = useRef(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
@@ -59,8 +76,11 @@ export default function AIChatbot({ shopId }) {
             return msgs;
           });
         }, 400);
+      setAiOffline(false);
     } catch {
-      setMessages(prev => { const m=[...prev]; m[m.length-1]={role:'assistant',content:'Sorry, something went wrong. Please try again!'}; return m; });
+      const fallbackReply = chatbotFallback(text);
+      setMessages(prev => { const m=[...prev]; m[m.length-1]={role:'assistant',content:fallbackReply}; return m; });
+      setAiOffline(true);
     }
     setLoading(false);
   };
@@ -75,9 +95,8 @@ export default function AIChatbot({ shopId }) {
           <div style={{ fontSize:16, fontWeight:700 }}>Customer Support Chatbot</div>
           <div style={{ fontSize:12, color:'var(--gray-400)' }}>AI-powered · Multilingual · 24/7</div>
         </div>
-        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#059669', fontWeight:600 }}>
-          <span style={{ width:7, height:7, background:'#059669', borderRadius:'50%', display:'inline-block', animation:'pulse 2s infinite' }}/>
-          Online
+        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:600, color: aiOffline ? '#D97706' : '#059669' }}>
+          {aiOffline ? <><WifiOff size={11}/> FAQ mode</> : <><span style={{ width:7, height:7, background:'#059669', borderRadius:'50%', display:'inline-block', animation:'pulse 2s infinite' }}/>Online</>}
         </div>
       </div>
 

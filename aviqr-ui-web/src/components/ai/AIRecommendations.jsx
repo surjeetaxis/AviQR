@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Sparkles, TrendingUp, Star, Clock, RefreshCw } from 'lucide-react';
+import { Sparkles, TrendingUp, Star, Clock, RefreshCw, WifiOff } from 'lucide-react';
 import { callAIJson } from './aiClient.js';
+import { recommendationsFallback } from './aiFallback.js';
 
 const SYSTEM = `You are an AI recommendation engine for AviQR restaurant platform. Given menu items and order context, generate relevant recommendations.
 
@@ -61,14 +62,21 @@ function RecoCard({ title, icon: Icon, items, color }) {
 }
 
 export default function AIRecommendations({ shopId }) {
-  const [data, setData]       = useState(DEMO);
-  const [loading, setLoading] = useState(false);
-  const [context, setContext] = useState('lunch special, 4 people, ordered Paneer Butter Masala');
+  const [data, setData]         = useState(DEMO);
+  const [loading, setLoading]   = useState(false);
+  const [context, setContext]   = useState('lunch special, 4 people, ordered Paneer Butter Masala');
+  const [aiOffline, setAiOffline] = useState(false);
 
   const generate = async () => {
     setLoading(true);
-    const result = await callAIJson(SYSTEM, `Shop: ${shopId || 'demo restaurant'}\nCurrent cart context: ${context}\nGenerate recommendations for an Indian restaurant.`);
-    if (result) setData(result);
+    try {
+      const result = await callAIJson(SYSTEM, `Shop: ${shopId || 'demo restaurant'}\nCurrent cart context: ${context}\nGenerate recommendations for an Indian restaurant.`);
+      if (result) { setData(result); setAiOffline(false); }
+      else { setData(recommendationsFallback()); setAiOffline(true); }
+    } catch {
+      setData(recommendationsFallback());
+      setAiOffline(true);
+    }
     setLoading(false);
   };
 
@@ -88,6 +96,13 @@ export default function AIRecommendations({ shopId }) {
           <RefreshCw size={12} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}/> {loading ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
+
+      {aiOffline && (
+        <div style={{ background:'#FEF3C7', border:'1px solid #FDE68A', borderRadius:8, padding:'8px 14px', marginBottom:14, fontSize:12, color:'#92400E', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ display:'flex', alignItems:'center', gap:6 }}><WifiOff size={12}/> AI offline — showing curated recommendations</span>
+          <button onClick={generate} style={{ fontSize:11, background:'none', border:'1px solid #D97706', color:'#92400E', padding:'3px 10px', borderRadius:6, cursor:'pointer' }}>Retry AI</button>
+        </div>
+      )}
 
       <div style={{ marginBottom:16, display:'flex', gap:10 }}>
         <input value={context} onChange={e => setContext(e.target.value)}

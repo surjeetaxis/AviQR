@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
-import { Mic, MicOff, Sparkles, ShoppingCart, Volume2 } from 'lucide-react';
+import { Mic, MicOff, Sparkles, ShoppingCart, Volume2, WifiOff } from 'lucide-react';
 import { callAIJson } from './aiClient.js';
+import { voiceFallback } from './aiFallback.js';
 
 const SYSTEM = `You are an AI voice ordering assistant for an Indian restaurant. Given a transcribed voice command, extract the order intent.
 
@@ -24,6 +25,7 @@ export default function AIVoiceOrder() {
   const [cart, setCart]             = useState([]);
   const [result, setResult]         = useState(null);
   const [loading, setLoading]       = useState(false);
+  const [aiOffline, setAiOffline]   = useState(false);
   const [supported] = useState(() => 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
   const recognitionRef = useRef(null);
 
@@ -52,7 +54,15 @@ export default function AIVoiceOrder() {
 
   const processVoice = async (text) => {
     setLoading(true);
-    const r = await callAIJson(SYSTEM, `Voice command: "${text}"\nCurrent cart: ${JSON.stringify(cart)}\nAvailable items: ${MENU_ITEMS.join(', ')}`);
+    let r = null;
+    try {
+      r = await callAIJson(SYSTEM, `Voice command: "${text}"\nCurrent cart: ${JSON.stringify(cart)}\nAvailable items: ${MENU_ITEMS.join(', ')}`);
+      if (r) setAiOffline(false);
+      else { r = voiceFallback(text, cart, MENU_ITEMS); setAiOffline(true); }
+    } catch {
+      r = voiceFallback(text, cart, MENU_ITEMS);
+      setAiOffline(true);
+    }
     if (r) {
       setResult(r);
       if (r.action === 'add_to_cart' && r.items) {
@@ -91,6 +101,12 @@ export default function AIVoiceOrder() {
       {!supported && (
         <div style={{ background:'#FEF3C7', borderRadius:10, padding:'10px 14px', marginBottom:16, fontSize:13, color:'#92400E' }}>
           Voice recognition requires Chrome or Edge browser.
+        </div>
+      )}
+
+      {aiOffline && (
+        <div style={{ background:'#FEF3C7', border:'1px solid #FDE68A', borderRadius:8, padding:'8px 14px', marginBottom:14, fontSize:12, color:'#92400E', display:'flex', alignItems:'center', gap:6 }}>
+          <WifiOff size={12}/> AI offline — using keyword-based order parsing
         </div>
       )}
 

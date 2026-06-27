@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { BarChart2, TrendingUp, Sparkles, RefreshCw } from 'lucide-react';
+import { BarChart2, TrendingUp, Sparkles, RefreshCw, WifiOff, Zap } from 'lucide-react';
 import { callAIStream } from './aiClient.js';
+import { analyticsFallback } from './aiFallback.js';
 
 const SYSTEM = `You are an expert restaurant business analytics AI for AviQR.
 Given order and revenue data, produce a clear, actionable business summary.
@@ -25,9 +26,10 @@ const DEMO_DATA = {
 };
 
 export default function AIAnalytics({ shopId }) {
-  const [report, setReport] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [range, setRange]     = useState('today');
+  const [report, setReport]     = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [range, setRange]       = useState('today');
+  const [aiOffline, setAiOffline] = useState(false);
 
   const generate = async () => {
     setLoading(true);
@@ -46,11 +48,15 @@ New customers: ${d.newCustomers}, Returning: ${d.returnCustomers}`;
     try {
       await callAIStream(SYSTEM, `Analyse this restaurant data and generate a business intelligence report:\n\n${dataStr}`,
         chunk => setReport(prev => prev + chunk), 800);
+      setAiOffline(false);
     } catch {
-      setReport('Could not generate report. Please try again.');
+      setReport(analyticsFallback(DEMO_DATA));
+      setAiOffline(true);
     }
     setLoading(false);
   };
+
+  const generateOffline = () => { setReport(analyticsFallback(DEMO_DATA)); setAiOffline(true); };
 
   // Render markdown-ish output
   const renderReport = (text) => text.split('\n').map((line, i) => {
@@ -87,6 +93,13 @@ New customers: ${d.newCustomers}, Returning: ${d.returnCustomers}`;
         ))}
       </div>
 
+      {aiOffline && (
+        <div style={{ background:'#FEF3C7', border:'1px solid #FDE68A', borderRadius:8, padding:'8px 14px', marginBottom:14, fontSize:12, color:'#92400E', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ display:'flex', alignItems:'center', gap:6 }}><WifiOff size={12}/> AI offline — showing rule-based analysis</span>
+          <button onClick={generate} style={{ fontSize:11, background:'none', border:'1px solid #D97706', color:'#92400E', padding:'3px 10px', borderRadius:6, cursor:'pointer' }}>Retry AI</button>
+        </div>
+      )}
+
       <div style={{ display:'flex', gap:8, marginBottom:16 }}>
         {['today','week','month'].map(r => (
           <button key={r} onClick={() => setRange(r)}
@@ -97,6 +110,10 @@ New customers: ${d.newCustomers}, Returning: ${d.returnCustomers}`;
         <button onClick={generate} disabled={loading}
           style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6, padding:'6px 16px', fontSize:12, fontWeight:600, background:'var(--green)', color:'white', border:'none', borderRadius:8, cursor:'pointer' }}>
           <Sparkles size={12}/> {loading ? 'Generating…' : 'Generate AI Report'}
+        </button>
+        <button onClick={generateOffline} disabled={loading} title="Instant rule-based report — no AI required"
+          style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', fontSize:12, fontWeight:600, background:'var(--gray-100)', color:'var(--gray-600)', border:'1px solid var(--gray-200)', borderRadius:8, cursor:'pointer' }}>
+          <Zap size={12}/> Without AI
         </button>
       </div>
 
