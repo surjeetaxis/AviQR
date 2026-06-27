@@ -10,9 +10,9 @@ import {
   XCircle, Edit2, Menu as MenuIcon, Plus,
   Download, RefreshCw, ToggleLeft, ToggleRight,
   Lock, Unlock, Star, Send, AlertTriangle, ChevronLeft, ChevronRight,
-  BadgeCheck, Clock, Zap, Crown
+  BadgeCheck, Clock, Zap, Crown, ScanLine, ExternalLink
 } from 'lucide-react';
-import { authApi, reportApi, shopApi, hotelApi, mallApi, orderApi, paymentApi } from '../../api/index.js';
+import { authApi, reportApi, shopApi, hotelApi, mallApi, orderApi, paymentApi, qrApi } from '../../api/index.js';
 import '../admin/Admin.css';
 import './AdminExtra.css';
 
@@ -119,7 +119,7 @@ export default function AdminDashboard() {
           {tab === 'suppliers'    && <AdminSuppliersPage/>}
           {tab === 'orders'       && <AdminOrdersPage/>}
           {tab === 'payments'     && <AdminPaymentsPage/>}
-          {tab === 'qrcodes'      && <AdminStub label="QR Codes" icon={QrCode}/>}
+          {tab === 'qrcodes'      && <AdminQRCodesPage/>}
           {tab === 'subscription' && <AdminSubscriptionManagement/>}
           {tab === 'reports'      && <AdminReports/>}
           {tab === 'settings'     && <AdminSettings/>}
@@ -1156,6 +1156,179 @@ function AdminSettings() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Admin QR Codes Page ───────────────────────────────────────────────────────
+function AdminQRCodesPage() {
+  const [codes, setCodes]     = useState([]);
+  const [typeF, setTypeF]     = useState('all');
+  const [activeF, setActiveF] = useState('all');
+  const [loading, setLoad]    = useState(true);
+  const [error, setErr]       = useState('');
+  const [page, setPage]       = useState(0);
+  const [toggling, setToggling] = useState({});
+  const [toast, setToast]     = useState('');
+  const PAGE_SIZE = 30;
+
+  const load = useCallback(async (pg = 0) => {
+    setLoad(true); setErr('');
+    try {
+      const res = await qrApi.listAll({ page: pg, size: PAGE_SIZE });
+      const d = res.data?.data;
+      setCodes(Array.isArray(d) ? d : d?.content || []);
+      setPage(pg);
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Could not load QR codes.');
+    } finally { setLoad(false); }
+  }, []);
+
+  useEffect(() => { load(0); }, [load]);
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+
+  const handleToggle = async (qr) => {
+    setToggling(p => ({ ...p, [qr.id]: true }));
+    try {
+      await qrApi.toggleActive(qr.id, !qr.active);
+      setCodes(prev => prev.map(c => c.id === qr.id ? { ...c, active: !c.active } : c));
+      showToast(`QR "${qr.label}" ${!qr.active ? 'activated' : 'deactivated'}`);
+    } catch {
+      showToast('Failed to update QR status');
+    } finally {
+      setToggling(p => ({ ...p, [qr.id]: false }));
+    }
+  };
+
+  const filtered = codes.filter(c =>
+    (typeF === 'all' || c.type === typeF) &&
+    (activeF === 'all' || (activeF === 'active' ? c.active : !c.active))
+  );
+
+  const totalScans = codes.reduce((s, c) => s + (c.scanCount || 0), 0);
+  const activeCount = codes.filter(c => c.active).length;
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ position:'fixed', top:16, right:20, background:'#1E293B', color:'#fff',
+          padding:'10px 18px', borderRadius:8, zIndex:9999, fontSize:13, fontWeight:500 }}>{toast}</div>
+      )}
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">QR Codes</h1>
+          <p className="page-subtitle">Platform-wide · {codes.length} total · {totalScans.toLocaleString('en-IN')} scans</p>
+        </div>
+        <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:18 }}>
+        {[
+          { label:'Total QR Codes', value: codes.length, icon: QrCode, color:'#7C3AED' },
+          { label:'Active',         value: activeCount,  icon: CheckCircle2, color:'#059669' },
+          { label:'Inactive',       value: codes.length - activeCount, icon: XCircle, color:'#6B7280' },
+          { label:'Total Scans',    value: totalScans,   icon: ScanLine, color:'#D97706' },
+        ].map(s => (
+          <div key={s.label} className="stat-card" style={{ padding:'14px 16px' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <span style={{ fontSize:12, color:'var(--gray-500)' }}>{s.label}</span>
+              <s.icon size={16} style={{ color: s.color }}/>
+            </div>
+            <div style={{ fontSize:22, fontWeight:700, marginTop:4, color:'var(--gray-900)' }}>
+              {typeof s.value === 'number' ? s.value.toLocaleString('en-IN') : s.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
+
+      <div className="admin-filter-bar">
+        <select className="admin-filter-select" value={typeF} onChange={e => setTypeF(e.target.value)}>
+          <option value="all">All types</option>
+          {['SHOP','TABLE','CATEGORY','HOTEL','MALL'].map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select className="admin-filter-select" value={activeF} onChange={e => setActiveF(e.target.value)}>
+          <option value="all">All status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <span style={{ fontSize:12, color:'var(--gray-400)', marginLeft:4 }}>{filtered.length} shown</span>
+        <div style={{ display:'flex', gap:6, marginLeft:'auto' }}>
+          <button className="admin-row-btn" onClick={() => load(Math.max(0, page-1))} disabled={page === 0}><ChevronLeft size={14}/></button>
+          <span style={{ fontSize:12, color:'var(--gray-500)', alignSelf:'center' }}>Page {page+1}</span>
+          <button className="admin-row-btn" onClick={() => load(page+1)} disabled={codes.length < PAGE_SIZE}><ChevronRight size={14}/></button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading QR codes…</div>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead>
+              <tr><th>Code</th><th>Shop</th><th>Label</th><th>Type</th><th>Group</th><th>Scans</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={9} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No QR codes found</td></tr>
+              )}
+              {filtered.map(qr => (
+                <tr key={qr.id}>
+                  <td style={{ fontFamily:'monospace', fontSize:11, fontWeight:700, color:'#7C3AED' }}>{qr.qrCode}</td>
+                  <td style={{ fontSize:11, fontFamily:'monospace', color:'var(--gray-400)' }}>{qr.shopId?.slice(0,10)}…</td>
+                  <td style={{ fontSize:13, color:'var(--gray-800)', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{qr.label || '—'}</td>
+                  <td>
+                    <span style={{ fontSize:11, fontWeight:600, padding:'2px 7px', borderRadius:20,
+                      background: qr.type==='TABLE'?'#DBEAFE': qr.type==='CATEGORY'?'#FEF3C7':'#EDE9FE',
+                      color:      qr.type==='TABLE'?'#1D4ED8': qr.type==='CATEGORY'?'#B45309':'#6D28D9'
+                    }}>{qr.type || 'SHOP'}</span>
+                  </td>
+                  <td style={{ fontSize:12, color:'var(--gray-500)' }}>{qr.groupParam || '—'}</td>
+                  <td style={{ fontWeight:600, fontSize:13 }}>{(qr.scanCount || 0).toLocaleString('en-IN')}</td>
+                  <td>
+                    <span style={{ fontSize:11, fontWeight:600, padding:'3px 8px', borderRadius:20,
+                      background: qr.active ? '#DCFCE7' : '#F3F4F6',
+                      color:      qr.active ? '#059669' : '#6B7280' }}>
+                      {qr.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td style={{ fontSize:12, color:'var(--gray-400)' }}>
+                    {qr.createdAt ? new Date(qr.createdAt).toLocaleDateString('en-IN') : '—'}
+                  </td>
+                  <td>
+                    <div style={{ display:'flex', gap:6 }}>
+                      <button
+                        className="admin-row-btn"
+                        title={qr.active ? 'Deactivate' : 'Activate'}
+                        onClick={() => handleToggle(qr)}
+                        disabled={toggling[qr.id]}
+                        style={{ color: qr.active ? '#DC2626' : '#059669' }}>
+                        {toggling[qr.id] ? <RefreshCw size={13} style={{ animation:'spin 1s linear infinite' }}/> : (qr.active ? <ToggleRight size={14}/> : <ToggleLeft size={14}/>)}
+                      </button>
+                      <a
+                        href={qrApi.imageUrl(qr.qrCode)}
+                        target="_blank" rel="noreferrer"
+                        className="admin-row-btn"
+                        title="Download QR image">
+                        <Download size={13}/>
+                      </a>
+                      <a
+                        href={`/api/v1/qr-codes/r/${qr.qrCode}`}
+                        target="_blank" rel="noreferrer"
+                        className="admin-row-btn"
+                        title="Test QR redirect">
+                        <ExternalLink size={13}/>
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

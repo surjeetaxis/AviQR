@@ -12,15 +12,22 @@ out/
 *.war
 *.ear
 
-# Logs
+# =========================
+# Logs & PIDs
+# =========================
 logs/
 *.log
+*.pid
 
-# Spring Boot
+# =========================
+# Spring Boot — local secrets
+# =========================
 application-local.yml
 application-local.properties
 application-dev.yml
 application-dev.properties
+application-production.yml
+application-production.properties
 .env
 .env.*
 !.env.example
@@ -35,7 +42,6 @@ yarn-error.log*
 pnpm-debug.log*
 
 dist/
-build/
 web-build/
 .expo/
 .expo-shared/
@@ -53,6 +59,13 @@ ios/Podfile.lock
 # Hermes / Metro
 *.hbc
 *.jsbundle
+
+# =========================
+# Playwright test artifacts
+# =========================
+aviqr-ui-tests/playwright-report/
+aviqr-ui-tests/test-results/
+aviqr-ui-tests/screenshots/
 
 # =========================
 # IDE / Editor
@@ -79,8 +92,16 @@ coverage/
 docker-compose.override.yml
 
 # =========================
-# Generated files
+# Generated / Temp files
 # =========================
 *.tmp
 *.bak
 *.swp
+
+# =========================
+# Images & Docs (binary assets)
+# =========================
+*.docx
+*.xlsx
+*.pdf
+Pasted\ image*.png
