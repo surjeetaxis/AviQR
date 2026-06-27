@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import StatCard from '../components/StatCard.jsx';
+import Pagination from '../components/shared/Pagination.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { reportApi } from '../api/index.js';
 import './Reports.css';
@@ -21,7 +22,19 @@ export default function Reports() {
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
 
+  // Paginated daily snapshot history (Reports pagination requirement)
+  const [history,    setHistory]    = useState(null); // Page<ReportSnapshot> | null
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historySize, setHistorySize] = useState(10);
+
   useEffect(() => { load(); }, [range, shopId]);
+
+  useEffect(() => {
+    if (!shopId) return;
+    reportApi.getHistory(shopId, { page: historyPage, size: historySize, sort: 'report_date', dir: 'desc' })
+      .then(res => setHistory(res.data.data))
+      .catch(() => setHistory(null));
+  }, [shopId, historyPage, historySize]);
 
   const load = async () => {
     if (!shopId) { setError('No shop linked to this account'); setLoading(false); return; }
@@ -161,6 +174,33 @@ export default function Reports() {
             }
           </div>
         </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header"><div><div className="card-title">Daily report history</div><div className="card-subtitle">Every day's snapshot, paginated</div></div></div>
+        {!history ? (
+          <p style={{ color:'var(--gray-400)', fontSize:13, padding:'12px 0' }}>No history available</p>
+        ) : (
+          <>
+            <table className="admin-table">
+              <thead><tr><th>Date</th><th>Revenue</th><th>Orders</th><th>Avg order value</th><th>New customers</th><th>Top item</th><th>Peak hour</th></tr></thead>
+              <tbody>
+                {history.content.map((row,i) => (
+                  <tr key={i}>
+                    <td>{row.report_date}</td>
+                    <td style={{fontWeight:700}}>₹{fmt(row.total_revenue)}</td>
+                    <td>{row.total_orders}</td>
+                    <td>₹{fmt(row.avg_order_value)}</td>
+                    <td>{row.new_customers}</td>
+                    <td>{row.top_item}</td>
+                    <td>{row.peak_hour}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <Pagination page={history} onPageChange={setHistoryPage} onSizeChange={s=>{setHistorySize(s);setHistoryPage(0);}}/>
+          </>
+        )}
       </div>
     </div>
   );

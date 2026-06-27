@@ -47,7 +47,7 @@ Redis (gateway rate limiting), RabbitMQ (async notifications/order events).
 |---|---|---|
 | Java (JDK) | 21 | Compiling/running every service |
 | Gradle | bundled (`./gradlew`) | Build tool — no separate install needed |
-| PostgreSQL | 17 | Primary relational store (10 databases) |
+| PostgreSQL | 17 | Primary relational store (11 databases) |
 | MongoDB | 8.0 | Audit/log storage |
 | Redis | 7.4 | Gateway rate limiting, caching |
 | RabbitMQ | 3.13 | Async messaging (notifications, order events) |
@@ -88,16 +88,36 @@ For macOS or Windows, or a fully manual Ubuntu walkthrough, follow
 exact commands per OS, including creating the `aviqr` Postgres role, Mongo
 user, and RabbitMQ user/permissions.
 
-### Database setup
+### Database setup (seed / unseed)
 
-Once Postgres is running, create the 10 databases, schema, and demo data:
+Once Postgres is running, create the 11 databases, schema, and demo data —
+this is the **seed** step:
 
 ```bash
 ./aviqr.sh db-setup
 ```
 
 This runs [`aviqr_setup.sql`](./aviqr_setup.sql) as the `postgres` superuser
-(prompts for confirmation first, since it creates roles/databases).
+(prompts for confirmation first, since it creates the `aviqr` role and 11
+databases). Every shop/hotel/mall in the demo data has a full menu, rooms,
+or vendors respectively, plus matching orders, payments, reviews, and QR
+codes, so every feature has something to look at out of the box.
+
+To wipe it all back out — the **unseed** step — drop the 11 databases:
+
+```bash
+./aviqr.sh db-teardown
+```
+
+This runs [`aviqr_teardown.sql`](./aviqr_teardown.sql) as the `postgres`
+superuser (also prompts first — it's destructive). It drops the databases
+entirely (force-terminating any open connections from running services) but
+leaves the `aviqr` role itself in place. To go from a dirty/partially-seeded
+state back to a clean demo dataset, run `db-teardown` then `db-setup` again.
+
+`db-setup` is **not** safe to re-run on top of an existing install — Postgres
+has no `CREATE DATABASE IF NOT EXISTS`, so it'll fail with "database already
+exists" unless you `db-teardown` first.
 
 ---
 
@@ -119,9 +139,14 @@ This runs [`aviqr_setup.sql`](./aviqr_setup.sql) as the `postgres` superuser
 ./aviqr.sh run auth-service --bg  # run one service in the background
 ```
 
-`run all` starts services in dependency order (registry → gateway → auth →
-business services), pausing between each so Eureka registration completes
-before the next one starts.
+`run all` starts `service-registry` first and waits for Eureka to be healthy
+(everything else needs it), then starts the remaining 14 services in small
+batches — 4 at a time by default, set `AVIQR_START_BATCH_SIZE` to change it
+— polling each batch until it registers before starting the next. Starting
+all 14 at once is tempting but each Spring Boot JVM needs a few hundred MB
+while booting; on a RAM-constrained machine that's enough to trigger the
+Linux OOM killer, which kills services silently with no log line at all. If
+you have RAM to spare, raising the batch size will finish faster.
 
 ```bash
 ./aviqr.sh status                 # who's running, who isn't
@@ -150,7 +175,8 @@ Logs and PID files live in `logs/<service>.log` / `logs/<service>.pid`.
 ./aviqr.sh list                      List all services (port + description)
 ./aviqr.sh check                     Check required software + infra status
 ./aviqr.sh install [--yes]           Show (or run, with --yes) install commands
-./aviqr.sh db-setup                  Run aviqr_setup.sql against local Postgres
+./aviqr.sh db-setup                  Seed: run aviqr_setup.sql against local Postgres
+./aviqr.sh db-teardown               Unseed: drop all 11 AviQR databases
 ./aviqr.sh build [all|<service>]     Build all services, or just one
 ./aviqr.sh clean                     ./gradlew clean
 ./aviqr.sh run all                   Start every service in the background

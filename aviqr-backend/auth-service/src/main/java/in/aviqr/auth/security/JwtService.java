@@ -46,7 +46,11 @@ public class JwtService {
     }
 
     public String generateRefreshToken(UUID userId) {
+        // id: without a random component, two refresh tokens issued for the same
+        // user within the same millisecond (e.g. register immediately followed by
+        // login) would be byte-identical, and refresh_tokens.token is UNIQUE.
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(userId.toString())
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + refreshExpirationMs))

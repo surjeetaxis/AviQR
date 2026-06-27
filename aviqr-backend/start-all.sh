@@ -23,63 +23,78 @@ start_svc() {
   echo $! > "$LOG_DIR/${name}.pid"
 }
 
+# Poll a URL until it reports healthy, instead of sleeping a fixed duration.
+wait_for_url() {
+  local label="$1" url="$2" timeout="${3:-60}"
+  local waited=0
+  while [ "$waited" -lt "$timeout" ]; do
+    if curl -s "$url" 2>/dev/null | grep -q '"status":"UP"'; then
+      echo "   ✓ $label ready (${waited}s)"
+      return 0
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+  echo "   ⚠ $label not confirmed ready after ${timeout}s — continuing anyway"
+  return 1
+}
+
+# Poll Eureka for several services' registration concurrently (round-robin)
+# instead of one-at-a-time, since they're all already starting in parallel
+# in the background — waiting for them sequentially would needlessly serialize
+# what's actually happening at once. Called once per batch below, so wait
+# time is roughly that batch's slowest service, not the sum.
+wait_for_registrations() {
+  local timeout=60 waited=0
+  local pending=("$@")
+  while [ "${#pending[@]}" -gt 0 ] && [ "$waited" -lt "$timeout" ]; do
+    local still_pending=()
+    for svc in "${pending[@]}"; do
+      local app_id; app_id=$(echo "$svc" | tr '[:lower:]' '[:upper:]')
+      if curl -s -H "Accept: application/json" "http://localhost:8761/eureka/apps/$app_id" 2>/dev/null \
+          | grep -q '"status":"UP"'; then
+        echo "   ✓ $svc registered with Eureka (${waited}s)"
+      else
+        still_pending+=("$svc")
+      fi
+    done
+    pending=("${still_pending[@]}")
+    [ "${#pending[@]}" -gt 0 ] && sleep 1
+    waited=$((waited + 1))
+  done
+  for svc in "${pending[@]}"; do
+    echo "   ⚠ $svc not confirmed registered after ${timeout}s — continuing anyway"
+  done
+}
+
 # ── 1. Service Registry — start FIRST, everything depends on it ──────────────
 start_svc "service-registry"
-echo "   Waiting 25s for Eureka to be ready..."
-sleep 25
+wait_for_url "Eureka" "http://localhost:8761/actuator/health" 60
 
-# Verify Eureka is actually up before continuing
-if curl -s http://localhost:8761/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
-  echo "   ✓ Eureka is up"
-else
-  echo "   ⚠ Eureka may still be starting — continuing anyway"
-fi
+# ── 2. Everything else — no ordering dependency once Eureka is up, so start
+#       them in small batches rather than one at a time. Starting all 14 at
+#       once can blow past available RAM (each Spring Boot JVM needs a few
+#       hundred MB while starting) and the Linux OOM killer will silently
+#       kill services with no warning and no log line — tune batch size down
+#       if that happens, or up if your machine has RAM to spare.
+BATCH_SIZE="${AVIQR_START_BATCH_SIZE:-4}"
+REST_SERVICES=(api-gateway auth-service shop-service menu-service order-service \
+  payment-service qr-service hotel-service mall-service support-service \
+  notification-service report-service ocr-service review-service)
 
-# ── 2. API Gateway ───────────────────────────────────────────────────────────
-start_svc "api-gateway"
-echo "   Waiting 15s for Gateway..."
-sleep 15
-
-# ── 3. Auth Service (critical path — most other services depend on it) ────────
-start_svc "auth-service"
-sleep 8
-
-# ── 4. Shop & Menu (needed early for order flow) ─────────────────────────────
-start_svc "shop-service"
-sleep 6
-start_svc "menu-service"
-sleep 6
-
-# ── 5. Order, Payment, QR ────────────────────────────────────────────────────
-start_svc "order-service"
-sleep 6
-start_svc "payment-service"
-sleep 5
-start_svc "qr-service"
-sleep 5
-
-# ── 6. Hotel, Mall ────────────────────────────────────────────────────────────
-start_svc "hotel-service"
-sleep 5
-start_svc "mall-service"
-sleep 5
-
-# ── 7. Support, Notification, Report, OCR ────────────────────────────────────
-start_svc "support-service"
-sleep 5
-start_svc "notification-service"
-sleep 5
-start_svc "report-service"
-sleep 5
-start_svc "ocr-service"
-sleep 3
+total=${#REST_SERVICES[@]}
+for ((i = 0; i < total; i += BATCH_SIZE)); do
+  batch=("${REST_SERVICES[@]:i:BATCH_SIZE}")
+  for svc in "${batch[@]}"; do
+    start_svc "$svc"
+  done
+  wait_for_registrations "${batch[@]}"
+done
 
 echo ""
 echo "================================================"
-echo " All 14 services started in background"
+echo " All 15 services started in background"
 echo "================================================"
-echo ""
-echo "  Wait 60s then open:  http://localhost:8761/health"
 echo ""
 echo "  Watch a log:    tail -f logs/auth-service.log"
 echo "  Watch all:      tail -f logs/*.log"

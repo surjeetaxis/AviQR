@@ -26,6 +26,16 @@ public class PaymentController {
     @Value("${razorpay.key.secret:rzp_test_secret}")
     private String razorpaySecret;
 
+    private boolean canAccessShop(String role, String callerShopId, String resourceShopId) {
+        if ("ADMIN".equals(role)) return true;
+        return resourceShopId != null && resourceShopId.equals(callerShopId)
+            && Set.of("OWNER", "MANAGER").contains(role);
+    }
+
+    private ResponseEntity<ApiResponse<Void>> forbidden() {
+        return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+    }
+
     // Create Razorpay order — called before checkout
     @PostMapping("/create-order")
     public ResponseEntity<ApiResponse<Map<String,Object>>> createOrder(@RequestBody CreatePaymentOrderRequest req) {
@@ -98,11 +108,14 @@ public class PaymentController {
 
     // Get payments for shop
     @GetMapping("/shop/{shopId}")
-    public ResponseEntity<ApiResponse<Page<Payment>>> shopPayments(
+    public ResponseEntity<?> shopPayments(
             @PathVariable String shopId,
             @RequestParam(required=false) String status,
             @RequestParam(defaultValue="0") int page,
-            @RequestParam(defaultValue="20") int size) {
+            @RequestParam(defaultValue="20") int size,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader(value="X-Shop-Id", required=false) String callerShopId) {
+        if (!canAccessShop(role, callerShopId, shopId)) return forbidden();
         Pageable pg = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Payment> payments = status != null
             ? repo.findByShopIdAndStatus(shopId, PaymentStatus.valueOf(status.toUpperCase()), pg)
@@ -110,33 +123,43 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.ok(payments));
     }
 
-    // Get single payment
+    // Get single payment — admin, the owning shop's staff, or the customer who paid
     @GetMapping("/{paymentId}")
-    public ResponseEntity<ApiResponse<Payment>> getByPaymentId(@PathVariable String paymentId) {
-        return repo.findByPaymentId(paymentId)
-            .map(p -> ResponseEntity.ok(ApiResponse.ok(p)))
-            .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> getByPaymentId(@PathVariable String paymentId,
+                                             @RequestHeader("X-User-Id") String uid,
+                                             @RequestHeader("X-User-Role") String role,
+                                             @RequestHeader(value="X-Shop-Id", required=false) String callerShopId) {
+        var payment = repo.findByPaymentId(paymentId).orElse(null);
+        if (payment == null) return ResponseEntity.notFound().build();
+        boolean isPayer = uid.equals(payment.getCustomerId());
+        if (!canAccessShop(role, callerShopId, payment.getShopId()) && !isPayer) return forbidden();
+        return ResponseEntity.ok(ApiResponse.ok(payment));
     }
 
-    // Initiate refund
+    // Initiate refund — admin or the owning shop's owner/manager
     @PostMapping("/{paymentId}/refund")
-    public ResponseEntity<ApiResponse<Map<String,Object>>> refund(@PathVariable String paymentId,
-                                                                    @RequestHeader("X-User-Id") String uid) {
-        return repo.findByPaymentId(paymentId).map(p -> {
-            p.setStatus(PaymentStatus.REFUNDED);
-            p.setRefundedAt(LocalDateTime.now());
-            repo.save(p);
-            Map<String,Object> r = new HashMap<>();
-            r.put("paymentId", paymentId); r.put("status", "REFUNDED");
-            return ResponseEntity.ok(ApiResponse.ok("Refund initiated", r));
-        }).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> refund(@PathVariable String paymentId,
+                                     @RequestHeader("X-User-Id") String uid,
+                                     @RequestHeader("X-User-Role") String role,
+                                     @RequestHeader(value="X-Shop-Id", required=false) String callerShopId) {
+        var payment = repo.findByPaymentId(paymentId).orElse(null);
+        if (payment == null) return ResponseEntity.notFound().build();
+        if (!canAccessShop(role, callerShopId, payment.getShopId())) return forbidden();
+        payment.setStatus(PaymentStatus.REFUNDED);
+        payment.setRefundedAt(LocalDateTime.now());
+        repo.save(payment);
+        Map<String,Object> r = new HashMap<>();
+        r.put("paymentId", paymentId); r.put("status", "REFUNDED");
+        return ResponseEntity.ok(ApiResponse.ok("Refund initiated", r));
     }
 
-    // Admin — all payments
+    // Admin — all payments across every tenant
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<Payment>>> allPayments(
+    public ResponseEntity<?> allPayments(
             @RequestParam(defaultValue="0") int page,
-            @RequestParam(defaultValue="20") int size) {
+            @RequestParam(defaultValue="20") int size,
+            @RequestHeader("X-User-Role") String role) {
+        if (!"ADMIN".equals(role)) return forbidden();
         return ResponseEntity.ok(ApiResponse.ok(repo.findAll(PageRequest.of(page, size, Sort.by("createdAt").descending()))));
     }
 }

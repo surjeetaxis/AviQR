@@ -12,18 +12,32 @@ import java.util.Map;
 public class QrController {
     private final QrService service;
 
+    private boolean canManageShop(String role, String callerShopId, String resourceShopId) {
+        if ("ADMIN".equals(role)) return true;
+        return resourceShopId != null && resourceShopId.equals(callerShopId)
+            && java.util.Set.of("OWNER", "MANAGER").contains(role);
+    }
+
     @PostMapping("/shop/{shopId}")
-    public ResponseEntity<ApiResponse<QrCode>> create(
+    public ResponseEntity<?> create(
             @PathVariable String shopId,
             @RequestParam(defaultValue="Main QR") String label,
             @RequestParam(defaultValue="SHOP") String type,
-            @RequestParam(required=false) String group) {
+            @RequestParam(required=false) String group,
+            @RequestHeader("X-User-Role") String role,
+            @RequestHeader(value="X-Shop-Id", required=false) String callerShopId) {
+        if (!canManageShop(role, callerShopId, shopId))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok("QR created",
             service.create(shopId, label, QrType.valueOf(type.toUpperCase()), group)));
     }
 
     @GetMapping("/shop/{shopId}")
-    public ResponseEntity<ApiResponse<List<QrCode>>> getByShop(@PathVariable String shopId) {
+    public ResponseEntity<?> getByShop(@PathVariable String shopId,
+                                        @RequestHeader("X-User-Role") String role,
+                                        @RequestHeader(value="X-Shop-Id", required=false) String callerShopId) {
+        if (!canManageShop(role, callerShopId, shopId))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok(service.getByShop(shopId)));
     }
 

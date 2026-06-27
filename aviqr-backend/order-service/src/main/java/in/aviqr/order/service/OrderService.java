@@ -1,6 +1,7 @@
 package in.aviqr.order.service;
 import in.aviqr.order.dto.*;
 import in.aviqr.order.entity.*;
+import in.aviqr.order.repository.OrderItemRepository;
 import in.aviqr.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,12 +10,14 @@ import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
 
 @Service @RequiredArgsConstructor @Slf4j
 public class OrderService {
     private final OrderRepository repo;
+    private final OrderItemRepository orderItemRepo;
     private final RabbitTemplate rabbit;
 
     @Transactional
@@ -88,9 +91,26 @@ public class OrderService {
 
     public Optional<OrderResponse> getById(UUID id) { return repo.findById(id).map(this::toDto); }
 
+    public ShopOrderStats getShopStats(String shopId) {
+        long completed = repo.countByShopIdAndStatus(shopId, OrderStatus.COMPLETED);
+        long cancelled = repo.countByShopIdAndStatus(shopId, OrderStatus.CANCELLED);
+        long rejected = repo.countByShopIdAndStatus(shopId, OrderStatus.REJECTED);
+        long decided = completed + cancelled + rejected;
+        BigDecimal completionRate = decided == 0 ? BigDecimal.ZERO
+            : BigDecimal.valueOf(completed * 100.0 / decided).setScale(2, RoundingMode.HALF_UP);
+        return new ShopOrderStats(shopId, completed, cancelled, rejected, completionRate, repo.sumRevenueByShop(shopId));
+    }
+
+    public ItemOrderStats getItemStats(UUID menuItemId) {
+        return new ItemOrderStats(menuItemId,
+            orderItemRepo.countOrdersForMenuItem(menuItemId),
+            orderItemRepo.sumQuantityForMenuItem(menuItemId));
+    }
+
     private OrderResponse toDto(Order o) {
         OrderResponse r = new OrderResponse();
         r.setId(o.getId()); r.setOrderNumber(o.getOrderNumber()); r.setShopId(o.getShopId());
+        r.setCustomerId(o.getCustomerId());
         r.setCustomerName(o.getCustomerName()); r.setCustomerPhone(o.getCustomerPhone());
         r.setTableNumber(o.getTableNumber()); r.setType(o.getType()); r.setStatus(o.getStatus());
         r.setPaymentMethod(o.getPaymentMethod()); r.setPaymentStatus(o.getPaymentStatus());

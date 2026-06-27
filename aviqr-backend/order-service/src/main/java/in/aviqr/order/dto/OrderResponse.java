@@ -7,7 +7,7 @@ import java.util.*;
 
 @Data
 public class OrderResponse {
-    UUID id; String orderNumber; String shopId;
+    UUID id; String orderNumber; String shopId; String customerId;
     String customerName; String customerPhone; String tableNumber;
     OrderType type; OrderStatus status; PaymentMethod paymentMethod;
     PaymentStatus paymentStatus; String paymentId;

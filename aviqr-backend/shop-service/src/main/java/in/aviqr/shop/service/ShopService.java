@@ -31,14 +31,19 @@ public class ShopService {
     public Optional<ShopResponse> getById(UUID id) { return repo.findById(id).map(this::toDto); }
 
     @Transactional
-    public ShopResponse update(UUID id, String ownerId, ShopRequest req) {
-        Shop shop = repo.findById(id).filter(s -> s.getOwnerId().equals(ownerId))
-            .orElseThrow(() -> new RuntimeException("Shop not found or not yours"));
+    public ShopResponse update(UUID id, ShopRequest req) {
+        Shop shop = repo.findById(id).orElseThrow(() -> new RuntimeException("Shop not found"));
         shop.setName(req.getName()); shop.setPhone(req.getPhone());
+        shop.setTagline(req.getTagline());
+        if(req.getEmail()!=null)   shop.setEmail(req.getEmail());
         if(req.getAddress()!=null) shop.setAddress(req.getAddress());
         if(req.getCity()!=null)    shop.setCity(req.getCity());
+        if(req.getState()!=null)   shop.setState(req.getState());
+        if(req.getPincode()!=null) shop.setPincode(req.getPincode());
+        if(req.getGstin()!=null)   shop.setGstin(req.getGstin());
         if(req.getLogoUrl()!=null) shop.setLogoUrl(req.getLogoUrl());
         if(req.getMinOrderAmount()!=null) shop.setMinOrderAmount(req.getMinOrderAmount());
+        if(req.getTableCount()!=null)     shop.setTableCount(req.getTableCount());
         return toDto(repo.save(shop));
     }
 
@@ -47,12 +52,18 @@ public class ShopService {
         repo.findById(id).ifPresent(s -> { s.setStatus(status); repo.save(s); });
     }
 
-    public Page<ShopResponse> search(String q, int page, int size) {
-        return repo.search(q, PageRequest.of(page, size, Sort.by("createdAt").descending())).map(this::toDto);
+    public Page<ShopResponse> search(String q, int page, int size, String sort) {
+        Page<Shop> shops = "recent".equalsIgnoreCase(sort)
+            ? repo.search(q, PageRequest.of(page, size, Sort.by("createdAt").descending()))
+            : repo.searchOrderByTier(q, PageRequest.of(page, size));
+        return shops.map(this::toDto);
     }
 
-    public Page<ShopResponse> listAll(int page, int size) {
-        return repo.findAll(PageRequest.of(page, size, Sort.by("createdAt").descending())).map(this::toDto);
+    public Page<ShopResponse> listAll(int page, int size, String sort) {
+        Page<Shop> shops = "recent".equalsIgnoreCase(sort)
+            ? repo.findAll(PageRequest.of(page, size, Sort.by("createdAt").descending()))
+            : repo.findAllOrderByTier(PageRequest.of(page, size));
+        return shops.map(this::toDto);
     }
 
     private ShopResponse toDto(Shop s) {
@@ -62,6 +73,10 @@ public class ShopService {
         r.setAddress(s.getAddress()); r.setCity(s.getCity()); r.setLogoUrl(s.getLogoUrl());
         r.setStatus(s.getStatus()); r.setMinOrderAmount(s.getMinOrderAmount());
         r.setTableCount(s.getTableCount()); r.setSubscriptionPlan(s.getSubscriptionPlan());
+        r.setRating(s.getRating()); r.setRatingCount(s.getRatingCount());
+        r.setCompletionRate(s.getCompletionRate()); r.setSalesVolume(s.getSalesVolume());
+        r.setReturnPercentage(s.getReturnPercentage()); r.setSatisfactionScore(s.getSatisfactionScore());
+        r.setTier(s.getTier()); r.setTierUpdatedAt(s.getTierUpdatedAt());
         r.setCreatedAt(s.getCreatedAt());
         return r;
     }

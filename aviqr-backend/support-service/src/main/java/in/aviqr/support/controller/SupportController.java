@@ -24,12 +24,21 @@ public class SupportController {
         return ResponseEntity.ok(ApiResponse.ok("Ticket created", ticketRepo.save(ticket)));
     }
 
+    private boolean isSupportStaff(String role) { return "ADMIN".equals(role) || "SUPPORT".equals(role); }
+
+    private ResponseEntity<ApiResponse<Void>> forbidden() {
+        return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+    }
+
+    // Cross-tenant ticket queue — support staff/admin only.
     @GetMapping("/api/v1/tickets")
-    public ResponseEntity<ApiResponse<Page<SupportTicket>>> listTickets(
+    public ResponseEntity<?> listTickets(
             @RequestParam(required=false) String status,
             @RequestParam(required=false) String priority,
             @RequestParam(defaultValue="0") int page,
-            @RequestParam(defaultValue="20") int size) {
+            @RequestParam(defaultValue="20") int size,
+            @RequestHeader("X-User-Role") String role) {
+        if (!isSupportStaff(role)) return forbidden();
         Pageable pg = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<SupportTicket> result;
         if (status != null) result = ticketRepo.findByStatus(TicketStatus.valueOf(status.toUpperCase()), pg);
@@ -38,15 +47,23 @@ public class SupportController {
         return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
+    // Support staff/admin, or the customer who raised the ticket.
     @GetMapping("/api/v1/tickets/{id}")
-    public ResponseEntity<ApiResponse<SupportTicket>> getTicket(@PathVariable UUID id) {
-        return ticketRepo.findById(id).map(t -> ResponseEntity.ok(ApiResponse.ok(t))).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> getTicket(@PathVariable UUID id,
+                                        @RequestHeader("X-User-Id") String uid,
+                                        @RequestHeader("X-User-Role") String role) {
+        return ticketRepo.findById(id).<ResponseEntity<?>>map(t -> {
+            if (!isSupportStaff(role) && !uid.equals(t.getUserId())) return forbidden();
+            return ResponseEntity.ok(ApiResponse.ok(t));
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/api/v1/tickets/{id}/status")
-    public ResponseEntity<ApiResponse<SupportTicket>> updateStatus(
-            @PathVariable UUID id, @RequestParam String status, @RequestParam(required=false) String resolution) {
-        return ticketRepo.findById(id).map(t -> {
+    public ResponseEntity<?> updateStatus(
+            @PathVariable UUID id, @RequestParam String status, @RequestParam(required=false) String resolution,
+            @RequestHeader("X-User-Role") String role) {
+        if (!isSupportStaff(role)) return forbidden();
+        return ticketRepo.findById(id).<ResponseEntity<?>>map(t -> {
             t.setStatus(TicketStatus.valueOf(status.toUpperCase()));
             if (resolution != null) t.setResolution(resolution);
             if (status.equalsIgnoreCase("RESOLVED")) t.setResolvedAt(LocalDateTime.now());
@@ -55,15 +72,18 @@ public class SupportController {
     }
 
     @PutMapping("/api/v1/tickets/{id}/assign")
-    public ResponseEntity<ApiResponse<SupportTicket>> assign(@PathVariable UUID id, @RequestParam String agentId) {
-        return ticketRepo.findById(id).map(t -> {
+    public ResponseEntity<?> assign(@PathVariable UUID id, @RequestParam String agentId,
+                                     @RequestHeader("X-User-Role") String role) {
+        if (!isSupportStaff(role)) return forbidden();
+        return ticketRepo.findById(id).<ResponseEntity<?>>map(t -> {
             t.setAssignedTo(agentId);
             return ResponseEntity.ok(ApiResponse.ok("Assigned", ticketRepo.save(t)));
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/api/v1/tickets/stats")
-    public ResponseEntity<ApiResponse<Map<String,Long>>> stats() {
+    public ResponseEntity<?> stats(@RequestHeader("X-User-Role") String role) {
+        if (!isSupportStaff(role)) return forbidden();
         Map<String,Long> m = new LinkedHashMap<>();
         for (TicketStatus s : TicketStatus.values()) m.put(s.name().toLowerCase(), ticketRepo.countByStatus(s));
         return ResponseEntity.ok(ApiResponse.ok(m));

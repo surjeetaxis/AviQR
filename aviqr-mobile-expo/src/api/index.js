@@ -81,12 +81,14 @@ export const authApi = {
 // ── Shop ────────────────────────────────────────────────────────────────────
 export const shopApi = {
   getMyShops:  ()       => api.get('/api/v1/shops/my'),
+  getById:     (id)     => api.get(`/api/v1/shops/${id}`), // includes Seller Tier fields
   getStaff:    (sId)    => api.get(`/api/v1/staff/shop/${sId}`),
   addStaff:    (sId, d) => api.post(`/api/v1/staff/shop/${sId}`, d),
   updateStaff: (id, d)  => api.put(`/api/v1/staff/${id}`, d),
   removeStaff: (id)     => api.delete(`/api/v1/staff/${id}`),
   getSettings: (sId)    => api.get(`/api/v1/settings/shop/${sId}`),
   saveSettings:(sId, d) => api.put(`/api/v1/settings/shop/${sId}`, d),
+  // p: { search, page, size, sort: 'tier'|'recent' } — defaults to tier ranking
   listAll:     (p)      => api.get('/api/v1/shops', { params: p }),
 };
 
@@ -97,11 +99,26 @@ export const menuApi = {
   createCategory: (d)         => api.post('/api/v1/categories', d),
   updateCategory: (id, d)     => api.put(`/api/v1/categories/${id}`, d),
   deleteCategory: (id)        => api.delete(`/api/v1/categories/${id}`),
-  getItems:       (sId)       => api.get(`/api/v1/items/shop/${sId}`),
+  // Unpaginated — full list, used by the owner's category-grouped menu management view
+  getAllItems:    (sId)       => api.get(`/api/v1/items/shop/${sId}/all`),
+  // Paginated — Product Ranking: defaults to ranking_score desc server-side.
+  // p: { search, page, size, sort: 'ranking'|'recent' }
+  getItems:       (sId, p)    => api.get(`/api/v1/items/shop/${sId}`, { params: p }),
   createItem:     (d)         => api.post('/api/v1/items', d),
   updateItem:     (id, d)     => api.put(`/api/v1/items/${id}`, d),
   toggleAvail:    (id, a)     => api.put(`/api/v1/items/${id}/availability?available=${a}`),
   deleteItem:     (id)        => api.delete(`/api/v1/items/${id}`),
+};
+
+// ── Reviews ─────────────────────────────────────────────────────────────────
+// p: { page, size, sort }
+export const reviewApi = {
+  getByShop:        (shopId, p) => api.get(`/api/v1/reviews/public/shop/${shopId}`, { params: p }),
+  getShopSummary:   (shopId)    => api.get(`/api/v1/reviews/public/shop/${shopId}/summary`),
+  getByProduct:     (itemId, p) => api.get(`/api/v1/reviews/public/product/${itemId}`, { params: p }),
+  getProductSummary:(itemId)    => api.get(`/api/v1/reviews/public/product/${itemId}/summary`),
+  submit:           (d)         => api.post('/api/v1/reviews', d),
+  getMyReviews:     (customerId, p) => api.get(`/api/v1/reviews/customer/${customerId}`, { params: p }),
 };
 
 // ── Orders ──────────────────────────────────────────────────────────────────

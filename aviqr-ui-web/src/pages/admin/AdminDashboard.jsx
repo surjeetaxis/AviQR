@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
+import TierBadge from '../../components/shared/TierBadge.jsx';
+import Pagination from '../../components/shared/Pagination.jsx';
+import { shopApi } from '../../api/index.js';
 import {
   Users, Store, ShoppingBag, CreditCard, QrCode, BarChart2,
   AlertCircle, Shield, LogOut, Settings, Search, Bell, Hotel,
@@ -358,47 +361,71 @@ function UserEditModal({user,onSave,onClose}) {
   );
 }
 
-// ─── Full Shops Page ──────────────────────────────────────────────────────────
-function FullShopsPage({shops:init}) {
-  const [shops,setShops] = useState(init);
+// ─── Full Shops Page (Seller Tier System) ─────────────────────────────────────
+function FullShopsPage({shops:fallback}) {
+  const [page,setPage] = useState(null);   // Page<ShopResponse> from the API, or null while loading/on error
+  const [pageNum,setPageNum] = useState(0);
+  const [size,setSize] = useState(20);
   const [search,setSearch] = useState('');
-  const toggleStatus = id => setShops(prev=>prev.map(s=>s.id!==id?s:{...s,status:s.status==='active'?'suspended':'active'}));
-  const filtered = shops.filter(s=>!search||s.name.toLowerCase().includes(search.toLowerCase())||s.owner.toLowerCase().includes(search.toLowerCase())||s.city.toLowerCase().includes(search.toLowerCase()));
+  const [sort,setSort] = useState('tier'); // 'tier' (default, higher tiers first) | 'recent'
+  const [usingFallback,setUsingFallback] = useState(false);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      shopApi.list({ search: search || undefined, page: pageNum, size, sort })
+        .then(res => { setPage(res.data.data); setUsingFallback(false); })
+        .catch(() => {
+          // Backend unreachable — paginate the local fallback list client-side
+          const filtered = fallback.filter(s=>!search||s.name.toLowerCase().includes(search.toLowerCase())||s.owner.toLowerCase().includes(search.toLowerCase())||s.city.toLowerCase().includes(search.toLowerCase()));
+          setPage({
+            content: filtered.slice(pageNum*size, pageNum*size+size),
+            number: pageNum, size, totalElements: filtered.length, totalPages: Math.ceil(filtered.length/size) || 1,
+          });
+          setUsingFallback(true);
+        });
+    }, 250);
+    return () => clearTimeout(id);
+  }, [search, pageNum, size, sort]);
+
+  useEffect(() => { setPageNum(0); }, [search, sort]);
+
+  const rows = page?.content || [];
 
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">All Shops</h1><p className="page-subtitle">{shops.length} registered</p></div>
-        <div style={{position:'relative'}}>
-          <Search size={13} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--gray-400)'}}/>
-          <input className="admin-filter-input" style={{paddingLeft:32,width:220}} placeholder="Search shops…" value={search} onChange={e=>setSearch(e.target.value)}/>
+        <div><h1 className="page-title">All Shops</h1><p className="page-subtitle">{page?.totalElements ?? fallback.length} registered{usingFallback ? ' (demo data)' : ''}</p></div>
+        <div style={{display:'flex',gap:8}}>
+          <select className="admin-filter-input" value={sort} onChange={e=>setSort(e.target.value)} style={{width:160}}>
+            <option value="tier">Sort: Tier (default)</option>
+            <option value="recent">Sort: Newest</option>
+          </select>
+          <div style={{position:'relative'}}>
+            <Search size={13} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--gray-400)'}}/>
+            <input className="admin-filter-input" style={{paddingLeft:32,width:220}} placeholder="Search shops…" value={search} onChange={e=>setSearch(e.target.value)}/>
+          </div>
         </div>
       </div>
       <div className="admin-table-card">
         <table className="admin-table">
-          <thead><tr><th>Shop</th><th>Owner</th><th>City</th><th>Plan</th><th>Items</th><th>QR Codes</th><th>Orders</th><th>Revenue</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Shop</th><th>Owner / City</th><th>Plan</th><th>Tier</th><th>Rating</th><th>Sales volume</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {filtered.map(s=>(
+            {rows.map(s=>(
               <tr key={s.id}>
                 <td style={{fontWeight:700}}>{s.name}</td>
-                <td><div style={{fontSize:13}}>{s.owner}</div><div style={{fontSize:11,color:'var(--gray-400)'}}>{s.ownerEmail}</div></td>
-                <td style={{color:'var(--gray-500)'}}>{s.city}</td>
-                <td><span className="plan-pill">{s.plan}</span></td>
-                <td>{s.items}</td>
-                <td>{s.qrs}</td>
-                <td>{s.orders}</td>
-                <td style={{fontWeight:700}}>₹{s.revenue.toLocaleString('en-IN')}</td>
+                <td><div style={{fontSize:13}}>{s.owner || s.ownerId || '-'}</div><div style={{fontSize:11,color:'var(--gray-400)'}}>{s.city}</div></td>
+                <td><span className="plan-pill">{s.plan || s.subscriptionPlan || '-'}</span></td>
+                <td><TierBadge tier={s.tier}/></td>
+                <td>{s.rating ? <span><Star size={11} fill="#F59E0B" color="#F59E0B" style={{verticalAlign:-1}}/> {Number(s.rating).toFixed(1)} ({s.ratingCount||0})</span> : '—'}</td>
+                <td style={{fontWeight:700}}>₹{Number(s.salesVolume ?? s.revenue ?? 0).toLocaleString('en-IN')}</td>
                 <td>
-                  <span className={`status-pill ${s.status==='active'?'st-active':'st-suspended'}`}>
-                    {s.status==='active'?<CheckCircle2 size={11}/>:<XCircle size={11}/>} {s.status}
+                  <span className={`status-pill ${(s.status||'').toLowerCase()==='active'?'st-active':'st-suspended'}`}>
+                    {(s.status||'').toLowerCase()==='active'?<CheckCircle2 size={11}/>:<XCircle size={11}/>} {s.status}
                   </span>
                 </td>
                 <td>
                   <div style={{display:'flex',gap:5}}>
                     <button className="admin-row-btn"><Eye size={12}/></button>
-                    <button className="admin-row-btn" onClick={()=>toggleStatus(s.id)}>
-                      {s.status==='active'?<Lock size={12}/>:<Unlock size={12}/>}
-                    </button>
                     <button className="admin-row-btn admin-row-btn-danger"><Trash2 size={12}/></button>
                   </div>
                 </td>
@@ -406,6 +433,7 @@ function FullShopsPage({shops:init}) {
             ))}
           </tbody>
         </table>
+        <Pagination page={page} onPageChange={setPageNum} onSizeChange={s=>{setSize(s);setPageNum(0);}}/>
       </div>
     </div>
   );
