@@ -188,7 +188,14 @@ public class PaymentController {
             @PathVariable String shopId,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role,
+            @RequestHeader(value="X-Shop-Id", defaultValue="") String callerShopId) {
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role)) {
+            if (!shopId.equals(callerShopId))
+                return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        }
         Pageable pg = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Payment> payments = status != null
             ? repo.findByShopIdAndStatus(shopId, PaymentStatus.valueOf(status.toUpperCase()), pg)
@@ -225,7 +232,10 @@ public class PaymentController {
     @GetMapping
     public ResponseEntity<ApiResponse<Page<Payment>>> allPayments(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"ADMIN".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok(
             repo.findAll(PageRequest.of(page, size, Sort.by("createdAt").descending()))));
     }

@@ -29,7 +29,7 @@ public class ShopStaff {
 
     @Builder.Default private Boolean active = true;
 
-    @ElementCollection
+    @ElementCollection(fetch=jakarta.persistence.FetchType.EAGER)
     @CollectionTable(name="staff_permissions", joinColumns=@JoinColumn(name="shop_staff_id"))
     @Column(name="permissions")
     @Builder.Default private List<String> permissions = new ArrayList<>();

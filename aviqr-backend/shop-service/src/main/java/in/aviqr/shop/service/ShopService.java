@@ -31,16 +31,19 @@ public class ShopService {
     public Optional<ShopResponse> getById(UUID id) { return repo.findById(id).map(this::toDto); }
 
     @Transactional
-    public ShopResponse update(UUID id, String ownerId, ShopRequest req) {
-        Shop shop = repo.findById(id).filter(s -> s.getOwnerId().equals(ownerId))
-            .orElseThrow(() -> new RuntimeException("Shop not found or not yours"));
+    public ShopResponse update(UUID id, ShopRequest req) {
+        Shop shop = repo.findById(id).orElseThrow(() -> new RuntimeException("Shop not found"));
         shop.setName(req.getName()); shop.setPhone(req.getPhone());
-        if(req.getAddress()!=null) shop.setAddress(req.getAddress());
-        if(req.getCity()!=null)    shop.setCity(req.getCity());
-        if(req.getLogoUrl()!=null) shop.setLogoUrl(req.getLogoUrl());
+        if(req.getTagline()!=null)        shop.setTagline(req.getTagline());
+        if(req.getAddress()!=null)        shop.setAddress(req.getAddress());
+        if(req.getCity()!=null)           shop.setCity(req.getCity());
+        if(req.getLogoUrl()!=null)        shop.setLogoUrl(req.getLogoUrl());
         if(req.getMinOrderAmount()!=null) shop.setMinOrderAmount(req.getMinOrderAmount());
+        if(req.getTableCount()!=null)     shop.setTableCount(req.getTableCount());
         return toDto(repo.save(shop));
     }
+
+    public Optional<Shop> findRaw(UUID id) { return repo.findById(id); }
 
     @Transactional
     public void updateStatus(UUID id, ShopStatus status) {

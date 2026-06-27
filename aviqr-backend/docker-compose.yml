@@ -142,6 +142,7 @@ services:
       SPRING_DATA_REDIS_PASSWORD: aviqr_redis_secret
       REDIS_HOST: redis
       REDIS_PASSWORD: aviqr_redis_secret
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       service-registry:
         condition: service_healthy
@@ -160,9 +161,8 @@ services:
       dockerfile: auth-service/Dockerfile
     container_name: aviqr-auth
     environment:
-      <<: *common-env
+      <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_auth
-      <<: *postgres-env
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PASSWORD: aviqr_redis_secret
     depends_on:
@@ -185,9 +185,8 @@ services:
       dockerfile: shop-service/Dockerfile
     container_name: aviqr-shop
     environment:
-      <<: *common-env
+      <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_shop
-      <<: *postgres-env
     <<: *service-depends
     networks:
       - aviqr-net
@@ -198,9 +197,8 @@ services:
       dockerfile: menu-service/Dockerfile
     container_name: aviqr-menu
     environment:
-      <<: *common-env
+      <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_menu
-      <<: *postgres-env
     <<: *service-depends
     networks:
       - aviqr-net
@@ -211,9 +209,8 @@ services:
       dockerfile: order-service/Dockerfile
     container_name: aviqr-order
     environment:
-      <<: *common-env
+      <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_order
-      <<: *postgres-env
       SHOP_SERVICE_URL: http://shop-service
     <<: *service-depends
     networks:
@@ -225,9 +222,8 @@ services:
       dockerfile: payment-service/Dockerfile
     container_name: aviqr-payment
     environment:
-      <<: *common-env
+      <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_payment
-      <<: *postgres-env
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-rzp_test_placeholder}
       RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-placeholder_secret}
     <<: *service-depends
@@ -240,9 +236,8 @@ services:
       dockerfile: qr-service/Dockerfile
     container_name: aviqr-qr
     environment:
-      <<: *common-env
+      <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_qr
-      <<: *postgres-env
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:5173}
     <<: *service-depends
     networks:
@@ -279,9 +274,8 @@ services:
       dockerfile: hotel-service/Dockerfile
     container_name: aviqr-hotel
     environment:
-      <<: *common-env
+      <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_hotel
-      <<: *postgres-env
     <<: *service-depends
     networks:
       - aviqr-net
@@ -292,9 +286,8 @@ services:
       dockerfile: mall-service/Dockerfile
     container_name: aviqr-mall
     environment:
-      <<: *common-env
+      <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_mall
-      <<: *postgres-env
     <<: *service-depends
     networks:
       - aviqr-net
@@ -305,9 +298,8 @@ services:
       dockerfile: support-service/Dockerfile
     container_name: aviqr-support
     environment:
-      <<: *common-env
+      <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_support
-      <<: *postgres-env
     <<: *service-depends
     networks:
       - aviqr-net
@@ -319,9 +311,8 @@ services:
       dockerfile: report-service/Dockerfile
     container_name: aviqr-report
     environment:
-      <<: *common-env
+      <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_order
-      <<: *postgres-env
     <<: *service-depends
     networks:
       - aviqr-net
@@ -350,9 +341,8 @@ services:
       dockerfile: review-service/Dockerfile
     container_name: aviqr-review
     environment:
-      <<: *common-env
+      <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_review
-      <<: *postgres-env
     <<: *service-depends
     networks:
       - aviqr-net

@@ -155,6 +155,11 @@ public class OrderService {
         return repo.findById(id).map(this::toDto);
     }
 
+    public Page<OrderResponse> listAll(int page, int size) {
+        Pageable pg = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return repo.findAll(pg).map(this::toDto);
+    }
+
     private OrderResponse toDto(Order o) {
         return OrderResponse.builder()
             .id(o.getId()).orderNumber(o.getOrderNumber()).shopId(o.getShopId())

@@ -29,7 +29,11 @@ public class SupportController {
             @RequestParam(required=false) String status,
             @RequestParam(required=false) String priority,
             @RequestParam(defaultValue="0") int page,
-            @RequestParam(defaultValue="20") int size) {
+            @RequestParam(defaultValue="20") int size,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"SUPPORT".equals(role) && !"ADMIN".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         Pageable pg = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<SupportTicket> result;
         if (status != null) result = ticketRepo.findByStatus(TicketStatus.valueOf(status.toUpperCase()), pg);
@@ -39,8 +43,17 @@ public class SupportController {
     }
 
     @GetMapping("/api/v1/tickets/{id}")
-    public ResponseEntity<ApiResponse<SupportTicket>> getTicket(@PathVariable UUID id) {
-        return ticketRepo.findById(id).map(t -> ResponseEntity.ok(ApiResponse.ok(t))).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<ApiResponse<SupportTicket>> getTicket(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        return ticketRepo.findById(id).map(t -> {
+            boolean isOwn = uid.equals(t.getUserId());
+            boolean isStaff = "SUPPORT".equals(role) || "ADMIN".equals(role);
+            if (!isOwn && !isStaff)
+                return ResponseEntity.status(403).<ApiResponse<SupportTicket>>body(ApiResponse.error("Forbidden"));
+            return ResponseEntity.ok(ApiResponse.ok(t));
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/api/v1/tickets/{id}/status")
@@ -63,7 +76,10 @@ public class SupportController {
     }
 
     @GetMapping("/api/v1/tickets/stats")
-    public ResponseEntity<ApiResponse<Map<String,Long>>> stats() {
+    public ResponseEntity<ApiResponse<Map<String,Long>>> stats(
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"SUPPORT".equals(role) && !"ADMIN".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         Map<String,Long> m = new LinkedHashMap<>();
         for (TicketStatus s : TicketStatus.values()) m.put(s.name().toLowerCase(), ticketRepo.countByStatus(s));
         return ResponseEntity.ok(ApiResponse.ok(m));

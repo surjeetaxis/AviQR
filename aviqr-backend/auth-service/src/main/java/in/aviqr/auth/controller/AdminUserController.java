@@ -61,7 +61,10 @@ public class AdminUserController {
     public ResponseEntity<ApiResponse<Void>> changeStatus(
             @PathVariable UUID id,
             @RequestParam String status,
-            @RequestHeader("X-User-Id") String adminId) {
+            @RequestHeader("X-User-Id") String adminId,
+            @RequestHeader(value="X-User-Role", defaultValue="") String callerRole) {
+        if (!"ADMIN".equals(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         userRepo.findById(id).ifPresent(u -> {
             u.setStatus(UserStatus.valueOf(status.toUpperCase()));
             userRepo.save(u);

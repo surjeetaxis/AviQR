@@ -17,7 +17,7 @@ public class Hotel {
     @Builder.Default private Boolean active = true;
 
     // Proper @CollectionTable with explicit joinColumn so Hibernate knows the FK
-    @ElementCollection
+    @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
     @CollectionTable(name="hotel_enabled_services", joinColumns=@JoinColumn(name="hotel_id"))
     @Column(name="enabled_services")
     @Builder.Default private List<String> enabledServices = new ArrayList<>();

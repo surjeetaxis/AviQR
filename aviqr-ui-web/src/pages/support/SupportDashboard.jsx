@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { supportApi, orderApi, authApi } from '../../api/index.js';
 import {
   Headphones, ShoppingBag, CreditCard, Users, Store, QrCode,
   ScanLine, MessageCircle, FileText, UserCheck, LogOut,
@@ -87,6 +88,18 @@ export default function SupportDashboard() {
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [tickets, setTickets]   = useState(MOCK_TICKETS);
+  const [orders, setOrders]     = useState(MOCK_ORDERS);
+  const [users, setUsers]       = useState(MOCK_USERS);
+
+  useEffect(() => {
+    supportApi.getTickets({ limit: 50 })
+      .then(r => { const d = r.data.data; if (d?.length) setTickets(d); })
+      .catch(() => {});
+    authApi.getUsers({ limit: 50 })
+      .then(r => { const d = r.data.data; if (d?.length) setUsers(d); })
+      .catch(() => {});
+  }, []);
 
   const handleLogout = () => { logout(); navigate('/'); };
 
@@ -153,16 +166,16 @@ export default function SupportDashboard() {
         </header>
 
         <main className="admin-content">
-          {tab === 'overview'    && <SupportOverview onNavigate={setTab} />}
-          {tab === 'tickets'     && <TicketsPanel tickets={MOCK_TICKETS} />}
-          {tab === 'orders'      && <OrdersPanel orders={MOCK_ORDERS} />}
+          {tab === 'overview'    && <SupportOverview onNavigate={setTab} tickets={tickets} orders={orders} />}
+          {tab === 'tickets'     && <TicketsPanel tickets={tickets} onUpdate={t => setTickets(ts => ts.map(x => x.id===t.id?t:x))} />}
+          {tab === 'orders'      && <OrdersPanel orders={orders} />}
           {tab === 'payments'    && <PaymentsPanel payments={MOCK_PAYMENTS} />}
-          {tab === 'users'       && <UsersPanel users={MOCK_USERS} />}
+          {tab === 'users'       && <UsersPanel users={users} />}
           {tab === 'shops'       && <ShopsPanel />}
           {tab === 'qrcodes'     && <QRPanel qrs={MOCK_QRS} />}
           {tab === 'ocr'         && <OCRPanel jobs={MOCK_OCR} />}
           {tab === 'audit'       && <AuditPanel logs={MOCK_AUDIT} />}
-          {tab === 'impersonate' && <ImpersonatePanel users={MOCK_USERS} />}
+          {tab === 'impersonate' && <ImpersonatePanel users={users} />}
         </main>
       </div>
     </div>
@@ -170,9 +183,9 @@ export default function SupportDashboard() {
 }
 
 // ─── Overview ─────────────────────────────────────────────────────────────────
-function SupportOverview({ onNavigate }) {
-  const openTickets   = MOCK_TICKETS.filter(t => t.status === 'open').length;
-  const urgentTickets = MOCK_TICKETS.filter(t => t.priority === 'urgent').length;
+function SupportOverview({ onNavigate, tickets = MOCK_TICKETS, orders = MOCK_ORDERS }) {
+  const openTickets   = tickets.filter(t => t.status === 'open').length;
+  const urgentTickets = tickets.filter(t => t.priority === 'urgent').length;
   const failedPay     = MOCK_PAYMENTS.filter(p => p.status === 'failed').length;
   const pendingPay    = MOCK_PAYMENTS.filter(p => p.status === 'pending').length;
 
@@ -220,7 +233,7 @@ function SupportOverview({ onNavigate }) {
             <h3>Recent tickets</h3>
             <button className="panel-view-all" onClick={() => onNavigate('tickets')}>View all</button>
           </div>
-          {MOCK_TICKETS.slice(0, 4).map(t => <TicketRow key={t.id} ticket={t} compact />)}
+          {tickets.slice(0, 4).map(t => <TicketRow key={t.id} ticket={t} compact />)}
         </div>
 
         {/* Payment issues */}

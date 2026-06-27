@@ -73,7 +73,7 @@ Verified: anonymous POST to the webhook path now reaches `payment-service` (200)
 **7. Seed password hash doesn't match the documented password.**
 `aviqr_setup.sql` comments "Passwords are all: Test@1234" and uses one shared bcrypt hash across 15 demo users — but that hash does not actually verify against `Test@1234` (confirmed cryptographically with bcrypt). On top of that, several named demo accounts in the already-running dev database (admin, owner, hotel, mall, supplier, etc.) had yet another, different, non-matching hash. Net effect: password login was broken for every documented demo account.
 Fix: generated a correct bcrypt hash (cost factor 12, matching `BCryptPasswordEncoder(12)` in `SecurityConfig`) for `Test@1234`, replaced all 15 occurrences in `aviqr_setup.sql`, and updated all 32 user rows in the live dev database.
-Verified: `POST /api/v1/auth/login` with `admin@aviqr.in` / `Test@1234` now returns a valid token (was "Invalid credentials" before).
+Verified: `POST /api/v1/auth/login` with `surjeet@axisrooms.com` / `Test@1234` now returns a valid token (was "Invalid credentials" before).
 
 **8. Invalid seed role value.**
 `aviqr_setup.sql` seeded `support@aviqr.in` with `role='super Admin'` — not a valid `UserRole` enum constant (`ADMIN, SUPPORT, SUPPLIER, HOTEL, MALL, OWNER, MANAGER, CASHIER, KITCHEN, MENU_EDITOR, ORDER_VIEWER, CUSTOMER`). A fresh install running this script would seed a row Hibernate cannot deserialize, breaking the first read of that user (e.g. any admin user list/lookup) with a 500.
@@ -196,7 +196,7 @@ $ mongosh ... notifications.find({orderId:"<id>"})
 → { type: 'ORDER_NEW', title: 'New Order!', ... }  # RabbitMQ event consumed correctly
 
 # Issue 7 — password login (BEFORE fix)
-$ curl -X POST .../auth/login -d '{"email":"admin@aviqr.in","password":"Test@1234"}'
+$ curl -X POST .../auth/login -d '{"email":"surjeet@axisrooms.com","password":"Test@1234"}'
 {"success":false,"message":"Invalid credentials"}
 # (AFTER fix)
 {"success":true,"message":"Login successful", ...}

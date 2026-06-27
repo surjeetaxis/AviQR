@@ -38,7 +38,12 @@ public class MallController {
     }
 
     @GetMapping("/api/v1/malls")
-    public ResponseEntity<ApiResponse<List<Mall>>> all() { return ResponseEntity.ok(ApiResponse.ok(mallRepo.findAll())); }
+    public ResponseEntity<ApiResponse<List<Mall>>> all(
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"ADMIN".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return ResponseEntity.ok(ApiResponse.ok(mallRepo.findAll()));
+    }
 
     // Vendors
     @GetMapping("/api/v1/vendors/mall/{mallId}")
@@ -47,7 +52,15 @@ public class MallController {
     }
 
     @PostMapping("/api/v1/vendors")
-    public ResponseEntity<ApiResponse<Vendor>> addVendor(@RequestBody Vendor v) {
+    public ResponseEntity<ApiResponse<Vendor>> addVendor(
+            @RequestBody Vendor v,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"ADMIN".equals(role)) {
+            boolean owns = v.getMallId() != null &&
+                mallRepo.findById(v.getMallId()).map(m -> uid.equals(m.getAdminId())).orElse(false);
+            if (!owns) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        }
         return ResponseEntity.ok(ApiResponse.ok("Added", vendorRepo.save(v)));
     }
 

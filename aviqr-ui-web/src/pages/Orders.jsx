@@ -65,6 +65,7 @@ export default function Orders() {
 
   return (
     <div className="page-content">
+      <h1 className="page-title" style={{ fontSize:20, fontWeight:700, padding:'16px 0 4px' }}>Orders</h1>
       {error && (
         <div className="demo-notice" style={{ background:'var(--red-bg)', borderColor:'#FCA5A5', color:'var(--red)' }}>
           ⚠ {error} <button onClick={() => load()} style={{ fontWeight:700, background:'none', border:'none', cursor:'pointer', color:'var(--red)', textDecoration:'underline' }}>Retry</button>

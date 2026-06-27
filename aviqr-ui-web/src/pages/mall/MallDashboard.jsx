@@ -39,6 +39,37 @@ export default function MallDashboard() {
   const [tab, setTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [vendors, setVendors] = useState(VENDORS);
+  const [loadingVendors, setLoadingVendors] = useState(true);
+
+  useEffect(() => {
+    mallApi.getMyMalls()
+      .then(res => {
+        const malls = res.data.data || [];
+        const mallId = malls[0]?.id;
+        if (!mallId) { setLoadingVendors(false); return; }
+        return mallApi.getVendors(mallId);
+      })
+      .then(res => {
+        if (!res) return;
+        const v = res.data.data || [];
+        if (v.length) {
+          setVendors(v.map(vd => ({
+            id: vd.id,
+            name: vd.name || vd.shopName,
+            cat: vd.category || vd.cat || '',
+            floor: vd.floor || '',
+            contact: vd.phone || vd.contact || '',
+            orders: vd.ordersToday || 0,
+            revenue: vd.revenueToday || 0,
+            commission: vd.commissionToday || 0,
+            status: vd.active ? 'active' : 'inactive',
+            qrActive: !!vd.qrActive,
+          })));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingVendors(false));
+  }, []);
 
   const toggleVendor = id => setVendors(prev=>prev.map(v=>v.id!==id?v:{...v,status:v.status==='active'?'inactive':'active'}));
   const toggleQR = id => setVendors(prev=>prev.map(v=>v.id!==id?v:{...v,qrActive:!v.qrActive}));

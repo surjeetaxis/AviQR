@@ -1,17 +1,16 @@
-/**
- * AviQR AI Client — calls Anthropic API (claude-sonnet-4-6)
- * Used by all 11 AI feature components.
- *
- * The API key is handled by the claude.ai proxy — no key needed in frontend.
- */
-
 const MODEL = 'claude-sonnet-4-6';
-const API_URL = 'https://api.anthropic.com/v1/messages';
+const API_URL = '/api/v1/ai/messages';
+
+function authHeaders() {
+  const token = localStorage.getItem('aviqr_token');
+  return token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+               : { 'Content-Type': 'application/json' };
+}
 
 export async function callAI(systemPrompt, userMessage, maxTokens = 1000) {
   const res = await fetch(API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({
       model: MODEL,
       max_tokens: maxTokens,
@@ -40,7 +39,7 @@ export async function callAIJson(systemPrompt, userMessage, maxTokens = 1000) {
 export async function callAIStream(systemPrompt, userMessage, onChunk, maxTokens = 1000) {
   const res = await fetch(API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({
       model: MODEL,
       max_tokens: maxTokens,

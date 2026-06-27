@@ -45,7 +45,7 @@ public class Shop {
     private LocalDateTime tierUpdatedAt;
 
     // Properly mapped collection table with FK column
-    @ElementCollection(fetch=FetchType.LAZY)
+    @ElementCollection(fetch=FetchType.EAGER)
     @CollectionTable(name="shop_opening_hours", joinColumns=@JoinColumn(name="shop_id"))
     private List<OpeningHour> openingHours;
 

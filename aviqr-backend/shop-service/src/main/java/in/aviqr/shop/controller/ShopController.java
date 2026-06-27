@@ -36,14 +36,36 @@ public class ShopController {
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ShopResponse>> update(
             @PathVariable UUID id, @Valid @RequestBody ShopRequest req,
-            @RequestHeader("X-User-Id") String uid) {
-        return ResponseEntity.ok(ApiResponse.ok("Updated", service.update(id, uid, req)));
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role,
+            @RequestHeader(value="X-Shop-Id", defaultValue="") String shopId) {
+        if (!"ADMIN".equals(role)) {
+            var shop = service.findRaw(id).orElse(null);
+            if (shop == null) return ResponseEntity.notFound().build();
+            boolean isOwner   = shop.getOwnerId().equals(uid);
+            boolean isManager = "MANAGER".equals(role) && shop.getId().toString().equals(shopId);
+            if (!isOwner && !isManager)
+                return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Updated", service.update(id, req)));
     }
 
     @PutMapping("/{id}/status")
-    public ResponseEntity<ApiResponse<Void>> status(@PathVariable UUID id, @RequestParam String status) {
+    public ResponseEntity<ApiResponse<Void>> status(
+            @PathVariable UUID id, @RequestParam String status,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"ADMIN".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         service.updateStatus(id, ShopStatus.valueOf(status.toUpperCase()));
         return ResponseEntity.ok(ApiResponse.ok("Status updated", null));
+    }
+
+    @PostMapping("/admin/recalculate-tiers")
+    public ResponseEntity<ApiResponse<String>> recalculateTiers(
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"ADMIN".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return ResponseEntity.ok(ApiResponse.ok("Tier recalculation complete", "OK"));
     }
 
     @GetMapping

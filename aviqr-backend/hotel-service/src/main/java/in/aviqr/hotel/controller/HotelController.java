@@ -4,6 +4,7 @@ import in.aviqr.hotel.entity.*;
 import in.aviqr.hotel.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
@@ -15,6 +16,18 @@ public class HotelController {
     private final RoomRepository roomRepo;
     private final RoomRequestRepository reqRepo;
     private final RabbitTemplate rabbit;
+
+    // ── Admin: list all hotels ────────────────────────────────────────────────
+    @GetMapping("/api/v1/hotels/admin/all")
+    public ResponseEntity<ApiResponse<Page<Hotel>>> adminAllHotels(
+            @RequestHeader(value="X-User-Role", defaultValue="") String role,
+            @RequestParam(defaultValue="0") int page,
+            @RequestParam(defaultValue="20") int size) {
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return ResponseEntity.ok(ApiResponse.ok(
+            hotelRepo.findAll(PageRequest.of(page, size, Sort.by("createdAt").descending()))));
+    }
 
     // ── Hotel CRUD ───────────────────────────────────────────────────────────
     @PostMapping("/api/v1/hotels")
@@ -36,8 +49,13 @@ public class HotelController {
     }
 
     @PutMapping("/api/v1/hotels/{id}")
-    public ResponseEntity<ApiResponse<Hotel>> updateHotel(@PathVariable UUID id, @RequestBody Hotel req) {
+    public ResponseEntity<ApiResponse<Hotel>> updateHotel(
+            @PathVariable UUID id, @RequestBody Hotel req,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
         return hotelRepo.findById(id).map(h -> {
+            if (!"ADMIN".equals(role) && !uid.equals(h.getOwnerId()))
+                return ResponseEntity.status(403).<ApiResponse<Hotel>>body(ApiResponse.error("Forbidden"));
             h.setName(req.getName()); h.setPhone(req.getPhone()); h.setAddress(req.getAddress());
             h.setCheckInTime(req.getCheckInTime()); h.setCheckOutTime(req.getCheckOutTime());
             if(req.getEnabledServices()!=null) h.setEnabledServices(req.getEnabledServices());
@@ -52,7 +70,15 @@ public class HotelController {
     }
 
     @PostMapping("/api/v1/rooms")
-    public ResponseEntity<ApiResponse<Room>> createRoom(@RequestBody Room room) {
+    public ResponseEntity<ApiResponse<Room>> createRoom(
+            @RequestBody Room room,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"ADMIN".equals(role)) {
+            boolean owns = hotelRepo.findById(room.getHotelId())
+                .map(h -> uid.equals(h.getOwnerId())).orElse(false);
+            if (!owns) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        }
         return ResponseEntity.ok(ApiResponse.ok("Created", roomRepo.save(room)));
     }
 
@@ -84,7 +110,13 @@ public class HotelController {
     public ResponseEntity<ApiResponse<List<RoomRequest>>> getHotelRequests(
             @PathVariable UUID hotelId,
             @RequestParam(required=false) String service,
-            @RequestParam(required=false) boolean liveOnly) {
+            @RequestParam(required=false, defaultValue="false") boolean liveOnly,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role)) {
+            boolean owns = hotelRepo.findById(hotelId).map(h -> uid.equals(h.getOwnerId())).orElse(false);
+            if (!owns) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        }
         List<RoomRequest> result;
         if (service != null) {
             result = reqRepo.findByHotelIdAndServiceTypeOrderByCreatedAtDesc(hotelId, service.toUpperCase());

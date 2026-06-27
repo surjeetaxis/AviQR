@@ -80,17 +80,18 @@ export const authApi = {
 
 // ── Shop ──────────────────────────────────────────────────────────────────────
 export const shopApi = {
-  getMyShops:  ()        => api.get('/api/v1/shops/my'),
-  getById:     (id)      => api.get(`/api/v1/shops/${id}`),
-  create:      (d)       => api.post('/api/v1/shops', d),
-  update:      (id, d)   => api.put(`/api/v1/shops/${id}`, d),
-  list:        (p)       => api.get('/api/v1/shops', { params: p }),
-  getStaff:    (shopId)  => api.get(`/api/v1/staff/shop/${shopId}`),
-  addStaff:    (sId, d)  => api.post(`/api/v1/staff/shop/${sId}`, d),
-  updateStaff: (id, d)   => api.put(`/api/v1/staff/${id}`, d),
-  removeStaff: (id)      => api.delete(`/api/v1/staff/${id}`),
-  getSettings: (shopId)  => api.get(`/api/v1/settings/shop/${shopId}`),
-  saveSettings:(sId, d)  => api.put(`/api/v1/settings/shop/${sId}`, d),
+  getMyShops:       ()           => api.get('/api/v1/shops/my'),
+  getById:          (id)         => api.get(`/api/v1/shops/${id}`),
+  create:           (d)          => api.post('/api/v1/shops', d),
+  update:           (id, d)      => api.put(`/api/v1/shops/${id}`, d),
+  list:             (p)          => api.get('/api/v1/shops', { params: p }),
+  updateStatus:     (id, status) => api.put(`/api/v1/shops/${id}/status?status=${status}`),
+  getStaff:         (shopId)     => api.get(`/api/v1/staff/shop/${shopId}`),
+  addStaff:         (sId, d)     => api.post(`/api/v1/staff/shop/${sId}`, d),
+  updateStaff:      (id, d)      => api.put(`/api/v1/staff/${id}`, d),
+  removeStaff:      (id)         => api.delete(`/api/v1/staff/${id}`),
+  getSettings:      (shopId)     => api.get(`/api/v1/settings/shop/${shopId}`),
+  saveSettings:     (sId, d)     => api.put(`/api/v1/settings/shop/${sId}`, d),
 };
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
@@ -118,6 +119,7 @@ export const orderApi = {
   updateStatus: (id, s)     => api.put(`/api/v1/orders/${id}/status?status=${s}`),
   getById:      (id)        => api.get(`/api/v1/orders/${id}`),
   getHistory:   (p)         => api.get('/api/v1/orders/customer/history', { params: p }),
+  listAll:      (p)         => api.get('/api/v1/orders/admin/all', { params: p }),
 };
 
 // ── Payments ──────────────────────────────────────────────────────────────────
@@ -126,6 +128,7 @@ export const paymentApi = {
   verify:         (d)        => api.post('/api/v1/payments/verify', d),
   getByShop:      (sId, p)   => api.get(`/api/v1/payments/shop/${sId}`, { params: p }),
   refund:         (payId)    => api.post(`/api/v1/payments/${payId}/refund`),
+  listAll:        (p)        => api.get('/api/v1/payments', { params: p }),
 };
 
 // ── QR Codes ──────────────────────────────────────────────────────────────────
@@ -146,7 +149,7 @@ export const reportApi = {
 
 // ── Hotel ─────────────────────────────────────────────────────────────────────
 export const hotelApi = {
-  getMyHotels:    ()         => api.get('/api/v1/hotels/my'),
+  getMyHotels:    ()         => api.get('/api/v1/hotels/my'), listAll:        (p)        => api.get('/api/v1/hotels/admin/all', { params: p }),
   update:         (id, d)    => api.put(`/api/v1/hotels/${id}`, d),
   getRooms:       (hotelId)  => api.get(`/api/v1/rooms/hotel/${hotelId}`),
   updateRoom:     (id, d)    => api.put(`/api/v1/rooms/${id}`, d),
@@ -158,6 +161,7 @@ export const hotelApi = {
 // ── Mall ──────────────────────────────────────────────────────────────────────
 export const mallApi = {
   getMyMalls:  ()            => api.get('/api/v1/malls/my'),
+  listAll:     ()            => api.get('/api/v1/malls'),
   getVendors:  (mallId)      => api.get(`/api/v1/vendors/mall/${mallId}`),
   addVendor:   (d)           => api.post('/api/v1/vendors', d),
   toggleVendor:(id, a)       => api.put(`/api/v1/vendors/${id}/status?active=${a}`),

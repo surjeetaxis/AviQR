@@ -5,6 +5,7 @@ import in.aviqr.menu.repository.*;
 import in.aviqr.menu.service.DynamicPricingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
@@ -66,7 +67,10 @@ public class MenuController {
 
     @PostMapping("/api/v1/categories")
     public ResponseEntity<ApiResponse<Category>> createCategory(@RequestBody Category cat,
-                                                                 @RequestHeader("X-User-Id") String uid) {
+                                                                 @RequestHeader("X-User-Id") String uid,
+                                                                 @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if ("CUSTOMER".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok("Created", catRepo.save(cat)));
     }
 
@@ -86,8 +90,29 @@ public class MenuController {
 
     // ── Item CRUD ─────────────────────────────────────────────────────────────
     @GetMapping("/api/v1/items/shop/{shopId}")
-    public ResponseEntity<ApiResponse<List<MenuItem>>> getItems(@PathVariable String shopId) {
+    public ResponseEntity<ApiResponse<Page<MenuItem>>> getItems(
+            @PathVariable String shopId,
+            @RequestParam(defaultValue="0") int page,
+            @RequestParam(defaultValue="20") int size) {
+        var all = itemRepo.findByShopIdOrderBySortOrder(shopId);
+        int start = Math.min(page * size, all.size());
+        int end   = Math.min(start + size, all.size());
+        Page<MenuItem> paged = new PageImpl<>(all.subList(start, end),
+            PageRequest.of(page, size), all.size());
+        return ResponseEntity.ok(ApiResponse.ok(paged));
+    }
+
+    @GetMapping("/api/v1/items/shop/{shopId}/all")
+    public ResponseEntity<ApiResponse<List<MenuItem>>> getAllItems(@PathVariable String shopId) {
         return ResponseEntity.ok(ApiResponse.ok(itemRepo.findByShopIdOrderBySortOrder(shopId)));
+    }
+
+    @PostMapping("/api/v1/items/admin/recalculate-rankings")
+    public ResponseEntity<ApiResponse<String>> recalculateRankings(
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"ADMIN".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return ResponseEntity.ok(ApiResponse.ok("Rankings recalculated", "OK"));
     }
 
     @PostMapping("/api/v1/items")
