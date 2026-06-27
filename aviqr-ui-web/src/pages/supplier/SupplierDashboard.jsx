@@ -1,21 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { shopApi, reportApi } from '../../api/index.js';
 import { Store, BarChart2, ShoppingBag, Tag, QrCode, Settings, LogOut, Menu as MenuIcon, TrendingUp, Users, CreditCard } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import '../admin/Admin.css';
 import './Supplier.css';
-
-const OUTLETS = [
-  {id:'o1', name:'Ramesh Teas — Koramangala', orders:84, revenue:28400, status:'open'},
-  {id:'o2', name:'Ramesh Teas — Indiranagar',  orders:71, revenue:23800, status:'open'},
-  {id:'o3', name:'Ramesh Teas — Whitefield',   orders:52, revenue:18200, status:'open'},
-  {id:'o4', name:'Ramesh Teas — HSR Layout',   orders:38, revenue:13600, status:'closed'},
-];
-const WEEKLY = [
-  {day:'Mon',revenue:68000},{day:'Tue',revenue:82000},{day:'Wed',revenue:71000},
-  {day:'Thu',revenue:96000},{day:'Fri',revenue:124000},{day:'Sat',revenue:158000},{day:'Sun',revenue:141000},
-];
 const NAV = [
   {key:'overview',label:'Overview',icon:BarChart2},
   {key:'outlets',label:'Outlets',icon:Store},
@@ -26,11 +16,35 @@ const NAV = [
   {key:'settings',label:'Settings',icon:Settings},
 ];
 
+const WEEKLY_FALLBACK = [
+  {day:'Mon',revenue:0},{day:'Tue',revenue:0},{day:'Wed',revenue:0},
+  {day:'Thu',revenue:0},{day:'Fri',revenue:0},{day:'Sat',revenue:0},{day:'Sun',revenue:0},
+];
+
 export default function SupplierDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [outlets, setOutlets] = useState([]);
+  const [weekly, setWeekly]   = useState(WEEKLY_FALLBACK);
+  const [loadingOutlets, setLoadingOutlets] = useState(true);
+
+  useEffect(() => {
+    shopApi.getMyShops()
+      .then(res => {
+        const shops = res.data.data || [];
+        setOutlets(shops.map(s => ({
+          id: s.id,
+          name: s.name,
+          orders: s.ordersToday || 0,
+          revenue: s.revenueToday || 0,
+          status: s.isOpen ? 'open' : 'closed',
+        })));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingOutlets(false));
+  }, []);
 
   return (
     <div className="admin-layout">
@@ -46,7 +60,7 @@ export default function SupplierDashboard() {
           <div className="admin-avatar" style={{background:'var(--blue)'}}>{user?.avatar||'RE'}</div>
           <div>
             <div className="admin-user-name">{user?.brandName||'Ramesh Enterprises'}</div>
-            <div className="admin-user-role">Supplier · {OUTLETS.length} outlets</div>
+            <div className="admin-user-role">Supplier · {outlets.length} outlets</div>
           </div>
         </div>
         <nav className="admin-nav">
@@ -68,8 +82,8 @@ export default function SupplierDashboard() {
           <div className="admin-avatar sm" style={{marginLeft:'auto',background:'var(--blue)'}}>{user?.avatar}</div>
         </header>
         <main className="admin-content">
-          {tab==='overview' && <SupplierOverview outlets={OUTLETS} weekly={WEEKLY}/>}
-          {tab==='outlets' && <OutletsList outlets={OUTLETS}/>}
+          {tab==='overview' && <SupplierOverview outlets={outlets} weekly={weekly} loading={loadingOutlets}/>}
+          {tab==='outlets' && <OutletsList outlets={outlets} loading={loadingOutlets}/>}
           {tab!=='overview' && tab!=='outlets' && (
             <div className="admin-stub">
               <div className="admin-stub-icon"><Store size={28}/></div>
@@ -83,7 +97,8 @@ export default function SupplierDashboard() {
   );
 }
 
-function SupplierOverview({outlets, weekly}) {
+function SupplierOverview({outlets, weekly, loading}) {
+  if (loading) return <div style={{textAlign:'center',padding:40,color:'var(--gray-400)'}}>Loading outlets…</div>;
   const totalRevenue = outlets.reduce((a,o)=>a+o.revenue,0);
   const totalOrders  = outlets.reduce((a,o)=>a+o.orders,0);
   return (
@@ -123,7 +138,8 @@ function SupplierOverview({outlets, weekly}) {
   );
 }
 
-function OutletsList({outlets}) {
+function OutletsList({outlets, loading}) {
+  if (loading) return <div style={{textAlign:'center',padding:40,color:'var(--gray-400)'}}>Loading outlets…</div>;
   return (
     <div>
       <div className="page-header">

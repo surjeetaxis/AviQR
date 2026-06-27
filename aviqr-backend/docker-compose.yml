@@ -1,10 +1,34 @@
 version: '3.9'
 
+# ── Common environment variables shared by all microservices ──────────────────
+x-common-env: &common-env
+  EUREKA_SERVER_URL: http://service-registry:8761/eureka
+  JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long_please_change}
+  SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_USERNAME: aviqr
+  RABBITMQ_PASSWORD: aviqr_secret
+
+x-postgres-env: &postgres-env
+  SPRING_DATASOURCE_USERNAME: aviqr
+  SPRING_DATASOURCE_PASSWORD: aviqr_secret
+
+x-service-depends: &service-depends
+  depends_on:
+    service-registry:
+      condition: service_healthy
+    postgres:
+      condition: service_healthy
+    mongo:
+      condition: service_healthy
+
 services:
-  # ── Infrastructure ─────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Infrastructure
+  # ─────────────────────────────────────────────────────────────────────────────
 
   postgres:
-    image: postgres:17-alpine
+    image: postgres:16-alpine
     container_name: aviqr-postgres
     environment:
       POSTGRES_USER: aviqr
@@ -17,14 +41,15 @@ services:
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U aviqr"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     networks:
-      - aviqr-network
+      - aviqr-net
 
   mongo:
-    image: mongo:8.0
+    image: mongo:7.0
     container_name: aviqr-mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: aviqr
@@ -35,23 +60,29 @@ services:
     volumes:
       - mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 15s
     networks:
-      - aviqr-network
+      - aviqr-net
 
   redis:
-    image: redis:7.4-alpine
+    image: redis:7-alpine
     container_name: aviqr-redis
+    command: redis-server --requirepass aviqr_redis_secret
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --requirepass aviqr_redis_secret
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "aviqr_redis_secret", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
-      - aviqr-network
+      - aviqr-net
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -61,285 +92,277 @@ services:
       RABBITMQ_DEFAULT_PASS: aviqr_secret
     ports:
       - "5672:5672"
-      - "15672:15672"   # Management UI
+      - "15672:15672"   # Management UI: http://localhost:15672
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     networks:
-      - aviqr-network
+      - aviqr-net
 
-  # ── Service Registry (Eureka) ───────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Service Registry (Eureka) — must start first
+  # ─────────────────────────────────────────────────────────────────────────────
 
   service-registry:
-    build: ./service-registry
+    build:
+      context: .
+      dockerfile: service-registry/Dockerfile
     container_name: aviqr-registry
     ports:
       - "8761:8761"
-    networks:
-      - aviqr-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
-      interval: 15s
+      interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
+    networks:
+      - aviqr-net
 
-  # ── API Gateway ─────────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────────
+  # API Gateway — starts after service-registry + redis
+  # ─────────────────────────────────────────────────────────────────────────────
 
   api-gateway:
-    build: ./api-gateway
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
     container_name: aviqr-gateway
     ports:
       - "8080:8080"
     environment:
       EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long}
+      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long_please_change}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PASSWORD: aviqr_redis_secret
       REDIS_HOST: redis
-      REDIS_PORT: 6379
       REDIS_PASSWORD: aviqr_redis_secret
     depends_on:
       service-registry:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
-      - aviqr-network
+      - aviqr-net
 
-  # ── Microservices ──────────────────────────────────────────────────────────
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Microservices
+  # ─────────────────────────────────────────────────────────────────────────────
 
   auth-service:
-    build: ./auth-service
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
     container_name: aviqr-auth
     environment:
+      <<: *common-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_auth
-      SPRING_DATASOURCE_USERNAME: aviqr
-      SPRING_DATASOURCE_PASSWORD: aviqr_secret
-      SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
+      <<: *postgres-env
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PASSWORD: aviqr_redis_secret
-      EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long}
-      RABBITMQ_HOST: rabbitmq
-    deploy:
-      replicas: 2
-      restart_policy:
-        condition: on-failure
     depends_on:
-      postgres:
-        condition: service_healthy
       service-registry:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
-      - aviqr-network
+      - aviqr-net
 
   shop-service:
-    build: ./shop-service
+    build:
+      context: .
+      dockerfile: shop-service/Dockerfile
     container_name: aviqr-shop
     environment:
+      <<: *common-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_shop
-      SPRING_DATASOURCE_USERNAME: aviqr
-      SPRING_DATASOURCE_PASSWORD: aviqr_secret
-      SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
-      EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long}
-    deploy:
-      replicas: 2
-    depends_on:
-      postgres:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      <<: *postgres-env
+    <<: *service-depends
     networks:
-      - aviqr-network
+      - aviqr-net
 
   menu-service:
-    build: ./menu-service
+    build:
+      context: .
+      dockerfile: menu-service/Dockerfile
+    container_name: aviqr-menu
     environment:
+      <<: *common-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_menu
-      SPRING_DATASOURCE_USERNAME: aviqr
-      SPRING_DATASOURCE_PASSWORD: aviqr_secret
-      SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
-      EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long}
-    deploy:
-      replicas: 2
-    depends_on:
-      postgres:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      <<: *postgres-env
+    <<: *service-depends
     networks:
-      - aviqr-network
+      - aviqr-net
 
   order-service:
-    build: ./order-service
+    build:
+      context: .
+      dockerfile: order-service/Dockerfile
+    container_name: aviqr-order
     environment:
+      <<: *common-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_order
-      SPRING_DATASOURCE_USERNAME: aviqr
-      SPRING_DATASOURCE_PASSWORD: aviqr_secret
-      SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PASSWORD: aviqr_redis_secret
-      EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long}
-      RABBITMQ_HOST: rabbitmq
-    deploy:
-      replicas: 3
-    depends_on:
-      postgres:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      <<: *postgres-env
+      SHOP_SERVICE_URL: http://shop-service
+    <<: *service-depends
     networks:
-      - aviqr-network
+      - aviqr-net
 
   payment-service:
-    build: ./payment-service
+    build:
+      context: .
+      dockerfile: payment-service/Dockerfile
+    container_name: aviqr-payment
     environment:
+      <<: *common-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_payment
-      SPRING_DATASOURCE_USERNAME: aviqr
-      SPRING_DATASOURCE_PASSWORD: aviqr_secret
-      SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
-      EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long}
-      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-rzp_test_key}
-      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-rzp_test_secret}
-      RABBITMQ_HOST: rabbitmq
-    deploy:
-      replicas: 2
-    depends_on:
-      postgres:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      <<: *postgres-env
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-rzp_test_placeholder}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-placeholder_secret}
+    <<: *service-depends
     networks:
-      - aviqr-network
+      - aviqr-net
 
   qr-service:
-    build: ./qr-service
+    build:
+      context: .
+      dockerfile: qr-service/Dockerfile
+    container_name: aviqr-qr
     environment:
+      <<: *common-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_qr
-      SPRING_DATASOURCE_USERNAME: aviqr
-      SPRING_DATASOURCE_PASSWORD: aviqr_secret
-      SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
-      EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long}
-      APP_BASE_URL: ${APP_BASE_URL:-https://aviqr.in}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      <<: *postgres-env
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:5173}
+    <<: *service-depends
     networks:
-      - aviqr-network
+      - aviqr-net
 
   notification-service:
-    build: ./notification-service
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    container_name: aviqr-notification
     environment:
-      SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
-      EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      RABBITMQ_HOST: rabbitmq
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      <<: *common-env
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-whatsapp:+14155238886}
+      APP_WHATSAPP_ENABLED: ${APP_WHATSAPP_ENABLED:-false}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
     depends_on:
-      mongo:
-        condition: service_healthy
       service-registry:
         condition: service_healthy
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
-      - aviqr-network
+      - aviqr-net
 
   hotel-service:
-    build: ./hotel-service
+    build:
+      context: .
+      dockerfile: hotel-service/Dockerfile
+    container_name: aviqr-hotel
     environment:
+      <<: *common-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_hotel
-      SPRING_DATASOURCE_USERNAME: aviqr
-      SPRING_DATASOURCE_PASSWORD: aviqr_secret
-      SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
-      EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long}
-      RABBITMQ_HOST: rabbitmq
-    deploy:
-      replicas: 2
-    depends_on:
-      postgres:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      <<: *postgres-env
+    <<: *service-depends
     networks:
-      - aviqr-network
+      - aviqr-net
 
   mall-service:
-    build: ./mall-service
+    build:
+      context: .
+      dockerfile: mall-service/Dockerfile
+    container_name: aviqr-mall
     environment:
+      <<: *common-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_mall
-      SPRING_DATASOURCE_USERNAME: aviqr
-      SPRING_DATASOURCE_PASSWORD: aviqr_secret
-      SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
-      EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long}
-    deploy:
-      replicas: 2
-    depends_on:
-      postgres:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      <<: *postgres-env
+    <<: *service-depends
     networks:
-      - aviqr-network
+      - aviqr-net
 
   support-service:
-    build: ./support-service
+    build:
+      context: .
+      dockerfile: support-service/Dockerfile
+    container_name: aviqr-support
     environment:
+      <<: *common-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_support
-      SPRING_DATASOURCE_USERNAME: aviqr
-      SPRING_DATASOURCE_PASSWORD: aviqr_secret
-      SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
-      EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      mongo:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      <<: *postgres-env
+    <<: *service-depends
     networks:
-      - aviqr-network
+      - aviqr-net
 
+  # report-service reads order data (cross-service analytics read-only)
   report-service:
-    build: ./report-service
+    build:
+      context: .
+      dockerfile: report-service/Dockerfile
+    container_name: aviqr-report
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr
-      SPRING_DATASOURCE_USERNAME: aviqr
-      SPRING_DATASOURCE_PASSWORD: aviqr_secret
-      SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
-      EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      service-registry:
-        condition: service_healthy
+      <<: *common-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_order
+      <<: *postgres-env
+    <<: *service-depends
     networks:
-      - aviqr-network
+      - aviqr-net
 
   ocr-service:
-    build: ./ocr-service
+    build:
+      context: .
+      dockerfile: ocr-service/Dockerfile
+    container_name: aviqr-ocr
     environment:
-      SPRING_DATA_MONGODB_URI: mongodb://aviqr:aviqr_secret@mongo:27017/aviqr_logs?authSource=admin
-      EUREKA_SERVER_URL: http://service-registry:8761/eureka
-      JWT_SECRET: ${JWT_SECRET:-aviqr_super_secret_key_min_32_chars_long}
-      RABBITMQ_HOST: rabbitmq
-      GOOGLE_VISION_API_KEY: ${GOOGLE_VISION_API_KEY}
+      <<: *common-env
+      GOOGLE_VISION_API_KEY: ${GOOGLE_VISION_API_KEY:-}
     depends_on:
-      mongo:
-        condition: service_healthy
       service-registry:
         condition: service_healthy
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
-      - aviqr-network
+      - aviqr-net
+
+  review-service:
+    build:
+      context: .
+      dockerfile: review-service/Dockerfile
+    container_name: aviqr-review
+    environment:
+      <<: *common-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_review
+      <<: *postgres-env
+    <<: *service-depends
+    networks:
+      - aviqr-net
 
 volumes:
   postgres_data:
   mongo_data:
   redis_data:
+  rabbitmq_data:
 
 networks:
-  aviqr-network:
+  aviqr-net:
     driver: bridge

@@ -20,6 +20,5 @@ public class MenuResponse {
         BigDecimal effectivePrice; // after dynamic pricing
         String imageUrl; Boolean veg; Boolean spicy; Boolean popular;
         Boolean available; String tag;
-        BigDecimal rating; Integer ratingCount; // Product Ranking
     }
 }

@@ -11,12 +11,4 @@ public interface ShopRepository extends JpaRepository<Shop, UUID> {
     @Query("SELECT s FROM Shop s WHERE LOWER(s.name) LIKE LOWER(CONCAT('%',:q,'%')) OR LOWER(s.city) LIKE LOWER(CONCAT('%',:q,'%'))")
     Page<Shop> search(String q, Pageable pageable);
     long countByStatus(ShopStatus status);
-
-    // Seller Tier System — higher tiers surface first in marketplace listings
-    @Query("SELECT s FROM Shop s ORDER BY CASE s.tier WHEN 'GOLD' THEN 0 WHEN 'SILVER' THEN 1 WHEN 'BRONZE' THEN 2 ELSE 3 END, s.rating DESC")
-    Page<Shop> findAllOrderByTier(Pageable pageable);
-
-    @Query("SELECT s FROM Shop s WHERE LOWER(s.name) LIKE LOWER(CONCAT('%',:q,'%')) OR LOWER(s.city) LIKE LOWER(CONCAT('%',:q,'%')) " +
-           "ORDER BY CASE s.tier WHEN 'GOLD' THEN 0 WHEN 'SILVER' THEN 1 WHEN 'BRONZE' THEN 2 ELSE 3 END, s.rating DESC")
-    Page<Shop> searchOrderByTier(String q, Pageable pageable);
 }

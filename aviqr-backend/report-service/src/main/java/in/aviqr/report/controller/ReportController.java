@@ -67,35 +67,6 @@ public class ReportController {
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
-    // Paginated daily report snapshots — real persisted rows, not random data.
-    @GetMapping("/shop/{shopId}/history")
-    public ResponseEntity<ApiResponse<Map<String,Object>>> history(
-            @PathVariable String shopId,
-            @RequestParam(defaultValue="0") int page,
-            @RequestParam(defaultValue="20") int size,
-            @RequestParam(defaultValue="report_date") String sort,
-            @RequestParam(defaultValue="desc") String dir) {
-        int clampedSize = switch (size) { case 10, 20, 50, 100 -> size; default -> 20; };
-        String sortCol = Set.of("report_date", "total_revenue", "total_orders").contains(sort) ? sort : "report_date";
-        String sortDir = "asc".equalsIgnoreCase(dir) ? "ASC" : "DESC";
-
-        long total = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM report_snapshots WHERE shop_id = ?", Long.class, shopId);
-
-        List<Map<String,Object>> content = jdbc.queryForList(
-            "SELECT report_date, total_revenue, total_orders, avg_order_value, new_customers, top_item, peak_hour " +
-            "FROM report_snapshots WHERE shop_id = ? ORDER BY " + sortCol + " " + sortDir + " LIMIT ? OFFSET ?",
-            shopId, clampedSize, page * clampedSize);
-
-        Map<String,Object> result = new LinkedHashMap<>();
-        result.put("content", content);
-        result.put("number", page);
-        result.put("size", clampedSize);
-        result.put("totalElements", total);
-        result.put("totalPages", (int) Math.ceil(total / (double) clampedSize));
-        return ResponseEntity.ok(ApiResponse.ok(result));
-    }
-
     @GetMapping("/admin/platform")
     public ResponseEntity<ApiResponse<Map<String,Object>>> platformStats() {
         Map<String,Object> data = new LinkedHashMap<>();

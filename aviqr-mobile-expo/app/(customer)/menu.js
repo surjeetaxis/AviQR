@@ -6,7 +6,7 @@ import {
 // Icon not needed — using emoji
 import { LinearGradient } from 'expo-linear-gradient';
 // Toast replaced with Alert
-import { menuApi, orderApi, paymentApi, shopApi } from '../../src/api/index.js';
+import { menuApi, orderApi, paymentApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { Button } from '../../src/components/common/Button.js';
 // BottomSheet replaced with Modal
@@ -18,7 +18,6 @@ export default function CustomerMenuScreen({ route }) {
   const { user } = useAuth();
 
   const [menu, setMenu]         = useState([]);
-  const [shopInfo, setShopInfo] = useState(null); // Seller Tier badge
   const [cart, setCart]         = useState({});
   const [cartOpen, setCartOpen] = useState(false);
   const [orderOpen, setOrderOpen]= useState(false);
@@ -29,7 +28,7 @@ export default function CustomerMenuScreen({ route }) {
   const [filter, setFilter]     = useState('all'); // all, veg, nonveg, popular
   const [customerInfo, setInfo] = useState({ name: user?.name || '', phone: user?.phone || '', table: tableNumber || '', paymentMethod: 'ONLINE' });
 
-  useEffect(() => { loadMenu(); loadShopInfo(); }, [shopId, lang]);
+  useEffect(() => { loadMenu(); }, [shopId, lang]);
 
   const loadMenu = async () => {
     try {
@@ -38,12 +37,6 @@ export default function CustomerMenuScreen({ route }) {
       if (res.data.data?.categories?.length > 0) setActiveCat(res.data.data.categories[0].id);
     } catch {}
   };
-
-  const loadShopInfo = async () => {
-    try { setShopInfo((await shopApi.getById(shopId)).data.data); } catch {}
-  };
-
-  const TIER_EMOJI = { GOLD: '🥇', SILVER: '🥈', BRONZE: '🥉', NEW: '✨' };
 
   // Cart helpers
   const addItem = (item) => setCart(c => ({ ...c, [item.id]: { ...item, qty: (c[item.id]?.qty || 0) + 1 } }));
@@ -104,9 +97,6 @@ export default function CustomerMenuScreen({ route }) {
           </View>
           <Text style={styles.menuItemName}>{item.name}</Text>
           {item.description && <Text style={styles.menuItemDesc} numberOfLines={2}>{item.description}</Text>}
-          {item.ratingCount > 0 && (
-            <Text style={styles.menuItemRating}>⭐ {Number(item.rating).toFixed(1)} ({item.ratingCount})</Text>
-          )}
           <View style={styles.priceRow}>
             <Text style={styles.menuItemPrice}>₹{item.effectivePrice || item.price}</Text>
             {item.effectivePrice && item.effectivePrice < item.price && (
@@ -140,17 +130,7 @@ export default function CustomerMenuScreen({ route }) {
     <View style={styles.screen}>
       {/* Header */}
       <LinearGradient colors={['#0F6E56','#1D9E75']} style={styles.header}>
-        <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
-          <Text style={styles.shopTitle}>{shopInfo?.name || 'Menu'}</Text>
-          {shopInfo?.tier && (
-            <View style={styles.tierBadge}>
-              <Text style={styles.tierBadgeText}>{TIER_EMOJI[shopInfo.tier] || ''} {shopInfo.tier}</Text>
-            </View>
-          )}
-        </View>
-        {shopInfo?.rating > 0 && (
-          <Text style={styles.tableInfo}>⭐ {Number(shopInfo.rating).toFixed(1)} ({shopInfo.ratingCount})</Text>
-        )}
+        <Text style={styles.shopTitle}>Menu</Text>
         {tableNumber && <Text style={styles.tableInfo}>Table {tableNumber}</Text>}
       </LinearGradient>
 
@@ -268,8 +248,6 @@ const styles = StyleSheet.create({
   screen:         { flex: 1, backgroundColor: Colors.background },
   header:         { paddingTop: 52, paddingBottom: 16, paddingHorizontal: Spacing.base },
   shopTitle:      { fontSize: FontSize['2xl'], fontWeight: '800', color: Colors.white },
-  tierBadge:      { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full },
-  tierBadgeText:  { fontSize: FontSize.xs, fontWeight: '700', color: Colors.white },
   tableInfo:      { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
   searchWrap:     { backgroundColor: Colors.white, padding: Spacing.base, borderBottomWidth: 1, borderBottomColor: Colors.border },
   searchBox:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray100, borderRadius: Radius.full, paddingHorizontal: 14, height: 40, gap: 8 },
@@ -297,7 +275,6 @@ const styles = StyleSheet.create({
   spicyTag:       { fontSize: 14 },
   menuItemName:   { fontSize: FontSize.base, fontWeight: '700', color: Colors.gray900 },
   menuItemDesc:   { fontSize: FontSize.xs, color: Colors.gray400, marginTop: 2, lineHeight: 16 },
-  menuItemRating: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 2 },
   priceRow:       { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   menuItemPrice:  { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900 },
   originalPrice:  { fontSize: FontSize.sm, color: Colors.gray400, textDecorationLine: 'line-through' },

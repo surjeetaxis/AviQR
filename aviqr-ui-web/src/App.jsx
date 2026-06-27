@@ -20,6 +20,9 @@ import HotelDashboard    from './pages/hotel/HotelDashboard.jsx';
 import MallDashboard     from './pages/mall/MallDashboard.jsx';
 import CustomerMenu      from './pages/customer/CustomerMenu.jsx';
 import Onboarding        from './components/shared/Onboarding.jsx';
+import TermsPage         from './pages/legal/TermsPage.jsx';
+import PrivacyPage         from './pages/legal/PrivacyPage.jsx';
+import AIHub              from './pages/ai/AIHub.jsx';
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
@@ -40,7 +43,9 @@ export default function App() {
       <Route path="/onboarding"      element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
       {/* Customer QR Menu — fully public */}
-      <Route path="/menu/:shopId"    element={<CustomerMenu />} />
+      <Route path="/terms"          element={<TermsPage />} />
+      <Route path="/privacy"        element={<PrivacyPage />} />
+      <Route path="/menu/:shopId"   element={<CustomerMenu />} />
       <Route path="/customer"        element={<CustomerMenu />} />
 
       {/* Owner/Staff dashboard */}
@@ -52,6 +57,7 @@ export default function App() {
         <Route path="staff"     element={<Staff />} />
         <Route path="reports"   element={<Reports />} />
         <Route path="settings"  element={<Settings />} />
+        <Route path="ai"        element={<AIHub />} />
       </Route>
 
       {/* Role dashboards */}

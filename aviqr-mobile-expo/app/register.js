@@ -25,12 +25,14 @@ export default function Register() {
   const [step, setStep]   = useState(0);
   const [role, setRole]   = useState('');
   const [form, setForm]   = useState({name:'',email:'',phone:'',password:''});
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoad]= useState(false);
   const [err, setErr]     = useState('');
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
   const doRegister = async () => {
     if(!form.name||!form.email||!form.password) return setErr('Fill all required fields');
+    if(!agreed) return setErr('Please accept the Terms of Service and Privacy Policy');
     setLoad(true); setErr('');
     try { const u=await register({...form,role}); router.replace(homeFor(u.role)); }
     catch(e){ setErr(e.response?.data?.message||'Registration failed. Try demo login.'); }
@@ -69,7 +71,19 @@ export default function Register() {
           <Input label="Email *" placeholder="you@restaurant.in" value={form.email} onChangeText={v=>set('email',v)} keyboardType="email-address" autoCapitalize="none"/>
           <Input label="Phone" placeholder="9845012345" value={form.phone} onChangeText={v=>set('phone',v)} keyboardType="phone-pad"/>
           <Input label="Password *" placeholder="Min 8 characters" value={form.password} onChangeText={v=>set('password',v)} secureEntry/>
-          <Button title={loading?'Creating account…':'Create Account'} onPress={doRegister} loading={loading} style={{marginTop:8}}/>
+          {/* Terms of Service checkbox */}
+          <TouchableOpacity onPress={()=>setAgreed(a=>!a)} style={[ss.termsRow,agreed&&ss.termsChecked]}>
+            <View style={[ss.checkbox,agreed&&ss.checkboxFilled]}>
+              {agreed&&<Text style={{color:'white',fontSize:12,fontWeight:'700'}}>✓</Text>}
+            </View>
+            <Text style={ss.termsTxt}>
+              I agree to the{' '}
+              <Text style={{color:Colors.primary,fontWeight:'700'}}>Terms of Service</Text>
+              {' '}and{' '}
+              <Text style={{color:Colors.primary,fontWeight:'700'}}>Privacy Policy</Text>
+            </Text>
+          </TouchableOpacity>
+          <Button title={loading?'Creating account…':'Create Account'} onPress={doRegister} loading={loading} disabled={!agreed} style={{marginTop:8,opacity:agreed?1:0.6}}/>
         </View>
       )}
 
@@ -93,4 +107,9 @@ const ss=StyleSheet.create({
   checkFilled:{backgroundColor:Colors.primary,borderColor:Colors.primary},
   errBox:{backgroundColor:Colors.errorLight,borderRadius:Radius.md,padding:12,marginBottom:14},
   errTxt:{color:Colors.error,fontSize:FontSize.sm},
+  termsRow:{flexDirection:'row',alignItems:'flex-start',gap:10,padding:12,borderRadius:Radius.md,borderWidth:1.5,borderColor:Colors.border,marginBottom:12,backgroundColor:Colors.background},
+  termsChecked:{borderColor:Colors.primary,backgroundColor:Colors.primaryLight},
+  checkbox:{width:22,height:22,borderRadius:4,borderWidth:2,borderColor:Colors.gray300,alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1},
+  checkboxFilled:{backgroundColor:Colors.primary,borderColor:Colors.primary},
+  termsTxt:{flex:1,fontSize:FontSize.sm,color:Colors.gray700,lineHeight:20},
 });

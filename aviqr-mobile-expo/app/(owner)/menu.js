@@ -27,7 +27,7 @@ export default function MenuScreen() {
 
   const loadMenu = async () => {
     try {
-      const [c, i] = await Promise.all([menuApi.getCategories(shopId), menuApi.getAllItems(shopId)]);
+      const [c, i] = await Promise.all([menuApi.getCategories(shopId), menuApi.getItems(shopId)]);
       const cd = c.data.data || []; const id = i.data.data || [];
       if(cd.length) { setCats(cd); setOffline(false); }
       if(id.length) setItems(id);
@@ -103,7 +103,6 @@ export default function MenuScreen() {
                 {item.spicy&&<Text style={ss.tag}>🌶️</Text>}
               </View>
               {item.description&&<Text style={ss.itemDesc} numberOfLines={1}>{item.description}</Text>}
-              {item.ratingCount>0&&<Text style={ss.itemRating}>⭐ {Number(item.rating).toFixed(1)} ({item.ratingCount})</Text>}
               <Text style={ss.itemPrice}>₹{item.price}</Text>
             </View>
             <View style={ss.itemActions}>
@@ -160,7 +159,6 @@ const ss = StyleSheet.create({
   itemRow:{flexDirection:'row',alignItems:'center',gap:6},
   itemName:{fontSize:FontSize.base,fontWeight:'700',color:Colors.gray900},
   itemDesc:{fontSize:FontSize.xs,color:Colors.gray400},
-  itemRating:{fontSize:FontSize.xs,color:Colors.gray500,marginTop:2},
   itemPrice:{fontSize:FontSize.md,fontWeight:'800',color:Colors.primary},
   tag:{fontSize:12},
   itemActions:{flexDirection:'row',alignItems:'center',gap:12},

@@ -1,21 +1,22 @@
 package in.aviqr.order.dto;
 import in.aviqr.order.entity.*;
-import lombok.Data;
+import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 
-@Data
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class OrderResponse {
-    UUID id; String orderNumber; String shopId; String customerId;
-    String customerName; String customerPhone; String tableNumber;
+    UUID id; String orderNumber; String shopId;
+    String customerId; String customerName; String customerPhone; String tableNumber;
     OrderType type; OrderStatus status; PaymentMethod paymentMethod;
     PaymentStatus paymentStatus; String paymentId;
     BigDecimal subtotal; BigDecimal tax; BigDecimal totalAmount;
     String notes; List<ItemDto> items;
     LocalDateTime createdAt; LocalDateTime updatedAt;
+    LocalDateTime acceptedAt; LocalDateTime completedAt;
 
-    @Data
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class ItemDto {
         UUID id; UUID menuItemId; String itemName;
         Integer quantity; BigDecimal unitPrice; BigDecimal totalPrice; String notes;

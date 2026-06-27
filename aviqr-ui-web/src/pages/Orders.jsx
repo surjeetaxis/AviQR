@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { orderApi } from '../api/index.js';
+import { orderApi, invoiceApi } from '../api/index.js';
 import './Orders.css';
 
 const STATUS_NEXT  = { NEW:'ACCEPTED', ACCEPTED:'PREPARING', PREPARING:'READY', READY:'COMPLETED' };
@@ -114,6 +114,16 @@ export default function Orders() {
             <div className="order-card-footer">
               <span className="order-time">{timeSince(order.createdAt)}</span>
               <span className="order-amt">₹{parseFloat(order.totalAmount||0).toFixed(0)}</span>
+              {/* KOT print — opens thermal-ready HTML in new tab */}
+              <button className="advance-btn" style={{ background:'var(--gray-100)', color:'var(--gray-700)' }}
+                onClick={() => window.open(invoiceApi.kotUrl(order.id), 'aviqr_kot', 'width=420,height=600')}>
+                🖨 KOT
+              </button>
+              {/* GST Invoice download */}
+              <a className="advance-btn" style={{ background:'var(--blue-bg)', color:'var(--blue)', textDecoration:'none' }}
+                href={invoiceApi.downloadUrl(order.id, {})} target="_blank" rel="noreferrer">
+                📄 Invoice
+              </a>
               {STATUS_NEXT[order.status] && (
                 <button className="advance-btn" onClick={() => advance(order)}>
                   {order.status==='NEW'?'✓ Accept':order.status==='ACCEPTED'?'👨‍🍳 Start':order.status==='PREPARING'?'✅ Ready':'🎉 Done'}

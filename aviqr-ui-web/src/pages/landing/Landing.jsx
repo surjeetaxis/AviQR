@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import SEO from '../../components/shared/SEO.jsx';
 import {
   QrCode, Zap, BarChart2, Users, ShoppingBag, Star,
   ChevronRight, Globe, Shield, Clock, Smartphone,
@@ -8,10 +9,10 @@ import {
 import './Landing.css';
 
 const STATS = [
-  { value: '12,000+', label: 'Restaurants onboarded' },
-  { value: '₹48Cr+',  label: 'Orders processed' },
-  { value: '2.4M+',   label: 'QR scans / month' },
-  { value: '99.9%',   label: 'Uptime SLA' },
+  { value: 'Free',    label: 'Starter plan — no credit card' },
+  { value: '9',      label: 'Indian languages supported' },
+  { value: '< 10m',  label: 'Setup time from QR to first order' },
+  { value: '99.9%',  label: 'Uptime SLA' },
 ];
 
 const FEATURES = [
@@ -64,6 +65,11 @@ export default function Landing() {
 
   return (
     <div className="landing">
+      <SEO
+        title="AviQR — QR Menu & Restaurant OS for India"
+        description="Scan to order. Pay online. 9 Indian languages. Manage restaurants, hotels and malls with AviQR's QR-powered platform."
+        canonical="https://aviqr.in/"
+      />
       {/* ── Nav ── */}
       <nav className="land-nav">
         <div className="land-nav-inner">
@@ -88,7 +94,7 @@ export default function Landing() {
         <div className="hero-inner">
           <div className="hero-eyebrow">
             <span className="eyebrow-dot" />
-            <span>Trusted by 12,000+ restaurants across India</span>
+            <span>India's multilingual QR menu & order platform</span>
           </div>
           <h1 className="hero-headline">
             One QR code.<br />
@@ -269,7 +275,7 @@ export default function Landing() {
         <div className="cta-banner-inner">
           <QrCode size={40} className="cta-qr-icon" />
           <h2 className="cta-title">Ready to go digital?</h2>
-          <p className="cta-sub">Join 12,000+ restaurants already using AviQR. Set up your QR menu in under 10 minutes.</p>
+          <p className="cta-sub">Set up your digital menu in under 10 minutes. No hardware. No app download. Just scan & order.</p>
           <div className="cta-actions">
             <button className="btn-cta-primary" onClick={() => navigate('/register')}>
               Create your free account →
@@ -307,9 +313,9 @@ export default function Landing() {
             </div>
             <div className="footer-col">
               <div className="footer-col-title">Legal</div>
-              <a href="#">Privacy policy</a>
-              <a href="#">Terms of service</a>
-              <a href="#">Refund policy</a>
+              <a href="/privacy">Privacy policy</a>
+              <a href="/terms">Terms of service</a>
+              <a href="/refund">Refund policy</a>
             </div>
           </div>
         </div>

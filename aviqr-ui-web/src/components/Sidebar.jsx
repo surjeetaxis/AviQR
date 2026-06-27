@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingBag, BookOpen, QrCode,
-  Users, BarChart3, Settings, LogOut, X
+  Users, BarChart3, Settings, LogOut, X, Sparkles
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS } from '../context/AuthContext.jsx';
 import './Sidebar.css';
@@ -13,6 +13,7 @@ const OWNER_NAV = [
   { to: '/qr-codes',  label: 'QR Codes',  icon: QrCode },
   { to: '/staff',     label: 'Staff',     icon: Users },
   { to: '/reports',   label: 'Reports',   icon: BarChart3 },
+  { to: '/ai',        label: 'AI Features', icon: Sparkles },
   { to: '/settings',  label: 'Settings',  icon: Settings },
 ];
 

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import StatCard from '../components/StatCard.jsx';
-import Pagination from '../components/shared/Pagination.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { reportApi } from '../api/index.js';
 import './Reports.css';
@@ -22,19 +21,7 @@ export default function Reports() {
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
 
-  // Paginated daily snapshot history (Reports pagination requirement)
-  const [history,    setHistory]    = useState(null); // Page<ReportSnapshot> | null
-  const [historyPage, setHistoryPage] = useState(0);
-  const [historySize, setHistorySize] = useState(10);
-
   useEffect(() => { load(); }, [range, shopId]);
-
-  useEffect(() => {
-    if (!shopId) return;
-    reportApi.getHistory(shopId, { page: historyPage, size: historySize, sort: 'report_date', dir: 'desc' })
-      .then(res => setHistory(res.data.data))
-      .catch(() => setHistory(null));
-  }, [shopId, historyPage, historySize]);
 
   const load = async () => {
     if (!shopId) { setError('No shop linked to this account'); setLoading(false); return; }
@@ -70,6 +57,17 @@ export default function Reports() {
 
   const fmt = n => Number(n||0).toLocaleString('en-IN');
 
+  const exportCsv = () => {
+    if (!revenue.length) return;
+    const rows = [['Date','Revenue (₹)','Orders'],...revenue.map(r=>[r.date,r.revenue,r.orders])];
+    const csv = rows.map(r=>r.join(',')).join('\n');
+    const blob = new Blob([csv], { type:'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `aviqr_revenue_${range}d_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
   if (loading) return (
     <div className="page-content" style={{ display:'flex', alignItems:'center', justifyContent:'center', height:300, gap:10, flexDirection:'column' }}>
       <div style={{ width:28, height:28, border:'3px solid var(--green)', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 1s linear infinite' }}/>
@@ -89,6 +87,7 @@ export default function Reports() {
             {RANGES.map(r => <button key={r.v} className={`seg-btn${range===r.v?' is-active':''}`} onClick={() => setRange(r.v)}>{r.l}</button>)}
           </div>
           <button className="btn btn-secondary" onClick={load}><RefreshCw size={13}/> Refresh</button>
+          <button className="btn btn-secondary" onClick={exportCsv} disabled={!revenue.length} title="Export revenue CSV"><Download size={13}/> Export CSV</button>
         </div>
       </div>
 
@@ -174,33 +173,6 @@ export default function Reports() {
             }
           </div>
         </div>
-      </div>
-
-      <div className="card">
-        <div className="card-header"><div><div className="card-title">Daily report history</div><div className="card-subtitle">Every day's snapshot, paginated</div></div></div>
-        {!history ? (
-          <p style={{ color:'var(--gray-400)', fontSize:13, padding:'12px 0' }}>No history available</p>
-        ) : (
-          <>
-            <table className="admin-table">
-              <thead><tr><th>Date</th><th>Revenue</th><th>Orders</th><th>Avg order value</th><th>New customers</th><th>Top item</th><th>Peak hour</th></tr></thead>
-              <tbody>
-                {history.content.map((row,i) => (
-                  <tr key={i}>
-                    <td>{row.report_date}</td>
-                    <td style={{fontWeight:700}}>₹{fmt(row.total_revenue)}</td>
-                    <td>{row.total_orders}</td>
-                    <td>₹{fmt(row.avg_order_value)}</td>
-                    <td>{row.new_customers}</td>
-                    <td>{row.top_item}</td>
-                    <td>{row.peak_hour}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <Pagination page={history} onPageChange={setHistoryPage} onSizeChange={s=>{setHistorySize(s);setHistoryPage(0);}}/>
-          </>
-        )}
       </div>
     </div>
   );

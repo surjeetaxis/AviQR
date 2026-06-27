@@ -25,6 +25,7 @@ export default function Staff() {
   const [form, setForm]     = useState(EMPTY);
   const [saving, setSaving] = useState(false);
   const [loading, setStaffLoad] = useState(true);
+  const [error, setError]       = useState(null);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 

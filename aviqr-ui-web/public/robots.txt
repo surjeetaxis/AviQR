@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Allow: /menu/
+Disallow: /dashboard
+Disallow: /orders
+Disallow: /admin/
+Disallow: /hotel/
+Disallow: /mall/
+Disallow: /supplier/
+Disallow: /support/
+Disallow: /api/
+
+Sitemap: https://aviqr.in/sitemap.xml

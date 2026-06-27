@@ -7,8 +7,7 @@
 #    ./aviqr.sh list                      List all services (port + description)
 #    ./aviqr.sh check                     Check required software + infra status
 #    ./aviqr.sh install [--yes]           Show (or run, with --yes) install commands
-#    ./aviqr.sh db-setup                  Seed: run aviqr_setup.sql against local Postgres
-#    ./aviqr.sh db-teardown               Unseed: drop all 11 AviQR databases
+#    ./aviqr.sh db-setup                  Run aviqr_setup.sql against local Postgres
 #    ./aviqr.sh build [all|<service>]     Build all services, or just one
 #    ./aviqr.sh clean                     ./gradlew clean
 #    ./aviqr.sh run all                   Start every service in the background
@@ -27,8 +26,14 @@ BASE=$(cd "$(dirname "$0")" && pwd)
 LOG_DIR="$BASE/logs"
 mkdir -p "$LOG_DIR"
 
-# ── Service catalog (only service-registry must start first; the rest start
-#    in small batches — see cmd_run / AVIQR_START_BATCH_SIZE) ────────────────
+# ── Ensure Java 21 is used for all Gradle/Spring Boot invocations ─────────────
+if [ -d "/usr/lib/jvm/java-21-openjdk-amd64" ]; then
+  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+elif [ -d "/usr/lib/jvm/temurin-21" ]; then
+  export JAVA_HOME=/usr/lib/jvm/temurin-21
+fi
+
+# ── Service catalog (start order matters: registry/gateway/auth go first) ────
 SERVICES=(
   service-registry api-gateway auth-service shop-service menu-service
   order-service payment-service qr-service hotel-service mall-service
@@ -51,7 +56,7 @@ desc_for() {
     notification-service) echo "SMS/Email notifications, consumes RabbitMQ events" ;;
     report-service)       echo "Reports and analytics" ;;
     ocr-service)          echo "OCR via Google Vision API" ;;
-    review-service)       echo "Seller/product reviews + ratings — feeds Seller Tier and Product Ranking" ;;
+    review-service)       echo "Product and shop reviews, ratings" ;;
     *)                    echo "Unknown service" ;;
   esac
 }
@@ -100,8 +105,7 @@ Usage:
   ./aviqr.sh list                      List all services (port + description)
   ./aviqr.sh check                     Check required software + infra status
   ./aviqr.sh install [--yes]           Show (or run, with --yes) install commands
-  ./aviqr.sh db-setup                  Seed: run aviqr_setup.sql against local Postgres
-  ./aviqr.sh db-teardown               Unseed: drop all 11 AviQR databases
+  ./aviqr.sh db-setup                  Run aviqr_setup.sql against local Postgres
   ./aviqr.sh build [all|<service>]     Build all services, or just one
   ./aviqr.sh clean                     ./gradlew clean
   ./aviqr.sh run all                   Start every service in the background
@@ -297,33 +301,10 @@ cmd_db_setup() {
     err "aviqr_setup.sql not found in $BASE"
     return 1
   fi
-  warn "This creates the 'aviqr' role, 11 databases, schema, and demo/bulk data."
+  warn "This creates the 'aviqr' role, 10 databases, schema, and demo/bulk data."
   read -r -p "Run aviqr_setup.sql as the postgres superuser now? [y/N] " reply
   [[ "$reply" =~ ^[Yy]$ ]] || { echo "Aborted."; return 1; }
-  # Redirect via stdin rather than -f: the postgres user often can't traverse
-  # into a home directory (e.g. mode 750) to open the file by path itself,
-  # but a shell-level redirect opens it as the invoking user and just hands
-  # postgres an already-open fd. The script's \connect commands stay on the
-  # postgres superuser throughout (never switch to the aviqr role), so no
-  # password is needed mid-script even though stdin isn't a terminal.
-  sudo -u postgres psql < "$BASE/aviqr_setup.sql"
-}
-
-# ==============================================================================
-#  db-teardown — unseed: drops all 11 AviQR databases (reverses db-setup)
-# ==============================================================================
-cmd_db_teardown() {
-  if [ ! -f "$BASE/aviqr_teardown.sql" ]; then
-    err "aviqr_teardown.sql not found in $BASE"
-    return 1
-  fi
-  warn "This DROPS all 11 AviQR databases — every table and every row of data, gone."
-  warn "Any open connections (e.g. from running services) are force-terminated."
-  read -r -p "Drop all AviQR databases now? [y/N] " reply
-  [[ "$reply" =~ ^[Yy]$ ]] || { echo "Aborted."; return 1; }
-  sudo -u postgres psql < "$BASE/aviqr_teardown.sql"
-  echo ""
-  echo "Databases dropped. Run './aviqr.sh db-setup' to reseed from scratch."
+  sudo -u postgres psql -f - < "$BASE/aviqr_setup.sql"
 }
 
 # ==============================================================================
@@ -362,51 +343,6 @@ start_one() {
   echo $! > "$LOG_DIR/${name}.pid"
 }
 
-# Poll a URL until it reports healthy, instead of sleeping a fixed duration.
-# Returns as soon as the service is actually ready (usually well under the timeout).
-wait_for_url() {
-  local label="$1" url="$2" timeout="${3:-60}"
-  local waited=0
-  while [ "$waited" -lt "$timeout" ]; do
-    if curl -s "$url" 2>/dev/null | grep -q '"status":"UP"'; then
-      ok "$label ready (${waited}s)"
-      return 0
-    fi
-    sleep 1
-    waited=$((waited + 1))
-  done
-  warn "$label not confirmed ready after ${timeout}s — continuing anyway"
-  return 1
-}
-
-# Poll Eureka for several services' registration concurrently (round-robin)
-# instead of one-at-a-time, since they're all already starting in parallel in
-# the background — checking them sequentially would just serialize the wait
-# on top of work that's already happening at once. Called once per batch (see
-# cmd_run), so wait time is roughly that batch's slowest service, not the sum.
-wait_for_registrations() {
-  local timeout=60 waited=0
-  local pending=("$@")
-  while [ "${#pending[@]}" -gt 0 ] && [ "$waited" -lt "$timeout" ]; do
-    local still_pending=()
-    for svc in "${pending[@]}"; do
-      local app_id; app_id=$(echo "$svc" | tr '[:lower:]' '[:upper:]')
-      if curl -s -H "Accept: application/json" "http://localhost:8761/eureka/apps/$app_id" 2>/dev/null \
-          | grep -q '"status":"UP"'; then
-        ok "$svc registered with Eureka (${waited}s)"
-      else
-        still_pending+=("$svc")
-      fi
-    done
-    pending=("${still_pending[@]}")
-    [ "${#pending[@]}" -gt 0 ] && sleep 1
-    waited=$((waited + 1))
-  done
-  for svc in "${pending[@]}"; do
-    warn "$svc not confirmed registered after ${timeout}s — continuing anyway"
-  done
-}
-
 stop_one() {
   local name="$1"
   local pid_file="$LOG_DIR/${name}.pid"
@@ -438,28 +374,27 @@ cmd_run() {
     echo "================================================================================"
 
     start_one "service-registry"
-    wait_for_url "Eureka" "http://localhost:8761/actuator/health" 60
+    echo "   Waiting 25s for Eureka to be ready..."
+    sleep 25
+    if curl -s http://localhost:8761/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+      ok "Eureka is up"
+    else
+      warn "Eureka may still be starting — continuing anyway"
+    fi
 
-    # No ordering dependency between the rest once Eureka is up, so start them
-    # in small batches rather than one at a time. Starting all 14 at once can
-    # blow past available RAM (each Spring Boot JVM needs a few hundred MB
-    # while starting) and the Linux OOM killer will silently kill services
-    # with no warning and no log line — tune batch size down if that happens,
-    # up if your machine has RAM to spare.
-    local batch_size="${AVIQR_START_BATCH_SIZE:-4}"
-    local rest=()
-    for svc in "${SERVICES[@]}"; do
-      [ "$svc" = "service-registry" ] && continue
-      rest+=("$svc")
-    done
-    local total=${#rest[@]}
-    for ((i = 0; i < total; i += batch_size)); do
-      local batch=("${rest[@]:i:batch_size}")
-      for svc in "${batch[@]}"; do
-        start_one "$svc"
-      done
-      wait_for_registrations "${batch[@]}"
-    done
+    start_one "api-gateway"; sleep 15
+    start_one "auth-service"; sleep 8
+    start_one "shop-service"; sleep 6
+    start_one "menu-service"; sleep 6
+    start_one "order-service"; sleep 6
+    start_one "payment-service"; sleep 5
+    start_one "qr-service"; sleep 5
+    start_one "hotel-service"; sleep 5
+    start_one "mall-service"; sleep 5
+    start_one "support-service"; sleep 5
+    start_one "notification-service"; sleep 5
+    start_one "report-service"; sleep 5
+    start_one "ocr-service"; sleep 3
 
     echo ""
     echo "================================================================================"
@@ -493,10 +428,7 @@ cmd_stop() {
     for svc in "${SERVICES[@]}"; do
       stop_one "$svc"
     done
-    # Matching on "aviqr-backend" alone would also match this very script's
-    # own invocation path (it lives under aviqr-backend/) and kill itself
-    # before it finishes — match the running app JVMs' classpath instead.
-    pkill -f "build/classes/java/main" 2>/dev/null || true
+    pkill -f "aviqr-backend" 2>/dev/null || true
     fuser -k 8761/tcp 2>/dev/null || true
     fuser -k 8080/tcp 2>/dev/null || true
     echo ""
@@ -532,8 +464,7 @@ cmd_status() {
       pid=$(cat "$pid_file")
       if kill -0 "$pid" 2>/dev/null; then
         local started
-        started=$(grep -c "Started.*Application\|Tomcat started\|Netty started" "$LOG_DIR/${svc}.log" 2>/dev/null)
-        started=${started:-0}
+        started=$(grep -c "Started.*Application\|Tomcat started\|Netty started" "$LOG_DIR/${svc}.log" 2>/dev/null || echo 0)
         if [ "$started" -gt 0 ]; then
           echo "  ✅ $svc (pid $pid) — RUNNING"
         else
@@ -582,7 +513,6 @@ main() {
     check)          cmd_check ;;
     install)        cmd_install "$@" ;;
     db-setup)       cmd_db_setup ;;
-    db-teardown)    cmd_db_teardown ;;
     build)          cmd_build "$@" ;;
     clean)          cmd_clean ;;
     run)            cmd_run "$@" ;;

@@ -1,2 +1,2 @@
 package in.aviqr.order.entity;
-public enum PaymentStatus { PENDING, PAID, FAILED, CASH, REFUNDED }
+public enum PaymentStatus { PENDING, PAID, CAPTURED, FAILED, CASH, REFUNDED }

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { mallApi } from '../../api/index.js';
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
