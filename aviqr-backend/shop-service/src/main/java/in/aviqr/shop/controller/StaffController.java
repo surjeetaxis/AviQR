@@ -16,7 +16,13 @@ public class StaffController {
     private final StaffRepository staffRepo;
 
     @GetMapping("/shop/{shopId}")
-    public ResponseEntity<ApiResponse<List<ShopStaff>>> getStaff(@PathVariable UUID shopId) {
+    public ResponseEntity<ApiResponse<List<ShopStaff>>> getStaff(
+            @PathVariable UUID shopId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId) {
+        if ("CUSTOMER".equals(role) || role.isBlank()) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role) && !shopId.toString().equals(callerShopId))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok(staffRepo.findByShopId(shopId)));
     }
 

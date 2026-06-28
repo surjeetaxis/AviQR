@@ -55,6 +55,12 @@ public class InvoiceService {
         return renderPdf(order, shop);
     }
 
+    public String generateInvoiceHtml(UUID orderId, ShopInfoDto shop) {
+        Order order = orderRepo.findById(orderId)
+            .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
+        return buildHtml(order, shop);
+    }
+
     private byte[] renderPdf(Order order, ShopInfoDto shop) {
         String html = buildHtml(order, shop);
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {

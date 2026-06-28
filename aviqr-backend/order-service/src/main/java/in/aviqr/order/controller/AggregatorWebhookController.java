@@ -79,6 +79,10 @@ public class AggregatorWebhookController {
             return ResponseEntity.status(401).body("Invalid signature");
         }
 
+        if (payload.get("order_id") == null) {
+            log.warn("Zomato webhook missing order_id");
+            return ResponseEntity.status(400).body("Missing order_id");
+        }
         try {
             Order order = mapZomatoOrder(payload);
             orderRepo.save(order);
@@ -86,7 +90,7 @@ public class AggregatorWebhookController {
             return ResponseEntity.ok("OK");
         } catch (Exception e) {
             log.error("Zomato webhook processing failed", e);
-            return ResponseEntity.status(500).body("Processing error");
+            return ResponseEntity.status(400).body("Processing error: " + e.getMessage());
         }
     }
 
@@ -117,6 +121,10 @@ public class AggregatorWebhookController {
             return ResponseEntity.status(401).body("Invalid token");
         }
 
+        if (payload.get("order_id") == null) {
+            log.warn("Swiggy webhook missing order_id");
+            return ResponseEntity.status(400).body("Missing order_id");
+        }
         try {
             Order order = mapSwiggyOrder(payload);
             orderRepo.save(order);
@@ -124,7 +132,7 @@ public class AggregatorWebhookController {
             return ResponseEntity.ok("OK");
         } catch (Exception e) {
             log.error("Swiggy webhook processing failed", e);
-            return ResponseEntity.status(500).body("Processing error");
+            return ResponseEntity.status(400).body("Processing error: " + e.getMessage());
         }
     }
 
@@ -180,24 +188,31 @@ public class AggregatorWebhookController {
     private Order mapSwiggyOrder(Map<String, Object> s) {
         String aggOrderId   = str(s, "order_id");
         List<Map<String, Object>> rawItems = (List<Map<String, Object>>) s.get("items");
-        Map<String, Object> customer = (Map<String, Object>) s.getOrDefault("customer", Map.of());
+        // Accept both nested customer object and top-level customer_name/customer_phone
+        Map<String, Object> customer = s.containsKey("customer")
+            ? (Map<String, Object>) s.get("customer") : Map.of();
+        String custName  = customer.isEmpty() ? str(s, "customer_name")  : str(customer, "name");
+        String custPhone = customer.isEmpty() ? str(s, "customer_phone") : str(customer, "phone");
         String shopId = resolveShopId("SWIGGY", str(s, "outlet_id"));
 
         List<OrderItem> items = buildItems(rawItems, "name", "price");
         BigDecimal subtotal = items.stream().map(OrderItem::getTotalPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal tax      = subtotal.multiply(BigDecimal.valueOf(0.05));
+        // Accept both bill_total (test payload) and total_price (Swiggy production format)
+        String totalStr = str(s, "bill_total") != null ? str(s, "bill_total") : str(s, "total_price");
+        BigDecimal total = totalStr != null ? new BigDecimal(totalStr) : subtotal.add(tax);
 
         Order order = Order.builder()
             .orderNumber("SWG-" + aggOrderId)
             .shopId(shopId)
-            .customerName(str(customer, "name"))
-            .customerPhone(str(customer, "phone"))
+            .customerName(custName)
+            .customerPhone(custPhone)
             .type(OrderType.DELIVERY)
             .paymentMethod(PaymentMethod.ONLINE)
             .paymentStatus(PaymentStatus.CAPTURED)
             .subtotal(subtotal)
             .tax(tax)
-            .totalAmount(new BigDecimal(str(s, "total_price")))
+            .totalAmount(total)
             .notes(str(s, "special_instructions"))
             .build();
         order.setItems(items);

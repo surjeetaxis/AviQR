@@ -39,9 +39,13 @@ public class LoyaltyController {
     @PostMapping("/{shopId}/earn")
     public ResponseEntity<ApiResponse<Object>> earn(
             @PathVariable String shopId,
-            @RequestBody EarnRequest req) {
+            @RequestBody EarnRequest req,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if ("CUSTOMER".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        String phone = req.customerPhone() != null ? req.customerPhone() : req.phone();
         var account = loyaltyService.earnPoints(
-            shopId, req.phone(), req.customerName(),
+            shopId, phone, req.customerName(),
             req.orderAmount(), req.orderId());
         if (account == null) return ResponseEntity.ok(ApiResponse.ok("Loyalty not enabled", null));
         return ResponseEntity.ok(ApiResponse.ok("Points earned: " + account.getTotalPoints(), account));
@@ -51,16 +55,26 @@ public class LoyaltyController {
     @PostMapping("/{shopId}/redeem")
     public ResponseEntity<ApiResponse<Map<String, Object>>> redeem(
             @PathVariable String shopId,
-            @RequestBody RedeemRequest req) {
+            @RequestBody RedeemRequest req,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if ("CUSTOMER".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        String phone = req.customerPhone() != null ? req.customerPhone() : req.phone();
         BigDecimal discount = loyaltyService.redeemPoints(
-            shopId, req.phone(), req.pointsToRedeem(), req.orderId());
+            shopId, phone, req.pointsToRedeem(), req.orderId());
         return ResponseEntity.ok(ApiResponse.ok("Discount applied",
             Map.of("discount", discount, "pointsUsed", req.pointsToRedeem())));
     }
 
     /** Owner sees all loyalty customers — CRM view */
     @GetMapping("/{shopId}/customers")
-    public ResponseEntity<ApiResponse<Object>> customers(@PathVariable String shopId) {
+    public ResponseEntity<ApiResponse<Object>> customers(
+            @PathVariable String shopId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId) {
+        if ("CUSTOMER".equals(role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role) && !shopId.equals(callerShopId))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok(loyaltyService.getShopLoyaltyAccounts(shopId)));
     }
 
@@ -73,6 +87,6 @@ public class LoyaltyController {
     }
 
     // ── Request records ───────────────────────────────────────────────────────
-    record EarnRequest(String phone, String customerName, BigDecimal orderAmount, String orderId) {}
-    record RedeemRequest(String phone, int pointsToRedeem, String orderId) {}
+    record EarnRequest(String phone, String customerPhone, String customerName, BigDecimal orderAmount, String orderId) {}
+    record RedeemRequest(String phone, String customerPhone, int pointsToRedeem, String orderId) {}
 }

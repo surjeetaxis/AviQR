@@ -1,150 +1,249 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { reportApi, orderApi } from '../../src/api/index.js';
-import { MOCK_STATS, MOCK_REVENUE, MOCK_ORDERS } from '../../src/api/mockData.js';
+import { MOCK_STATS, MOCK_ORDERS } from '../../src/api/mockData.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../src/theme/index.js';
 
-const STATUS_NEXT = {NEW:'ACCEPTED',ACCEPTED:'PREPARING',PREPARING:'READY',READY:'COMPLETED'};
+const STATUS_NEXT = { NEW:'ACCEPTED', ACCEPTED:'PREPARING', PREPARING:'READY', READY:'COMPLETED' };
+const STATUS_LABEL = { NEW:'Accept', ACCEPTED:'Start', PREPARING:'Ready', READY:'Done' };
+const STATUS_COLOR = { NEW:'#2563EB', ACCEPTED:'#D97706', PREPARING:'#7C3AED', READY:'#1D9E75', COMPLETED:'#6B7280', CANCELLED:'#DC2626' };
+
+function timeSince(ts) {
+  if (!ts) return '';
+  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (s < 60)   return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  return `${Math.floor(s / 3600)}h`;
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const shopId = user?.shopId || '00000000-0000-0000-0000-000000000101';
-  const [stats,  setStats]  = useState(MOCK_STATS);
-  const [orders, setOrders] = useState(MOCK_ORDERS);
-  const [offline,setOffline]= useState(false);
-  const [refreshing,setRef] = useState(false);
+
+  const [stats,     setStats]  = useState(null);
+  const [orders,    setOrders] = useState([]);
+  const [offline,   setOffline]= useState(false);
+  const [loading,   setLoading]= useState(true);
+  const [refreshing,setRef]    = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [s,o] = await Promise.allSettled([reportApi.getDaily(shopId), orderApi.getLive(shopId)]);
-      if(s.status==='fulfilled'){setStats(s.value.data.data);setOffline(false);}
+      const [s, o] = await Promise.allSettled([
+        reportApi.getDaily(shopId),
+        orderApi.getLive(shopId),
+      ]);
+      if (s.status === 'fulfilled') { setStats(s.value.data.data); setOffline(false); }
       else setOffline(true);
-      if(o.status==='fulfilled') setOrders(o.value.data.data||[]);
-    } catch { setOffline(true); }
-  },[shopId]);
+      if (o.status === 'fulfilled') setOrders(o.value.data.data || []);
+      else if (!stats) setOrders(MOCK_ORDERS); // only show mock if no real data yet
+    } catch {
+      setOffline(true);
+      if (!stats) setStats(MOCK_STATS);
+      if (!orders.length) setOrders(MOCK_ORDERS);
+    } finally { setLoading(false); }
+  }, [shopId]);
 
-  useEffect(()=>{load();const t=setInterval(load,30000);return()=>clearInterval(t);},[load]);
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 30000);
+    return () => clearInterval(t);
+  }, [load]);
 
   const advance = async (order) => {
-    const next=STATUS_NEXT[order.status]; if(!next)return;
-    try { await orderApi.updateStatus(order.id,next); }
-    catch {}
-    setOrders(prev=>prev.map(o=>o.id===order.id?{...o,status:next}:o));
+    const next = STATUS_NEXT[order.status];
+    if (!next) return;
+    setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: next } : o));
+    try { await orderApi.updateStatus(order.id, next); }
+    catch (e) { Alert.alert('Error', 'Could not update order status. Please check connection.'); await load(); }
   };
 
-  const fmt = n => Number(n||0).toLocaleString('en-IN');
+  const fmt = n => Number(n || 0).toLocaleString('en-IN');
+  const activeOrders = orders.filter(o => !['COMPLETED', 'CANCELLED'].includes(o.status));
+  const newOrders = orders.filter(o => o.status === 'NEW');
 
   const QUICK = [
-    {emoji:'📦',label:'Live Orders', href:'/(owner)/orders'},
-    {emoji:'🍽️',label:'Menu',        href:'/(owner)/menu'},
-    {emoji:'📱',label:'QR Codes',    href:'/(owner)/qrcodes'},
-    {emoji:'👥',label:'Staff',       href:'/(owner)/staff'},
-    {emoji:'📊',label:'Reports',     href:'/(owner)/reports'},
-    {emoji:'⚙️',label:'Settings',    href:'/(owner)/settings'},
+    { emoji:'📦', label:'Orders',   href:'/(owner)/orders',   badge: newOrders.length },
+    { emoji:'🍽️', label:'Menu',     href:'/(owner)/menu' },
+    { emoji:'📱', label:'QR Codes', href:'/(owner)/qrcodes' },
+    { emoji:'👥', label:'Staff',    href:'/(owner)/staff' },
+    { emoji:'📊', label:'Reports',  href:'/(owner)/reports' },
+    { emoji:'⚙️', label:'Settings', href:'/(owner)/settings' },
+  ];
+
+  const KPI = [
+    { label:"Today's Revenue", value: stats?.totalRevenue ? `₹${fmt(stats.totalRevenue)}` : '—', color:'#1D9E75', sub: stats?.totalOrders ? `${stats.totalOrders} orders` : '' },
+    { label:'Active Orders',   value: activeOrders.length,                                         color:'#2563EB', sub: `${newOrders.length} new` },
+    { label:'Avg Order',       value: stats?.avgOrderValue ? `₹${fmt(stats.avgOrderValue)}` : '—', color:'#7C3AED', sub: 'Today' },
+    { label:'New Customers',   value: stats?.newCustomers ?? '—',                                   color:'#D97706', sub: 'Today' },
   ];
 
   return (
     <ScrollView style={ss.screen} showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async()=>{setRef(true);await load();setRef(false);}} tintColor={Colors.white}/>}>
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRef(true); await load(); setRef(false); }} tintColor={Colors.white} />}>
 
-      <LinearGradient colors={['#0F6E56','#1D9E75']} style={ss.header}>
+      {/* Header */}
+      <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.header}>
         <View style={ss.hRow}>
           <View>
-            <Text style={ss.greet}>Good day 👋</Text>
-            <Text style={ss.shopName}>{user?.name||'Spice Route'}</Text>
+            <Text style={ss.greet}>{greeting()} 👋</Text>
+            <Text style={ss.shopName}>{user?.shopName || user?.name || 'My Shop'}</Text>
           </View>
-          <TouchableOpacity style={ss.avatar} onPress={()=>router.push('/(owner)/profile')}>
-            <Text style={ss.avatarTxt}>{user?.avatar||user?.name?.[0]||'O'}</Text>
+          <TouchableOpacity onPress={() => Alert.alert('Sign out?', 'You will need to log in again.', [{ text:'Cancel', style:'cancel' }, { text:'Sign out', style:'destructive', onPress: logout }])} style={ss.avatarBtn}>
+            <Text style={ss.avatarText}>{user?.name?.slice(0, 2).toUpperCase() || 'ME'}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* KPI row */}
         <View style={ss.kpiRow}>
-          {[{l:"Revenue",v:`₹${fmt(stats?.totalRevenue)}`},{l:"Orders",v:stats?.totalOrders??'—'},{l:"Avg Order",v:`₹${fmt(stats?.avgOrderValue)}`}].map(k=>(
-            <View key={k.l} style={ss.kpi}>
-              <Text style={ss.kpiV}>{k.v}</Text>
-              <Text style={ss.kpiL}>{k.l}</Text>
+          {KPI.slice(0, 2).map((k, i) => (
+            <View key={i} style={ss.kpiCard}>
+              <Text style={ss.kpiVal}>{k.value}</Text>
+              <Text style={ss.kpiLabel}>{k.label}</Text>
+              {k.sub ? <Text style={[ss.kpiSub, { color: '#A7F3D0' }]}>{k.sub}</Text> : null}
             </View>
           ))}
         </View>
       </LinearGradient>
 
       <View style={ss.body}>
-        {offline&&<OfflineBadge onRetry={load}/>}
+        {/* Offline indicator */}
+        {offline && <OfflineBadge message={stats ? "Using cached data — reconnecting…" : "Backend offline — showing demo data"} />}
 
-        <Text style={ss.sectionTitle}>Quick Actions</Text>
-        <View style={ss.qaGrid}>
-          {QUICK.map(q=>(
-            <TouchableOpacity key={q.href} style={ss.qaItem} onPress={()=>router.push(q.href)} activeOpacity={0.8}>
-              <Text style={ss.qaEmoji}>{q.emoji}</Text>
-              <Text style={ss.qaLabel}>{q.label}</Text>
+        {/* New order alert */}
+        {newOrders.length > 0 && (
+          <TouchableOpacity style={ss.newOrderBanner} onPress={() => router.push('/(owner)/orders')}>
+            <Text style={ss.newOrderText}>🔔 {newOrders.length} new order{newOrders.length > 1 ? 's' : ''} waiting — tap to accept</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Secondary KPIs */}
+        <View style={ss.kpiRow2}>
+          {KPI.slice(2).map((k, i) => (
+            <View key={i} style={[ss.kpiCard2, { borderLeftColor: k.color }]}>
+              <Text style={[ss.kpiVal2, { color: k.color }]}>{k.value}</Text>
+              <Text style={ss.kpiLabel2}>{k.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Quick actions */}
+        <Text style={ss.sectionTitle}>Quick actions</Text>
+        <View style={ss.quickGrid}>
+          {QUICK.map(q => (
+            <TouchableOpacity key={q.href} style={ss.quickCard} onPress={() => router.push(q.href)}>
+              <Text style={ss.quickEmoji}>{q.emoji}</Text>
+              <Text style={ss.quickLabel}>{q.label}</Text>
+              {q.badge > 0 && <View style={ss.badge}><Text style={ss.badgeText}>{q.badge}</Text></View>}
             </TouchableOpacity>
           ))}
         </View>
 
-        <View style={ss.sectionRow}>
-          <Text style={ss.sectionTitle}>Live Orders</Text>
-          <TouchableOpacity onPress={()=>router.push('/(owner)/orders')}><Text style={ss.viewAll}>View all →</Text></TouchableOpacity>
+        {/* Live orders */}
+        <View style={ss.sectionHeader}>
+          <Text style={ss.sectionTitle}>Live orders</Text>
+          <TouchableOpacity onPress={() => router.push('/(owner)/orders')}>
+            <Text style={ss.seeAll}>View all →</Text>
+          </TouchableOpacity>
         </View>
 
-        {orders.length===0
-          ?<View style={ss.emptyCard}><Text style={{fontSize:32,marginBottom:8}}>🎉</Text><Text style={{color:Colors.gray400,fontSize:FontSize.base}}>No active orders</Text></View>
-          :orders.slice(0,5).map(order=>(
-            <View key={order.id} style={ss.orderCard}>
+        {orders.filter(o => !['COMPLETED', 'CANCELLED'].includes(o.status)).length === 0 ? (
+          <View style={ss.emptyCard}>
+            <Text style={ss.emptyEmoji}>🎉</Text>
+            <Text style={ss.emptyText}>No active orders</Text>
+            <Text style={ss.emptySub}>Orders appear here in real-time when customers scan your QR</Text>
+          </View>
+        ) : (
+          orders.filter(o => !['COMPLETED', 'CANCELLED'].includes(o.status)).slice(0, 5).map(order => (
+            <View key={order.id} style={[ss.orderCard, order.status === 'NEW' && { borderLeftWidth:3, borderLeftColor:'#2563EB' }]}>
               <View style={ss.orderTop}>
                 <View>
-                  <Text style={ss.orderNum}>{order.orderNumber}</Text>
-                  <Text style={ss.orderMeta}>{order.customerName} {order.tableNumber?`· Table ${order.tableNumber}`:''}</Text>
+                  <Text style={ss.orderNum}>#{order.orderNumber}</Text>
+                  <Text style={ss.orderCustomer}>{order.customerName || 'Walk-in'}{order.tableNumber ? ` · Table ${order.tableNumber}` : ''}</Text>
                 </View>
-                <StatusBadge status={order.status}/>
+                <View style={[ss.statusPill, { backgroundColor: (STATUS_COLOR[order.status] || '#6B7280') + '22' }]}>
+                  <Text style={[ss.statusText, { color: STATUS_COLOR[order.status] || '#6B7280' }]}>{order.status}</Text>
+                </View>
               </View>
-              <View style={ss.orderBottom}>
-                <Text style={ss.orderItems}>{(order.items||[]).length} items</Text>
-                <Text style={ss.orderAmt}>₹{parseFloat(order.totalAmount||0).toFixed(0)}</Text>
-                {STATUS_NEXT[order.status]&&(
-                  <TouchableOpacity style={ss.advBtn} onPress={()=>advance(order)}>
-                    <Text style={ss.advTxt}>{order.status==='NEW'?'Accept':order.status==='ACCEPTED'?'Start':order.status==='PREPARING'?'Ready':'Done'}</Text>
+
+              <Text style={ss.orderItems}>
+                {(order.items || []).slice(0, 3).map(i => `${i.itemName || i.name} ×${i.quantity}`).join('  ·  ')}
+                {(order.items || []).length > 3 ? `  +${order.items.length - 3} more` : ''}
+              </Text>
+
+              <View style={ss.orderFoot}>
+                <Text style={ss.orderTime}>🕐 {timeSince(order.createdAt)} ago</Text>
+                <Text style={ss.orderAmt}>₹{parseFloat(order.totalAmount || 0).toFixed(0)}</Text>
+                {STATUS_NEXT[order.status] && (
+                  <TouchableOpacity style={ss.advBtn} onPress={() => advance(order)}>
+                    <Text style={ss.advBtnText}>{STATUS_LABEL[order.status] || 'Next'}</Text>
                   </TouchableOpacity>
                 )}
               </View>
             </View>
           ))
-        }
+        )}
+
+        <View style={{ height: 32 }} />
       </View>
     </ScrollView>
   );
 }
-const ss=StyleSheet.create({
-  screen:{flex:1,backgroundColor:Colors.background},
-  header:{paddingTop:52,paddingHorizontal:16,paddingBottom:28},
-  hRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:16},
-  greet:{fontSize:FontSize.sm,color:'rgba(255,255,255,0.7)'},
-  shopName:{fontSize:FontSize.xl,fontWeight:'800',color:Colors.white,marginTop:2},
-  avatar:{width:38,height:38,borderRadius:19,backgroundColor:'rgba(255,255,255,0.2)',alignItems:'center',justifyContent:'center'},
-  avatarTxt:{color:Colors.white,fontWeight:'800',fontSize:FontSize.base},
-  kpiRow:{flexDirection:'row',backgroundColor:'rgba(255,255,255,0.12)',borderRadius:Radius.lg,padding:12},
-  kpi:{flex:1,alignItems:'center'},
-  kpiV:{fontSize:FontSize.lg,fontWeight:'800',color:Colors.white},
-  kpiL:{fontSize:FontSize.xs,color:'rgba(255,255,255,0.65)',marginTop:3},
-  body:{padding:16},
-  sectionRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:16,marginBottom:8},
-  sectionTitle:{fontSize:FontSize.md,fontWeight:'800',color:Colors.gray900,marginTop:16,marginBottom:8},
-  viewAll:{fontSize:FontSize.sm,color:Colors.primary,fontWeight:'600'},
-  qaGrid:{flexDirection:'row',flexWrap:'wrap',gap:10},
-  qaItem:{width:'30%',alignItems:'center',gap:6,paddingVertical:14,backgroundColor:Colors.white,borderRadius:Radius.lg,borderWidth:1,borderColor:Colors.border,...Shadow.sm},
-  qaEmoji:{fontSize:22},
-  qaLabel:{fontSize:FontSize.xs,fontWeight:'600',color:Colors.gray700,textAlign:'center'},
-  emptyCard:{backgroundColor:Colors.white,borderRadius:Radius.lg,padding:32,alignItems:'center',...Shadow.sm},
-  orderCard:{backgroundColor:Colors.white,borderRadius:Radius.lg,padding:14,marginBottom:8,borderWidth:1,borderColor:Colors.border,...Shadow.sm},
-  orderTop:{flexDirection:'row',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8},
-  orderNum:{fontSize:FontSize.md,fontWeight:'800',color:Colors.gray900},
-  orderMeta:{fontSize:FontSize.sm,color:Colors.gray500,marginTop:2},
-  orderBottom:{flexDirection:'row',alignItems:'center',gap:8},
-  orderItems:{flex:1,fontSize:FontSize.xs,color:Colors.gray400},
-  orderAmt:{fontSize:FontSize.md,fontWeight:'800',color:Colors.primary},
-  advBtn:{backgroundColor:Colors.primary,paddingVertical:5,paddingHorizontal:12,borderRadius:Radius.md},
-  advTxt:{color:Colors.white,fontSize:FontSize.xs,fontWeight:'700'},
+
+const ss = StyleSheet.create({
+  screen:     { flex:1, backgroundColor:'#F8FAFB' },
+  header:     { padding:Spacing.lg, paddingTop:56, paddingBottom:28 },
+  hRow:       { flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 },
+  greet:      { color:'rgba(255,255,255,0.8)', fontSize:13 },
+  shopName:   { color:'white', fontSize:20, fontWeight:'800', marginTop:2 },
+  avatarBtn:  { width:40, height:40, borderRadius:20, backgroundColor:'rgba(255,255,255,0.2)', alignItems:'center', justifyContent:'center' },
+  avatarText: { color:'white', fontSize:14, fontWeight:'700' },
+  kpiRow:     { flexDirection:'row', gap:12 },
+  kpiCard:    { flex:1, backgroundColor:'rgba(255,255,255,0.15)', borderRadius:12, padding:12 },
+  kpiVal:     { color:'white', fontSize:22, fontWeight:'800' },
+  kpiLabel:   { color:'rgba(255,255,255,0.75)', fontSize:11, marginTop:2 },
+  kpiSub:     { fontSize:10, marginTop:2 },
+  body:       { padding:Spacing.md, gap:4 },
+  newOrderBanner: { backgroundColor:'#EFF6FF', borderRadius:10, padding:12, marginBottom:8, borderWidth:1, borderColor:'#BFDBFE' },
+  newOrderText:   { color:'#1D4ED8', fontSize:13, fontWeight:'600', textAlign:'center' },
+  kpiRow2:    { flexDirection:'row', gap:10, marginVertical:8 },
+  kpiCard2:   { flex:1, backgroundColor:'white', borderRadius:10, padding:12, borderLeftWidth:3, ...Shadow.sm },
+  kpiVal2:    { fontSize:18, fontWeight:'800' },
+  kpiLabel2:  { fontSize:11, color:'#6B7280', marginTop:2 },
+  sectionHeader: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginTop:16, marginBottom:8 },
+  sectionTitle:  { fontSize:16, fontWeight:'700', color:'#111827', marginTop:8, marginBottom:6 },
+  seeAll:     { fontSize:13, color:'#1D9E75', fontWeight:'600' },
+  quickGrid:  { flexDirection:'row', flexWrap:'wrap', gap:10 },
+  quickCard:  { width:'30%', backgroundColor:'white', borderRadius:12, padding:14, alignItems:'center', ...Shadow.sm, position:'relative' },
+  quickEmoji: { fontSize:24, marginBottom:6 },
+  quickLabel: { fontSize:11, fontWeight:'600', color:'#374151', textAlign:'center' },
+  badge:      { position:'absolute', top:8, right:8, backgroundColor:'#DC2626', borderRadius:10, minWidth:18, height:18, alignItems:'center', justifyContent:'center', paddingHorizontal:4 },
+  badgeText:  { color:'white', fontSize:10, fontWeight:'800' },
+  emptyCard:  { backgroundColor:'white', borderRadius:12, padding:32, alignItems:'center', ...Shadow.sm },
+  emptyEmoji: { fontSize:36, marginBottom:8 },
+  emptyText:  { fontSize:15, fontWeight:'700', color:'#374151' },
+  emptySub:   { fontSize:12, color:'#9CA3AF', marginTop:4, textAlign:'center' },
+  orderCard:  { backgroundColor:'white', borderRadius:12, padding:14, marginBottom:10, ...Shadow.sm },
+  orderTop:   { flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 },
+  orderNum:   { fontSize:14, fontWeight:'700', color:'#111827' },
+  orderCustomer: { fontSize:12, color:'#6B7280', marginTop:2 },
+  statusPill: { borderRadius:999, paddingHorizontal:10, paddingVertical:3 },
+  statusText: { fontSize:11, fontWeight:'700' },
+  orderItems: { fontSize:12, color:'#6B7280', marginBottom:10, lineHeight:18 },
+  orderFoot:  { flexDirection:'row', alignItems:'center', gap:8 },
+  orderTime:  { fontSize:11, color:'#9CA3AF', flex:1 },
+  orderAmt:   { fontSize:14, fontWeight:'700', color:'#111827' },
+  advBtn:     { backgroundColor:'#1D9E75', borderRadius:8, paddingHorizontal:14, paddingVertical:6 },
+  advBtnText: { color:'white', fontSize:12, fontWeight:'700' },
 });

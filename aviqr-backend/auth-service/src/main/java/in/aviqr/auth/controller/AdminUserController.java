@@ -78,7 +78,10 @@ public class AdminUserController {
     public ResponseEntity<ApiResponse<Void>> changeRole(
             @PathVariable UUID id,
             @RequestParam String role,
-            @RequestHeader("X-User-Id") String adminId) {
+            @RequestHeader("X-User-Id") String adminId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
+        if (!"ADMIN".equals(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         userRepo.findById(id).ifPresent(u -> {
             u.setRole(UserRole.valueOf(role.toUpperCase()));
             userRepo.save(u);
@@ -91,7 +94,10 @@ public class AdminUserController {
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteUser(
             @PathVariable UUID id,
-            @RequestHeader("X-User-Id") String adminId) {
+            @RequestHeader("X-User-Id") String adminId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
+        if (!"ADMIN".equals(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         userRepo.deleteById(id);
         auditService.log("USER_DELETED", adminId, "Deleted user: " + id);
         return ResponseEntity.ok(ApiResponse.ok("User deleted", null));

@@ -73,7 +73,7 @@ export default function Login() {
         {tab==='password'?(
           <View>
             <Input label="Email" placeholder="sujeet@spiceroute.in" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none"/>
-            <Input label="Password" placeholder="Test@1234" value={pw} onChangeText={setPw} secureEntry/>
+            <Input label="Password" placeholder="Axis321#" value={pw} onChangeText={setPw} secureEntry/>
             <Button title={loading?'Signing in…':'Sign In'} onPress={doLogin} loading={loading}/>
           </View>
         ):(

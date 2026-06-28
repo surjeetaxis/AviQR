@@ -15,7 +15,8 @@
     "recharts": "^2.12.7",
     "lucide-react": "^0.453.0",
     "axios": "^1.7.2",
-    "react-helmet-async": "^2.0.5"
+    "react-helmet-async": "^2.0.5",
+    "react-hot-toast": "^2.4.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.2",

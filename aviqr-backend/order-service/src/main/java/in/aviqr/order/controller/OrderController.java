@@ -23,6 +23,15 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.ok("Order placed", service.create(shopId, uid, req)));
     }
 
+    // POS bill creation (staff-side shorthand — delegates to the same logic)
+    @PostMapping("/shop/{shopId}/pos")
+    public ResponseEntity<ApiResponse<OrderResponse>> posCreate(
+            @PathVariable String shopId,
+            @Valid @RequestBody CreateOrderRequest req,
+            @RequestHeader(value="X-User-Id", required=false) String uid) {
+        return ResponseEntity.ok(ApiResponse.ok("POS order placed", service.create(shopId, uid, req)));
+    }
+
     private boolean isShopStaff(String role, String shopId, String callerShopId) {
         if ("ADMIN".equals(role) || "SUPPORT".equals(role)) return true;
         if ("CUSTOMER".equals(role)) return false;

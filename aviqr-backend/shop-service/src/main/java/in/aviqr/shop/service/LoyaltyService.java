@@ -122,8 +122,8 @@ public class LoyaltyService {
         if (account.getTotalPoints() < pointsToRedeem) {
             throw new RuntimeException("Insufficient points. Available: " + account.getTotalPoints());
         }
-        if (pointsToRedeem < 100) {
-            throw new RuntimeException("Minimum redemption is 100 points");
+        if (pointsToRedeem < 1) {
+            throw new RuntimeException("Minimum redemption is 1 point");
         }
 
         // Calculate discount: redemptionRate pts = ₹10
@@ -155,20 +155,22 @@ public class LoyaltyService {
         }
         LoyaltyAccount a = acc.get();
         int points = a.getTotalPoints();
-        boolean canRedeem = points >= 100;
+        boolean canRedeem = points >= 1;
         BigDecimal discountPerHundred = BigDecimal.TEN; // 100 pts = ₹10
-        int redeemableHundreds = points / 100;
-        BigDecimal maxDiscount = discountPerHundred.multiply(BigDecimal.valueOf(redeemableHundreds));
+        BigDecimal maxDiscount = BigDecimal.valueOf(points)
+            .divide(BigDecimal.valueOf(100), 2, RoundingMode.FLOOR)
+            .multiply(BigDecimal.TEN);
         return Map.of(
             "points",        points,
+            "totalPoints",   points,
             "lifetimePoints",a.getLifetimePoints(),
             "totalOrders",   a.getTotalOrders(),
             "totalSpent",    a.getTotalSpent(),
             "canRedeem",     canRedeem,
             "discountValue", maxDiscount,
             "message",       canRedeem
-                ? "You can redeem " + (redeemableHundreds * 100) + " points for ₹" + maxDiscount + " off!"
-                : "Earn " + (100 - (points % 100)) + " more points to redeem!"
+                ? "You can redeem " + points + " points for ₹" + maxDiscount + " off!"
+                : "Start earning loyalty points!"
         );
     }
 

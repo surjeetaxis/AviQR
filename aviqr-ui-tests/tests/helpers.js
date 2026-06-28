@@ -4,15 +4,15 @@ export const BASE = process.env.UI_URL || 'http://localhost:5173';
 
 // Seed credentials from aviqr_setup.sql
 export const USERS = {
-  OWNER:    { email: 'sujeet@spiceroute.in',  password: 'Test@1234', role: 'owner',    label: 'Owner' },
-  MANAGER:  { email: 'vikram@gmail.com',       password: 'Test@1234', role: 'manager',  label: 'Manager' },
-  CASHIER:  { email: 'cashier@spiceroute.in',  password: 'Test@1234', role: 'cashier',  label: 'Cashier' },
-  KITCHEN:  { email: 'kitchen@spiceroute.in',  password: 'Test@1234', role: 'kitchen',  label: 'Kitchen' },
-  ADMIN:    { email: 'admin@aviqr.in',         password: 'Test@1234', role: 'admin',    label: 'Admin' },
-  SUPPORT:  { email: 'support@aviqr.in',       password: 'Test@1234', role: 'support',  label: 'Support' },
-  HOTEL:    { email: 'gm@grandpalace.in',      password: 'Test@1234', role: 'hotel',    label: 'Hotel GM' },
-  MALL:     { email: 'admin@forum.in',         password: 'Test@1234', role: 'mall',     label: 'Mall Admin' },
-  SUPPLIER: { email: 'ramesh@teas.in',         password: 'Test@1234', role: 'supplier', label: 'Supplier' },
+  OWNER:    { email: 'sujeet@spiceroute.in',  password: 'Axis321#', role: 'owner',    label: 'Owner' },
+  MANAGER:  { email: 'vikram@gmail.com',       password: 'Axis321#', role: 'manager',  label: 'Manager' },
+  CASHIER:  { email: 'cashier@spiceroute.in',  password: 'Axis321#', role: 'cashier',  label: 'Cashier' },
+  KITCHEN:  { email: 'kitchen@spiceroute.in',  password: 'Axis321#', role: 'kitchen',  label: 'Kitchen' },
+  ADMIN:    { email: 'admin@aviqr.in',         password: 'Axis321#', role: 'admin',    label: 'Admin' },
+  SUPPORT:  { email: 'support@aviqr.in',       password: 'Axis321#', role: 'support',  label: 'Support' },
+  HOTEL:    { email: 'gm@grandpalace.in',      password: 'Axis321#', role: 'hotel',    label: 'Hotel GM' },
+  MALL:     { email: 'admin@forum.in',         password: 'Axis321#', role: 'mall',     label: 'Mall Admin' },
+  SUPPLIER: { email: 'ramesh@teas.in',         password: 'Axis321#', role: 'supplier', label: 'Supplier' },
 };
 
 export const DEMO_SHOP_ID = '00000000-0000-0000-0000-000000000101';
