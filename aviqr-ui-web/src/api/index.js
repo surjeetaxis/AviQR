@@ -218,3 +218,51 @@ export const aggregatorApi = {
 };
 
 export default api;
+
+// ── Menu Variants ─────────────────────────────────────────────────────────────
+export const variantApi = {
+  getVariants: (itemId)           => api.get(`/api/v1/items/${itemId}/variants`),
+  saveVariants: (itemId, data)    => api.put(`/api/v1/items/${itemId}/variants`, data),
+  deleteVariants: (itemId)        => api.delete(`/api/v1/items/${itemId}/variants`),
+};
+
+// ── Menu Add-ons ──────────────────────────────────────────────────────────────
+export const addonApi = {
+  getByShop:   (shopId)     => api.get(`/api/v1/addons/shop/${shopId}`),
+  create:      (data)       => api.post('/api/v1/addons', data),
+  update:      (id, data)   => api.put(`/api/v1/addons/${id}`, data),
+  delete:      (id)         => api.delete(`/api/v1/addons/${id}`),
+};
+
+// ── Raw Materials ─────────────────────────────────────────────────────────────
+export const rawMaterialApi = {
+  getByShop:    (shopId)          => api.get(`/api/v1/raw-materials/shop/${shopId}`),
+  getLowStock:  (shopId)          => api.get(`/api/v1/raw-materials/shop/${shopId}/low-stock`),
+  create:       (data)            => api.post('/api/v1/raw-materials', data),
+  update:       (id, data)        => api.put(`/api/v1/raw-materials/${id}`, data),
+  adjustStock:  (id, delta, reason) => api.post(`/api/v1/raw-materials/${id}/adjust`, null, { params: { delta, reason } }),
+};
+
+// ── Recipe ────────────────────────────────────────────────────────────────────
+export const recipeApi = {
+  getRecipe:   (itemId)     => api.get(`/api/v1/items/${itemId}/recipe`),
+  saveRecipe:  (itemId, d)  => api.put(`/api/v1/items/${itemId}/recipe`, d),
+  getDishCost: (itemId)     => api.get(`/api/v1/items/${itemId}/cost`),
+};
+
+// ── POS / Billing ─────────────────────────────────────────────────────────────
+export const posApi = {
+  // Creates an order directly from the POS terminal (owner/cashier initiated)
+  createBill:  (shopId, data) => api.post(`/api/v1/orders/shop/${shopId}/pos`, data),
+  // KOT print URL
+  kotUrl:      (orderId)      => `${api.defaults.baseURL}/api/v1/orders/${orderId}/kot`,
+  // Billing summary for a table
+  getTable:    (shopId, tbl)  => api.get(`/api/v1/orders/shop/${shopId}/table/${tbl}`),
+};
+
+// ── Aggregator Configuration ──────────────────────────────────────────────────
+export const aggregatorConfigApi = {
+  // Save Zomato/Swiggy restaurant ID mapping for a shop
+  saveMapping: (data)     => api.post('/api/v1/aggregator/mapping', data),
+  getMapping:  (shopId)   => api.get(`/api/v1/aggregator/mapping/${shopId}`),
+};

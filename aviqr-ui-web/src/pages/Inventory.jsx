@@ -1,0 +1,345 @@
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Package, AlertTriangle, RefreshCw, Edit2, Check, X,
+  TrendingDown, Bell, Download, Plus, Search
+} from 'lucide-react';
+import { useAuth } from '../context/AuthContext.jsx';
+import { inventoryApi, menuApi, rawMaterialApi } from '../api/index.js';
+
+const TABS = [
+  { key:'finished',  label:'Finished Goods',    desc:'Tracking by menu item' },
+  { key:'raw',       label:'Raw Materials',      desc:'Ingredients & stock' },
+];
+
+export default function Inventory() {
+  const { user } = useAuth();
+  const shopId   = user?.shopId;
+  const [tab,      setTab]    = useState('finished');
+
+  // ── Finished goods state ─────────────────────────────────────────────────
+  const [items,    setItems]   = useState([]);
+  const [summary,  setSummary] = useState(null);
+  const [editing,  setEditing] = useState(null);
+  const [editQty,  setEditQty] = useState('');
+  const [filter,   setFilter]  = useState('ALL');
+  const [search,   setSearch]  = useState('');
+  const [loading,  setLoading] = useState(true);
+  const [error,    setError]   = useState(null);
+
+  // ── Raw materials state ──────────────────────────────────────────────────
+  const [rawMats,     setRaw]       = useState([]);
+  const [rawLoading,  setRawLoad]   = useState(false);
+  const [rawSearch,   setRawSearch] = useState('');
+  const [adjustModal, setAdjust]    = useState(null);
+  const [adjustDelta, setDelta]     = useState('');
+  const [adjustReason,setReason]    = useState('PURCHASE');
+
+  const load = useCallback(async () => {
+    if (!shopId) { setError('No shop linked'); setLoading(false); return; }
+    setError(null);
+    try {
+      const [s, i] = await Promise.allSettled([
+        inventoryApi.getSummary(shopId),
+        inventoryApi.getStock(shopId),
+      ]);
+      if (s.status === 'fulfilled') setSummary(s.value.data.data);
+      if (i.status === 'fulfilled') setItems(i.value.data.data || []);
+      else setError('Inventory tables may not be set up — see INSTALL.md for migration steps.');
+    } catch (e) { setError(e.response?.data?.message || 'Failed to load'); }
+    finally { setLoading(false); }
+  }, [shopId]);
+
+  const loadRaw = useCallback(async () => {
+    if (!shopId) return;
+    setRawLoad(true);
+    try {
+      const res = await rawMaterialApi.getByShop(shopId);
+      setRaw(res.data.data || []);
+    } catch {}
+    finally { setRawLoad(false); }
+  }, [shopId]);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (tab === 'raw') loadRaw(); }, [tab, loadRaw]);
+
+  const saveQty = async (item) => {
+    const qty = parseInt(editQty, 10);
+    if (isNaN(qty) || qty < 0) return;
+    try {
+      await inventoryApi.setStock(item.menuItemId || item.id, { stockQty:qty, trackStock:true });
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, stockQty:qty } : i));
+    } catch {}
+    setEditing(null);
+  };
+
+  const doAdjust = async () => {
+    if (!adjustModal || !adjustDelta) return;
+    const delta = parseFloat(adjustDelta);
+    if (isNaN(delta)) return;
+    try {
+      await rawMaterialApi.adjustStock(adjustModal.id, delta, adjustReason);
+      setRaw(prev => prev.map(m => m.id === adjustModal.id
+        ? { ...m, currentStock: (parseFloat(m.currentStock||0) + delta).toFixed(3) }
+        : m));
+      setAdjust(null); setDelta(''); setReason('PURCHASE');
+    } catch (e) { alert('Adjust failed: ' + (e.response?.data?.message || e.message)); }
+  };
+
+  const exportCsv = () => {
+    const rows = [
+      ['Item', 'Category', 'Stock', 'Status'],
+      ...items.map(i => [i.name||i.menuItemName, i.categoryName||'', i.stockQty, i.stockQty <= 0 ? 'Out' : i.stockQty <= (i.lowStockThreshold||5) ? 'Low' : 'OK']),
+    ];
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')], {type:'text/csv'}));
+    a.download = `inventory_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  };
+
+  // Derived values — finished goods
+  const outCount  = items.filter(i => (i.stockQty||0) <= 0).length;
+  const lowCount  = items.filter(i => (i.stockQty||0) > 0 && (i.stockQty||0) <= (i.lowStockThreshold||5)).length;
+  const filtItems = items.filter(i => {
+    if (filter === 'OUT') return (i.stockQty||0) <= 0;
+    if (filter === 'LOW') return (i.stockQty||0) > 0 && (i.stockQty||0) <= (i.lowStockThreshold||5);
+    if (search) return (i.name||i.menuItemName||'').toLowerCase().includes(search.toLowerCase());
+    return true;
+  });
+
+  // Derived — raw materials
+  const rawLow    = rawMats.filter(m => parseFloat(m.currentStock||0) <= parseFloat(m.minStockLevel||0));
+  const filtRaw   = rawMats.filter(m => !rawSearch || m.name.toLowerCase().includes(rawSearch.toLowerCase()));
+  const stockColor = (cur, min) => parseFloat(cur||0) <= parseFloat(min||0) ? '#DC2626' : parseFloat(cur||0) <= parseFloat(min||0)*1.5 ? '#D97706' : '#1D9E75';
+
+  return (
+    <div className="page-content">
+      <div className="page-header">
+        <div><h1 className="page-title">Inventory</h1><p className="page-subtitle">Real-time stock across menu items and raw materials</p></div>
+        <div className="page-header-actions">
+          <button className="btn btn-secondary" onClick={() => { load(); if (tab === 'raw') loadRaw(); }}><RefreshCw size={14} /> Refresh</button>
+          {tab === 'finished' && <button className="btn btn-secondary" onClick={exportCsv}><Download size={14} /> Export</button>}
+        </div>
+      </div>
+
+      {/* Alert banners */}
+      {outCount > 0 && (
+        <div style={{ display:'flex', gap:8, alignItems:'center', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#DC2626', marginBottom:10 }}>
+          <AlertTriangle size={14} /> <strong>{outCount} item{outCount>1?'s':''} out of stock</strong> — customers cannot order these right now
+        </div>
+      )}
+      {(lowCount > 0 || rawLow.length > 0) && (
+        <div style={{ display:'flex', gap:8, alignItems:'center', background:'#FFFBEB', border:'1px solid #FDE68A', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#92400E', marginBottom:10 }}>
+          <Bell size={14} />
+          {lowCount > 0 && <span><strong>{lowCount} menu item{lowCount>1?'s':''}</strong> running low</span>}
+          {lowCount > 0 && rawLow.length > 0 && ' · '}
+          {rawLow.length > 0 && <span><strong>{rawLow.length} ingredient{rawLow.length>1?'s':''}</strong> below reorder level ({rawLow.slice(0,3).map(m=>m.name).join(', ')}{rawLow.length>3?'…':''})</span>}
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="filter-chips" style={{ marginBottom:16 }}>
+        {TABS.map(t => (
+          <button key={t.key} className={`chip${tab===t.key?' active':''}`} onClick={() => setTab(t.key)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── FINISHED GOODS TAB ───────────────────────────────────────────── */}
+      {tab === 'finished' && (
+        <>
+          {/* KPI row */}
+          <div className="kpi-grid" style={{ marginBottom:16 }}>
+            {[
+              { label:'Items tracked', value:items.length,               color:'#1D9E75' },
+              { label:'Out of stock',  value:outCount,                   color:outCount>0?'#DC2626':'#1D9E75', onClick:()=>setFilter('OUT') },
+              { label:'Low stock',     value:lowCount,                   color:lowCount>0?'#D97706':'#1D9E75', onClick:()=>setFilter('LOW') },
+              { label:'Stock value',   value:summary?.totalValue ? `₹${Number(summary.totalValue).toLocaleString('en-IN',{maximumFractionDigits:0})}` : '—', color:'#2563EB' },
+            ].map(({ label, value, color, onClick }) => (
+              <div key={label} className="card" style={{ textAlign:'center', cursor:onClick?'pointer':'default' }} onClick={onClick}>
+                <div style={{ fontSize:26, fontWeight:800, color }}>{loading ? '…' : value}</div>
+                <div style={{ fontSize:12, color:'var(--gray-500)', marginTop:3 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {error && <div style={{ background:'#FFFBEB', border:'1px solid #FDE68A', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#92400E', marginBottom:14 }}>⚠ {error}</div>}
+
+          {/* Filter + search */}
+          <div style={{ display:'flex', gap:10, marginBottom:12, alignItems:'center', flexWrap:'wrap' }}>
+            <div className="filter-chips" style={{ margin:0 }}>
+              {[['ALL','All'],['LOW','Low stock'],['OUT','Out of stock']].map(([k,l]) => (
+                <button key={k} className={`chip${filter===k?' active':''}`} onClick={() => setFilter(k)}>{l}</button>
+              ))}
+            </div>
+            <div style={{ position:'relative', flex:1, minWidth:180 }}>
+              <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)', pointerEvents:'none' }} />
+              <input className="field-input" style={{ paddingLeft:32, height:36, width:'100%' }} placeholder="Search items…" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="card" style={{ padding:0, overflow:'hidden' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead>
+                <tr style={{ background:'var(--gray-50)', fontSize:12, fontWeight:600, color:'var(--gray-500)' }}>
+                  {['Menu Item','Type','Category','Stock Qty','Threshold','Status','Update qty'].map(h => (
+                    <th key={h} style={{ padding:'10px 14px', textAlign:'left', whiteSpace:'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={7} style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>
+                    <div className="spinner" style={{ margin:'0 auto 8px' }} />Loading…
+                  </td></tr>
+                ) : filtItems.length === 0 ? (
+                  <tr><td colSpan={7} style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>
+                    <Package size={28} style={{ opacity:.3, display:'block', margin:'0 auto 8px' }} />
+                    {items.length === 0 ? 'No items tracked — add stock qty in Menu → Edit item' : 'No items match this filter'}
+                  </td></tr>
+                ) : filtItems.map(item => {
+                  const qty = item.stockQty ?? item.currentQty ?? 0;
+                  const min = item.lowStockThreshold ?? 5;
+                  const isOut = qty <= 0;
+                  const isLow = qty > 0 && qty <= min;
+                  const editing = editing === (item.menuItemId||item.id);
+                  return (
+                    <tr key={item.id} style={{ borderTop:'1px solid var(--gray-100)', background:isOut?'#FFF5F5':isLow?'#FFFBEB':'white' }}>
+                      <td style={{ padding:'11px 14px', fontWeight:600, fontSize:13 }}>{item.name||item.menuItemName}</td>
+                      <td style={{ padding:'11px 14px', fontSize:12 }}>
+                        <span style={{ fontSize:10, fontWeight:700, color:item.veg!==false?'#1D9E75':'#DC2626', border:`1.5px solid ${item.veg!==false?'#1D9E75':'#DC2626'}`, borderRadius:2, padding:'1px 4px' }}>■</span>
+                      </td>
+                      <td style={{ padding:'11px 14px', fontSize:12, color:'var(--gray-500)' }}>{item.categoryName||'—'}</td>
+                      <td style={{ padding:'11px 14px' }}>
+                        {editing ? (
+                          <input type="number" min="0" value={editQty} onChange={e=>setEditQty(e.target.value)}
+                            autoFocus onKeyDown={e=>{ if(e.key==='Enter') saveQty(item); if(e.key==='Escape') setEditing(null); }}
+                            style={{ width:70, height:30, border:'1.5px solid var(--green)', borderRadius:6, textAlign:'center', fontSize:13, padding:'0 6px' }} />
+                        ) : (
+                          <span style={{ fontSize:15, fontWeight:800, color:isOut?'#DC2626':isLow?'#D97706':'#1D9E75' }}>{qty}</span>
+                        )}
+                      </td>
+                      <td style={{ padding:'11px 14px', fontSize:13, color:'var(--gray-600)' }}>{min}</td>
+                      <td style={{ padding:'11px 14px' }}>
+                        <span style={{ fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:999,
+                          background:isOut?'#FEE2E2':isLow?'#FEF3C7':'#E1F5EE',
+                          color:isOut?'#DC2626':isLow?'#D97706':'#1D9E75' }}>
+                          {isOut?'Out of stock':isLow?'Low stock':'In stock'}
+                        </span>
+                      </td>
+                      <td style={{ padding:'11px 14px' }}>
+                        {editing ? (
+                          <div style={{ display:'flex', gap:5 }}>
+                            <button onClick={()=>saveQty(item)} style={{ background:'var(--green)', color:'white', border:'none', borderRadius:6, width:28, height:28, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}><Check size={13}/></button>
+                            <button onClick={()=>setEditing(null)} style={{ background:'var(--gray-100)', border:'none', borderRadius:6, width:28, height:28, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}><X size={13}/></button>
+                          </div>
+                        ) : (
+                          <button onClick={()=>{ setEditing(item.menuItemId||item.id); setEditQty(String(qty)); }}
+                            style={{ background:'var(--gray-100)', border:'none', borderRadius:6, padding:'5px 10px', cursor:'pointer', fontSize:12, color:'var(--gray-700)', display:'flex', alignItems:'center', gap:4 }}>
+                            <Edit2 size={12}/> Update
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* ── RAW MATERIALS TAB ────────────────────────────────────────────── */}
+      {tab === 'raw' && (
+        <>
+          <div style={{ position:'relative', marginBottom:14 }}>
+            <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)', pointerEvents:'none' }} />
+            <input className="field-input" style={{ paddingLeft:32, height:38 }} placeholder="Search ingredients…" value={rawSearch} onChange={e=>setRawSearch(e.target.value)} />
+          </div>
+
+          <div className="card" style={{ padding:0, overflow:'hidden' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead>
+                <tr style={{ background:'var(--gray-50)', fontSize:12, fontWeight:600, color:'var(--gray-500)' }}>
+                  {['Ingredient','Unit','Current Stock','Min Level','Cost/Unit','Stock Value','Supplier','Adjust'].map(h => (
+                    <th key={h} style={{ padding:'10px 14px', textAlign:'left', whiteSpace:'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rawLoading ? (
+                  <tr><td colSpan={8} style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading raw materials…</td></tr>
+                ) : filtRaw.length === 0 ? (
+                  <tr><td colSpan={8} style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)', fontSize:13 }}>
+                    No raw materials found — add them in the Raw Materials page
+                  </td></tr>
+                ) : filtRaw.map(m => {
+                  const cur = parseFloat(m.currentStock||0);
+                  const min = parseFloat(m.minStockLevel||0);
+                  const col = stockColor(cur, min);
+                  const val = cur * parseFloat(m.costPerUnit||0);
+                  return (
+                    <tr key={m.id} style={{ borderTop:'1px solid var(--gray-100)', background:cur<=min?'#FFFBEB':'white' }}>
+                      <td style={{ padding:'11px 14px', fontWeight:600, fontSize:13 }}>{m.name}</td>
+                      <td style={{ padding:'11px 14px', fontSize:12, color:'var(--gray-500)' }}>{m.unit}</td>
+                      <td style={{ padding:'11px 14px' }}><span style={{ fontSize:15, fontWeight:800, color:col }}>{cur.toFixed(2)}</span></td>
+                      <td style={{ padding:'11px 14px', fontSize:13, color:'var(--gray-600)' }}>{min.toFixed(2)}</td>
+                      <td style={{ padding:'11px 14px', fontSize:13, fontWeight:600 }}>₹{parseFloat(m.costPerUnit||0).toFixed(2)}</td>
+                      <td style={{ padding:'11px 14px', fontSize:13, fontWeight:600, color:'#2563EB' }}>₹{val.toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+                      <td style={{ padding:'11px 14px', fontSize:12, color:'var(--gray-500)' }}>{m.supplier||'—'}</td>
+                      <td style={{ padding:'11px 14px' }}>
+                        <button onClick={()=>setAdjust(m)}
+                          style={{ background:cur<=min?'#FEF3C7':'var(--green-light)', color:cur<=min?'#92400E':'var(--green-darker)', border:'none', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                          ± Stock
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              {filtRaw.length > 0 && (
+                <tfoot>
+                  <tr style={{ background:'var(--gray-50)', fontWeight:700, fontSize:13 }}>
+                    <td colSpan={5} style={{ padding:'10px 14px' }}>Total raw material value</td>
+                    <td style={{ padding:'10px 14px', color:'#2563EB' }}>₹{rawMats.reduce((s,m)=>s+parseFloat(m.currentStock||0)*parseFloat(m.costPerUnit||0),0).toLocaleString('en-IN',{maximumFractionDigits:0})}</td>
+                    <td colSpan={2}/>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* Stock adjust modal */}
+      {adjustModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
+          <div style={{ background:'white', borderRadius:16, padding:28, width:'100%', maxWidth:380 }}>
+            <h3 style={{ fontSize:16, fontWeight:700, marginBottom:4 }}>Adjust Stock — {adjustModal.name}</h3>
+            <p style={{ fontSize:13, color:'var(--gray-500)', marginBottom:20 }}>Current: {parseFloat(adjustModal.currentStock||0).toFixed(2)} {adjustModal.unit}</p>
+            <div className="field" style={{ marginBottom:14 }}>
+              <label className="field-label">Amount (+ to add, − to subtract)</label>
+              <input className="field-input" type="number" step="0.01" placeholder="+5 or -2.5" value={adjustDelta} onChange={e=>setDelta(e.target.value)} autoFocus />
+            </div>
+            <div className="field" style={{ marginBottom:20 }}>
+              <label className="field-label">Reason</label>
+              <select className="field-input" value={adjustReason} onChange={e=>setReason(e.target.value)}>
+                <option value="PURCHASE">Purchase / delivery received</option>
+                <option value="WASTAGE">Wastage / spoilage</option>
+                <option value="CORRECTION">Stock count correction</option>
+                <option value="TRANSFER">Transfer to/from another store</option>
+              </select>
+            </div>
+            <div style={{ display:'flex', gap:10 }}>
+              <button className="btn btn-secondary" style={{ flex:1 }} onClick={()=>{setAdjust(null);setDelta('');setReason('PURCHASE');}}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex:1 }} onClick={doAdjust} disabled={!adjustDelta}>Apply adjustment</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}.spinner{width:28px;height:28px;border:3px solid var(--green);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}`}</style>
+    </div>
+  );
+}

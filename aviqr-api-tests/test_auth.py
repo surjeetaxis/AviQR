@@ -51,7 +51,7 @@ def test_register_new_customer_then_login_with_it():
         "name": "QA Automation Customer",
         "email": email,
         "phone": random_indian_phone(),
-        "password": "Test@1234",
+        "password": "Axis321#",
         "role": "CUSTOMER",
     })
     assert r.status_code == 200, r.text
@@ -60,7 +60,7 @@ def test_register_new_customer_then_login_with_it():
     assert body["data"]["accessToken"]
     assert body["data"]["email"] == email
 
-    r2 = post("/api/v1/auth/login", json={"email": email, "password": "Test@1234"})
+    r2 = post("/api/v1/auth/login", json={"email": email, "password": "Axis321#"})
     assert r2.status_code == 200
     assert r2.json()["data"]["role"] == "CUSTOMER"
 
@@ -70,7 +70,7 @@ def test_register_duplicate_email_is_rejected():
         "name": "Duplicate Attempt",
         "email": SEED_USERS["CUSTOMER"]["email"],
         "phone": random_indian_phone(),
-        "password": "Test@1234",
+        "password": "Axis321#",
         "role": "CUSTOMER",
     })
     assert r.status_code == 400
@@ -208,16 +208,16 @@ def test_change_password_on_a_fresh_account():
     email = f"qa-pwchange-{uuid.uuid4().hex[:10]}@example.com"
     register = post("/api/v1/auth/register", json={
         "name": "QA Password Change", "email": email, "phone": random_indian_phone(),
-        "password": "Test@1234", "role": "CUSTOMER",
+        "password": "Axis321#", "role": "CUSTOMER",
     })
     token = register.json()["data"]["accessToken"]
 
     changed = put("/api/v1/auth/change-password", token=token, json={
-        "currentPassword": "Test@1234", "newPassword": "NewTest@5678",
+        "currentPassword": "Axis321#", "newPassword": "NewTest@5678",
     })
     assert changed.status_code == 200
 
-    old_login = post("/api/v1/auth/login", json={"email": email, "password": "Test@1234"})
+    old_login = post("/api/v1/auth/login", json={"email": email, "password": "Axis321#"})
     assert old_login.status_code == 400
 
     new_login = post("/api/v1/auth/login", json={"email": email, "password": "NewTest@5678"})

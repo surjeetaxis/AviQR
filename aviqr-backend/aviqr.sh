@@ -334,10 +334,29 @@ cmd_clean() {
 # ==============================================================================
 #  run / stop / restart / status / logs
 # ==============================================================================
+# Pick a working Gradle command once: prefer the wrapper, fall back to system gradle.
+_gradle_cmd() {
+  if [ -f "$BASE/gradle/wrapper/gradle-wrapper.jar" ] && [ -x "$BASE/gradlew" ]; then
+    echo "$BASE/gradlew"
+  elif command -v gradle >/dev/null 2>&1; then
+    echo "gradle"
+  else
+    echo ""
+  fi
+}
+
 start_one() {
   local name="$1"
+  local GRADLE; GRADLE=$(_gradle_cmd)
+  if [ -z "$GRADLE" ]; then
+    err "No Gradle available: wrapper jar is missing AND 'gradle' is not on PATH."
+    echo "   Fix either:"
+    echo "     • Restore the wrapper jar:  gradle/wrapper/gradle-wrapper.jar"
+    echo "     • Or install Gradle:        sudo apt install gradle  (or sdk install gradle 8.10.2)"
+    exit 1
+  fi
   echo "→ Starting $name..."
-  SPRING_PROFILES_ACTIVE=local "$BASE/gradlew" "${name}:bootRun" \
+  SPRING_PROFILES_ACTIVE=local "$GRADLE" "${name}:bootRun" \
     --no-daemon \
     > "$LOG_DIR/${name}.log" 2>&1 &
   echo $! > "$LOG_DIR/${name}.pid"
@@ -374,15 +393,41 @@ cmd_run() {
     echo "================================================================================"
 
     start_one "service-registry"
-    echo "   Waiting 25s for Eureka to be ready..."
-    sleep 25
-    if curl -s http://localhost:8761/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
-      ok "Eureka is up"
-    else
-      warn "Eureka may still be starting — continuing anyway"
+    echo "   Waiting for Eureka to be ready (polling, up to 120s)..."
+    eureka_up=false
+    for i in $(seq 1 40); do
+      if curl -s http://localhost:8761/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+        eureka_up=true
+        ok "Eureka is up (after ~$((i * 3))s)"
+        break
+      fi
+      # If the process died, stop waiting and show why
+      if ! pgrep -f "service-registry" >/dev/null 2>&1; then
+        err "service-registry process exited — check $LOG_DIR/service-registry.log"
+        echo "   Last 20 log lines:"
+        tail -n 20 "$LOG_DIR/service-registry.log" 2>/dev/null | sed 's/^/     /'
+        exit 1
+      fi
+      sleep 3
+    done
+    if [ "$eureka_up" != "true" ]; then
+      err "Eureka did not become healthy within 120s."
+      echo "   Check the log: tail -f $LOG_DIR/service-registry.log"
+      echo "   Common causes: port 8761 already in use, or a slow first-time JVM warmup."
+      echo "   Once it settles you can re-run ./aviqr.sh start."
+      exit 1
     fi
 
-    start_one "api-gateway"; sleep 15
+    start_one "api-gateway"
+    echo "   Waiting for API gateway to be ready (up to 90s)..."
+    for i in $(seq 1 30); do
+      if curl -s http://localhost:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+        ok "API gateway is up (after ~$((i * 3))s)"
+        break
+      fi
+      sleep 3
+    done
+
     start_one "auth-service"; sleep 8
     start_one "shop-service"; sleep 6
     start_one "menu-service"; sleep 6

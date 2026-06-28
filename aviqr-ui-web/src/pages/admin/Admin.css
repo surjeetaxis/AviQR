@@ -55,7 +55,7 @@
 .admin-icon-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--gray-500); transition: background .12s; }
 .admin-icon-btn:hover { background: var(--gray-100); }
 
-.admin-content { flex: 1; padding: 24px; max-width: 1300px; }
+.admin-content { flex: 1; padding: 24px; max-width: 1300px; margin: 0 auto; width: 100%; }
 
 .admin-overview { display: flex; flex-direction: column; gap: 20px; }
 .admin-kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }

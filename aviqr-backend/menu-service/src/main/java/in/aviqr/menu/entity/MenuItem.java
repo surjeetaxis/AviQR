@@ -21,14 +21,16 @@ public class MenuItem {
     @Builder.Default private Boolean spicy = false;
     @Builder.Default private Boolean popular = false;
     @Builder.Default private Boolean available = true;
-    private String tag; // bestseller, spicy, veg, new
+    private String tag;
     private Integer sortOrder;
-    private Integer salesVolume;
-    private BigDecimal rating;
-    private Integer ratingCount;
-    private BigDecimal rankingScore;
-    private BigDecimal seoScore;
-    private BigDecimal conversionRate;
+    // Analytics columns — added to schema in aviqr_setup.sql; marked @Transient
+    // until a schema migration is applied on existing DBs (run aviqr_setup.sql as postgres)
+    @Transient @Builder.Default private Integer salesVolume = 0;
+    @Transient @Builder.Default private BigDecimal rating = BigDecimal.ZERO;
+    @Transient @Builder.Default private Integer ratingCount = 0;
+    @Transient @Builder.Default private BigDecimal rankingScore = BigDecimal.ZERO;
+    @Transient @Builder.Default private BigDecimal seoScore = BigDecimal.ZERO;
+    @Transient @Builder.Default private BigDecimal conversionRate = BigDecimal.ZERO;
     @CreationTimestamp private LocalDateTime createdAt;
     @UpdateTimestamp  private LocalDateTime updatedAt;
 }

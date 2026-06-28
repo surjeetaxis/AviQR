@@ -1,4 +1,5 @@
 package in.aviqr.order.dto;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -13,14 +14,14 @@ public class CreateOrderRequest {
     String type;
     @NotBlank String paymentMethod;
     String notes;
-    @NotEmpty List<OrderItemRequest> items;
+    @NotEmpty @Valid List<OrderItemRequest> items;
 
     @Data
     public static class OrderItemRequest {
         @NotNull UUID menuItemId;
         @NotBlank String itemName;
         @Min(1) int quantity;
-        @NotNull BigDecimal unitPrice;
+        @NotNull @DecimalMin(value = "0.01", message = "Unit price must be positive") BigDecimal unitPrice;
         String notes;
     }
 }

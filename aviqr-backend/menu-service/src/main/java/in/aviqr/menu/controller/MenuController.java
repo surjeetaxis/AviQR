@@ -150,12 +150,18 @@ public class MenuController {
     }
 
     @PostMapping("/api/v1/pricing-rules")
-    public ResponseEntity<ApiResponse<PricingRule>> createRule(@RequestBody PricingRule rule) {
+    public ResponseEntity<ApiResponse<PricingRule>> createRule(
+            @RequestBody PricingRule rule,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if ("CUSTOMER".equals(role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok("Created", ruleRepo.save(rule)));
     }
 
     @PutMapping("/api/v1/pricing-rules/{id}")
-    public ResponseEntity<ApiResponse<PricingRule>> updateRule(@PathVariable UUID id, @RequestBody PricingRule req) {
+    public ResponseEntity<ApiResponse<PricingRule>> updateRule(
+            @PathVariable UUID id, @RequestBody PricingRule req,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if ("CUSTOMER".equals(role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ruleRepo.findById(id).map(r -> {
             r.setName(req.getName()); r.setActive(req.getActive());
             r.setAdjustmentValue(req.getAdjustmentValue()); r.setAdjustmentType(req.getAdjustmentType());
@@ -164,7 +170,10 @@ public class MenuController {
     }
 
     @DeleteMapping("/api/v1/pricing-rules/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteRule(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<Void>> deleteRule(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if ("CUSTOMER".equals(role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         ruleRepo.deleteById(id);
         return ResponseEntity.ok(ApiResponse.ok("Deleted", null));
     }

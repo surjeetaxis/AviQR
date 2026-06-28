@@ -15,24 +15,24 @@ EXPECTED_SERVICES = [
     "REPORT-SERVICE", "OCR-SERVICE", "REVIEW-SERVICE",
 ]
 
-# Seeded by aviqr_setup.sql — every dev password is Test@1234. One login per
+# Seeded by aviqr_setup.sql — every dev password is Axis321#. One login per
 # user type the platform supports, so "all user types" means these 12.
 SEED_USERS = {
-    "ADMIN":    {"email": "admin@aviqr.in",        "password": "Test@1234"},
-    "SUPPORT":  {"email": "support@aviqr.in",       "password": "Test@1234"},
-    "OWNER":    {"email": "sujeet@spiceroute.in",   "password": "Test@1234"},  # owns SHOP_101
-    "OWNER2":   {"email": "meena@coconut.in",       "password": "Test@1234"},  # owns SHOP_102
-    "OWNER3":   {"email": "priya@cake.in",          "password": "Test@1234"},  # owns SHOP_104
-    "MANAGER":  {"email": "vikram@gmail.com",       "password": "Test@1234"},  # staff at SHOP_101
-    "KITCHEN":  {"email": "kitchen@spiceroute.in",  "password": "Test@1234"},  # staff at SHOP_101
-    "CASHIER":  {"email": "cashier@spiceroute.in",  "password": "Test@1234"},  # staff at SHOP_101
-    "CUSTOMER": {"email": "anjali@gmail.com",       "password": "Test@1234"},
-    "HOTEL":    {"email": "gm@grandpalace.in",      "password": "Test@1234"},  # owns HOTEL_1
-    "MALL":     {"email": "admin@forum.in",         "password": "Test@1234"},  # admins MALL_1
-    "SUPPLIER": {"email": "ramesh@teas.in",         "password": "Test@1234"},
+    "ADMIN":    {"email": "admin@aviqr.in",        "password": "Axis321#"},
+    "SUPPORT":  {"email": "support@aviqr.in",       "password": "Axis321#"},
+    "OWNER":    {"email": "sujeet@spiceroute.in",   "password": "Axis321#"},  # owns SHOP_101
+    "OWNER2":   {"email": "meena@coconut.in",       "password": "Axis321#"},  # owns SHOP_102
+    "OWNER3":   {"email": "priya@cake.in",          "password": "Axis321#"},  # owns SHOP_104
+    "MANAGER":  {"email": "vikram@gmail.com",       "password": "Axis321#"},  # staff at SHOP_101
+    "KITCHEN":  {"email": "kitchen@spiceroute.in",  "password": "Axis321#"},  # staff at SHOP_101
+    "CASHIER":  {"email": "cashier@spiceroute.in",  "password": "Axis321#"},  # staff at SHOP_101
+    "CUSTOMER": {"email": "anjali@gmail.com",       "password": "Axis321#"},
+    "HOTEL":    {"email": "gm@grandpalace.in",      "password": "Axis321#"},  # owns HOTEL_1
+    "MALL":     {"email": "admin@forum.in",         "password": "Axis321#"},  # admins MALL_1
+    "SUPPLIER": {"email": "ramesh@teas.in",         "password": "Axis321#"},
 }
 
-SUSPENDED_USER = {"email": "farhan@biryani.in", "password": "Test@1234"}
+SUSPENDED_USER = {"email": "farhan@biryani.in", "password": "Axis321#"}
 
 # Known dummy-data IDs from aviqr_setup.sql.
 SHOP_101 = "00000000-0000-0000-0000-000000000101"  # Spice Route

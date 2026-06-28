@@ -28,10 +28,17 @@ import java.util.UUID;
 public class InventoryController {
 
     private final InventoryService inventoryService;
+    private final in.aviqr.menu.repository.MenuItemRepository menuItemRepo;
 
     /** Get all stock levels for a shop */
     @GetMapping("/shop/{shopId}")
-    public ResponseEntity<ApiResponse<List<StockItem>>> getShopStock(@PathVariable String shopId) {
+    public ResponseEntity<ApiResponse<List<StockItem>>> getShopStock(
+            @PathVariable String shopId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId) {
+        if ("CUSTOMER".equals(role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role) && !shopId.equals(callerShopId))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok(inventoryService.getShopStock(shopId)));
     }
 
@@ -45,14 +52,21 @@ public class InventoryController {
     @PutMapping("/item/{itemId}")
     public ResponseEntity<ApiResponse<StockItem>> setStock(
             @PathVariable UUID itemId,
-            @RequestBody StockUpdateRequest req) {
+            @RequestBody StockUpdateRequest req,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId) {
+        if ("CUSTOMER".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        // resolve shopId from menu item if not supplied in request body
+        String shopId = req.getShopId();
+        if (shopId == null || shopId.isBlank()) {
+            shopId = menuItemRepo.findById(itemId)
+                .map(in.aviqr.menu.entity.MenuItem::getShopId)
+                .orElse(null);
+        }
+        if (shopId == null) return ResponseEntity.status(404).body(ApiResponse.error("Menu item not found"));
         StockItem saved = inventoryService.setStock(
-            itemId,
-            req.getShopId(),
-            req.getStockQty(),
-            req.getLowStockThreshold(),
-            req.getTrackStock()
-        );
+            itemId, shopId, req.getStockQty(), req.getLowStockThreshold(), req.getTrackStock());
         return ResponseEntity.ok(ApiResponse.ok("Stock updated", saved));
     }
 
