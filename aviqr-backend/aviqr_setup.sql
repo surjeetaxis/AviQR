@@ -393,6 +393,9 @@ CREATE TABLE menu_items (
     shop_id        VARCHAR(100)  NOT NULL,
     price          DECIMAL(10,2) NOT NULL,
     image_url      VARCHAR(1000),
+    video_url      VARCHAR(1000),
+    model_url      VARCHAR(1000),
+    media_type     VARCHAR(20)   DEFAULT 'NONE',
     veg            BOOLEAN       DEFAULT TRUE,
     spicy          BOOLEAN       DEFAULT FALSE,
     popular        BOOLEAN       DEFAULT FALSE,
@@ -1236,6 +1239,11 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aviqr;
 
 \c aviqr_menu;
 
+-- Rich media columns (run on existing DBs)
+ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS video_url   VARCHAR(1000);
+ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS model_url   VARCHAR(1000);
+ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS media_type  VARCHAR(20) DEFAULT 'NONE';
+
 -- Menu Variants (S/M/L, Half/Full, etc.)
 CREATE TABLE IF NOT EXISTS menu_variants (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1326,3 +1334,178 @@ GROUP BY shop_id, DATE(created_at);
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aviqr;
 GRANT SELECT ON daily_shop_revenue TO aviqr;
+
+
+-- ============================================================
+--  SECTION 17 — KOT Demo: Live active orders for kitchen display
+--  These orders are in NEW / ACCEPTED / PREPARING / READY states
+--  so the KOT Dashboard has real data to display on first run.
+-- ============================================================
+
+\c aviqr_order;
+
+-- ── Today's active orders for Spice Route (shop 101) ─────────────────────────
+
+INSERT INTO orders (id, order_number, shop_id, customer_name, customer_phone, table_number, type, status,
+                    payment_method, payment_status, payment_id, subtotal, tax, total_amount, notes,
+                    created_at, accepted_at, completed_at)
+VALUES
+  -- NEW — just arrived, needs acceptance
+  ('00000000-0000-0000-0005-000000000001', 'ORD-K001', '00000000-0000-0000-0000-000000000101',
+   'Priya Sharma',   '9876543211', '3',  'DINE_IN',  'NEW',
+   'ONLINE', 'PAID', 'pay_K001', 640.00, 32.00, 672.00, 'No onion no garlic please',
+   NOW() - INTERVAL '3 min',  NULL, NULL),
+
+  ('00000000-0000-0000-0005-000000000002', 'ORD-K002', '00000000-0000-0000-0000-000000000101',
+   'Walk-in',        NULL,         NULL, 'TAKEAWAY', 'NEW',
+   'CASH', 'PENDING', NULL, 280.00, 14.00, 294.00, NULL,
+   NOW() - INTERVAL '6 min',  NULL, NULL),
+
+  ('00000000-0000-0000-0005-000000000003', 'ORD-K003', '00000000-0000-0000-0000-000000000101',
+   'Rahul Gupta',    '9911223344', '8',  'DINE_IN',  'NEW',
+   'ONLINE', 'PAID', 'pay_K003', 860.00, 43.00, 903.00, NULL,
+   NOW() - INTERVAL '2 min',  NULL, NULL),
+
+  -- ACCEPTED — being cooked
+  ('00000000-0000-0000-0005-000000000004', 'ORD-K004', '00000000-0000-0000-0000-000000000101',
+   'Kavitha Nair',   '9822334455', '5',  'DINE_IN',  'ACCEPTED',
+   'ONLINE', 'PAID', 'pay_K004', 560.00, 28.00, 588.00, 'Extra spicy',
+   NOW() - INTERVAL '18 min', NOW() - INTERVAL '14 min', NULL),
+
+  ('00000000-0000-0000-0005-000000000005', 'ORD-K005', '00000000-0000-0000-0000-000000000101',
+   'Arjun Mehta',    '9900112233', NULL, 'TAKEAWAY', 'ACCEPTED',
+   'UPI',  'PAID', 'pay_K005', 380.00, 19.00, 399.00, NULL,
+   NOW() - INTERVAL '22 min', NOW() - INTERVAL '18 min', NULL),
+
+  -- PREPARING — finishing touches
+  ('00000000-0000-0000-0005-000000000006', 'ORD-K006', '00000000-0000-0000-0000-000000000101',
+   'Sunita Verma',   '9988007766', '1',  'DINE_IN',  'PREPARING',
+   'CASH', 'PENDING', NULL, 720.00, 36.00, 756.00, NULL,
+   NOW() - INTERVAL '28 min', NOW() - INTERVAL '24 min', NULL),
+
+  ('00000000-0000-0000-0005-000000000007', 'ORD-K007', '00000000-0000-0000-0000-000000000101',
+   'Rajan Pillai',   '9833445566', '11', 'DINE_IN',  'PREPARING',
+   'ONLINE', 'PAID', 'pay_K007', 480.00, 24.00, 504.00, 'Less oil',
+   NOW() - INTERVAL '35 min', NOW() - INTERVAL '30 min', NULL),
+
+  -- READY — plated and ready to serve
+  ('00000000-0000-0000-0005-000000000008', 'ORD-K008', '00000000-0000-0000-0000-000000000101',
+   'Deepa Iyer',     '9711223344', '6',  'DINE_IN',  'READY',
+   'ONLINE', 'PAID', 'pay_K008', 440.00, 22.00, 462.00, NULL,
+   NOW() - INTERVAL '40 min', NOW() - INTERVAL '35 min', NULL),
+
+  ('00000000-0000-0000-0005-000000000009', 'ORD-K009', '00000000-0000-0000-0000-000000000101',
+   'Walk-in',        NULL,         NULL, 'TAKEAWAY', 'READY',
+   'CASH', 'PENDING', NULL, 160.00,  8.00, 168.00, NULL,
+   NOW() - INTERVAL '32 min', NOW() - INTERVAL '28 min', NULL),
+
+  -- Delivery — NEW from Zomato
+  ('00000000-0000-0000-0005-000000000010', 'ORD-K010', '00000000-0000-0000-0000-000000000101',
+   'Zomato Order',   NULL,         NULL, 'DELIVERY', 'NEW',
+   'ONLINE', 'PAID', 'pay_Z001', 680.00, 34.00, 714.00, 'Contactless delivery',
+   NOW() - INTERVAL '4 min',  NULL, NULL),
+
+  -- ACCEPTED delivery
+  ('00000000-0000-0000-0005-000000000011', 'ORD-K011', '00000000-0000-0000-0000-000000000101',
+   'Swiggy Order',   NULL,         NULL, 'DELIVERY', 'ACCEPTED',
+   'ONLINE', 'PAID', 'pay_S001', 520.00, 26.00, 546.00, 'No garlic',
+   NOW() - INTERVAL '25 min', NOW() - INTERVAL '20 min', NULL),
+
+  -- Some completed orders for reports (today)
+  ('00000000-0000-0000-0005-000000000020', 'ORD-K020', '00000000-0000-0000-0000-000000000101',
+   'Neha Kapoor',    '9812223334', '2',  'DINE_IN',  'COMPLETED',
+   'ONLINE', 'PAID', 'pay_K020', 880.00, 44.00, 924.00, NULL,
+   NOW() - INTERVAL '1 hour', NOW() - INTERVAL '55 min', NOW() - INTERVAL '35 min'),
+
+  ('00000000-0000-0000-0005-000000000021', 'ORD-K021', '00000000-0000-0000-0000-000000000101',
+   'Vijay Kumar',    '9900334455', '7',  'DINE_IN',  'COMPLETED',
+   'CASH', 'CASH', NULL, 460.00, 23.00, 483.00, NULL,
+   NOW() - INTERVAL '2 hours', NOW() - INTERVAL '115 min', NOW() - INTERVAL '95 min'),
+
+  ('00000000-0000-0000-0005-000000000022', 'ORD-K022', '00000000-0000-0000-0000-000000000101',
+   'Meera Bose',     '9711334455', NULL, 'TAKEAWAY', 'COMPLETED',
+   'UPI', 'PAID', 'pay_K022', 340.00, 17.00, 357.00, NULL,
+   NOW() - INTERVAL '90 min', NOW() - INTERVAL '86 min', NOW() - INTERVAL '72 min'),
+
+  ('00000000-0000-0000-0005-000000000023', 'ORD-K023', '00000000-0000-0000-0000-000000000101',
+   'Arun Desai',     '9833556677', '4',  'DINE_IN',  'COMPLETED',
+   'CARD', 'PAID', 'pay_K023', 1200.00, 60.00, 1260.00, NULL,
+   NOW() - INTERVAL '3 hours', NOW() - INTERVAL '175 min', NOW() - INTERVAL '150 min')
+ON CONFLICT (order_number) DO NOTHING;
+
+-- ── Order items for KOT demo orders ──────────────────────────────────────────
+
+INSERT INTO order_items (id, order_id, menu_item_id, item_name, quantity, unit_price, total_price, notes)
+VALUES
+  -- K001: Priya Sharma, Table 3
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000001', '00000000-0000-0000-0002-000000000006', 'Paneer Butter Masala', 2, 320.00, 640.00, NULL),
+
+  -- K002: Takeaway walk-in
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000002', '00000000-0000-0000-0002-000000000001', 'Paneer Tikka',          1, 280.00, 280.00, NULL),
+
+  -- K003: Rahul, Table 8
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000003', '00000000-0000-0000-0002-000000000008', 'Butter Chicken',        1, 380.00, 380.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000003', '00000000-0000-0000-0002-000000000007', 'Dal Makhani',           1, 280.00, 280.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000003', '00000000-0000-0000-0002-000000000012', 'Butter Naan',           4,  55.00, 220.00, NULL),
+
+  -- K004: Kavitha, Table 5
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000004', '00000000-0000-0000-0002-000000000010', 'Chicken Kadai',         1, 360.00, 360.00, 'Extra spicy'),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000004', '00000000-0000-0000-0002-000000000013', 'Garlic Naan',           3,  65.00, 195.00, NULL),
+
+  -- K005: Arjun takeaway
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000005', '00000000-0000-0000-0002-000000000006', 'Paneer Butter Masala',  1, 320.00, 320.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000005', '00000000-0000-0000-0002-000000000015', 'Tandoori Roti',         2,  40.00,  80.00, NULL),
+
+  -- K006: Sunita, Table 1
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000006', '00000000-0000-0000-0002-000000000017', 'Chicken Biryani',       2, 360.00, 720.00, NULL),
+
+  -- K007: Rajan, Table 11
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000007', '00000000-0000-0000-0002-000000000007', 'Dal Makhani',           1, 280.00, 280.00, 'Less oil'),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000007', '00000000-0000-0000-0002-000000000012', 'Butter Naan',           2,  55.00, 110.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000007', '00000000-0000-0000-0002-000000000022', 'Sweet Lassi',           1,  80.00,  80.00, NULL),
+
+  -- K008: Deepa, Table 6 (READY)
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000008', '00000000-0000-0000-0002-000000000006', 'Paneer Butter Masala',  1, 320.00, 320.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000008', '00000000-0000-0000-0002-000000000012', 'Butter Naan',           2,  55.00, 110.00, NULL),
+
+  -- K009: Walk-in takeaway (READY)
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000009', '00000000-0000-0000-0002-000000000021', 'Masala Chai',           2,  40.00,  80.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000009', '00000000-0000-0000-0002-000000000019', 'Gulab Jamun (2 pcs)',   1,  90.00,  90.00, NULL),
+
+  -- K010: Zomato delivery (NEW)
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000010', '00000000-0000-0000-0002-000000000008', 'Butter Chicken',        1, 380.00, 380.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000010', '00000000-0000-0000-0002-000000000017', 'Chicken Biryani',       1, 360.00, 360.00, NULL),
+
+  -- K011: Swiggy delivery (ACCEPTED)
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000011', '00000000-0000-0000-0002-000000000006', 'Paneer Butter Masala',  1, 320.00, 320.00, 'No garlic'),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000011', '00000000-0000-0000-0002-000000000001', 'Paneer Tikka',          1, 280.00, 280.00, NULL),
+
+  -- K020: Neha (COMPLETED — for reports)
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000020', '00000000-0000-0000-0002-000000000008', 'Butter Chicken',        2, 380.00, 760.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000020', '00000000-0000-0000-0002-000000000012', 'Butter Naan',           4,  55.00, 220.00, NULL),
+
+  -- K021: Vijay (COMPLETED)
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000021', '00000000-0000-0000-0002-000000000007', 'Dal Makhani',           1, 280.00, 280.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000021', '00000000-0000-0000-0002-000000000013', 'Garlic Naan',           3,  65.00, 195.00, NULL),
+
+  -- K022: Meera takeaway (COMPLETED)
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000022', '00000000-0000-0000-0002-000000000001', 'Paneer Tikka',          1, 280.00, 280.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000022', '00000000-0000-0000-0002-000000000021', 'Masala Chai',           2,  40.00,  80.00, NULL),
+
+  -- K023: Arun large family order (COMPLETED)
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000023', '00000000-0000-0000-0002-000000000008', 'Butter Chicken',        2, 380.00,  760.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000023', '00000000-0000-0000-0002-000000000006', 'Paneer Butter Masala',  1, 320.00,  320.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000023', '00000000-0000-0000-0002-000000000012', 'Butter Naan',           6,  55.00,  330.00, NULL),
+  (gen_random_uuid(), '00000000-0000-0000-0005-000000000023', '00000000-0000-0000-0002-000000000019', 'Gulab Jamun (2 pcs)',   2,  90.00,  180.00, NULL)
+ON CONFLICT DO NOTHING;
+
+-- Update aggregator_source for delivery orders
+UPDATE orders SET aggregator_source = 'ZOMATO' WHERE order_number = 'ORD-K010';
+UPDATE orders SET aggregator_source = 'SWIGGY' WHERE order_number = 'ORD-K011';
+UPDATE orders SET delivery_address = '12 Indiranagar, 100 Feet Road, Bangalore 560038'
+  WHERE order_number = 'ORD-K010';
+UPDATE orders SET delivery_address = '45 Koramangala, 5th Block, Bangalore 560095'
+  WHERE order_number = 'ORD-K011';
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aviqr;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aviqr;

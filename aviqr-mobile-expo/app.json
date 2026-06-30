@@ -55,14 +55,6 @@
         {
           "cameraPermission": "Allow AviQR to access your camera to scan QR codes and capture menu images."
         }
-      ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#1D9E75",
-          "sounds": []
-        }
       ]
     ],
     "experiments": {

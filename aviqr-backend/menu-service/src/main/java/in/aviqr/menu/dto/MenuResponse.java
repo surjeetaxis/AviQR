@@ -17,8 +17,9 @@ public class MenuResponse {
     @Data
     public static class ItemDto {
         UUID id; String name; String description; BigDecimal price;
-        BigDecimal effectivePrice; // after dynamic pricing
-        String imageUrl; Boolean veg; Boolean spicy; Boolean popular;
+        BigDecimal effectivePrice;
+        String imageUrl; String videoUrl; String modelUrl; String mediaType;
+        Boolean veg; Boolean spicy; Boolean popular;
         Boolean available; String tag;
     }
 }

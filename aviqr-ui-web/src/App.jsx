@@ -30,6 +30,7 @@ import Onboarding        from './components/shared/Onboarding.jsx';
 import TermsPage         from './pages/legal/TermsPage.jsx';
 import PrivacyPage       from './pages/legal/PrivacyPage.jsx';
 import AIHub             from './pages/ai/AIHub.jsx';
+import KOT              from './pages/KOT.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -74,6 +75,8 @@ export default function App() {
         {/* AI + Settings */}
         <Route path="ai"           element={<AIHub />} />
         <Route path="settings"     element={<Settings />} />
+        {/* Kitchen Display */}
+        <Route path="kot"          element={<KOT />} />
       </Route>
 
       {/* Role-specific dashboards — standalone (no owner sidebar) */}

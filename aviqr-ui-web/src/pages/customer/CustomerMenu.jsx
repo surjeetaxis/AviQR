@@ -4,8 +4,110 @@ import { menuApi } from '../../api/index.js';
 import {
   ShoppingCart, Plus, Minus, Search, Star, Clock, MapPin,
   X, ChevronRight, CheckCircle, QrCode, Globe, ChevronDown,
-  Flame, Leaf, Phone, Share2, Heart, AlertCircle, Bike
+  Flame, Leaf, Phone, Share2, Heart, AlertCircle, Bike,
+  Play, Box, RotateCcw
 } from 'lucide-react';
+
+// ─── Media helpers ────────────────────────────────────────────────────────────
+
+function parseVideoUrl(url) {
+  if (!url) return null;
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+  if (yt) return { type: 'youtube', embedUrl: `https://www.youtube.com/embed/${yt[1]}?autoplay=1&rel=0` };
+  const vimeo = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeo) return { type: 'vimeo', embedUrl: `https://player.vimeo.com/video/${vimeo[1]}?autoplay=1` };
+  if (/\.(mp4|webm|ogg)(\?|$)/i.test(url)) return { type: 'direct' };
+  return null;
+}
+
+function loadModelViewerScript() {
+  if (document.querySelector('[data-mv-loader]')) return;
+  const s = document.createElement('script');
+  s.type = 'module';
+  s.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js';
+  s.setAttribute('data-mv-loader', '1');
+  document.head.appendChild(s);
+}
+
+// ─── Full-screen media modal ──────────────────────────────────────────────────
+
+function MediaModal({ item, view, onClose }) {
+  const modelWrapRef = useRef(null);
+  const parsed = view === 'video' ? parseVideoUrl(item.videoUrl) : null;
+
+  useEffect(() => {
+    if (view !== 'model' || !item.modelUrl || !modelWrapRef.current) return;
+    loadModelViewerScript();
+    const el = document.createElement('model-viewer');
+    el.src = item.modelUrl;
+    el.alt = item.name;
+    el.setAttribute('auto-rotate', '');
+    el.setAttribute('camera-controls', '');
+    el.setAttribute('environment-image', 'neutral');
+    el.setAttribute('shadow-intensity', '1');
+    el.style.cssText = 'width:100%;height:100%;background:transparent;';
+    modelWrapRef.current.innerHTML = '';
+    modelWrapRef.current.appendChild(el);
+    return () => { if (modelWrapRef.current) modelWrapRef.current.innerHTML = ''; };
+  }, [view, item.modelUrl]);
+
+  // Lock body scroll while modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  return (
+    <div className="cm-media-overlay" onClick={onClose}>
+      <div className="cm-media-modal" onClick={e => e.stopPropagation()}>
+        <div className="cm-media-modal-header">
+          <div className="cm-media-modal-title">{item.name}</div>
+          <button className="cm-media-modal-close" onClick={onClose}><X size={20} /></button>
+        </div>
+
+        {/* Video */}
+        {view === 'video' && (
+          <div className="cm-media-video-area">
+            {!parsed ? (
+              <div className="cm-media-error">Could not load video</div>
+            ) : parsed.type === 'direct' ? (
+              <video src={item.videoUrl} controls autoPlay playsInline className="cm-media-video" />
+            ) : (
+              <iframe
+                src={parsed.embedUrl}
+                title={item.name}
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+                className="cm-media-iframe"
+              />
+            )}
+          </div>
+        )}
+
+        {/* 3D Model */}
+        {view === 'model' && (
+          <>
+            <div ref={modelWrapRef} className="cm-media-3d-area">
+              <div className="cm-media-3d-loading">Loading 3D model…</div>
+            </div>
+            <div className="cm-media-3d-hint">
+              <RotateCcw size={12} /> Drag to rotate · scroll to zoom
+            </div>
+          </>
+        )}
+
+        <div className="cm-media-modal-footer">
+          <span className="cm-media-modal-price">₹{item.price}</span>
+          {item.spicy && <span className="cm-badge cm-badge-spicy">🌶</span>}
+          {item.veg !== false
+            ? <span className="cm-dot cm-dot-veg" style={{ position:'static', width:12, height:12 }}><div className="cm-dot-inner" /></span>
+            : <span className="cm-dot cm-dot-nonveg" style={{ position:'static', width:12, height:12 }}><div className="cm-dot-inner" /></span>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
 import './CustomerMenu.css';
 
 // ─── Language definitions ─────────────────────────────────────────────────────
@@ -197,6 +299,10 @@ function normalizeApiShop(data) {
       popular: !!i.popular,
       veg: i.veg !== false,
       spicy: !!i.spicy,
+      imageUrl:  i.imageUrl  || '',
+      videoUrl:  i.videoUrl  || '',
+      modelUrl:  i.modelUrl  || '',
+      mediaType: i.mediaType || 'NONE',
     })),
   }));
   return {
@@ -253,6 +359,7 @@ export default function CustomerMenu() {
       .catch(() => {})
       .finally(() => setMenuLoading(false));
   }, [shopId]);
+  const [mediaModal, setMediaModal]     = useState(null); // { item, view:'video'|'model' }
   const [showCart, setShowCart]         = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [orderPlaced, setOrderPlaced]   = useState(false);
@@ -453,7 +560,11 @@ export default function CustomerMenu() {
             </div>
 
             {cat.items.map(item => {
-              const inCart = cart[item.id] || 0;
+              const inCart    = cart[item.id] || 0;
+              const hasVideo  = !!item.videoUrl;
+              const hasModel  = !!item.modelUrl;
+              const hasImage  = !!item.imageUrl;
+              const hasMedia  = hasVideo || hasModel;
               return (
                 <div key={item.id} className={`cm-item ${!item.veg ? 'cm-item-nonveg' : ''}`}>
                   {/* veg / non-veg dot */}
@@ -471,20 +582,66 @@ export default function CustomerMenu() {
                               <Flame size={9} /> {t('popular', lang)}
                             </span>
                           )}
-                          {item.spicy && (
-                            <span className="cm-badge cm-badge-spicy">🌶</span>
-                          )}
+                          {item.spicy && <span className="cm-badge cm-badge-spicy">🌶</span>}
                         </div>
                         <div className="cm-item-desc">{getItemDesc(item)}</div>
+
+                        {/* Media action links */}
+                        {hasMedia && (
+                          <div className="cm-item-media-links">
+                            {hasVideo && (
+                              <button
+                                className="cm-media-link cm-media-link-video"
+                                onClick={() => setMediaModal({ item, view: 'video' })}
+                              >
+                                <Play size={10} fill="currentColor" /> Watch video
+                              </button>
+                            )}
+                            {hasModel && (
+                              <button
+                                className="cm-media-link cm-media-link-3d"
+                                onClick={() => setMediaModal({ item, view: 'model' })}
+                              >
+                                <Box size={10} /> View in 3D
+                              </button>
+                            )}
+                          </div>
+                        )}
+
                         <div className="cm-item-price">₹{item.price}</div>
                       </div>
 
                       <div className="cm-item-right">
-                        <div className="cm-item-img-wrap">
-                          <div className="cm-item-img">{cat.emoji}</div>
+                        {/* Thumbnail — tappable if media exists */}
+                        <div
+                          className={`cm-item-img-wrap ${hasMedia ? 'cm-item-img-wrap-clickable' : ''}`}
+                          onClick={() => hasMedia && setMediaModal({ item, view: hasVideo ? 'video' : 'model' })}
+                        >
+                          {hasImage ? (
+                            <img
+                              src={item.imageUrl}
+                              alt={item.name}
+                              className="cm-item-img-photo"
+                              onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }}
+                            />
+                          ) : null}
+                          <div className="cm-item-img" style={hasImage ? { display:'none' } : {}}>{cat.emoji}</div>
+
+                          {/* Media overlay badge */}
+                          {hasVideo && (
+                            <div className="cm-item-play-btn" aria-label="Watch video">
+                              <Play size={14} fill="white" />
+                            </div>
+                          )}
+                          {hasModel && !hasVideo && (
+                            <div className="cm-item-3d-btn" aria-label="View 3D">
+                              <Box size={13} />
+                            </div>
+                          )}
+
                           <button
                             className="cm-like-btn"
-                            onClick={() => setLiked(l => ({ ...l, [item.id]: !l[item.id] }))}
+                            onClick={e => { e.stopPropagation(); setLiked(l => ({ ...l, [item.id]: !l[item.id] })); }}
                           >
                             <Heart size={12} fill={liked[item.id] ? '#DC2626' : 'none'} stroke={liked[item.id] ? '#DC2626' : '#9CA3AF'} />
                           </button>
@@ -521,6 +678,15 @@ export default function CustomerMenu() {
           <QrCode size={14} /> Powered by AviQR
         </div>
       </div>
+
+      {/* ── Media modal ── */}
+      {mediaModal && (
+        <MediaModal
+          item={mediaModal.item}
+          view={mediaModal.view}
+          onClose={() => setMediaModal(null)}
+        />
+      )}
 
       {/* ── Cart FAB ── */}
       {cartCount > 0 && !showCart && !showCheckout && (

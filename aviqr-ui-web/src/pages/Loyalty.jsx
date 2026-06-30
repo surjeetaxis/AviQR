@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Gift, Search, Users, TrendingUp, Plus, RefreshCw,
-  Award, Star, Clock, Phone, ChevronRight, Download, Bell
+  Award, Star, Clock, Phone, ChevronRight, Download, Bell, Settings
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { loyaltyApi, orderApi } from '../api/index.js';
+import { loyaltyApi, orderApi, shopApi } from '../api/index.js';
 
 const TIERS = [
   { name:'Bronze',  min:0,    max:499,   color:'#CD7F32', bg:'#FDF3E7', emoji:'🥉' },
@@ -20,15 +21,17 @@ function getTier(pts) {
 export default function Loyalty() {
   const { user } = useAuth();
   const shopId   = user?.shopId;
+  const navigate = useNavigate();
 
-  const [customers, setCust]    = useState([]);
-  const [loading,   setLoad]    = useState(true);
-  const [error,     setError]   = useState(null);
+  const [customers,      setCust]    = useState([]);
+  const [loading,        setLoad]    = useState(true);
+  const [loyaltyEnabled, setEnabled] = useState(null); // null = unknown
+  const [error,          setError]   = useState(null);
   const [search,    setSearch]  = useState('');
   const [sortBy,    setSort]    = useState('points'); // points | visits | recent
   const [modal,     setModal]   = useState(null);    // 'earn' | 'redeem' | 'history'
   const [selCust,   setSelCust] = useState(null);
-  const [form,      setForm]    = useState({ phone:'', amount:'' });
+  const [form,      setForm]    = useState({ phone:'', name:'', amount:'' });
   const [balRes,    setBalRes]  = useState(null);
   const [history,   setHistory] = useState([]);
   const [saving,    setSaving]  = useState(false);
@@ -36,10 +39,18 @@ export default function Loyalty() {
   const load = useCallback(async () => {
     if (!shopId) { setLoad(false); return; }
     try {
-      const res = await loyaltyApi.getCustomers(shopId);
-      setCust(res.data.data || []);
+      const [custRes, settingsRes] = await Promise.allSettled([
+        loyaltyApi.getCustomers(shopId),
+        shopApi.getSettings(shopId),
+      ]);
+      if (custRes.status === 'fulfilled') setCust(custRes.value.data.data || []);
+      else setError(custRes.reason?.response?.data?.message || 'Failed to load customers');
+      if (settingsRes.status === 'fulfilled') {
+        const s = settingsRes.value.data.data || {};
+        setEnabled(!!s.loyaltyEnabled);
+      }
     } catch (e) {
-      setError(e.response?.data?.message || 'Loyalty tables not set up yet — run the v2.1 SQL migration.');
+      setError(e.response?.data?.message || 'Failed to load');
     } finally { setLoad(false); }
   }, [shopId]);
 
@@ -67,7 +78,15 @@ export default function Loyalty() {
     if (!form.phone || !form.amount) return;
     setSaving(true);
     try {
-      await loyaltyApi.earn(shopId, { customerPhone:form.phone, orderAmount:parseFloat(form.amount) });
+      const res = await loyaltyApi.earn(shopId, {
+        customerPhone: form.phone,
+        customerName:  balRes?.customerName || form.name || '',
+        orderAmount:   parseFloat(form.amount),
+      });
+      if (res.data.data === null && res.data.message?.includes('not enabled')) {
+        alert('Loyalty is disabled. Go to Settings → Features and enable "Loyalty points" first.');
+        setSaving(false); return;
+      }
       setModal(null); setForm({ phone:'', amount:'' }); setBalRes(null);
       load();
     } catch (e) { alert(e.response?.data?.message || 'Failed to add points'); }
@@ -122,12 +141,41 @@ export default function Loyalty() {
         <div className="page-header-actions">
           <button className="btn btn-secondary" onClick={load}><RefreshCw size={14} /></button>
           <button className="btn btn-secondary" onClick={exportCsv}><Download size={14} /> Export</button>
-          <button className="btn btn-secondary" onClick={() => { setForm({phone:'',amount:''}); setBalRes(null); setModal('redeem'); }}><Gift size={14} /> Redeem</button>
-          <button className="btn btn-primary"   onClick={() => { setForm({phone:'',amount:''}); setBalRes(null); setModal('earn'); }}><Plus size={14} /> Add points</button>
+          <button className="btn btn-secondary" onClick={() => { setForm({phone:'',name:'',amount:''}); setBalRes(null); setModal('redeem'); }}><Gift size={14} /> Redeem</button>
+          <button className="btn btn-primary"   onClick={() => { setForm({phone:'',name:'',amount:''}); setBalRes(null); setModal('earn'); }}><Plus size={14} /> Add points</button>
         </div>
       </div>
 
       {error && <div style={{ background:'#FFFBEB', border:'1px solid #FDE68A', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#92400E', marginBottom:14 }}>⚠ {error}</div>}
+
+      {/* Loyalty disabled banner */}
+      {loyaltyEnabled === false && (
+        <div style={{
+          display:'flex', alignItems:'center', gap:14,
+          background:'linear-gradient(135deg, #1D9E75 0%, #065F46 100%)',
+          border:'none', borderRadius:14, padding:'18px 22px', marginBottom:20, color:'#fff',
+        }}>
+          <div style={{ fontSize:36, flexShrink:0 }}>🎁</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:16, fontWeight:800, marginBottom:3 }}>Loyalty Program is Off</div>
+            <div style={{ fontSize:13, opacity:.85, lineHeight:1.5 }}>
+              Enable loyalty points in Settings to start rewarding your regulars.
+              Points are earned on every order and can be redeemed for discounts.
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/settings')}
+            style={{
+              background:'rgba(255,255,255,.2)', border:'1.5px solid rgba(255,255,255,.4)',
+              borderRadius:10, padding:'10px 18px', color:'#fff', fontWeight:700, fontSize:13,
+              cursor:'pointer', flexShrink:0, display:'flex', alignItems:'center', gap:6,
+              whiteSpace:'nowrap',
+            }}
+          >
+            <Settings size={14} /> Enable in Settings
+          </button>
+        </div>
+      )}
 
       {/* Stats cards */}
       <div className="kpi-grid" style={{ marginBottom:20 }}>
@@ -189,7 +237,7 @@ export default function Loyalty() {
           <Gift size={32} style={{ opacity:.3, display:'block', margin:'0 auto 10px' }} />
           <p style={{ fontSize:14, fontWeight:500 }}>{search ? `No members matching "${search}"` : 'No loyalty members yet'}</p>
           <p style={{ fontSize:12, marginTop:4 }}>Points are added automatically when customers order via AviQR QR</p>
-          <button className="btn btn-primary" style={{ marginTop:16 }} onClick={() => { setForm({phone:'',amount:''}); setBalRes(null); setModal('earn'); }}>Add first points manually</button>
+          <button className="btn btn-primary" style={{ marginTop:16 }} onClick={() => { setForm({phone:'',name:'',amount:''}); setBalRes(null); setModal('earn'); }}>Add first points manually</button>
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
@@ -263,7 +311,7 @@ export default function Loyalty() {
                 <input className="field-input" type="tel" value={form.phone}
                   onChange={e => { setForm(f=>({...f,phone:e.target.value})); setBalRes(null); }}
                   placeholder="9900112233" />
-                <button className="btn btn-secondary" style={{ flexShrink:0 }} onClick={() => lookupBalance(form.phone)}>Check balance</button>
+                <button className="btn btn-secondary" style={{ flexShrink:0 }} onClick={() => lookupBalance(form.phone)}>Check</button>
               </div>
               {balRes && (
                 <div style={{ marginTop:8, background:'#E1F5EE', border:'1px solid #A7F3D0', borderRadius:6, padding:'8px 12px', fontSize:12 }}>
@@ -273,6 +321,14 @@ export default function Loyalty() {
                 </div>
               )}
             </div>
+            {modal === 'earn' && !balRes && (
+              <div className="field" style={{ marginBottom:14 }}>
+                <label className="field-label">Customer name (optional)</label>
+                <input className="field-input" value={form.name}
+                  onChange={e => setForm(f=>({...f,name:e.target.value}))}
+                  placeholder="Rahul Sharma" />
+              </div>
+            )}
             <div className="field" style={{ marginBottom:20 }}>
               <label className="field-label">{modal==='earn' ? 'Order amount (₹) *' : 'Points to redeem *'}</label>
               <input className="field-input" type="number" min="0" value={form.amount}

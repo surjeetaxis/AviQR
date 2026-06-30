@@ -38,7 +38,7 @@ export default function Billing() {
         addonApi.getByShop(shopId),
       ]);
       const cats  = cRes.data.data || [];
-      const items = iRes.data.data || [];
+      const items = iRes.data.data?.content ?? iRes.data.data ?? [];
       setCats(cats.map(c => ({ ...c, items: items.filter(i => i.categoryId === c.id && i.available !== false) })));
       setAddons(aRes.data.data || []);
     } catch (e) { console.error('POS load error', e); }

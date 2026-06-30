@@ -1,1 +1,4 @@
-import{Stack}from 'expo-router';export default function L(){return<Stack screenOptions={{headerShown:false}}/>;}
+import { Stack } from 'expo-router';
+export default function SupportLayout() {
+  return <Stack screenOptions={{ headerShown: false }} />;
+}

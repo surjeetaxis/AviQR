@@ -17,6 +17,9 @@ public class MenuItem {
     @Column(nullable=false) private String shopId;
     @Column(nullable=false, precision=10, scale=2) private BigDecimal price;
     private String imageUrl;
+    private String videoUrl;
+    private String modelUrl;
+    @Builder.Default private String mediaType = "NONE"; // NONE | VIDEO | MODEL_3D
     @Builder.Default private Boolean veg = true;
     @Builder.Default private Boolean spicy = false;
     @Builder.Default private Boolean popular = false;

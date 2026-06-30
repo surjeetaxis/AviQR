@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  logback-test.xml — suppress all log output during tests except genuine ERRORs.
+  Spring boot autoconfigures this file when it is on the test classpath.
+  Goal: CI logs stay clean; only real failures surface.
+-->
+<configuration>
+  <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+    <target>System.err</target>
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>ERROR</level>
+    </filter>
+    <encoder>
+      <pattern>%-5level [%thread] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Silence Spring / Hibernate startup noise entirely -->
+  <logger name="org.springframework"         level="OFF"/>
+  <logger name="org.hibernate"               level="OFF"/>
+  <logger name="com.zaxxer.hikari"           level="OFF"/>
+  <logger name="org.apache.tomcat"           level="OFF"/>
+  <logger name="org.apache.catalina"         level="OFF"/>
+  <logger name="com.netflix.eureka"          level="OFF"/>
+  <logger name="com.netflix.discovery"       level="OFF"/>
+  <logger name="org.springframework.amqp"    level="OFF"/>
+  <logger name="com.rabbitmq"                level="OFF"/>
+
+  <!-- Our own code: only ERROR so test failures surfaced clearly -->
+  <logger name="in.aviqr" level="ERROR" additivity="false">
+    <appender-ref ref="STDERR"/>
+  </logger>
+
+  <root level="OFF">
+    <appender-ref ref="STDERR"/>
+  </root>
+</configuration>

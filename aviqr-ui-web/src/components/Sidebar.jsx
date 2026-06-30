@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingBag, BookOpen, QrCode, Users, BarChart3,
   Settings, LogOut, X, Sparkles, Package, Gift, ShieldCheck,
-  TrendingUp, Utensils, PlusCircle, Receipt, FlaskConical, Clock
+  TrendingUp, Utensils, PlusCircle, Receipt, FlaskConical, Clock, ChefHat
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS } from '../context/AuthContext.jsx';
 import './Sidebar.css';
@@ -14,6 +14,7 @@ const NAV_GROUPS = [
       { to:'/dashboard', label:'Dashboard',    icon:LayoutDashboard },
       { to:'/orders',    label:'Orders',       icon:ShoppingBag,  badge:'orders' },
       { to:'/billing',   label:'POS / Billing',icon:Receipt },
+      { to:'/kot',       label:'Kitchen Display (KOT)', icon:ChefHat },
     ],
   },
   {

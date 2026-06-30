@@ -35,7 +35,7 @@ export default function RawMaterials() {
         menuApi.getItems(shopId),
       ]);
       setMats(mRes.data.data || []);
-      setMenu(iRes.data.data || []);
+      setMenu(iRes.data.data?.content ?? iRes.data.data ?? []);
     } catch (e) { setError(e.response?.data?.message || 'Failed to load'); }
     finally { setLoad(false); }
   };

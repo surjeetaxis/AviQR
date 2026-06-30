@@ -40,6 +40,9 @@ public class MenuController {
                 dto.setPrice(item.getPrice());
                 dto.setEffectivePrice(pricingService.getEffectivePrice(shopId, item.getPrice()));
                 dto.setImageUrl(item.getImageUrl());
+                dto.setVideoUrl(item.getVideoUrl());
+                dto.setModelUrl(item.getModelUrl());
+                dto.setMediaType(item.getMediaType());
                 dto.setVeg(item.getVeg()); dto.setSpicy(item.getSpicy());
                 dto.setPopular(item.getPopular()); dto.setAvailable(item.getAvailable());
                 dto.setTag(item.getTag());
@@ -125,6 +128,8 @@ public class MenuController {
         return itemRepo.findById(id).map(item -> {
             item.setName(req.getName()); item.setPrice(req.getPrice());
             item.setDescription(req.getDescription()); item.setImageUrl(req.getImageUrl());
+            item.setVideoUrl(req.getVideoUrl()); item.setModelUrl(req.getModelUrl());
+            item.setMediaType(req.getMediaType());
             item.setVeg(req.getVeg()); item.setSpicy(req.getSpicy());
             item.setPopular(req.getPopular()); item.setTag(req.getTag());
             return ResponseEntity.ok(ApiResponse.ok("Updated", itemRepo.save(item)));
