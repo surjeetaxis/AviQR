@@ -181,6 +181,14 @@ public class AuthService {
         return toDto(userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found")));
     }
 
+    @Transactional
+    public AuthResponse linkShop(UUID userId, String shopId) {
+        User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        user.setShopId(shopId);
+        userRepo.save(user);
+        return buildAuthResponse(user);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
     private AuthResponse buildAuthResponse(User user) {
         String accessToken  = jwtService.generateAccessToken(user);

@@ -12,10 +12,15 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ── Attach JWT on every request ───────────────────────────────────────────────
+// ── Attach JWT + shop context on every request ────────────────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('aviqr_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  try {
+    const user = JSON.parse(localStorage.getItem('aviqr_user') || '{}');
+    if (user.shopId) config.headers['X-Shop-Id']   = user.shopId;
+    if (user.role)   config.headers['X-User-Role'] = user.role.toUpperCase();
+  } catch {}
   return config;
 });
 
@@ -71,6 +76,7 @@ export const authApi = {
   getProfile:     ()     => api.get('/api/v1/auth/profile'),
   updateProfile:  (d)    => api.put('/api/v1/auth/profile', d),
   forgotPassword: (e)    => api.post(`/api/v1/auth/forgot-password?email=${e}`),
+  linkShop:       (shopId) => api.put('/api/v1/auth/link-shop', { shopId }),
   // Admin
   getUsers:       (p)    => api.get('/api/v1/auth/admin/users', { params: p }),
   updateStatus:   (id,s) => api.put(`/api/v1/auth/admin/users/${id}/status?status=${s}`),

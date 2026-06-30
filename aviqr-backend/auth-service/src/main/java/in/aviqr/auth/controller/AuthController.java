@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -73,6 +74,14 @@ public class AuthController {
             @Valid @RequestBody ChangePasswordRequest req) {
         authService.changePassword(UUID.fromString(userId), req);
         return ResponseEntity.ok(ApiResponse.ok("Password changed", null));
+    }
+
+    // PUT /api/v1/auth/link-shop  — called after onboarding shop creation; returns fresh JWT
+    @PutMapping("/link-shop")
+    public ResponseEntity<ApiResponse<AuthResponse>> linkShop(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(ApiResponse.ok("Shop linked", authService.linkShop(UUID.fromString(userId), body.get("shopId"))));
     }
 
     // POST /api/v1/auth/forgot-password

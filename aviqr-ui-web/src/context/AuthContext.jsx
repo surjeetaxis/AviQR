@@ -66,12 +66,26 @@ export function AuthProvider({ children }) {
     localStorage.setItem('aviqr_lang', code);
   };
 
+  const linkShop = async (shopId) => {
+    const res = await authApi.linkShop(shopId);
+    return saveSession(res.data.data);
+  };
+
+  const updateUser = (patch) => {
+    setUser(prev => {
+      const updated = { ...prev, ...patch };
+      localStorage.setItem('aviqr_user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const role = (user?.role || '').toLowerCase();
 
   return (
     <AuthContext.Provider value={{
       user, token, lang, loading,
       login, loginWithOtp, register, logout, changeLang,
+      updateUser, linkShop,
       isOwner:    ['owner','manager','cashier','kitchen'].includes(role),
       isAdmin:    role === 'admin',
       isSupport:  role === 'support',

@@ -4,6 +4,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { useNavigate } from 'react-router-dom';
 import StatCard from '../components/StatCard.jsx';
 import OrderRow from '../components/OrderRow.jsx';
+import Onboarding from '../components/Onboarding.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { reportApi, orderApi, inventoryApi } from '../api/index.js';
 import './Dashboard.css';
@@ -20,6 +21,10 @@ export default function Dashboard() {
   const nav = useNavigate();
   const shopId = user?.shopId;
 
+  // Capture onboarding state once at mount — stays true through all wizard steps
+  // even after linkShop updates user.shopId, so the wizard isn't unmounted early.
+  const [showOnboarding, setShowOnboarding] = useState(!shopId);
+
   const [stats,    setStats]    = useState(null);
   const [revenue,  setRevenue]  = useState([]);
   const [orders,   setOrders]   = useState([]);
@@ -30,7 +35,7 @@ export default function Dashboard() {
   const [lastRefresh, setLast]  = useState(new Date());
 
   const load = useCallback(async () => {
-    if (!shopId) { setError('No shop linked to this account. Please complete onboarding.'); setLoading(false); return; }
+    if (!shopId) { setLoading(false); return; }
     setError(null);
     try {
       const [s, r, o, t, ls] = await Promise.allSettled([
@@ -59,6 +64,8 @@ export default function Dashboard() {
 
   const fmt = n => Number(n || 0).toLocaleString('en-IN');
   const activeOrders = orders.filter(o => !['COMPLETED', 'CANCELLED'].includes(o.status));
+
+  if (showOnboarding) return <Onboarding onComplete={() => { setShowOnboarding(false); load(); }} />;
 
   if (loading) return (
     <div className="page-loading">

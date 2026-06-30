@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Search, Edit2, Trash2, X, Video, Box, Image as ImageIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { menuApi } from '../api/index.js';
 import './Menu.css';
@@ -131,7 +132,19 @@ function VegDot({ veg }) {
 
 export default function Menu() {
   const { user } = useAuth();
-  const shopId = user?.shopId || '00000000-0000-0000-0000-000000000101';
+  const nav = useNavigate();
+  const shopId = user?.shopId;
+
+  if (!shopId) return (
+    <div style={{ textAlign:'center', padding:'60px 24px', color:'#6B7280' }}>
+      <div style={{ fontSize:48, marginBottom:16 }}>🍽️</div>
+      <h2 style={{ fontSize:20, fontWeight:700, color:'#111827', marginBottom:8 }}>No restaurant yet</h2>
+      <p style={{ fontSize:14, marginBottom:24 }}>Complete the setup to start adding your menu.</p>
+      <button onClick={() => nav('/')} style={{ padding:'10px 24px', background:'#1D9E75', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer' }}>
+        Complete setup →
+      </button>
+    </div>
+  );
 
   const [categories, setCats]   = useState([]);
   const [expanded, setExpanded] = useState({});
