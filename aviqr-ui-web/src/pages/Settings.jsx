@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Store, Clock, CreditCard, Bell, Shield, Tag, Save, Globe, Check, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Store, Clock, CreditCard, Bell, Shield, Tag, Save, Globe, Check, AlertTriangle, ExternalLink, Plus, Trash2, X, Link2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { shopApi, authApi } from '../api/index.js';
+import { shopApi, authApi, menuApi, aggregatorConfigApi } from '../api/index.js';
 import './Settings.css';
 
 const SECTIONS = [
-  { key:'shop',    label:'Shop profile',    icon:Store },
-  { key:'hours',   label:'Opening hours',   icon:Clock },
-  { key:'payment', label:'Payment & Tax',   icon:CreditCard },
-  { key:'pricing', label:'Dynamic pricing', icon:Tag },
-  { key:'notify',  label:'Notifications',   icon:Bell },
-  { key:'plan',    label:'Plan & billing',  icon:Shield },
+  { key:'shop',         label:'Shop profile',    icon:Store },
+  { key:'hours',        label:'Opening hours',   icon:Clock },
+  { key:'payment',      label:'Payment & Tax',   icon:CreditCard },
+  { key:'pricing',      label:'Dynamic pricing', icon:Tag },
+  { key:'integrations', label:'Integrations',    icon:Link2 },
+  { key:'notify',       label:'Notifications',   icon:Bell },
+  { key:'plan',         label:'Plan & billing',  icon:Shield },
 ];
 
 const DAYS  = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -47,6 +48,17 @@ export default function Settings() {
   const [error,    setError]    = useState(null);
   const [shopPlan, setShopPlan] = useState('STARTER');
 
+  // Dynamic pricing rules
+  const [rules,      setRules]     = useState([]);
+  const [ruleModal,  setRuleModal] = useState(false);
+  const [ruleForm,   setRuleForm]  = useState({ name:'', type:'TIME_OF_DAY', adjustmentType:'PERCENTAGE', adjustmentValue:'', fromTime:'', toTime:'', daysOfWeek:[], active:true });
+  const [ruleSaving, setRuleSave] = useState(false);
+
+  // Integrations
+  const [intg,       setIntg]      = useState({ zomatoRestaurantId:'', swiggyRestaurantId:'', zomatoEnabled:false, swiggyEnabled:false });
+  const [intgSaving, setIntgSave]  = useState(false);
+  const [intgSaved,  setIntgSaved] = useState(false);
+
   useEffect(() => {
     if (!shopId) return;
     shopApi.getSettings(shopId)
@@ -61,7 +73,61 @@ export default function Settings() {
         }
       })
       .catch(() => {});
+    menuApi.getPricingRules(shopId)
+      .then(r => setRules(r.data.data || []))
+      .catch(() => {});
+    aggregatorConfigApi.getMapping(shopId)
+      .then(r => { if (r.data.data) setIntg(i => ({ ...i, ...r.data.data })); })
+      .catch(() => {});
   }, [shopId]);
+
+  const saveIntegrations = async () => {
+    setIntgSave(true);
+    try {
+      await aggregatorConfigApi.saveMapping({ shopId, ...intg });
+      setIntgSaved(true);
+      setTimeout(() => setIntgSaved(false), 2000);
+    } catch (e) { alert(e.response?.data?.message || 'Save failed'); }
+    finally { setIntgSave(false); }
+  };
+
+  const saveRule = async () => {
+    if (!ruleForm.name || !ruleForm.adjustmentValue) return;
+    setRuleSave(true);
+    try {
+      const payload = {
+        shopId,
+        name: ruleForm.name,
+        type: ruleForm.type,
+        adjustmentType: ruleForm.adjustmentType,
+        adjustmentValue: parseFloat(ruleForm.adjustmentValue),
+        fromTime: ruleForm.fromTime || null,
+        toTime: ruleForm.toTime || null,
+        daysOfWeek: ruleForm.daysOfWeek.length ? JSON.stringify(ruleForm.daysOfWeek) : null,
+        active: ruleForm.active,
+      };
+      const res = await menuApi.createRule(payload);
+      setRules(prev => [...prev, res.data.data || payload]);
+      setRuleModal(false);
+      setRuleForm({ name:'', type:'TIME_OF_DAY', adjustmentType:'PERCENTAGE', adjustmentValue:'', fromTime:'', toTime:'', daysOfWeek:[], active:true });
+    } catch (e) { alert(e.response?.data?.message || 'Failed to save rule'); }
+    finally { setRuleSave(false); }
+  };
+
+  const deleteRule = async (id) => {
+    if (!confirm('Delete this pricing rule?')) return;
+    try {
+      await menuApi.deleteRule(id);
+      setRules(prev => prev.filter(r => r.id !== id));
+    } catch (e) { alert('Delete failed'); }
+  };
+
+  const toggleDay = (day) => {
+    setRuleForm(f => ({
+      ...f,
+      daysOfWeek: f.daysOfWeek.includes(day) ? f.daysOfWeek.filter(d => d !== day) : [...f.daysOfWeek, day],
+    }));
+  };
 
   const toggle = k => setSettings(s => ({ ...s, [k]: !s[k] }));
 
@@ -184,6 +250,20 @@ export default function Settings() {
             <Tog k="onlineEnabled" label="Online payments (Razorpay / UPI)" sub="QR code or link-based payment" />
             <Tog k="walletEnabled" label="AviQR wallet" sub="Customer top-up and pay from wallet" />
             <Tog k="loyaltyEnabled" label="Loyalty points" sub="Earn & redeem points on every order" />
+            {settings.loyaltyEnabled && (
+              <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--gray-100)', display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div className="field">
+                  <label className="field-label">Points per ₹1 spent</label>
+                  <input className="field-input" type="number" min="0" step="0.1" value={settings.loyaltyPointsPerRupee}
+                    onChange={e => setSettings(s => ({ ...s, loyaltyPointsPerRupee: Number(e.target.value) }))} />
+                </div>
+                <div className="field">
+                  <label className="field-label">Points to redeem ₹1</label>
+                  <input className="field-input" type="number" min="1" value={settings.loyaltyRedemptionRate}
+                    onChange={e => setSettings(s => ({ ...s, loyaltyRedemptionRate: Number(e.target.value) }))} />
+                </div>
+              </div>
+            )}
             <div style={{ marginTop:20, paddingTop:16, borderTop:'1px solid var(--gray-100)' }}>
               <div style={{ fontWeight:600, fontSize:13, marginBottom:10 }}>GST / Tax Settings</div>
               <div className="field" style={{ maxWidth:200 }}>
@@ -201,27 +281,144 @@ export default function Settings() {
 
         {section === 'pricing' && (
           <div className="card">
-            <div className="card-header"><div className="card-title">Dynamic Pricing</div><div className="card-subtitle">Auto-adjust prices by time of day, day of week, or occasion</div></div>
-            <div style={{ background:'#E1F5EE', border:'1px solid #A7F3D0', borderRadius:8, padding:'12px 16px', fontSize:13, color:'#065F46', marginBottom:16 }}>
-              ⚡ Dynamic pricing is active on your Growth plan. Rules apply automatically at the scheduled times — no action needed.
+            <div className="card-header">
+              <div><div className="card-title">Dynamic Pricing</div><div className="card-subtitle">Auto-adjust prices by time of day or day of week</div></div>
+              <button className="btn btn-primary" onClick={() => setRuleModal(true)}><Plus size={14} /> Add rule</button>
             </div>
-            {[
-              { n:'Weekend surge',  t:'Sat & Sun (all day)',   e:'+10%',  active:true },
-              { n:'Happy hour',     t:'3:00 PM – 5:00 PM',    e:'-15%',  active:true },
-              { n:'Late night',     t:'9:00 PM – 11:00 PM',   e:'-20%',  active:true },
-              { n:'Festival surge', t:'Diwali, Holi (custom)', e:'+15%',  active:false },
-            ].map((r, i) => (
-              <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'white', borderRadius:8, border:'1px solid var(--gray-200)', marginBottom:8 }}>
-                <div style={{ width:8, height:8, borderRadius:4, background: r.active ? '#1D9E75' : '#D1D5DB', flexShrink:0 }} />
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13, fontWeight:600 }}>{r.n}</div>
-                  <div style={{ fontSize:11, color:'var(--gray-500)', marginTop:1 }}>{r.t}</div>
-                </div>
-                <span style={{ fontSize:12, fontWeight:700, color: r.e.startsWith('+') ? '#DC2626' : '#1D9E75', background: r.e.startsWith('+') ? '#FEF2F2' : '#E1F5EE', padding:'3px 10px', borderRadius:999 }}>{r.e}</span>
-                <span style={{ fontSize:11, color: r.active ? '#1D9E75' : '#9CA3AF' }}>{r.active ? 'Active' : 'Inactive'}</span>
+            {rules.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'40px 0', color:'var(--gray-400)', fontSize:13 }}>
+                <Tag size={28} style={{ opacity:.3, display:'block', margin:'0 auto 10px' }} />
+                No pricing rules yet — add one to auto-adjust prices
               </div>
-            ))}
-            <p style={{ fontSize:12, color:'var(--gray-400)', marginTop:12 }}>To add or remove rules, contact support or use the API.</p>
+            ) : rules.map(r => {
+              const val = parseFloat(r.adjustmentValue||0);
+              const isUp = val > 0;
+              return (
+                <div key={r.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'white', borderRadius:8, border:'1px solid var(--gray-200)', marginBottom:8 }}>
+                  <div style={{ width:8, height:8, borderRadius:4, background: r.active ? '#1D9E75' : '#D1D5DB', flexShrink:0 }} />
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:600 }}>{r.name}</div>
+                    <div style={{ fontSize:11, color:'var(--gray-500)', marginTop:1 }}>
+                      {r.type === 'TIME_OF_DAY' && r.fromTime && r.toTime ? `${r.fromTime}–${r.toTime}` : ''}
+                      {r.daysOfWeek ? ` · ${JSON.parse(r.daysOfWeek||'[]').join(', ')}` : ''}
+                    </div>
+                  </div>
+                  <span style={{ fontSize:12, fontWeight:700, color:isUp?'#DC2626':'#1D9E75', background:isUp?'#FEF2F2':'#E1F5EE', padding:'3px 10px', borderRadius:999 }}>
+                    {isUp?'+':''}{val}{r.adjustmentType==='PERCENTAGE'?'%':'₹'}
+                  </span>
+                  <span style={{ fontSize:11, color: r.active ? '#1D9E75' : '#9CA3AF' }}>{r.active ? 'Active' : 'Off'}</span>
+                  <button onClick={() => deleteRule(r.id)} style={{ background:'#FEF2F2', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer', color:'#DC2626' }}><Trash2 size={13}/></button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Add pricing rule modal */}
+        {ruleModal && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
+            <div style={{ background:'white', borderRadius:16, padding:28, width:'100%', maxWidth:480 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+                <h2 style={{ fontSize:18, fontWeight:700 }}>Add pricing rule</h2>
+                <button onClick={() => setRuleModal(false)} style={{ background:'none', border:'none', cursor:'pointer' }}><X size={18}/></button>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+                <div className="field">
+                  <label className="field-label">Rule name *</label>
+                  <input className="field-input" value={ruleForm.name} onChange={e => setRuleForm(f => ({ ...f, name:e.target.value }))} placeholder="Happy hour" />
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                  <div className="field">
+                    <label className="field-label">Adjustment type</label>
+                    <select className="field-input" value={ruleForm.adjustmentType} onChange={e => setRuleForm(f => ({ ...f, adjustmentType:e.target.value }))}>
+                      <option value="PERCENTAGE">Percentage (%)</option>
+                      <option value="FLAT">Flat amount (₹)</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label className="field-label">Amount * (use − for discount)</label>
+                    <input className="field-input" type="number" step="0.01" value={ruleForm.adjustmentValue} onChange={e => setRuleForm(f => ({ ...f, adjustmentValue:e.target.value }))} placeholder="-15 or +10" />
+                  </div>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                  <div className="field">
+                    <label className="field-label">From time</label>
+                    <input className="field-input" type="time" value={ruleForm.fromTime} onChange={e => setRuleForm(f => ({ ...f, fromTime:e.target.value }))} />
+                  </div>
+                  <div className="field">
+                    <label className="field-label">To time</label>
+                    <input className="field-input" type="time" value={ruleForm.toTime} onChange={e => setRuleForm(f => ({ ...f, toTime:e.target.value }))} />
+                  </div>
+                </div>
+                <div className="field">
+                  <label className="field-label">Days of week (leave empty = all days)</label>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:4 }}>
+                    {['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'].map(d => (
+                      <button key={d} type="button" onClick={() => toggleDay(d)}
+                        style={{ padding:'4px 10px', borderRadius:999, border:`1.5px solid ${ruleForm.daysOfWeek.includes(d)?'var(--green)':'var(--gray-200)'}`, background:ruleForm.daysOfWeek.includes(d)?'var(--green-light)':'white', fontSize:11, fontWeight:ruleForm.daysOfWeek.includes(d)?700:400, cursor:'pointer', color:ruleForm.daysOfWeek.includes(d)?'var(--green-darker)':'var(--gray-600)' }}>
+                        {d.slice(0,3)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:10, marginTop:4 }}>
+                  <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setRuleModal(false)}>Cancel</button>
+                  <button className="btn btn-primary" style={{ flex:1 }} onClick={saveRule} disabled={ruleSaving}>{ruleSaving?'Saving…':'Save rule'}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {section === 'integrations' && (
+          <div className="card">
+            <div className="card-header">
+              <div><div className="card-title">Aggregator Integrations</div><div className="card-subtitle">Link your Zomato and Swiggy accounts to sync orders automatically</div></div>
+            </div>
+
+            {/* Zomato */}
+            <div style={{ padding:'16px', borderRadius:10, border:'1px solid #FEE2E2', background:'#FFF5F5', marginBottom:12 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
+                <span style={{ fontSize:20 }}>🍕</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:700, fontSize:14, color:'#DC2626' }}>Zomato</div>
+                  <div style={{ fontSize:12, color:'var(--gray-500)' }}>Orders placed on Zomato will appear in your Orders page</div>
+                </div>
+                <label style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer', fontSize:13 }}>
+                  <input type="checkbox" checked={intg.zomatoEnabled} onChange={e => setIntg(i => ({ ...i, zomatoEnabled: e.target.checked }))} />
+                  Enabled
+                </label>
+              </div>
+              <div className="field" style={{ margin:0 }}>
+                <label className="field-label">Zomato Restaurant ID</label>
+                <input className="field-input" placeholder="e.g. 12345678" value={intg.zomatoRestaurantId}
+                  onChange={e => setIntg(i => ({ ...i, zomatoRestaurantId: e.target.value }))} />
+              </div>
+            </div>
+
+            {/* Swiggy */}
+            <div style={{ padding:'16px', borderRadius:10, border:'1px solid #FED7AA', background:'#FFF7ED', marginBottom:20 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
+                <span style={{ fontSize:20 }}>🛵</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:700, fontSize:14, color:'#D97706' }}>Swiggy</div>
+                  <div style={{ fontSize:12, color:'var(--gray-500)' }}>Orders placed on Swiggy will appear in your Orders page</div>
+                </div>
+                <label style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer', fontSize:13 }}>
+                  <input type="checkbox" checked={intg.swiggyEnabled} onChange={e => setIntg(i => ({ ...i, swiggyEnabled: e.target.checked }))} />
+                  Enabled
+                </label>
+              </div>
+              <div className="field" style={{ margin:0 }}>
+                <label className="field-label">Swiggy Restaurant ID</label>
+                <input className="field-input" placeholder="e.g. SWGY-98765" value={intg.swiggyRestaurantId}
+                  onChange={e => setIntg(i => ({ ...i, swiggyRestaurantId: e.target.value }))} />
+              </div>
+            </div>
+
+            <button className="btn btn-primary" onClick={saveIntegrations} disabled={intgSaving} style={{ width:'100%', justifyContent:'center' }}>
+              {intgSaved ? <><Check size={14}/> Saved!</> : intgSaving ? 'Saving…' : <><Save size={14}/> Save integrations</>}
+            </button>
           </div>
         )}
 

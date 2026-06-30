@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   RefreshCw, Printer, FileText, Bell, XCircle, Search,
   Clock, Bike, ShoppingBag, UtensilsCrossed, AlertTriangle,
-  CheckCircle2, ChefHat, Truck, Package
+  CheckCircle2, ChefHat, Truck, Package, Plus
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { orderApi, invoiceApi } from '../api/index.js';
 import './Orders.css';
@@ -97,6 +98,7 @@ function KotPreview({ order, onClose }) {
 // ── Main Orders component ─────────────────────────────────────────────────────
 export default function Orders() {
   const { user } = useAuth();
+  const nav      = useNavigate();
   const shopId   = user?.shopId;
 
   const [orders,     setOrders]   = useState([]);
@@ -202,6 +204,9 @@ export default function Orders() {
         <div className="page-header-actions">
           <button className="btn btn-secondary" onClick={() => load(true)}>
             <RefreshCw size={14} style={{ animation:refreshing?'spin 1s linear infinite':'none' }} /> Refresh
+          </button>
+          <button className="btn btn-primary" onClick={() => nav('/billing')}>
+            <Plus size={14} /> New order
           </button>
         </div>
       </div>

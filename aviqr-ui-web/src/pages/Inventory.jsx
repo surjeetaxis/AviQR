@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Package, AlertTriangle, RefreshCw, Edit2, Check, X,
-  TrendingDown, Bell, Download, Plus, Search
+  TrendingDown, Bell, Download, Plus, Search, Save
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { inventoryApi, menuApi, rawMaterialApi } from '../api/index.js';
@@ -26,6 +26,10 @@ export default function Inventory() {
   const [loading,  setLoading] = useState(true);
   const [error,    setError]   = useState(null);
 
+  // ── Threshold edit state ─────────────────────────────────────────────────
+  const [editThresh,    setEditThresh]   = useState(null);
+  const [editThreshVal, setEditThreshV]  = useState('');
+
   // ── Raw materials state ──────────────────────────────────────────────────
   const [rawMats,     setRaw]       = useState([]);
   const [rawLoading,  setRawLoad]   = useState(false);
@@ -33,6 +37,12 @@ export default function Inventory() {
   const [adjustModal, setAdjust]    = useState(null);
   const [adjustDelta, setDelta]     = useState('');
   const [adjustReason,setReason]    = useState('PURCHASE');
+
+  // ── Add material (in Raw tab) ─────────────────────────────────────────────
+  const EMPTY_MAT = { name:'', unit:'kg', currentStock:'0', minStockLevel:'0', costPerUnit:'0', supplier:'' };
+  const [matModal, setMatModal] = useState(false);
+  const [matForm,  setMatForm]  = useState(EMPTY_MAT);
+  const [matSaving,setMatSave]  = useState(false);
 
   const load = useCallback(async () => {
     if (!shopId) { setError('No shop linked'); setLoading(false); return; }
@@ -70,6 +80,28 @@ export default function Inventory() {
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, stockQty:qty } : i));
     } catch {}
     setEditing(null);
+  };
+
+  const saveThreshold = async (item) => {
+    const val = parseInt(editThreshVal, 10);
+    if (isNaN(val) || val < 0) return;
+    try {
+      await menuApi.updateItem(item.menuItemId || item.id, { lowStockThreshold: val });
+      setItems(prev => prev.map(i => i.id === item.id ? { ...i, lowStockThreshold:val } : i));
+    } catch {}
+    setEditThresh(null);
+  };
+
+  const saveMaterial = async () => {
+    if (!matForm.name.trim()) return;
+    setMatSave(true);
+    try {
+      const res = await rawMaterialApi.create({ shopId, ...matForm, currentStock:parseFloat(matForm.currentStock||0), minStockLevel:parseFloat(matForm.minStockLevel||0), costPerUnit:parseFloat(matForm.costPerUnit||0) });
+      setRaw(prev => [...prev, res.data.data || { ...matForm, id:`local_${Date.now()}` }]);
+      setMatModal(false);
+      setMatForm(EMPTY_MAT);
+    } catch (e) { alert(e.response?.data?.message || 'Failed to save'); }
+    finally { setMatSave(false); }
   };
 
   const doAdjust = async () => {
@@ -118,6 +150,7 @@ export default function Inventory() {
         <div className="page-header-actions">
           <button className="btn btn-secondary" onClick={() => { load(); if (tab === 'raw') loadRaw(); }}><RefreshCw size={14} /> Refresh</button>
           {tab === 'finished' && <button className="btn btn-secondary" onClick={exportCsv}><Download size={14} /> Export</button>}
+          {tab === 'raw' && <button className="btn btn-primary" onClick={() => { setMatForm(EMPTY_MAT); setMatModal(true); }}><Plus size={14} /> Add material</button>}
         </div>
       </div>
 
@@ -220,7 +253,21 @@ export default function Inventory() {
                           <span style={{ fontSize:15, fontWeight:800, color:isOut?'#DC2626':isLow?'#D97706':'#1D9E75' }}>{qty}</span>
                         )}
                       </td>
-                      <td style={{ padding:'11px 14px', fontSize:13, color:'var(--gray-600)' }}>{min}</td>
+                      <td style={{ padding:'11px 14px' }}>
+                        {editThresh === (item.menuItemId||item.id) ? (
+                          <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+                            <input type="number" min="0" value={editThreshVal} onChange={e=>setEditThreshV(e.target.value)} autoFocus
+                              style={{ width:60, height:28, border:'1.5px solid var(--green)', borderRadius:6, textAlign:'center', fontSize:13, padding:'0 4px' }} />
+                            <button onClick={()=>saveThreshold(item)} style={{ background:'var(--green)', color:'#fff', border:'none', borderRadius:5, width:24, height:24, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}><Check size={11}/></button>
+                            <button onClick={()=>setEditThresh(null)} style={{ background:'var(--gray-100)', border:'none', borderRadius:5, width:24, height:24, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}><X size={11}/></button>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize:13, color:'var(--gray-600)', cursor:'pointer', borderBottom:'1px dashed var(--gray-300)' }}
+                            title="Click to edit threshold" onClick={()=>{ setEditThresh(item.menuItemId||item.id); setEditThreshV(String(min)); }}>
+                            {min}
+                          </span>
+                        )}
+                      </td>
                       <td style={{ padding:'11px 14px' }}>
                         <span style={{ fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:999,
                           background:isOut?'#FEE2E2':isLow?'#FEF3C7':'#E1F5EE',
@@ -272,7 +319,8 @@ export default function Inventory() {
                   <tr><td colSpan={8} style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading raw materials…</td></tr>
                 ) : filtRaw.length === 0 ? (
                   <tr><td colSpan={8} style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)', fontSize:13 }}>
-                    No raw materials found — add them in the Raw Materials page
+                    No raw materials yet —{' '}
+                    <button onClick={() => { setMatForm(EMPTY_MAT); setMatModal(true); }} style={{ background:'none', border:'none', color:'var(--green)', fontWeight:600, cursor:'pointer', fontSize:13, textDecoration:'underline' }}>add the first one</button>
                   </td></tr>
                 ) : filtRaw.map(m => {
                   const cur = parseFloat(m.currentStock||0);
@@ -334,6 +382,54 @@ export default function Inventory() {
             <div style={{ display:'flex', gap:10 }}>
               <button className="btn btn-secondary" style={{ flex:1 }} onClick={()=>{setAdjust(null);setDelta('');setReason('PURCHASE');}}>Cancel</button>
               <button className="btn btn-primary" style={{ flex:1 }} onClick={doAdjust} disabled={!adjustDelta}>Apply adjustment</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add raw material modal */}
+      {matModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1001, padding:16 }}>
+          <div style={{ background:'white', borderRadius:16, padding:28, width:'100%', maxWidth:440 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+              <h3 style={{ fontSize:16, fontWeight:700 }}>Add raw material</h3>
+              <button onClick={() => setMatModal(false)} style={{ background:'none', border:'none', cursor:'pointer' }}><X size={18}/></button>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+              <div className="field">
+                <label className="field-label">Material name *</label>
+                <input className="field-input" value={matForm.name} onChange={e=>setMatForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Tomatoes" autoFocus />
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div className="field">
+                  <label className="field-label">Unit</label>
+                  <select className="field-input" value={matForm.unit} onChange={e=>setMatForm(f=>({...f,unit:e.target.value}))}>
+                    {['kg','g','L','mL','pieces','dozen','bag','box'].map(u => <option key={u}>{u}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label className="field-label">Current stock</label>
+                  <input className="field-input" type="number" min="0" step="0.01" value={matForm.currentStock} onChange={e=>setMatForm(f=>({...f,currentStock:e.target.value}))} />
+                </div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div className="field">
+                  <label className="field-label">Min stock level</label>
+                  <input className="field-input" type="number" min="0" step="0.01" value={matForm.minStockLevel} onChange={e=>setMatForm(f=>({...f,minStockLevel:e.target.value}))} />
+                </div>
+                <div className="field">
+                  <label className="field-label">Cost per unit (₹)</label>
+                  <input className="field-input" type="number" min="0" step="0.01" value={matForm.costPerUnit} onChange={e=>setMatForm(f=>({...f,costPerUnit:e.target.value}))} />
+                </div>
+              </div>
+              <div className="field">
+                <label className="field-label">Supplier (optional)</label>
+                <input className="field-input" value={matForm.supplier} onChange={e=>setMatForm(f=>({...f,supplier:e.target.value}))} placeholder="e.g. Fresh Farms Co." />
+              </div>
+              <div style={{ display:'flex', gap:10, marginTop:4 }}>
+                <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setMatModal(false)}>Cancel</button>
+                <button className="btn btn-primary" style={{ flex:1 }} onClick={saveMaterial} disabled={matSaving}>{matSaving?'Saving…':'Add material'}</button>
+              </div>
             </div>
           </div>
         </div>

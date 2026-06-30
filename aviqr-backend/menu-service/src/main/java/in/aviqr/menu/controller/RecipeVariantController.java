@@ -141,6 +141,16 @@ public class RecipeVariantController {
         return ResponseEntity.ok(ApiResponse.ok(recipeSvc.updateMaterial(id, m)));
     }
 
+    @DeleteMapping("/raw-materials/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteMaterial(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!isStaff(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        recipeSvc.deleteMaterial(id);
+        return ResponseEntity.ok(ApiResponse.<Void>ok(null));
+    }
+
     @PostMapping("/raw-materials/{id}/adjust")
     public ResponseEntity<ApiResponse<Void>> adjustStock(
             @PathVariable UUID id,

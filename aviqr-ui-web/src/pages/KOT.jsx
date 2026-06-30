@@ -28,7 +28,7 @@ function elapsedMin(ts) {
 }
 
 // ── KOT Card ──────────────────────────────────────────────────────────────────
-function KotCard({ order, col, onAdvance, onComplete }) {
+function KotCard({ order, col, onAdvance, onComplete, onCancel }) {
   const wait = elapsedMin(order.createdAt);
   const urgent = wait > 15 && col.status !== 'READY';
   const critical = wait > 25 && col.status !== 'READY';
@@ -100,30 +100,43 @@ function KotCard({ order, col, onAdvance, onComplete }) {
         </div>
       )}
 
-      {/* Action button */}
-      {col.next ? (
-        <button
-          onClick={() => onAdvance(order, col.next)}
-          style={{
-            width: '100%', padding: '9px 0', borderRadius: 8, border: 'none',
-            background: col.color, color: 'white', fontWeight: 700, fontSize: 13,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}>
-          {col.status === 'NEW' && '✓ Accept & Start Cooking'}
-          {col.status === 'ACCEPTED' && '👨‍🍳 Mark Finishing'}
-          {col.status === 'PREPARING' && '🔔 Mark Ready'}
-        </button>
-      ) : (
-        <button
-          onClick={() => onComplete(order)}
-          style={{
-            width: '100%', padding: '9px 0', borderRadius: 8, border: 'none',
-            background: '#1D9E75', color: 'white', fontWeight: 700, fontSize: 13,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}>
-          ✅ Mark Delivered / Done
-        </button>
-      )}
+      {/* Action buttons */}
+      <div style={{ display:'flex', gap:6, marginTop:4 }}>
+        {(col.status === 'NEW' || col.status === 'ACCEPTED') && (
+          <button
+            onClick={() => onCancel && onCancel(order)}
+            style={{
+              flex:'0 0 auto', padding:'9px 10px', borderRadius:8, border:'1.5px solid #FCA5A5',
+              background:'#FEF2F2', color:'#DC2626', fontWeight:700, fontSize:12,
+              cursor:'pointer',
+            }}>
+            ✕ Reject
+          </button>
+        )}
+        {col.next ? (
+          <button
+            onClick={() => onAdvance(order, col.next)}
+            style={{
+              flex:1, padding: '9px 0', borderRadius: 8, border: 'none',
+              background: col.color, color: 'white', fontWeight: 700, fontSize: 13,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+            {col.status === 'NEW' && '✓ Accept & Start Cooking'}
+            {col.status === 'ACCEPTED' && '👨‍🍳 Mark Finishing'}
+            {col.status === 'PREPARING' && '🔔 Mark Ready'}
+          </button>
+        ) : (
+          <button
+            onClick={() => onComplete(order)}
+            style={{
+              flex:1, padding: '9px 0', borderRadius: 8, border: 'none',
+              background: '#1D9E75', color: 'white', fontWeight: 700, fontSize: 13,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+            ✅ Mark Delivered / Done
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -199,6 +212,13 @@ export default function KOT() {
   const complete = async (order) => {
     setOrders(prev => prev.filter(o => o.id !== order.id));
     try { await orderApi.updateStatus(order.id, 'COMPLETED'); }
+    catch { await load(true); }
+  };
+
+  const cancel = async (order) => {
+    if (!confirm(`Reject order #${order.orderNumber || order.id?.slice(-4)}?`)) return;
+    setOrders(prev => prev.filter(o => o.id !== order.id));
+    try { await orderApi.updateStatus(order.id, 'CANCELLED'); }
     catch { await load(true); }
   };
 
@@ -355,6 +375,7 @@ export default function KOT() {
                           col={col}
                           onAdvance={advance}
                           onComplete={complete}
+                          onCancel={cancel}
                         />
                       ))
                   )}

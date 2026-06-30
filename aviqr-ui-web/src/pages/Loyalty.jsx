@@ -284,8 +284,12 @@ export default function Loyalty() {
                 {/* Actions */}
                 <div style={{ display:'flex', flexDirection:'column', gap:5, flexShrink:0 }}>
                   <button style={{ background:'var(--green-light)', color:'var(--green-darker)', border:'none', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:11, fontWeight:600 }}
-                    onClick={() => { setForm({phone:c.customerPhone, amount:''}); setBalRes({totalPoints:pts, ...c}); setModal('earn'); }}>
+                    onClick={() => { setForm({phone:c.customerPhone, name:c.customerName||'', amount:''}); setBalRes({totalPoints:pts, ...c}); setModal('earn'); }}>
                     + Points
+                  </button>
+                  <button style={{ background:'#EFF6FF', color:'#2563EB', border:'none', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:11, fontWeight:600 }}
+                    onClick={() => { setForm({phone:c.customerPhone, name:c.customerName||'', amount:''}); setBalRes({totalPoints:pts, ...c}); setModal('redeem'); }}>
+                    Redeem
                   </button>
                   <button style={{ background:'#F5F3FF', color:'#7C3AED', border:'none', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:11, fontWeight:600 }}
                     onClick={() => openHistory(c)}>

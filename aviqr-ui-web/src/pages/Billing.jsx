@@ -28,6 +28,7 @@ export default function Billing() {
   const [taxPct,     setTax]    = useState(5);
   const [addonModal, setAddonMod]= useState(null); // item being customised
   const [variants,   setVariants]= useState({});   // itemId → [variants]
+  const [orderType,  setOrderType]= useState('DINE_IN');
 
   const load = useCallback(async () => {
     if (!shopId) return;
@@ -101,7 +102,7 @@ export default function Billing() {
         customerPhone: custPhone || null,
         tableNumber:   tableNo || null,
         paymentMethod: payMethod,
-        type:          'DINE_IN',
+        type:          orderType,
         items: cart.map(c => ({
           menuItemId: c.menuItemId,
           itemName:   c.name + (c.variantName ? ` (${c.variantName})` : '') + (c.addons.length ? ` + ${c.addons.map(a=>a.name).join(', ')}` : ''),
@@ -190,18 +191,29 @@ export default function Billing() {
       {/* ── Right: Bill / Cart ────────────────────────────────────────────── */}
       <div style={{ width:360, display:'flex', flexDirection:'column', background:'white' }}>
         {/* Table + customer */}
-        <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--gray-100)', display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-          <div className="field" style={{ margin:0 }}>
-            <label className="field-label" style={{ fontSize:11 }}>Table #</label>
-            <input className="field-input" style={{ height:34 }} placeholder="e.g. 7" value={tableNo} onChange={e => setTable(e.target.value)} />
+        <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--gray-100)' }}>
+          {/* Order type */}
+          <div style={{ display:'flex', gap:6, marginBottom:10 }}>
+            {[{k:'DINE_IN',l:'Dine-in'},{k:'TAKEAWAY',l:'Takeaway'},{k:'DELIVERY',l:'Delivery'}].map(({k,l}) => (
+              <button key={k} onClick={() => setOrderType(k)}
+                style={{ flex:1, padding:'5px 0', borderRadius:7, border:`1.5px solid ${orderType===k?'var(--green)':'var(--gray-200)'}`, background:orderType===k?'var(--green-light)':'white', fontWeight:orderType===k?700:400, fontSize:11, cursor:'pointer', color:orderType===k?'var(--green-darker)':'var(--gray-600)', transition:'all .15s' }}>
+                {l}
+              </button>
+            ))}
           </div>
-          <div className="field" style={{ margin:0 }}>
-            <label className="field-label" style={{ fontSize:11 }}>Customer</label>
-            <input className="field-input" style={{ height:34 }} placeholder="Walk-in" value={custName} onChange={e => setCust(e.target.value)} />
-          </div>
-          <div className="field" style={{ margin:0, gridColumn:'1/-1' }}>
-            <label className="field-label" style={{ fontSize:11 }}>Phone (optional)</label>
-            <input className="field-input" style={{ height:34 }} type="tel" placeholder="9900112233" value={custPhone} onChange={e => setPhone(e.target.value)} />
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            <div className="field" style={{ margin:0 }}>
+              <label className="field-label" style={{ fontSize:11 }}>{orderType==='DINE_IN'?'Table #':'Order ref'}</label>
+              <input className="field-input" style={{ height:34 }} placeholder={orderType==='DINE_IN'?'e.g. 7':'optional'} value={tableNo} onChange={e => setTable(e.target.value)} />
+            </div>
+            <div className="field" style={{ margin:0 }}>
+              <label className="field-label" style={{ fontSize:11 }}>Customer</label>
+              <input className="field-input" style={{ height:34 }} placeholder="Walk-in" value={custName} onChange={e => setCust(e.target.value)} />
+            </div>
+            <div className="field" style={{ margin:0, gridColumn:'1/-1' }}>
+              <label className="field-label" style={{ fontSize:11 }}>Phone (optional)</label>
+              <input className="field-input" style={{ height:34 }} type="tel" placeholder="9900112233" value={custPhone} onChange={e => setPhone(e.target.value)} />
+            </div>
           </div>
         </div>
 

@@ -17,7 +17,7 @@ const EMPTY = { name:'', phone:'', email:'', role:'CASHIER' };
 
 export default function Staff() {
   const { user } = useAuth();
-  const shopId = user?.shopId || '00000000-0000-0000-0000-000000000101';
+  const shopId = user?.shopId;
 
   const [staff, setStaff]   = useState([]);
   const [search, setSearch] = useState('');
@@ -30,6 +30,7 @@ export default function Staff() {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   useEffect(() => {
+    if (!shopId) { setStaffLoad(false); return; }
     shopApi.getStaff(shopId)
       .then(res => { setStaff(res.data.data || []); })
       .catch(e => setError(e.response?.data?.message || 'Failed to load staff'))

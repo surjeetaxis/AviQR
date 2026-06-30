@@ -247,6 +247,7 @@ export const rawMaterialApi = {
   getLowStock:  (shopId)          => api.get(`/api/v1/raw-materials/shop/${shopId}/low-stock`),
   create:       (data)            => api.post('/api/v1/raw-materials', data),
   update:       (id, data)        => api.put(`/api/v1/raw-materials/${id}`, data),
+  delete:       (id)              => api.delete(`/api/v1/raw-materials/${id}`),
   adjustStock:  (id, delta, reason) => api.post(`/api/v1/raw-materials/${id}/adjust`, null, { params: { delta, reason } }),
 };
 

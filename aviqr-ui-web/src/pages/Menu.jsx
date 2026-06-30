@@ -157,6 +157,12 @@ export default function Menu() {
   const [saving, setSaving] = useState(false);
   const [mediaTab, setMediaTab] = useState('NONE');
 
+  // Category modal
+  const [catModal,  setCatModal]  = useState(false);
+  const [catForm,   setCatForm]   = useState({ name:'', emoji:'🍽️' });
+  const [catSaving, setCatSaving] = useState(false);
+  const [editCatId, setEditCatId] = useState(null);
+
   const imgInputRef   = useRef(null);
   const videoInputRef = useRef(null);
   const modelInputRef = useRef(null);
@@ -179,6 +185,49 @@ export default function Menu() {
       }
     } catch (e) {
       setError(e.response?.data?.message || null);
+    }
+  };
+
+  const openAddCat = () => {
+    setCatForm({ name:'', emoji:'🍽️' });
+    setEditCatId(null);
+    setCatModal(true);
+  };
+
+  const openEditCat = (cat) => {
+    setCatForm({ name: cat.name, emoji: cat.emoji || '🍽️' });
+    setEditCatId(cat.id);
+    setCatModal(true);
+  };
+
+  const saveCat = async (e) => {
+    e.preventDefault();
+    if (!catForm.name.trim()) return;
+    setCatSaving(true);
+    try {
+      if (editCatId) {
+        await menuApi.updateCategory(editCatId, { ...catForm, shopId });
+        setCats(p => p.map(c => c.id === editCatId ? { ...c, ...catForm } : c));
+      } else {
+        const res = await menuApi.createCategory({ ...catForm, shopId });
+        const newCat = res.data.data || { ...catForm, id: `local_${Date.now()}`, items: [] };
+        if (!newCat.items) newCat.items = [];
+        setCats(p => [...p, newCat]);
+        setExpanded(e => ({ ...e, [newCat.id]: true }));
+      }
+      setCatModal(false);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to save category');
+    } finally { setCatSaving(false); }
+  };
+
+  const deleteCat = async (cat) => {
+    if (!confirm(`Delete category "${cat.name}" and all its items?`)) return;
+    try {
+      await menuApi.deleteCategory(cat.id);
+      setCats(p => p.filter(c => c.id !== cat.id));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Delete failed');
     }
   };
 
@@ -320,18 +369,35 @@ export default function Menu() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
+          <button className="btn btn-secondary" onClick={openAddCat}><Plus size={14} /> Add category</button>
         </div>
       </div>
 
       {/* Category filter pills */}
-      <div className="seg-control" style={{ flexWrap: 'wrap', gap: 4 }}>
-        <button className={`seg-btn${!selCat ? ' is-active' : ''}`} onClick={() => setSelCat(null)}>All</button>
-        {categories.map(c => (
-          <button key={c.id} className={`seg-btn${selCat === c.id ? ' is-active' : ''}`} onClick={() => setSelCat(c.id)}>
-            {c.emoji} {c.name}
+      {categories.length > 0 && (
+        <div className="seg-control" style={{ flexWrap: 'wrap', gap: 4 }}>
+          <button className={`seg-btn${!selCat ? ' is-active' : ''}`} onClick={() => setSelCat(null)}>All</button>
+          {categories.map(c => (
+            <button key={c.id} className={`seg-btn${selCat === c.id ? ' is-active' : ''}`} onClick={() => setSelCat(c.id)}>
+              {c.emoji} {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state — no categories at all */}
+      {categories.length === 0 && (
+        <div style={{ textAlign:'center', padding:'64px 24px', background:'white', borderRadius:16, border:'2px dashed var(--gray-200)' }}>
+          <div style={{ fontSize:56, marginBottom:16 }}>🍽️</div>
+          <h2 style={{ fontSize:20, fontWeight:700, color:'#111827', marginBottom:8 }}>No menu items yet</h2>
+          <p style={{ fontSize:14, color:'var(--gray-500)', marginBottom:28, maxWidth:320, margin:'0 auto 28px' }}>
+            Start by creating a category (e.g. "Starters", "Main Course"), then add dishes inside it.
+          </p>
+          <button className="btn btn-primary" style={{ fontSize:15, padding:'12px 28px' }} onClick={openAddCat}>
+            <Plus size={16} /> Create first category
           </button>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Category cards */}
       {filteredCats.map(cat => (
@@ -351,6 +417,14 @@ export default function Menu() {
               <button className="btn btn-secondary" style={{ height: 32, fontSize: 12 }}
                 onClick={e => { e.stopPropagation(); openAdd(cat.id); }}>
                 <Plus size={12} /> Add item
+              </button>
+              <button className="btn btn-secondary" style={{ height: 32, fontSize: 12 }}
+                onClick={e => { e.stopPropagation(); openEditCat(cat); }} title="Edit category">
+                <Edit2 size={12} />
+              </button>
+              <button style={{ height:32, padding:'0 8px', background:'#FEF2F2', border:'1px solid #FCA5A5', borderRadius:7, cursor:'pointer', color:'#DC2626', display:'flex', alignItems:'center' }}
+                onClick={e => { e.stopPropagation(); deleteCat(cat); }} title="Delete category">
+                <Trash2 size={12} />
               </button>
               <span style={{ color: 'var(--gray-400)', fontSize: 18 }}>{expanded[cat.id] ? '−' : '+'}</span>
             </div>
@@ -423,6 +497,43 @@ export default function Menu() {
           )}
         </div>
       ))}
+
+      {/* ── Category Modal ── */}
+      {catModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
+          <div style={{ background:'white', borderRadius:16, padding:28, width:'100%', maxWidth:400 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+              <h2 style={{ fontSize:18, fontWeight:700 }}>{editCatId ? 'Edit category' : 'New category'}</h2>
+              <button onClick={() => setCatModal(false)} style={{ background:'none', border:'none', cursor:'pointer' }}><X size={18}/></button>
+            </div>
+            <form onSubmit={saveCat} style={{ display:'flex', flexDirection:'column', gap:16 }}>
+              <div className="field">
+                <label className="field-label">Category name *</label>
+                <input className="field-input" autoFocus value={catForm.name}
+                  onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. Starters, Main Course, Beverages" />
+              </div>
+              <div className="field">
+                <label className="field-label">Emoji</label>
+                <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:4 }}>
+                  {['🍽️','🥗','🍛','🍜','🍕','🍔','🍱','🥤','🍰','🍺','🥘','🌮','🍣','🥪','🔥'].map(em => (
+                    <button key={em} type="button" onClick={() => setCatForm(f => ({ ...f, emoji: em }))}
+                      style={{ fontSize:22, padding:'4px 6px', border:`2px solid ${catForm.emoji===em?'var(--green)':'transparent'}`, borderRadius:8, cursor:'pointer', background:catForm.emoji===em?'var(--green-light)':'transparent' }}>
+                      {em}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:10, marginTop:4 }}>
+                <button type="button" className="btn btn-secondary" style={{ flex:1 }} onClick={() => setCatModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ flex:1 }} disabled={catSaving || !catForm.name.trim()}>
+                  {catSaving ? 'Saving…' : editCatId ? 'Save changes' : 'Create category'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── Add / Edit Modal ── */}
       {modal && (

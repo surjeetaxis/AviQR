@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Download, Search, Filter, Bike, ShoppingBag, UtensilsCrossed, FileText, RefreshCw } from 'lucide-react';
+import { Download, Search, Filter, Bike, ShoppingBag, UtensilsCrossed, FileText, RefreshCw, X, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { invoiceApi } from '../api/index.js';
+import { invoiceApi, orderApi, paymentApi } from '../api/index.js';
 
 const TYPE_ICON = { DINE_IN:UtensilsCrossed, TAKEAWAY:ShoppingBag, DELIVERY:Bike };
 const TYPE_COLOR= { DINE_IN:'#1D9E75', TAKEAWAY:'#7C3AED', DELIVERY:'#D97706' };
@@ -24,6 +24,8 @@ export default function OrderHistory() {
   const [statusF,  setStatus]   = useState('');
   const [startDate,setStart]    = useState('');
   const [endDate,  setEnd]      = useState('');
+  const [detailOrder, setDetail]= useState(null);
+  const [refunding,  setRefund] = useState(false);
 
   const load = async (p = 0) => {
     if (!shopId) { setLoad(false); return; }
@@ -116,7 +118,10 @@ export default function OrderHistory() {
               const TypeIcon = TYPE_ICON[o.type] || ShoppingBag;
               const typeColor = TYPE_COLOR[o.type] || '#6B7280';
               return (
-                <tr key={i} style={{ borderTop:'1px solid var(--gray-100)' }}>
+                <tr key={i} style={{ borderTop:'1px solid var(--gray-100)', cursor:'pointer', transition:'background .12s' }}
+                  onClick={() => setDetail(o)}
+                  onMouseEnter={e=>e.currentTarget.style.background='#F9FAFB'}
+                  onMouseLeave={e=>e.currentTarget.style.background=''}>
                   <td style={{ padding:'10px 14px', fontFamily:'monospace', fontSize:12, fontWeight:600 }}>{o.order_number}</td>
                   <td style={{ padding:'10px 14px', fontSize:12, color:'var(--gray-600)' }}>{new Date(o.created_at).toLocaleDateString('en-IN')}</td>
                   <td style={{ padding:'10px 14px', fontSize:13 }}>{o.customer_name}</td>
@@ -133,7 +138,7 @@ export default function OrderHistory() {
                   </td>
                   <td style={{ padding:'10px 14px', fontSize:12, color:'var(--gray-600)' }}>{o.payment_method}</td>
                   <td style={{ padding:'10px 14px', fontWeight:700, fontSize:14 }}>₹{parseFloat(o.total_amount||0).toFixed(0)}</td>
-                  <td style={{ padding:'10px 14px' }}>
+                  <td style={{ padding:'10px 14px' }} onClick={e=>e.stopPropagation()}>
                     {o.status === 'COMPLETED' && (
                       <button style={{ background:'var(--gray-100)', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer', fontSize:11, display:'flex', alignItems:'center', gap:3 }}
                         onClick={() => window.open(invoiceApi.downloadUrl(o.id, {}), '_blank')}>
@@ -156,6 +161,84 @@ export default function OrderHistory() {
           <button className="btn btn-secondary" disabled={page>=pages-1} onClick={()=>load(page+1)}>Next →</button>
         </div>
       )}
+
+      {/* Order detail modal */}
+      {detailOrder && (() => {
+        const o = detailOrder;
+        const items = o.items || o.order_items || [];
+        const handleRefund = async () => {
+          if (!o.payment_id && !o.paymentId) { alert('No payment ID on this order'); return; }
+          if (!confirm('Issue refund for this order?')) return;
+          setRefund(true);
+          try {
+            await paymentApi.refund(o.payment_id || o.paymentId);
+            alert('Refund initiated');
+            setDetail(null);
+          } catch (e) { alert(e.response?.data?.message || 'Refund failed'); }
+          finally { setRefund(false); }
+        };
+        return (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
+            <div style={{ background:'white', borderRadius:16, padding:28, width:'100%', maxWidth:520, maxHeight:'80vh', overflowY:'auto' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                <div>
+                  <div style={{ fontFamily:'monospace', fontSize:13, fontWeight:700, color:'var(--green)' }}>{o.order_number}</div>
+                  <div style={{ fontSize:12, color:'var(--gray-500)', marginTop:2 }}>{new Date(o.created_at).toLocaleString('en-IN')}</div>
+                </div>
+                <button onClick={() => setDetail(null)} style={{ background:'none', border:'none', cursor:'pointer' }}><X size={18}/></button>
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16, padding:'12px 14px', background:'var(--gray-50)', borderRadius:10, fontSize:13 }}>
+                <div><span style={{ color:'var(--gray-500)' }}>Customer:</span> <strong>{o.customer_name}</strong></div>
+                <div><span style={{ color:'var(--gray-500)' }}>Phone:</span> {o.customer_phone||'—'}</div>
+                <div><span style={{ color:'var(--gray-500)' }}>Type:</span> {o.type?.replace('_',' ')}</div>
+                <div><span style={{ color:'var(--gray-500)' }}>Payment:</span> {o.payment_method}</div>
+                <div><span style={{ color:'var(--gray-500)' }}>Status:</span> <span style={{ fontWeight:700, color:STATUS_COLOR[o.status]||'#6B7280' }}>{o.status}</span></div>
+                {o.table_number && <div><span style={{ color:'var(--gray-500)' }}>Table:</span> {o.table_number}</div>}
+              </div>
+
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:12, fontWeight:700, color:'var(--gray-500)', textTransform:'uppercase', marginBottom:8 }}>Items</div>
+                {items.length === 0 ? (
+                  <p style={{ fontSize:13, color:'var(--gray-400)' }}>No item details available</p>
+                ) : items.map((it, i) => (
+                  <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--gray-100)', fontSize:13 }}>
+                    <div>
+                      <span style={{ fontWeight:600 }}>{it.item_name || it.itemName}</span>
+                      {(it.notes||it.note) && <span style={{ fontSize:11, color:'var(--gray-400)', marginLeft:6 }}>· {it.notes||it.note}</span>}
+                    </div>
+                    <div style={{ fontWeight:600, whiteSpace:'nowrap', marginLeft:12 }}>
+                      x{it.quantity} · ₹{parseFloat(it.total_price||it.totalPrice||0).toFixed(0)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ borderTop:'2px solid var(--gray-100)', paddingTop:10, fontSize:13 }}>
+                {o.subtotal && <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4, color:'var(--gray-600)' }}><span>Subtotal</span><span>₹{parseFloat(o.subtotal).toFixed(0)}</span></div>}
+                {o.tax && <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4, color:'var(--gray-600)' }}><span>Tax</span><span>₹{parseFloat(o.tax).toFixed(0)}</span></div>}
+                <div style={{ display:'flex', justifyContent:'space-between', fontWeight:800, fontSize:15 }}><span>Total</span><span>₹{parseFloat(o.total_amount||0).toFixed(0)}</span></div>
+              </div>
+
+              <div style={{ display:'flex', gap:10, marginTop:20 }}>
+                {o.status === 'COMPLETED' && (
+                  <button className="btn btn-secondary" style={{ flex:1 }}
+                    onClick={() => window.open(invoiceApi.downloadUrl(o.id, {}), '_blank')}>
+                    <FileText size={13}/> Download Invoice
+                  </button>
+                )}
+                {o.status === 'COMPLETED' && (o.payment_id||o.paymentId) && (
+                  <button style={{ flex:1, padding:'8px 0', background:'#FEF2F2', color:'#DC2626', border:'1.5px solid #FCA5A5', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}
+                    onClick={handleRefund} disabled={refunding}>
+                    <RotateCcw size={13}/> {refunding?'Processing…':'Issue Refund'}
+                  </button>
+                )}
+                <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setDetail(null)}>Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

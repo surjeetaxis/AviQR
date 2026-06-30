@@ -70,6 +70,11 @@ public class RecipeService {
     }
 
     @Transactional
+    @Transactional
+    public void deleteMaterial(UUID id) {
+        materialRepo.deleteById(id);
+    }
+
     public void adjustStock(UUID materialId, BigDecimal delta, String reason) {
         RawMaterial m = materialRepo.findById(materialId).orElseThrow();
         m.setCurrentStock(m.getCurrentStock().add(delta));

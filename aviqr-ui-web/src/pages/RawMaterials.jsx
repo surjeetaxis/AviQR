@@ -17,9 +17,11 @@ export default function RawMaterials() {
   const [error,     setError]  = useState(null);
   const [search,    setSearch] = useState('');
   const [tab,       setTab]    = useState('materials'); // materials | recipes
-  const [modal,     setModal]  = useState(null);  // { mode:'add'|'edit', data }
-  const [form,      setForm]   = useState(EMPTY_MAT);
-  const [saving,    setSaving] = useState(false);
+  const [modal,     setModal]    = useState(null);  // { mode:'add'|'edit'|'adjust', data }
+  const [form,      setForm]     = useState(EMPTY_MAT);
+  const [saving,    setSaving]   = useState(false);
+  const [adjDelta,  setAdjDelta] = useState('');
+  const [adjReason, setAdjReason]= useState('PURCHASE');
 
   // Recipe tab state
   const [selItem,   setSelItem]  = useState(null);
@@ -106,12 +108,25 @@ export default function RawMaterials() {
     finally { setSaving(false); }
   };
 
-  const adjustStock = async (mat, delta) => {
-    const reason = delta > 0 ? 'Stock added' : 'Stock consumed';
+  const doAdjust = async () => {
+    const delta = parseFloat(adjDelta);
+    if (!adjDelta || isNaN(delta) || !modal?.mat) return;
     try {
-      await rawMaterialApi.adjustStock(mat.id, delta, reason);
-      setMats(prev => prev.map(m => m.id === mat.id ? { ...m, currentStock: parseFloat(m.currentStock || 0) + delta } : m));
-    } catch {}
+      await rawMaterialApi.adjustStock(modal.mat.id, delta, adjReason);
+      setMats(prev => prev.map(m => m.id === modal.mat.id
+        ? { ...m, currentStock: parseFloat(m.currentStock || 0) + delta }
+        : m));
+      setModal(null);
+      setAdjDelta('');
+    } catch (e) { alert(e.response?.data?.message || 'Adjustment failed'); }
+  };
+
+  const deleteMat = async (mat) => {
+    if (!confirm(`Delete "${mat.name}"? This will remove it from all recipes.`)) return;
+    try {
+      await rawMaterialApi.delete(mat.id);
+      setMats(prev => prev.filter(m => m.id !== mat.id));
+    } catch (e) { alert(e.response?.data?.message || 'Delete failed'); }
   };
 
   const filtered = materials.filter(m => !search || m.name.toLowerCase().includes(search.toLowerCase()));
@@ -198,13 +213,17 @@ export default function RawMaterials() {
                       <td style={{ padding:'12px 14px', fontSize:12, color:'var(--gray-500)' }}>{m.supplier || '—'}</td>
                       <td style={{ padding:'12px 14px', textAlign:'right' }}>
                         <div style={{ display:'flex', gap:6, justifyContent:'flex-end' }}>
-                          <button onClick={() => { const d = parseFloat(prompt(`Adjust stock for ${m.name} (enter positive to add, negative to subtract):`) || 0); if (d) adjustStock(m, d); }}
+                          <button onClick={() => { setAdjDelta(''); setAdjReason('PURCHASE'); setModal({ mode:'adjust', mat:m }); }}
                             style={{ background:'var(--green-light)', color:'var(--green-darker)', border:'none', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:12, fontWeight:600 }}>
                             ± Stock
                           </button>
                           <button onClick={() => { setForm({ name:m.name, unit:m.unit, currentStock:m.currentStock, minStockLevel:m.minStockLevel, costPerUnit:m.costPerUnit, supplier:m.supplier||'' }); setModal({ mode:'edit', id:m.id }); }}
                             style={{ background:'var(--gray-100)', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer' }}>
                             <Edit2 size={12} />
+                          </button>
+                          <button onClick={() => deleteMat(m)}
+                            style={{ background:'#FEF2F2', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer', color:'#DC2626' }}>
+                            <Trash2 size={12} />
                           </button>
                         </div>
                       </td>
@@ -319,8 +338,41 @@ export default function RawMaterials() {
         </div>
       )}
 
+      {/* Adjust stock modal */}
+      {modal?.mode === 'adjust' && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
+          <div style={{ background:'white', borderRadius:16, padding:28, width:'100%', maxWidth:380 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+              <h2 style={{ fontSize:17, fontWeight:700 }}>Adjust Stock — {modal.mat.name}</h2>
+              <button onClick={() => setModal(null)} style={{ background:'none', border:'none', cursor:'pointer' }}><X size={16}/></button>
+            </div>
+            <p style={{ fontSize:13, color:'var(--gray-500)', marginBottom:20 }}>
+              Current: <strong>{parseFloat(modal.mat.currentStock||0).toFixed(2)} {modal.mat.unit}</strong>
+            </p>
+            <div className="field" style={{ marginBottom:14 }}>
+              <label className="field-label">Amount (+ to add, − to subtract)</label>
+              <input className="field-input" type="number" step="0.01" placeholder="+5 or -2.5" value={adjDelta}
+                onChange={e => setAdjDelta(e.target.value)} autoFocus />
+            </div>
+            <div className="field" style={{ marginBottom:20 }}>
+              <label className="field-label">Reason</label>
+              <select className="field-input" value={adjReason} onChange={e => setAdjReason(e.target.value)}>
+                <option value="PURCHASE">Purchase / delivery received</option>
+                <option value="WASTAGE">Wastage / spoilage</option>
+                <option value="CORRECTION">Stock count correction</option>
+                <option value="TRANSFER">Transfer</option>
+              </select>
+            </div>
+            <div style={{ display:'flex', gap:10 }}>
+              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setModal(null)}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex:1 }} onClick={doAdjust} disabled={!adjDelta}>Apply</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add/Edit Material modal */}
-      {modal && (
+      {modal && modal.mode !== 'adjust' && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
           <div style={{ background:'white', borderRadius:16, padding:28, width:'100%', maxWidth:460 }}>
             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:20 }}>
@@ -353,5 +405,6 @@ export default function RawMaterials() {
         </div>
       )}
     </div>
+
   );
 }
