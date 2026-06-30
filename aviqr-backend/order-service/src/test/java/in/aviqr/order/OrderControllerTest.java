@@ -1,10 +1,16 @@
 package in.aviqr.order;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import in.aviqr.order.dto.*;
-import in.aviqr.order.entity.*;
+import in.aviqr.order.dto.ApiResponse;
+import in.aviqr.order.dto.CreateOrderRequest;
+import in.aviqr.order.dto.OrderResponse;
+import in.aviqr.order.entity.OrderStatus;
+import in.aviqr.order.entity.OrderType;
+import in.aviqr.order.entity.PaymentMethod;
+import in.aviqr.order.entity.PaymentStatus;
 import in.aviqr.order.service.OrderService;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -54,7 +60,7 @@ class OrderControllerTest {
     }
 
     private String createOrderJson() throws Exception {
-        var item = new CreateOrderRequest.ItemRequest();
+        var item = new CreateOrderRequest.OrderItemRequest();
         item.setItemName("Butter Chicken");
         item.setUnitPrice(BigDecimal.valueOf(380));
         item.setQuantity(1);
@@ -168,7 +174,9 @@ class OrderControllerTest {
                 .totalAmount(BigDecimal.valueOf(399)).items(List.of()).build();
         when(orderService.updateStatus(eq(id), eq("ACCEPTED"), any())).thenReturn(updated);
 
-        mvc.perform(put("/api/v1/orders/" + id + "/status?status=ACCEPTED"))
+        mvc.perform(put("/api/v1/orders/" + id + "/status?status=ACCEPTED")
+                .header("X-User-Id", "user-001")
+                .header("X-User-Role", "OWNER"))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.data.status").value("ACCEPTED"));
     }

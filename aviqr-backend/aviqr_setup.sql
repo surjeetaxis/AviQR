@@ -327,7 +327,7 @@ INSERT INTO staff_permissions (shop_staff_id, permissions) VALUES
   ('00000000-0000-0000-0000-000000000203', 'ACCEPT_PAYMENT');
 
 INSERT INTO shop_settings (shop_id, cash_enabled, online_enabled, wallet_enabled, tax_percent, loyalty_enabled, loyalty_points_per_rupee, business_name) VALUES
-  ('00000000-0000-0000-0000-000000000101', TRUE, TRUE, TRUE,  5.00, TRUE,  1, 'Spice Route Restaurant Pvt Ltd'),
+  ('00000000-0000-0000-0000-000000000101', TRUE, TRUE, TRUE,  5.00, TRUE,  10, 'Spice Route Restaurant Pvt Ltd'),
   ('00000000-0000-0000-0000-000000000102', TRUE, TRUE, FALSE, 5.00, FALSE, 1, 'The Coconut Grove Foods'),
   ('00000000-0000-0000-0000-000000000103', TRUE, TRUE, FALSE, 5.00, FALSE, 1, 'Biryani House Mumbai'),
   ('00000000-0000-0000-0000-000000000104', TRUE, TRUE, FALSE, 5.00, FALSE, 1, 'Cake Studio Delhi'),

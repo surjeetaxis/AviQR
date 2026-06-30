@@ -1220,7 +1220,10 @@ function AdminQRCodesPage() {
           <h1 className="page-title">QR Codes</h1>
           <p className="page-subtitle">Platform-wide · {codes.length} total · {totalScans.toLocaleString('en-IN')} scans</p>
         </div>
-        <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          <AdminMarketingQRGenerator onCreated={() => load(0)}/>
+          <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
+        </div>
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:18 }}>
@@ -1330,6 +1333,291 @@ function AdminQRCodesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// ── Admin Marketing QR Generator ─────────────────────────────────────────────
+const MARKETING_PRESETS = [
+  { label: 'AviQR Website',      url: 'https://aviqr.in',                    campaign: 'website',  emoji: '🌐' },
+  { label: 'Pricing Page',       url: 'https://aviqr.in/pricing',            campaign: 'pricing',  emoji: '💰' },
+  { label: 'Demo / Free Trial',  url: 'https://aviqr.in/demo',               campaign: 'demo',     emoji: '🎯' },
+  { label: 'Contact Sales',      url: 'https://aviqr.in/contact',            campaign: 'sales',    emoji: '📞' },
+  { label: 'Play Store App',     url: 'https://play.google.com/store/apps/details?id=in.aviqr.app', campaign: 'playstore', emoji: '📱' },
+  { label: 'Partner Program',    url: 'https://aviqr.in/partners',           campaign: 'partners', emoji: '🤝' },
+  { label: 'Blog / Guides',      url: 'https://aviqr.in/blog',               campaign: 'blog',     emoji: '📖' },
+  { label: 'Custom URL',         url: '',                                    campaign: 'custom',   emoji: '✏️' },
+];
+
+const QR_COLORS = [
+  { fg: '#0F6E56', bg: '#FFFFFF', name: 'AviQR Green' },
+  { fg: '#1E293B', bg: '#FFFFFF', name: 'Midnight' },
+  { fg: '#7C3AED', bg: '#FFFFFF', name: 'Purple' },
+  { fg: '#D97706', bg: '#FFFBEB', name: 'Gold' },
+  { fg: '#DC2626', bg: '#FFFFFF', name: 'Red' },
+  { fg: '#FFFFFF', bg: '#0F6E56', name: 'Inverted' },
+];
+
+function AdminMarketingQRGenerator({ onCreated }) {
+  const [open, setOpen]         = useState(false);
+  const [preset, setPreset]     = useState(MARKETING_PRESETS[0]);
+  const [customUrl, setCustom]  = useState('');
+  const [label, setLabel]       = useState('');
+  const [colorIdx, setColorIdx] = useState(0);
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(null);
+  const [err, setErr]           = useState('');
+  const canvasRef               = React.useRef(null);
+
+  const targetUrl = preset.campaign === 'custom' ? customUrl : preset.url;
+  const color     = QR_COLORS[colorIdx];
+
+  React.useEffect(() => {
+    if (!open || !targetUrl) return;
+    import('qrcode').then(QRCode => {
+      QRCode.toCanvas(canvasRef.current, targetUrl, {
+        width: 200,
+        margin: 2,
+        color: { dark: color.fg, light: color.bg },
+        errorCorrectionLevel: 'M',
+      }).catch(() => {});
+    });
+  }, [open, targetUrl, colorIdx]);
+
+  const handleSave = async () => {
+    if (!targetUrl) { setErr('Target URL is required'); return; }
+    setSaving(true); setErr('');
+    try {
+      const res = await qrApi.createMarketing({
+        label:     label || preset.label,
+        targetUrl,
+        campaign:  preset.campaign,
+      });
+      setSaved(res.data?.data);
+      onCreated?.();
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Failed to create QR');
+    } finally { setSaving(false); }
+  };
+
+  const handleDownload = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = `aviqr-marketing-${preset.campaign}.png`;
+    a.click();
+  };
+
+  const reset = () => { setSaved(null); setLabel(''); setCustom(''); setPreset(MARKETING_PRESETS[0]); };
+
+  return (
+    <>
+      <button
+        onClick={() => { setOpen(true); reset(); }}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          background: 'linear-gradient(135deg,#0F6E56,#1D9E75)',
+          color: '#fff', border: 'none', borderRadius: 8,
+          padding: '9px 18px', fontSize: 13, fontWeight: 600,
+          cursor: 'pointer', boxShadow: '0 2px 8px rgba(15,110,86,.25)',
+        }}>
+        <Plus size={15}/> Create Marketing QR
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)',
+          zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 16,
+        }} onClick={e => e.target === e.currentTarget && setOpen(false)}>
+          <div style={{
+            background: '#fff', borderRadius: 16, width: '100%', maxWidth: 760,
+            maxHeight: '92vh', overflowY: 'auto',
+            boxShadow: '0 24px 64px rgba(0,0,0,.22)',
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '20px 24px 16px', borderBottom: '1px solid #F1F5F9',
+            }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0F172A' }}>
+                  Marketing QR Generator
+                </h2>
+                <p style={{ margin: '3px 0 0', fontSize: 13, color: '#64748B' }}>
+                  Create branded QR codes for ads, banners, events &amp; sales collateral
+                </p>
+              </div>
+              <button onClick={() => setOpen(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: 22, lineHeight: 1 }}>×</button>
+            </div>
+
+            {saved ? (
+              /* ── Success state ── */
+              <div style={{ padding: 32, textAlign: 'center' }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+                <h3 style={{ margin: '0 0 6px', color: '#0F172A' }}>Marketing QR Created!</h3>
+                <p style={{ color: '#64748B', fontSize: 13, marginBottom: 20 }}>
+                  Code: <strong style={{ fontFamily: 'monospace', color: '#7C3AED' }}>{saved.qrCode}</strong>
+                  &nbsp;·&nbsp;Scan count tracked automatically
+                </p>
+                <canvas ref={canvasRef} style={{ borderRadius: 8, border: '1px solid #E2E8F0', marginBottom: 16 }}/>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                  <button onClick={handleDownload}
+                    style={{ display:'flex', alignItems:'center', gap:6, background:'#0F6E56', color:'#fff',
+                      border:'none', borderRadius:8, padding:'9px 18px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                    <Download size={14}/> Download PNG
+                  </button>
+                  <a href={qrApi.imageUrl(saved.qrCode)} target="_blank" rel="noreferrer"
+                    style={{ display:'flex', alignItems:'center', gap:6, background:'#7C3AED', color:'#fff',
+                      border:'none', borderRadius:8, padding:'9px 18px', fontSize:13, fontWeight:600,
+                      cursor:'pointer', textDecoration:'none' }}>
+                    <ExternalLink size={14}/> High-res PNG
+                  </a>
+                  <button onClick={reset}
+                    style={{ background:'#F1F5F9', color:'#374151', border:'none', borderRadius:8,
+                      padding:'9px 18px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                    Create Another
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* ── Builder state ── */
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: 0 }}>
+                {/* Left: controls */}
+                <div style={{ padding: '20px 24px' }}>
+
+                  {/* Destination */}
+                  <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:8, textTransform:'uppercase', letterSpacing:'.05em' }}>
+                    Destination
+                  </label>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16 }}>
+                    {MARKETING_PRESETS.map(p => (
+                      <button key={p.campaign}
+                        onClick={() => setPreset(p)}
+                        style={{
+                          display:'flex', alignItems:'center', gap:8,
+                          padding:'10px 12px', borderRadius:8, fontSize:13, fontWeight:500,
+                          cursor:'pointer', textAlign:'left',
+                          border: preset.campaign === p.campaign ? '2px solid #0F6E56' : '1.5px solid #E2E8F0',
+                          background: preset.campaign === p.campaign ? '#F0FDF4' : '#FAFAFA',
+                          color: preset.campaign === p.campaign ? '#0F6E56' : '#374151',
+                        }}>
+                        <span style={{ fontSize:16 }}>{p.emoji}</span>
+                        <span style={{ fontSize:12, lineHeight:1.3 }}>{p.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom URL */}
+                  {preset.campaign === 'custom' && (
+                    <div style={{ marginBottom:16 }}>
+                      <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:6 }}>Target URL</label>
+                      <input value={customUrl} onChange={e => setCustom(e.target.value)}
+                        placeholder="https://aviqr.in/your-page"
+                        style={{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #E2E8F0',
+                          fontSize:13, color:'#0F172A', boxSizing:'border-box', outline:'none' }}/>
+                    </div>
+                  )}
+
+                  {/* Label */}
+                  <div style={{ marginBottom:16 }}>
+                    <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:6 }}>
+                      Label <span style={{ color:'#94A3B8', fontWeight:400 }}>(optional — for your reference)</span>
+                    </label>
+                    <input value={label} onChange={e => setLabel(e.target.value)}
+                      placeholder={preset.label}
+                      style={{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #E2E8F0',
+                        fontSize:13, color:'#0F172A', boxSizing:'border-box', outline:'none' }}/>
+                  </div>
+
+                  {/* Color scheme */}
+                  <div style={{ marginBottom:20 }}>
+                    <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:8, textTransform:'uppercase', letterSpacing:'.05em' }}>
+                      Color Scheme
+                    </label>
+                    <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                      {QR_COLORS.map((c, i) => (
+                        <button key={i} onClick={() => setColorIdx(i)} title={c.name}
+                          style={{
+                            width:36, height:36, borderRadius:8, cursor:'pointer',
+                            background: c.bg, border: colorIdx === i ? '2.5px solid #0F6E56' : '1.5px solid #E2E8F0',
+                            position:'relative', overflow:'hidden',
+                            boxShadow: colorIdx === i ? '0 0 0 2px rgba(15,110,86,.2)' : 'none',
+                          }}>
+                          <div style={{ position:'absolute', inset:6, borderRadius:3, background: c.fg }}/>
+                        </button>
+                      ))}
+                    </div>
+                    <p style={{ margin:'6px 0 0', fontSize:11, color:'#94A3B8' }}>{QR_COLORS[colorIdx].name}</p>
+                  </div>
+
+                  {/* Target URL preview */}
+                  {targetUrl && (
+                    <div style={{ background:'#F8FAFC', borderRadius:8, padding:'10px 12px', marginBottom:16,
+                      border:'1px solid #E2E8F0', wordBreak:'break-all' }}>
+                      <span style={{ fontSize:11, color:'#94A3B8', display:'block', marginBottom:2 }}>Target URL</span>
+                      <span style={{ fontSize:12, color:'#0F6E56', fontWeight:500 }}>{targetUrl}</span>
+                    </div>
+                  )}
+
+                  {err && <p style={{ color:'#DC2626', fontSize:13, margin:'0 0 12px' }}>{err}</p>}
+
+                  <button onClick={handleSave} disabled={saving || !targetUrl}
+                    style={{
+                      width:'100%', padding:'11px', borderRadius:8, fontSize:14, fontWeight:600,
+                      cursor: saving || !targetUrl ? 'not-allowed' : 'pointer',
+                      background: saving || !targetUrl ? '#E2E8F0' : 'linear-gradient(135deg,#0F6E56,#1D9E75)',
+                      color: saving || !targetUrl ? '#94A3B8' : '#fff', border:'none',
+                    }}>
+                    {saving ? 'Generating…' : '✨ Generate & Save QR'}
+                  </button>
+                </div>
+
+                {/* Right: live preview */}
+                <div style={{
+                  borderLeft: '1px solid #F1F5F9', padding: '20px 20px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  background: '#FAFAFA', borderRadius: '0 0 16px 0',
+                }}>
+                  <p style={{ margin:'0 0 14px', fontSize:12, fontWeight:600, color:'#374151',
+                    textTransform:'uppercase', letterSpacing:'.05em' }}>Live Preview</p>
+                  <div style={{
+                    background: color.bg, borderRadius: 12, padding: 12,
+                    boxShadow: '0 4px 16px rgba(0,0,0,.10)', border: '1px solid #E2E8F0',
+                  }}>
+                    {targetUrl
+                      ? <canvas ref={canvasRef} style={{ display:'block', borderRadius:6 }}/>
+                      : (
+                        <div style={{ width:200, height:200, display:'flex', alignItems:'center',
+                          justifyContent:'center', color:'#CBD5E1', fontSize:13, textAlign:'center',
+                          flexDirection:'column', gap:8 }}>
+                          <QrCode size={40} strokeWidth={1}/>
+                          <span>Pick a destination<br/>to preview</span>
+                        </div>
+                      )
+                    }
+                  </div>
+                  {targetUrl && (
+                    <>
+                      <button onClick={handleDownload}
+                        style={{ marginTop:14, display:'flex', alignItems:'center', gap:6,
+                          background:'#F1F5F9', color:'#374151', border:'none',
+                          borderRadius:8, padding:'8px 14px', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                        <Download size={13}/> Save Preview
+                      </button>
+                      <p style={{ margin:'8px 0 0', fontSize:10, color:'#94A3B8', textAlign:'center' }}>
+                        Final QR (high-res PNG)<br/>downloads after saving
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

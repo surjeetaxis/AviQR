@@ -82,7 +82,7 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0 }) {
               <rect x="21" y="21" width="4" height="4" rx="1" fill="#5DCAA5"/>
             </svg>
           </div>
-          <span className="sidebar-wordmark">Avi<em>qr</em></span>
+          <span className="sidebar-wordmark">Avi<em>QR</em></span>
         </div>
         <button className="sidebar-close" onClick={onClose} aria-label="Close menu"><X size={20} /></button>
       </div>

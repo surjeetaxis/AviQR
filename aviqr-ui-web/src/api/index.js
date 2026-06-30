@@ -136,8 +136,9 @@ export const qrApi = {
   getByShop:    (shopId)       => api.get(`/api/v1/qr-codes/shop/${shopId}`),
   create:       (shopId, p)    => api.post(`/api/v1/qr-codes/shop/${shopId}`, null, { params: p }),
   imageUrl:     (code)         => `${BASE_URL}/api/v1/qr-codes/${code}/image`,
-  listAll:      (p)            => api.get('/api/v1/qr-codes/admin/all', { params: p }),
-  toggleActive: (id, active)   => api.put(`/api/v1/qr-codes/${id}/active?active=${active}`),
+  listAll:         (p)           => api.get('/api/v1/qr-codes/admin/all', { params: p }),
+  toggleActive:    (id, active)  => api.put(`/api/v1/qr-codes/${id}/active?active=${active}`),
+  createMarketing: (body)        => api.post('/api/v1/qr-codes/admin/marketing', body),
 };
 
 // ── Reports ───────────────────────────────────────────────────────────────────

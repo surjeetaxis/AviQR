@@ -2,10 +2,16 @@ package in.aviqr.order;
 
 import in.aviqr.order.dto.CreateOrderRequest;
 import in.aviqr.order.dto.OrderResponse;
-import in.aviqr.order.entity.*;
+import in.aviqr.order.entity.Order;
+import in.aviqr.order.entity.OrderItem;
+import in.aviqr.order.entity.OrderStatus;
+import in.aviqr.order.entity.OrderType;
+import in.aviqr.order.entity.PaymentMethod;
+import in.aviqr.order.entity.PaymentStatus;
 import in.aviqr.order.repository.OrderRepository;
 import in.aviqr.order.service.OrderService;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -28,8 +34,8 @@ class OrderServiceTest {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private CreateOrderRequest.ItemRequest item(String name, double price, int qty) {
-        var it = new CreateOrderRequest.ItemRequest();
+    private CreateOrderRequest.OrderItemRequest item(String name, double price, int qty) {
+        var it = new CreateOrderRequest.OrderItemRequest();
         it.setItemName(name);
         it.setUnitPrice(BigDecimal.valueOf(price));
         it.setQuantity(qty);
@@ -37,7 +43,7 @@ class OrderServiceTest {
         return it;
     }
 
-    private CreateOrderRequest req(CreateOrderRequest.ItemRequest... items) {
+    private CreateOrderRequest req(CreateOrderRequest.OrderItemRequest... items) {
         var r = new CreateOrderRequest();
         r.setCustomerName("Test Customer");
         r.setPaymentMethod("ONLINE");

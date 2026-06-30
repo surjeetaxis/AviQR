@@ -4,7 +4,7 @@ LOG_DIR="$BASE/logs"
 
 echo "Stopping all AviQR services..."
 
-SERVICES=(service-registry api-gateway auth-service shop-service menu-service order-service payment-service qr-service hotel-service mall-service support-service notification-service report-service ocr-service)
+SERVICES=(service-registry api-gateway auth-service shop-service menu-service order-service payment-service qr-service hotel-service mall-service support-service notification-service report-service ocr-service review-service)
 
 for svc in "${SERVICES[@]}"; do
   pid_file="$LOG_DIR/${svc}.pid"

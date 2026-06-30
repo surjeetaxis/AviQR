@@ -21,6 +21,22 @@ public class QrService {
     private String baseUrl;
 
     @Transactional
+    public in.aviqr.qr.entity.QrCode createMarketing(String label, String targetUrl, String campaign) {
+        String slug = "mkt-" + (campaign != null ? campaign.toLowerCase().replaceAll("[^a-z0-9]", "-") : "aviqr");
+        String candidate = slug;
+        int i = 0;
+        while (repo.existsByQrCode(candidate)) { candidate = slug + "-" + (++i); }
+        return repo.save(in.aviqr.qr.entity.QrCode.builder()
+            .qrCode(candidate)
+            .targetUrl(targetUrl)
+            .shopId("aviqr-marketing")
+            .label(label)
+            .type(QrType.CAMPAIGN)
+            .groupParam(campaign)
+            .build());
+    }
+
+    @Transactional
     public in.aviqr.qr.entity.QrCode create(String shopId, String label, QrType type, String groupParam) {
         String code = generateUniqueCode(shopId, type, groupParam);
         String url  = buildUrl(shopId, type, groupParam);

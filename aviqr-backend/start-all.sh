@@ -74,9 +74,13 @@ sleep 5
 start_svc "ocr-service"
 sleep 3
 
+# ── 8. Review Service ─────────────────────────────────────────────────────────
+start_svc "review-service"
+sleep 5
+
 echo ""
 echo "================================================"
-echo " All 14 services started in background"
+echo " All 15 services started in background"
 echo "================================================"
 echo ""
 echo "  Wait 60s then open:  http://localhost:8761/health"

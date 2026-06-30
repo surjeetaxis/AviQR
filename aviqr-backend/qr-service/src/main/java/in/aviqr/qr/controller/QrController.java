@@ -27,6 +27,22 @@ public class QrController {
             qrRepo.findAll(PageRequest.of(page, size, Sort.by("createdAt").descending()))));
     }
 
+    // Admin — create marketing / campaign QR with custom target URL
+    @PostMapping("/admin/marketing")
+    public ResponseEntity<ApiResponse<QrCode>> createMarketing(
+            @RequestHeader(value="X-User-Role", defaultValue="") String role,
+            @RequestBody Map<String, String> body) {
+        if (!"ADMIN".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        String label     = body.getOrDefault("label", "Marketing QR");
+        String targetUrl = body.get("targetUrl");
+        String campaign  = body.getOrDefault("campaign", "aviqr");
+        if (targetUrl == null || targetUrl.isBlank())
+            return ResponseEntity.badRequest().body(ApiResponse.error("targetUrl is required"));
+        return ResponseEntity.ok(ApiResponse.ok("Marketing QR created",
+            service.createMarketing(label, targetUrl, campaign)));
+    }
+
     // Admin — toggle QR active/inactive
     @PutMapping("/{id}/active")
     public ResponseEntity<ApiResponse<Void>> toggleActive(

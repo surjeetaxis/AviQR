@@ -7,15 +7,15 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "test:unit": "jest __tests__/unit",
-    "test:api": "jest __tests__/api",
+    "test": "jest --config jest.logic.config.js --no-coverage",
+    "test:watch": "jest --config jest.logic.config.js --watch",
+    "test:coverage": "jest --config jest.logic.config.js --coverage",
+    "test:unit": "jest --config jest.logic.config.js __tests__/unit",
+    "test:api": "jest --config jest.logic.config.js __tests__/api",
     "test:components": "jest __tests__/components",
     "e2e:build:android": "detox build -c android.emu.debug",
     "e2e:test:android": "detox test -c android.emu.debug",
-    "test:logic": "jest -c jest.logic.config.js"
+    "test:logic": "jest --config jest.logic.config.js"
   },
   "dependencies": {
     "@expo/metro-config": "~54.0.14",
