@@ -4,7 +4,7 @@ import {
   Settings, LogOut, X, Sparkles, Package, Gift, ShieldCheck,
   TrendingUp, Utensils, PlusCircle, Receipt, FlaskConical, Clock, ChefHat
 } from 'lucide-react';
-import { useAuth, ROLE_LABELS } from '../context/AuthContext.jsx';
+import { useAuth, ROLE_LABELS, ROLE_PERMISSIONS } from '../context/AuthContext.jsx';
 import './Sidebar.css';
 
 const NAV_GROUPS = [
@@ -14,7 +14,7 @@ const NAV_GROUPS = [
       { to:'/dashboard', label:'Dashboard',    icon:LayoutDashboard },
       { to:'/orders',    label:'Orders',       icon:ShoppingBag,  badge:'orders' },
       { to:'/billing',   label:'POS / Billing',icon:Receipt },
-      { to:'/kot',       label:'Kitchen Display (KOT)', icon:ChefHat },
+      { to:'/kot',       label:'Kitchen Display (KOT)', icon:ChefHat, badge:'kot' },
     ],
   },
   {
@@ -61,6 +61,14 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0 }) {
   const navigate = useNavigate();
   const isAdmin = user?.role === 'ADMIN';
 
+  // Returns true if the current user's role can access a given route path segment
+  const canAccess = (to) => {
+    const role = (user?.role || '').toUpperCase();
+    const perms = ROLE_PERMISSIONS[role];
+    if (perms === null || perms === undefined) return true;
+    return perms.includes(to.replace('/', ''));
+  };
+
   const handleLogout = () => { onClose(); logout(); navigate('/'); };
 
   return (
@@ -101,23 +109,30 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0 }) {
 
       {/* Navigation */}
       <nav className="sidebar-nav" aria-label="Primary navigation" style={{ flex:1, overflowY:'auto', padding:'8px 0' }}>
-        {NAV_GROUPS.map(group => (
-          <div key={group.label} style={{ marginBottom:4 }}>
-            <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.4)', textTransform:'uppercase', letterSpacing:.8, padding:'10px 20px 4px' }}>
-              {group.label}
+        {NAV_GROUPS.map(group => {
+          const visibleItems = group.items.filter(item => canAccess(item.to));
+          if (visibleItems.length === 0) return null;
+          return (
+            <div key={group.label} style={{ marginBottom:4 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.4)', textTransform:'uppercase', letterSpacing:.8, padding:'10px 20px 4px' }}>
+                {group.label}
+              </div>
+              {visibleItems.map(({ to, label, icon:Icon, badge }) => (
+                <NavLink key={to} to={to} onClick={onClose}
+                  className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}>
+                  <Icon size={16} aria-hidden="true" />
+                  <span>{label}</span>
+                  {badge === 'orders' && liveOrderCount > 0 && (
+                    <span className="sidebar-badge" style={{ background:'#DC2626', marginLeft:'auto' }}>{liveOrderCount}</span>
+                  )}
+                  {badge === 'kot' && liveOrderCount > 0 && (
+                    <span className="sidebar-badge" style={{ background:'#D97706', marginLeft:'auto' }}>{liveOrderCount}</span>
+                  )}
+                </NavLink>
+              ))}
             </div>
-            {group.items.map(({ to, label, icon:Icon, badge }) => (
-              <NavLink key={to} to={to} onClick={onClose}
-                className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}>
-                <Icon size={16} aria-hidden="true" />
-                <span>{label}</span>
-                {badge === 'orders' && liveOrderCount > 0 && (
-                  <span className="sidebar-badge" style={{ background:'#DC2626', marginLeft:'auto' }}>{liveOrderCount}</span>
-                )}
-              </NavLink>
-            ))}
-          </div>
-        ))}
+          );
+        })}
 
         {isAdmin && (
           <div style={{ marginBottom:4 }}>

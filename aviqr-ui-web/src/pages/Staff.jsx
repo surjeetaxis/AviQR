@@ -1,15 +1,24 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, X, Check } from 'lucide-react';
-import { useAuth } from '../context/AuthContext.jsx';
+import { Plus, Search, Edit2, Trash2, X, Check, Info } from 'lucide-react';
+import { useAuth, ROLE_PERMISSIONS } from '../context/AuthContext.jsx';
 import { shopApi } from '../api/index.js';
 import './Staff.css';
 
+const PAGE_LABELS = {
+  dashboard:'Dashboard', orders:'Orders', billing:'POS / Billing', kot:'KOT',
+  menu:'Menu Items', variations:'Variants', 'qr-codes':'QR Codes',
+  inventory:'Inventory', 'raw-materials':'Raw Materials', loyalty:'Loyalty',
+  staff:'Staff', reports:'Reports', analytics:'Analytics',
+  'order-history':'Order History', ai:'AI Features',
+  settings:'Settings (Owner only)', admin:'Admin Panel',
+};
+
 const ROLES = [
-  { key:'MANAGER',      label:'Manager',       color:'purple', desc:'Full access except billing' },
-  { key:'CASHIER',      label:'Cashier',        color:'blue',   desc:'Update payment status' },
-  { key:'KITCHEN',      label:'Kitchen Staff',  color:'green',  desc:'Update order prep status' },
-  { key:'MENU_EDITOR',  label:'Menu Editor',    color:'amber',  desc:'Add and edit menu items' },
-  { key:'ORDER_VIEWER', label:'Order Viewer',   color:'gray',   desc:'View orders only' },
+  { key:'MANAGER',      label:'Manager',       color:'purple', desc:'Full access except Settings & Staff management' },
+  { key:'CASHIER',      label:'Cashier',        color:'blue',   desc:'POS billing, orders, reports' },
+  { key:'KITCHEN',      label:'Kitchen Staff',  color:'green',  desc:'KOT dashboard and order view' },
+  { key:'MENU_EDITOR',  label:'Menu Editor',    color:'amber',  desc:'Menu items and variations only' },
+  { key:'ORDER_VIEWER', label:'Order Viewer',   color:'gray',   desc:'View orders and history, no edits' },
 ];
 
 const COLOR = { purple:'#7C3AED', blue:'#2563EB', green:'#1D9E75', amber:'#D97706', gray:'#6B7280' };
@@ -142,6 +151,29 @@ export default function Staff() {
                       onClick={()=>set('role',r.key)}>{r.label}</button>
                   ))}
                 </div>
+                {/* Permission preview for selected role */}
+                {(() => {
+                  const perms = ROLE_PERMISSIONS[form.role];
+                  const roleCfg = ROLES.find(r => r.key === form.role);
+                  const col = COLOR[roleCfg?.color] || '#6B7280';
+                  return (
+                    <div style={{marginTop:10,padding:'10px 12px',borderRadius:10,background:col+'0F',border:`1px solid ${col}30`}}>
+                      <div style={{fontSize:11,fontWeight:700,color:col,marginBottom:6,display:'flex',alignItems:'center',gap:4}}>
+                        <Info size={11}/> {roleCfg?.desc}
+                      </div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                        {perms === null
+                          ? <span style={{fontSize:11,color:col,fontWeight:600}}>All pages (full access)</span>
+                          : perms.map(p => (
+                            <span key={p} style={{fontSize:10,fontWeight:600,padding:'2px 7px',borderRadius:999,background:col+'20',color:col}}>
+                              {PAGE_LABELS[p] || p}
+                            </span>
+                          ))
+                        }
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               <div style={{display:'flex',gap:10}}>
                 <button type="button" className="btn btn-secondary" style={{flex:1}} onClick={()=>setModal(null)}>Cancel</button>

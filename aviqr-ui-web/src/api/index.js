@@ -75,8 +75,9 @@ export const authApi = {
   logout:         ()     => api.post('/api/v1/auth/logout'),
   getProfile:     ()     => api.get('/api/v1/auth/profile'),
   updateProfile:  (d)    => api.put('/api/v1/auth/profile', d),
-  forgotPassword: (e)    => api.post(`/api/v1/auth/forgot-password?email=${e}`),
-  linkShop:       (shopId) => api.put('/api/v1/auth/link-shop', { shopId }),
+  forgotPassword:  (e)    => api.post(`/api/v1/auth/forgot-password?email=${e}`),
+  changePassword:  (d)    => api.post('/api/v1/auth/change-password', d),
+  linkShop:        (shopId) => api.put('/api/v1/auth/link-shop', { shopId }),
   // Admin
   getUsers:       (p)    => api.get('/api/v1/auth/admin/users', { params: p }),
   updateStatus:   (id,s) => api.put(`/api/v1/auth/admin/users/${id}/status?status=${s}`),

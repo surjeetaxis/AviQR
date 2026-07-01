@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { RefreshCw, ChefHat, Bell, Clock, UtensilsCrossed, ShoppingBag, Bike, Maximize2, Minimize2, Volume2, VolumeX } from 'lucide-react';
+import { RefreshCw, ChefHat, Bell, Clock, UtensilsCrossed, ShoppingBag, Bike, Maximize2, Minimize2, Volume2, VolumeX, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { orderApi } from '../api/index.js';
 
@@ -149,11 +149,29 @@ export default function KOT() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [expanded, setExpanded] = useState(true);   // hides sidebar/topbar
+  const [fullscreen, setFullscreen] = useState(false); // browser native fullscreen
   const [muted, setMuted] = useState(false);
   const [tick, setTick] = useState(0);
   const prevNewCount = useRef(0);
   const audioCtx = useRef(null);
+
+  // Manage sidebar/topbar visibility via body class
+  useEffect(() => {
+    if (expanded) {
+      document.body.classList.add('kot-expanded');
+    } else {
+      document.body.classList.remove('kot-expanded');
+    }
+    return () => document.body.classList.remove('kot-expanded');
+  }, [expanded]);
+
+  // Sync fullscreen state when user presses Escape
+  useEffect(() => {
+    const onFsChange = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   const playBeep = useCallback(() => {
     if (muted) return;
@@ -297,9 +315,27 @@ export default function KOT() {
               title="Refresh">
               <RefreshCw size={16} />
             </button>
+
+            {/* Sidebar toggle: expand / minimize */}
+            <button
+              onClick={() => setExpanded(e => !e)}
+              style={{
+                background: expanded ? '#1D9E75' : '#334155',
+                border: 'none', borderRadius: 8, padding: '8px 12px',
+                cursor: 'pointer', color: 'white',
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 12, fontWeight: 700,
+              }}
+              title={expanded ? 'Show sidebar (minimize)' : 'Hide sidebar (maximize)'}>
+              {expanded
+                ? <><PanelLeftOpen size={15} /> <span>Minimize</span></>
+                : <><PanelLeftClose size={15} /> <span>Maximize</span></>}
+            </button>
+
+            {/* Browser native fullscreen */}
             <button onClick={toggleFullscreen}
               style={{ background: '#334155', border: 'none', borderRadius: 8, padding: '8px 10px', cursor: 'pointer', color: '#94A3B8' }}
-              title="Toggle fullscreen">
+              title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}>
               {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
             </button>
           </div>

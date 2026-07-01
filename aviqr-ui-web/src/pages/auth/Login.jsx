@@ -35,7 +35,9 @@ export function AuthBrand() {
 }
 
 const ROLE_HOME = {
-  OWNER:'/dashboard', MANAGER:'/dashboard', CASHIER:'/dashboard', KITCHEN:'/dashboard',
+  OWNER:'/dashboard', MANAGER:'/dashboard',
+  CASHIER:'/billing',  KITCHEN:'/kot',
+  MENU_EDITOR:'/menu', ORDER_VIEWER:'/orders',
   ADMIN:'/admin', SUPPORT:'/support', HOTEL:'/hotel', MALL:'/mall',
   SUPPLIER:'/supplier', CUSTOMER:'/customer',
 };

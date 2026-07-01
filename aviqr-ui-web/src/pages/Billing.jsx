@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Minus, Printer, CreditCard, Wallet, Banknote, X, Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle } from 'lucide-react';
+import QRCode from 'qrcode';
+import { Plus, Minus, Printer, CreditCard, Wallet, Banknote, X, Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, PanelLeftClose, PanelLeftOpen, Maximize2, Minimize2, QrCode } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
-import { menuApi, posApi, paymentApi, addonApi, variantApi, invoiceApi } from '../api/index.js';
+import { menuApi, posApi, paymentApi, addonApi, variantApi, invoiceApi, shopApi } from '../api/index.js';
 
 const PAY_METHODS = [
   { key:'CASH',   label:'Cash',    icon:Banknote,    color:'#1D9E75' },
@@ -29,24 +30,59 @@ export default function Billing() {
   const [addonModal, setAddonMod]= useState(null); // item being customised
   const [variants,   setVariants]= useState({});   // itemId → [variants]
   const [orderType,  setOrderType]= useState('DINE_IN');
+  const [expanded,   setExpanded]= useState(true);
+  const [fullscreen, setFullscreen]= useState(false);
+  const [upiId,      setUpiId]   = useState('');
+  const [shopName,   setShopName]= useState('');
+  const [upiQrUrl,   setUpiQrUrl]= useState('');
+
+  useEffect(() => {
+    if (expanded) {
+      document.body.classList.add('pos-expanded');
+    } else {
+      document.body.classList.remove('pos-expanded');
+    }
+    return () => document.body.classList.remove('pos-expanded');
+  }, [expanded]);
+
+  useEffect(() => {
+    const onFsChange = () => setFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   const load = useCallback(async () => {
     if (!shopId) return;
     try {
-      const [cRes, iRes, aRes] = await Promise.all([
+      const [cRes, iRes, aRes, sRes, shopRes] = await Promise.all([
         menuApi.getCategories(shopId),
         menuApi.getItems(shopId),
         addonApi.getByShop(shopId),
+        shopApi.getSettings(shopId).catch(() => ({ data:{ data:null } })),
+        shopApi.getById(shopId).catch(() => ({ data:{ data:null } })),
       ]);
       const cats  = cRes.data.data || [];
       const items = iRes.data.data?.content ?? iRes.data.data ?? [];
       setCats(cats.map(c => ({ ...c, items: items.filter(i => i.categoryId === c.id && i.available !== false) })));
       setAddons(aRes.data.data || []);
+      if (sRes.data.data?.upiEnabled && sRes.data.data?.upiId) {
+        setUpiId(sRes.data.data.upiId);
+        if (sRes.data.data.taxPercent) setTax(sRes.data.data.taxPercent);
+      }
+      if (shopRes.data.data?.name) setShopName(shopRes.data.data.name);
     } catch (e) { console.error('POS load error', e); }
     finally { setLoad(false); }
   }, [shopId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Regenerate UPI QR when payment method, amount, or UPI ID changes
+  useEffect(() => {
+    if (payMethod !== 'UPI' || !upiId || total <= 0) { setUpiQrUrl(''); return; }
+    const upiStr = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(shopName||'Shop')}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Order')}`;
+    QRCode.toDataURL(upiStr, { width:200, margin:1, color:{ dark:'#0F172A', light:'#FFFFFF' } })
+      .then(setUpiQrUrl).catch(() => setUpiQrUrl(''));
+  }, [payMethod, upiId, total, shopName]);
 
   const loadVariants = async (itemId) => {
     if (variants[itemId]) return; // cached
@@ -140,11 +176,38 @@ export default function Billing() {
   );
 
   return (
-    <div style={{ display:'flex', gap:0, height:'calc(100vh - 64px)', overflow:'hidden' }}>
+    <div style={{ display:'flex', gap:0, height: expanded ? '100vh' : 'calc(100vh - 64px)', overflow:'hidden' }}>
 
       {/* ── Left: Menu browser ────────────────────────────────────────────── */}
       <div style={{ flex:1, overflowY:'auto', padding:'16px 12px', borderRight:'1px solid var(--gray-100)', background:'#FAFAFA' }}>
-        <h2 style={{ fontSize:16, fontWeight:700, marginBottom:12 }}>🧾 POS — Select Items</h2>
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
+          <h2 style={{ fontSize:16, fontWeight:700, flex:1, margin:0 }}>🧾 POS — Select Items</h2>
+          {/* Sidebar minimize/maximize */}
+          <button
+            onClick={() => setExpanded(e => !e)}
+            style={{ background: expanded ? '#1D9E75' : '#334155', border:'none', borderRadius:8,
+                     padding:'6px 10px', cursor:'pointer', color:'white',
+                     display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:700 }}
+            title={expanded ? 'Show sidebar (minimize)' : 'Hide sidebar (maximize)'}>
+            {expanded
+              ? <><PanelLeftOpen size={14}/> <span>Minimize</span></>
+              : <><PanelLeftClose size={14}/> <span>Maximize</span></>}
+          </button>
+          {/* Browser fullscreen */}
+          <button
+            onClick={() => {
+              if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+              } else {
+                document.exitFullscreen();
+              }
+            }}
+            style={{ background:'#1E293B', border:'none', borderRadius:8, width:32, height:32,
+                     cursor:'pointer', color:'white', display:'flex', alignItems:'center', justifyContent:'center' }}
+            title={fullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}>
+            {fullscreen ? <Minimize2 size={15}/> : <Maximize2 size={15}/>}
+          </button>
+        </div>
 
         {/* Search + category filter */}
         <div style={{ position:'relative', marginBottom:10 }}>
@@ -275,6 +338,32 @@ export default function Billing() {
                 </button>
               ))}
             </div>
+
+            {/* UPI QR panel — shown when UPI selected and UPI ID is configured */}
+            {payMethod === 'UPI' && upiId && (
+              <div style={{ margin:'10px 0', padding:'14px', background:'#F5F3FF', borderRadius:12, border:'1.5px solid #C4B5FD', display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+                {upiQrUrl ? (
+                  <>
+                    <img src={upiQrUrl} alt="UPI QR" style={{ width:160, height:160, borderRadius:8, border:'4px solid white', boxShadow:'0 4px 16px rgba(124,58,237,.15)' }}/>
+                    <div style={{ textAlign:'center' }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#5B21B6' }}>Scan &amp; Pay ₹{total.toFixed(0)}</div>
+                      <div style={{ fontSize:11, color:'#7C3AED', marginTop:2 }}>{upiId}</div>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, color:'#7C3AED' }}>
+                    <QrCode size={16}/> Generating QR…
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* UPI not configured hint */}
+            {payMethod === 'UPI' && !upiId && (
+              <div style={{ margin:'6px 0 10px', padding:'9px 12px', background:'#FFFBEB', borderRadius:8, border:'1px solid #FDE68A', fontSize:11, color:'#92400E' }}>
+                UPI QR not set up. Go to Settings → Integrations → UPI Direct Pay to add your UPI ID.
+              </div>
+            )}
 
             {/* Action buttons */}
             <div style={{ display:'flex', gap:8 }}>

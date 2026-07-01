@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './context/AuthContext.jsx';
+import { useAuth, ROLE_PERMISSIONS, ROLE_DEFAULT_ROUTE } from './context/AuthContext.jsx';
 
 import DashboardLayout   from './layouts/DashboardLayout.jsx';
 import Landing           from './pages/landing/Landing.jsx';
@@ -39,6 +39,28 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+// Redirects to the role's default page if the route isn't allowed
+function RoleRoute({ path, children }) {
+  const { user } = useAuth();
+  const role = (user?.role || '').toUpperCase();
+  const perms = ROLE_PERMISSIONS[role];
+  if (perms !== null && perms !== undefined && !perms.includes(path)) {
+    return <Navigate to={ROLE_DEFAULT_ROUTE[role] || '/dashboard'} replace />;
+  }
+  return children;
+}
+
+// Only platform ADMIN role may enter the admin panel
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if ((user?.role || '').toUpperCase() !== 'ADMIN') {
+    return <Navigate to={ROLE_DEFAULT_ROUTE[(user?.role || '').toUpperCase()] || '/dashboard'} replace />;
+  }
+  return children;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -55,32 +77,34 @@ export default function App() {
 
       {/* Main dashboard */}
       <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-        {/* Core */}
+        {/* Accessible by all shop roles */}
         <Route path="dashboard"    element={<Dashboard />} />
-        <Route path="orders"       element={<Orders />} />
-        <Route path="billing"      element={<Billing />} />
-        <Route path="menu"         element={<Menu />} />
-        <Route path="variations"   element={<MenuVariations />} />
-        <Route path="qr-codes"     element={<QRCodes />} />
-        <Route path="staff"        element={<Staff />} />
-        {/* Inventory */}
-        <Route path="inventory"    element={<Inventory />} />
-        <Route path="raw-materials" element={<RawMaterials />} />
-        {/* Loyalty */}
-        <Route path="loyalty"      element={<Loyalty />} />
-        {/* Reports */}
-        <Route path="reports"      element={<Reports />} />
-        <Route path="analytics"    element={<Analytics />} />
-        <Route path="order-history" element={<OrderHistory />} />
-        {/* AI + Settings */}
-        <Route path="ai"           element={<AIHub />} />
-        <Route path="settings"     element={<Settings />} />
-        {/* Kitchen Display */}
-        <Route path="kot"          element={<KOT />} />
+        {/* Settings — OWNER only (main user) */}
+        <Route path="settings"     element={<RoleRoute path="settings"><Settings /></RoleRoute>} />
+        {/* Orders — OWNER MANAGER CASHIER KITCHEN ORDER_VIEWER */}
+        <Route path="orders"       element={<RoleRoute path="orders"><Orders /></RoleRoute>} />
+        {/* Billing/POS — OWNER MANAGER CASHIER */}
+        <Route path="billing"      element={<RoleRoute path="billing"><Billing /></RoleRoute>} />
+        {/* KOT — OWNER MANAGER KITCHEN */}
+        <Route path="kot"          element={<RoleRoute path="kot"><KOT /></RoleRoute>} />
+        {/* Menu — OWNER MANAGER MENU_EDITOR */}
+        <Route path="menu"         element={<RoleRoute path="menu"><Menu /></RoleRoute>} />
+        <Route path="variations"   element={<RoleRoute path="variations"><MenuVariations /></RoleRoute>} />
+        {/* Reports — OWNER MANAGER CASHIER */}
+        <Route path="reports"      element={<RoleRoute path="reports"><Reports /></RoleRoute>} />
+        <Route path="order-history" element={<RoleRoute path="order-history"><OrderHistory /></RoleRoute>} />
+        {/* Owner/Manager only */}
+        <Route path="qr-codes"     element={<RoleRoute path="qr-codes"><QRCodes /></RoleRoute>} />
+        <Route path="staff"        element={<RoleRoute path="staff"><Staff /></RoleRoute>} />
+        <Route path="inventory"    element={<RoleRoute path="inventory"><Inventory /></RoleRoute>} />
+        <Route path="raw-materials" element={<RoleRoute path="raw-materials"><RawMaterials /></RoleRoute>} />
+        <Route path="loyalty"      element={<RoleRoute path="loyalty"><Loyalty /></RoleRoute>} />
+        <Route path="analytics"    element={<RoleRoute path="analytics"><Analytics /></RoleRoute>} />
+        <Route path="ai"           element={<RoleRoute path="ai"><AIHub /></RoleRoute>} />
       </Route>
 
       {/* Role-specific dashboards — standalone (no owner sidebar) */}
-      <Route path="/admin"    element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin"    element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="/support"  element={<ProtectedRoute><SupportDashboard /></ProtectedRoute>} />
       <Route path="/supplier" element={<ProtectedRoute><SupplierDashboard /></ProtectedRoute>} />
       <Route path="/hotel"    element={<ProtectedRoute><HotelDashboard /></ProtectedRoute>} />

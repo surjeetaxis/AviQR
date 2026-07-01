@@ -278,7 +278,12 @@ export default function Menu() {
     e.preventDefault();
     if (!form.name || !form.price) return;
     setSaving(true);
-    const payload = { ...form, price: parseFloat(form.price), mediaType: mediaTab };
+    const payload = {
+      ...form,
+      description: form.desc,
+      price: parseFloat(form.price),
+      mediaType: mediaTab,
+    };
     try {
       if (modal.mode === 'edit') {
         await menuApi.updateItem(modal.item.id, payload);
@@ -286,23 +291,15 @@ export default function Menu() {
           ...c, items: c.items.map(i => i.id !== modal.item.id ? i : { ...i, ...payload })
         }));
       } else {
-        const res = await menuApi.createItem(payload);
-        const newItem = res.data.data || { ...payload, id: `local_${Date.now()}` };
-        setCats(p => p.map(c => c.id !== modal.catId ? c : { ...c, items: [...c.items, newItem] }));
+        await menuApi.createItem(payload);
+        await loadMenu();
       }
-    } catch {
-      if (modal.mode === 'edit') {
-        setCats(p => p.map(c => c.id !== modal.catId ? c : {
-          ...c, items: c.items.map(i => i.id !== modal.item.id ? i : { ...i, ...payload })
-        }));
-      } else {
-        setCats(p => p.map(c => c.id !== modal.catId ? c : {
-          ...c, items: [...c.items, { ...payload, id: `local_${Date.now()}` }]
-        }));
-      }
+      setModal(null);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to save item. Please try again.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    setModal(null);
   };
 
   // File → data URL handlers

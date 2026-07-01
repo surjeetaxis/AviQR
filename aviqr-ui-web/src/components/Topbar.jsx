@@ -7,7 +7,7 @@ import { useLang } from './shared/LangPicker.jsx';
 import { t } from '../i18n/translations.js';
 import './Topbar.css';
 
-export default function Topbar({ onMenuClick }) {
+export default function Topbar({ onMenuClick, onSearchOpen }) {
   const { user, logout } = useAuth();
   const { lang } = useLang();
   const navigate = useNavigate();
@@ -21,9 +21,10 @@ export default function Topbar({ onMenuClick }) {
         <Menu size={20} />
       </button>
 
-      <div className="topbar-search">
+      <div className="topbar-search" onClick={onSearchOpen} style={{ cursor:'pointer' }}>
         <Search size={16} className="topbar-search-icon" aria-hidden="true" />
-        <input type="search" placeholder={t('search', lang)} aria-label="Search" />
+        <input type="search" placeholder={t('search', lang)} aria-label="Search"
+               readOnly onClick={onSearchOpen} style={{ cursor:'pointer' }} />
         <kbd className="topbar-kbd">⌘ K</kbd>
       </div>
 

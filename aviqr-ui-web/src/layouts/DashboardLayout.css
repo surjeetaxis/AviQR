@@ -34,3 +34,21 @@
   .layout-content { padding: 20px 16px 40px; }
   .layout-backdrop { display: block; }
 }
+
+/* KOT full-screen mode — hides sidebar & topbar, KOT fills viewport */
+body.kot-expanded .sidebar      { display: none !important; }
+body.kot-expanded .topbar       { display: none !important; }
+body.kot-expanded .layout-main  { margin-left: 0 !important; }
+body.kot-expanded .layout-content {
+  padding: 0 !important;
+  max-width: 100% !important;
+}
+
+/* POS full-screen mode — same treatment */
+body.pos-expanded .sidebar      { display: none !important; }
+body.pos-expanded .topbar       { display: none !important; }
+body.pos-expanded .layout-main  { margin-left: 0 !important; }
+body.pos-expanded .layout-content {
+  padding: 0 !important;
+  max-width: 100% !important;
+}

@@ -5,11 +5,35 @@ const AuthContext = createContext(null);
 
 export const ROLE_LABELS = {
   OWNER:'Shop Owner', MANAGER:'Manager', CASHIER:'Cashier', KITCHEN:'Kitchen Staff',
+  MENU_EDITOR:'Menu Editor', ORDER_VIEWER:'Order Viewer',
   ADMIN:'Super Admin', SUPPORT:'Support Agent', SUPPLIER:'Supplier',
   HOTEL:'Hotel Owner', MALL:'Mall Admin', CUSTOMER:'Customer',
   owner:'Shop Owner', manager:'Manager', cashier:'Cashier', kitchen:'Kitchen Staff',
+  menu_editor:'Menu Editor', order_viewer:'Order Viewer',
   admin:'Super Admin', support:'Support Agent', supplier:'Supplier',
   hotel:'Hotel Owner', mall:'Mall Admin', customer:'Customer',
+};
+
+// null = unrestricted; array = allowed route segments
+// 'settings' is intentionally absent from all staff roles — OWNER only
+export const ROLE_PERMISSIONS = {
+  OWNER:        null,   // main user — full access including settings
+  ADMIN:        null,   // platform super admin
+  SUPPORT:      null,
+  MANAGER:      ['dashboard','orders','billing','kot','menu','variations','qr-codes',
+                 'inventory','raw-materials','loyalty','reports','analytics','order-history','ai'],
+  CASHIER:      ['dashboard','orders','billing','reports','order-history'],
+  KITCHEN:      ['dashboard','orders','kot'],
+  MENU_EDITOR:  ['dashboard','menu','variations'],
+  ORDER_VIEWER: ['dashboard','orders','order-history'],
+};
+
+export const ROLE_DEFAULT_ROUTE = {
+  OWNER:'/dashboard', MANAGER:'/dashboard',
+  CASHIER:'/billing', KITCHEN:'/kot',
+  MENU_EDITOR:'/menu', ORDER_VIEWER:'/orders',
+  ADMIN:'/admin', SUPPORT:'/support',
+  HOTEL:'/hotel', MALL:'/mall', SUPPLIER:'/supplier',
 };
 
 export function AuthProvider({ children }) {
@@ -86,7 +110,7 @@ export function AuthProvider({ children }) {
       user, token, lang, loading,
       login, loginWithOtp, register, logout, changeLang,
       updateUser, linkShop,
-      isOwner:    ['owner','manager','cashier','kitchen'].includes(role),
+      isOwner:    ['owner','manager','cashier','kitchen','menu_editor','order_viewer'].includes(role),
       isAdmin:    role === 'admin',
       isSupport:  role === 'support',
       isHotel:    role === 'hotel',
