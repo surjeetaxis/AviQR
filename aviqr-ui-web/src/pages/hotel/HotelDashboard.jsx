@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { hotelApi } from '../../api/index.js';
+import { hotelApi, hotelOpsApi, hotelOutletApi, hotelAccessApi } from '../../api/index.js';
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
@@ -9,7 +9,7 @@ import {
   Hotel, BedDouble, UtensilsCrossed, Shirt, Sparkles, Wrench,
   Bell, BarChart2, Settings, LogOut, Menu as MenuIcon, CheckCircle2,
   Clock, AlertCircle, Plus, Edit2, Trash2, ToggleLeft, ToggleRight,
-  Star, Phone, Save, X, Coffee, Car, RefreshCw
+  Star, Phone, Save, X, Coffee, Car, RefreshCw, Store, UserCog, QrCode
 } from 'lucide-react';
 import '../admin/Admin.css';
 import './Hotel.css';
@@ -48,6 +48,9 @@ const ROOM_MENU = [
 const NAV = [
   {key:'overview',    label:'Overview',         icon:BarChart2},
   {key:'requests',    label:'Guest Requests',   icon:Bell, badge:3},
+  {key:'bookings',    label:'Bookings',         icon:Star},
+  {key:'outlets',     label:'Outlets',          icon:Store},
+  {key:'hotelstaff',  label:'Hotel Staff',      icon:UserCog},
   {key:'rooms',       label:'Rooms',            icon:BedDouble},
   {key:'roomservice', label:'Room Service Menu',icon:UtensilsCrossed},
   {key:'housekeeping',label:'Housekeeping',     icon:Sparkles},
@@ -78,38 +81,90 @@ export default function HotelDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [requests, setRequests] = useState(INITIAL_REQUESTS);
   const [rooms, setRooms] = useState(INITIAL_ROOMS);
+  const [hotelId, setHotelId] = useState(null);
+  const [bookings, setBookings] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  useEffect(() => {
+  // Normalise a backend guest_service_request into the shape this UI renders
+  const mapGuestReq = (g) => ({
+    id: g.id,
+    room: g.roomNumber,
+    service: ({HOUSEKEEPING:'Housekeeping', AMENITIES:'Amenities', MAINTENANCE:'Maintenance',
+               CONCIERGE:'Concierge', LAUNDRY:'Laundry', WAKE_UP_CALL:'Wake-up call',
+               LATE_CHECKOUT:'Late checkout', TRANSPORT:'Transport'}[g.type] || g.type || 'Request'),
+    item: g.details || '',
+    time: g.createdAt ? new Date(g.createdAt).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '',
+    // map backend status NEW/ACCEPTED/DONE -> UI new/preparing/done
+    status: ({NEW:'new', ACCEPTED:'preparing', PREPARING:'preparing', CONFIRMED:'confirmed', DONE:'done'}[g.status] || 'new'),
+    priority: (g.priority||'NORMAL').toLowerCase(),
+    _source: 'guest',
+  });
+
+  // Normalise a backend Room into the shape this UI renders
+  const mapRoom = (r) => ({
+    id: r.id,
+    number: r.roomNumber,
+    type: r.roomType,
+    floor: r.floor,
+    status: (r.status || 'VACANT').toLowerCase(),
+    guest: r.guestName,
+    checkIn: r.checkInDate,
+    checkOut: r.checkOutDate,
+    qrActive: r.qrActive,
+  });
+
+  const loadData = () => {
     hotelApi.getMyHotels()
       .then(res => {
         const hotels = res.data.data || [];
-        const hotelId = hotels[0]?.id;
-        if (!hotelId) { setLoadingData(false); return; }
+        const hid = hotels[0]?.id;
+        if (!hid) { setLoadingData(false); return; }
+        setHotelId(hid);
         return Promise.allSettled([
-          hotelApi.getRooms(hotelId),
-          hotelApi.getRequests(hotelId, { status: 'new,preparing,confirmed' }),
-        ]).then(([rRes, reqRes]) => {
+          hotelApi.getRooms(hid),
+          hotelApi.getRequests(hid, { status: 'new,preparing,confirmed' }),
+          hotelOpsApi.listRequests(hid),   // NEW: QR-raised guest service requests
+          hotelOpsApi.listBookings(hid),   // NEW: spa/activity bookings
+        ]).then(([rRes, reqRes, gsrRes, bkRes]) => {
           if (rRes.status === 'fulfilled') {
             const r = rRes.value.data.data || [];
-            if (r.length) setRooms(r);
+            if (r.length) setRooms(r.map(mapRoom));
           }
-          if (reqRes.status === 'fulfilled') {
-            const req = reqRes.value.data.data || [];
-            if (req.length) setRequests(req);
-          }
+          // Merge legacy room_requests + new guest_service_requests
+          let merged = [];
+          if (reqRes.status === 'fulfilled') merged = merged.concat(reqRes.value.data.data || []);
+          if (gsrRes.status === 'fulfilled') merged = merged.concat((gsrRes.value.data.data || []).map(mapGuestReq));
+          if (merged.length) setRequests(merged);
+          if (bkRes.status === 'fulfilled') setBookings(bkRes.value.data.data || []);
         });
       })
       .catch(() => {})
       .finally(() => setLoadingData(false));
-  }, []);
+  };
 
+  useEffect(() => { loadData(); }, []);
+
+  // Persist status change to the backend, then reflect locally
   const advanceRequest = id => {
-    setRequests(prev=>prev.map(r=>{
-      if(r.id!==id) return r;
-      const next = {new:'preparing',preparing:'done',confirmed:'done'};
-      return {...r, status:next[r.status]||r.status};
-    }));
+    const req = requests.find(r => r.id === id);
+    if (!req) return;
+    const uiNext = {new:'preparing', preparing:'done', confirmed:'done'};
+    const nextUi = uiNext[req.status] || req.status;
+
+    // reflect immediately (optimistic)
+    setRequests(prev => prev.map(r => r.id===id ? {...r, status:nextUi} : r));
+
+    // persist — guest-service requests go to hotelOpsApi, legacy ones to hotelApi
+    const backendStatus = nextUi === 'preparing' ? 'ACCEPTED' : nextUi === 'done' ? 'DONE' : 'NEW';
+    const call = req._source === 'guest'
+      ? hotelOpsApi.updateRequest(id, backendStatus)
+      : hotelApi.updateRequest(id, backendStatus);
+    Promise.resolve(call).catch(() => {});
+  };
+
+  const updateBooking = (id, status) => {
+    setBookings(prev => prev.map(b => b.id===id ? {...b, status} : b));
+    Promise.resolve(hotelOpsApi.updateBooking(id, status)).catch(() => {});
   };
 
   return (
@@ -154,6 +209,9 @@ export default function HotelDashboard() {
         <main className="admin-content">
           {tab==='overview'     && <HotelOverview rooms={rooms} requests={requests} onAdvance={advanceRequest} onNav={setTab}/>}
           {tab==='requests'     && <AllRequests requests={requests} onAdvance={advanceRequest}/>}
+          {tab==='bookings'     && <BookingsView bookings={bookings} onUpdate={updateBooking}/>}
+          {tab==='outlets'      && <OutletsPage hotelId={hotelId}/>}
+          {tab==='hotelstaff'   && <HotelStaffPage hotelId={hotelId}/>}
           {tab==='rooms'        && <RoomsPage rooms={rooms} setRooms={setRooms}/>}
           {tab==='roomservice'  && <RoomServiceMenu menu={ROOM_MENU}/>}
           {tab==='housekeeping' && <HousekeepingPage requests={requests.filter(r=>r.service==='Housekeeping')}/>}
@@ -224,8 +282,218 @@ function AllRequests({requests,onAdvance,compact}) {
   );
 }
 
+function BookingsView({bookings,onUpdate}) {
+  const badge = (s) => {
+    const map = {
+      REQUESTED: {bg:'var(--amber-bg,#FEF3C7)', c:'var(--amber,#B45309)', label:'Requested'},
+      CONFIRMED: {bg:'var(--green-bg,#D1FAE5)', c:'var(--green,#047857)', label:'Confirmed'},
+      COMPLETED: {bg:'var(--gray-100,#F3F4F6)', c:'var(--gray-500,#6B7280)', label:'Completed'},
+      CANCELLED: {bg:'var(--red-bg,#FEE2E2)', c:'var(--red,#DC2626)', label:'Cancelled'},
+    }[s] || {bg:'#F3F4F6', c:'#6B7280', label:s};
+    return <span style={{fontSize:11,fontWeight:700,color:map.c,background:map.bg,padding:'3px 10px',borderRadius:99}}>{map.label}</span>;
+  };
+  return (
+    <div>
+      <div className="page-header"><h1 className="page-title">Outlet Bookings</h1><span className="req-live-badge">● Live</span></div>
+      <div className="requests-list">
+        {bookings.map(b=>(
+          <div key={b.id} className="request-row">
+            <div className="req-room">Room {b.roomNumber}</div>
+            <div className="req-info">
+              <div className="req-service">{b.outletName} · {b.serviceName}</div>
+              <div className="req-item">
+                {b.bookingDate} at {b.bookingTime} · {b.partySize} guest{b.partySize>1?'s':''}
+                {b.price>0 ? ` · ₹${Number(b.price).toLocaleString('en-IN')}` : ''}
+                {' · '}{b.paymentChoice==='PAY_DIRECT'?'Pay direct':'Charge to room'}
+              </div>
+            </div>
+            {badge(b.status)}
+            {b.status==='REQUESTED' && <button className="req-action-btn" onClick={()=>onUpdate(b.id,'CONFIRMED')}>Confirm</button>}
+            {b.status==='CONFIRMED' && <button className="req-action-btn" onClick={()=>onUpdate(b.id,'COMPLETED')}>Complete</button>}
+          </div>
+        ))}
+        {bookings.length===0 && <div style={{textAlign:'center',padding:32,color:'var(--gray-400)',fontSize:13}}>No bookings yet.</div>}
+      </div>
+    </div>
+  );
+}
+
+const OUTLET_TYPES = ['RESTAURANT','BAR','SPA','GYM','POOL','SHOP','ACTIVITY','BANQUET','KIDS_CLUB','BUSINESS_CENTER','LAUNDRY','CONCIERGE','OTHER'];
+
+function OutletsPage({hotelId}) {
+  const navigate = useNavigate();
+  const [outlets,setOutlets] = useState([]);
+  const [loading,setLoading] = useState(true);
+  const [showForm,setShowForm] = useState(false);
+  const [form,setForm] = useState({name:'',outletType:'RESTAURANT',location:''});
+  const [saving,setSaving] = useState(false);
+
+  const load = () => {
+    if (!hotelId) { setLoading(false); return; }
+    setLoading(true);
+    hotelOutletApi.list(hotelId)
+      .then(res => setOutlets(res.data.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, [hotelId]);
+
+  const create = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      await hotelOutletApi.create({ hotelId, name: form.name, outletType: form.outletType, location: form.location });
+      setForm({name:'',outletType:'RESTAURANT',location:''});
+      setShowForm(false);
+      load();
+    } catch { alert('Could not create outlet'); }
+    finally { setSaving(false); }
+  };
+
+  const toggleActive = (o) => hotelOutletApi.toggleStatus(o.id, !o.active).then(load).catch(() => {});
+  const toggleQr     = (o) => hotelOutletApi.toggleQr(o.id, !o.qrActive).then(load).catch(() => {});
+  const remove        = (o) => { if (confirm(`Delete outlet "${o.name}"?`)) hotelOutletApi.delete(o.id).then(load).catch(() => {}); };
+
+  return (
+    <div>
+      <div className="page-header">
+        <div><h1 className="page-title">Outlets</h1><p className="page-subtitle">{outlets.length} outlet{outlets.length!==1?'s':''} · each gets its own menu, staff, billing &amp; loyalty</p></div>
+        <button className="btn-refresh" onClick={()=>setShowForm(f=>!f)}><Plus size={13}/> Add outlet</button>
+      </div>
+
+      {showForm && (
+        <form onSubmit={create} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
+          <div className="form-field">
+            <label className="form-label">Name</label>
+            <input className="form-input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. The Garden Cafe" required/>
+          </div>
+          <div className="form-field">
+            <label className="form-label">Type</label>
+            <select className="form-input" value={form.outletType} onChange={e=>setForm(f=>({...f,outletType:e.target.value}))}>
+              {OUTLET_TYPES.map(ot => <option key={ot} value={ot}>{ot.replace('_',' ')}</option>)}
+            </select>
+          </div>
+          <div className="form-field">
+            <label className="form-label">Location</label>
+            <input className="form-input" value={form.location} onChange={e=>setForm(f=>({...f,location:e.target.value}))} placeholder="e.g. Ground floor"/>
+          </div>
+          <button className="btn btn-primary" type="submit" disabled={saving}>{saving?'Creating…':'Create'}</button>
+        </form>
+      )}
+
+      {loading ? (
+        <p style={{textAlign:'center',color:'var(--gray-400)',padding:'20px 0'}}>Loading outlets…</p>
+      ) : outlets.length === 0 ? (
+        <div style={{textAlign:'center',padding:32,color:'var(--gray-400)',fontSize:13}}>No outlets yet. Add your first restaurant, spa or bar.</div>
+      ) : (
+        <div className="rooms-grid">
+          {outlets.map(o => (
+            <div key={o.id} className="room-card">
+              <div className="room-card-header">
+                <div className="room-number">{o.name}</div>
+                <span className={`room-status-badge ${o.active?'rs-vacant':'rs-maintenance'}`}>{o.active?'Active':'Inactive'}</span>
+              </div>
+              <div className="room-type">{o.outletType?.replace('_',' ')}{o.location?` · ${o.location}`:''}</div>
+              <div className="room-qr-row">
+                <span style={{fontSize:12,color:'var(--gray-500)'}}>QR Active</span>
+                <button className={`toggle-btn ${o.qrActive?'toggle-on':'toggle-off'}`} onClick={()=>toggleQr(o)}>
+                  {o.qrActive?<ToggleRight size={20}/>:<ToggleLeft size={20}/>}
+                </button>
+              </div>
+              <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
+                <button className="btn-room-action" onClick={()=>navigate(`/hotel/outlets/${o.id}/dashboard`)}>⚙️ Manage</button>
+                <button className="btn-room-action" onClick={()=>toggleActive(o)}>{o.active?'Deactivate':'Activate'}</button>
+                <button className="btn-room-action" onClick={()=>hotelOutletApi.createQr(o.id).then(()=>alert('QR created')).catch(()=>alert('Could not create QR'))}><QrCode size={12}/> QR</button>
+                <button className="btn-room-action admin-row-btn-danger" onClick={()=>remove(o)}><Trash2 size={12}/></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const HOTEL_ROLES = ['GENERAL_MANAGER','OUTLET_MANAGER','STAFF'];
+
+function HotelStaffPage({hotelId}) {
+  const [access,setAccess] = useState([]);
+  const [loading,setLoading] = useState(true);
+  const [form,setForm] = useState({userId:'',role:'STAFF'});
+  const [saving,setSaving] = useState(false);
+
+  const load = () => {
+    if (!hotelId) { setLoading(false); return; }
+    setLoading(true);
+    hotelAccessApi.list(hotelId)
+      .then(res => setAccess(res.data.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, [hotelId]);
+
+  const grant = async (e) => {
+    e.preventDefault();
+    if (!form.userId.trim()) return;
+    setSaving(true);
+    try {
+      await hotelAccessApi.grant(hotelId, { userId: form.userId, role: form.role });
+      setForm({userId:'',role:'STAFF'});
+      load();
+    } catch { alert('Could not grant access'); }
+    finally { setSaving(false); }
+  };
+
+  const revoke = (row) => { if (confirm('Revoke this access?')) hotelAccessApi.revoke(hotelId, row.id).then(load).catch(() => {}); };
+
+  return (
+    <div>
+      <div className="page-header"><h1 className="page-title">Hotel Staff</h1><p className="page-subtitle">Hotel-wide roles — separate from an individual outlet's own staff</p></div>
+
+      <form onSubmit={grant} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:12,alignItems:'end'}}>
+        <div className="form-field">
+          <label className="form-label">User ID</label>
+          <input className="form-input" value={form.userId} onChange={e=>setForm(f=>({...f,userId:e.target.value}))} placeholder="user id to grant access" required/>
+        </div>
+        <div className="form-field">
+          <label className="form-label">Role</label>
+          <select className="form-input" value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))}>
+            {HOTEL_ROLES.map(r => <option key={r} value={r}>{r.replace('_',' ')}</option>)}
+          </select>
+        </div>
+        <button className="btn btn-primary" type="submit" disabled={saving}>{saving?'Granting…':'Grant access'}</button>
+      </form>
+
+      {loading ? (
+        <p style={{textAlign:'center',color:'var(--gray-400)',padding:'20px 0'}}>Loading staff…</p>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead><tr><th>User ID</th><th>Role</th><th>Outlet scope</th><th></th></tr></thead>
+            <tbody>
+              {access.map(row => (
+                <tr key={row.id}>
+                  <td style={{fontWeight:600}}>{row.userId}</td>
+                  <td>{row.role?.replace('_',' ')}</td>
+                  <td>{row.outletId ? row.outletId : 'Whole hotel'}</td>
+                  <td><button className="admin-row-btn admin-row-btn-danger" onClick={()=>revoke(row)}><Trash2 size={12}/></button></td>
+                </tr>
+              ))}
+              {access.length===0 && <tr><td colSpan={4} style={{textAlign:'center',color:'var(--gray-400)',padding:20}}>No staff granted access yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RoomsPage({rooms,setRooms}) {
   const [filter,setFilter] = useState('all');
+  const [billRoom,setBillRoom] = useState(null);
   const toggleQR = id => setRooms(prev=>prev.map(r=>r.id!==id?r:{...r,qrActive:!r.qrActive}));
   const filtered = filter==='all'?rooms:rooms.filter(r=>r.status===filter);
   return (
@@ -266,10 +534,79 @@ function RoomsPage({rooms,setRooms}) {
               <div style={{display:'flex',gap:6,marginTop:8}}>
                 <button className="btn-room-action">📋 Requests</button>
                 <button className="btn-room-action">🔗 QR Link</button>
+                {room.status==='occupied' &&
+                  <button className="btn-room-action" onClick={()=>setBillRoom(room)}>💳 Bill</button>}
               </div>
             </div>
           );
         })}
+      </div>
+      {billRoom && <RoomBillModal room={billRoom} onClose={()=>setBillRoom(null)}/>}
+    </div>
+  );
+}
+
+function RoomBillModal({room,onClose}) {
+  const [data,setData] = useState(null);
+  const [loading,setLoading] = useState(true);
+  const [settling,setSettling] = useState(false);
+
+  const loadBill = () => {
+    setLoading(true);
+    hotelOpsApi.roomCharges(room.id)
+      .then(r => setData(r.data.data))
+      .catch(() => setData({charges:[],pendingTotal:0}))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(loadBill, [room.id]);
+
+  const settle = () => {
+    setSettling(true);
+    hotelOpsApi.settleCharges(room.id)
+      .then(loadBill)
+      .catch(() => alert('Could not settle charges'))
+      .finally(() => setSettling(false));
+  };
+
+  const pending = data?.charges?.filter(c => c.status === 'PENDING') || [];
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}} onClick={onClose}>
+      <div style={{background:'#fff',borderRadius:16,padding:20,width:'92%',maxWidth:420,maxHeight:'85vh',overflowY:'auto'}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <div style={{fontWeight:800,fontSize:16}}>Room {room.number} · Bill</div>
+          <button onClick={onClose} style={{background:'var(--gray-100)',border:'none',borderRadius:8,padding:6,cursor:'pointer'}}><X size={18}/></button>
+        </div>
+        {loading ? (
+          <p style={{textAlign:'center',color:'var(--gray-400)',padding:'20px 0'}}>Loading bill…</p>
+        ) : (
+          <>
+            <div style={{background:'linear-gradient(135deg,#1D9E75,#178A65)',color:'#fff',borderRadius:12,padding:'14px 16px',marginBottom:14}}>
+              <div style={{fontSize:11,opacity:0.85}}>PENDING</div>
+              <div style={{fontSize:24,fontWeight:800}}>₹{Number(data?.pendingTotal||0).toLocaleString('en-IN')}</div>
+            </div>
+            {pending.length === 0 ? (
+              <p style={{textAlign:'center',color:'var(--gray-400)',fontSize:13,padding:'10px 0 20px'}}>No pending charges</p>
+            ) : (
+              <div style={{marginBottom:16}}>
+                {pending.map(c => (
+                  <div key={c.id} style={{display:'flex',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid var(--gray-100)'}}>
+                    <div>
+                      <div style={{fontWeight:600,fontSize:13}}>{c.description}</div>
+                      <div style={{fontSize:11,color:'var(--gray-400)'}}>{new Date(c.createdAt).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+                    </div>
+                    <div style={{fontWeight:700,fontSize:13}}>₹{Number(c.amount).toLocaleString('en-IN')}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button className="btn-refresh" style={{width:'100%',justifyContent:'center',opacity:settling||pending.length===0?0.6:1}}
+              onClick={settle} disabled={settling||pending.length===0}>
+              {settling ? 'Settling…' : 'Settle & Checkout'}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

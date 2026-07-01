@@ -5,6 +5,7 @@ import {
   Award, Star, Clock, Phone, ChevronRight, Download, Bell, Settings
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { loyaltyApi, orderApi, shopApi } from '../api/index.js';
 
 const TIERS = [
@@ -20,7 +21,7 @@ function getTier(pts) {
 
 export default function Loyalty() {
   const { user } = useAuth();
-  const shopId   = user?.shopId;
+  const shopId   = useActiveShopId();
   const navigate = useNavigate();
 
   const [customers,      setCust]    = useState([]);

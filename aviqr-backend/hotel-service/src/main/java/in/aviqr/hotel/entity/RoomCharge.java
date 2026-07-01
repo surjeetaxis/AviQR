@@ -21,4 +21,8 @@ public class RoomCharge {
     @CreationTimestamp private LocalDateTime createdAt;
     private LocalDateTime settledAt;
     private String settledBy;
+    private String guestName;
+    @Enumerated(EnumType.STRING) @Builder.Default
+    private PaymentChoice paymentChoice = PaymentChoice.CHARGE_TO_ROOM;
+    private String paymentRef;   // razorpay/txn id when PAY_DIRECT
 }

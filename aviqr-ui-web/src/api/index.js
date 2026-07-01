@@ -2,6 +2,7 @@
 // Auto-falls back to mock data when backend is unreachable
 
 import axios from 'axios';
+import { getActiveOutletId } from './outletContext.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -93,7 +94,12 @@ export const shopApi = {
   update:           (id, d)      => api.put(`/api/v1/shops/${id}`, d),
   list:             (p)          => api.get('/api/v1/shops', { params: p }),
   updateStatus:     (id, status) => api.put(`/api/v1/shops/${id}/status?status=${status}`),
-  getStaff:         (shopId)     => api.get(`/api/v1/staff/shop/${shopId}`),
+  getStaff:         (shopId)     => {
+    const outletId = getActiveOutletId();
+    return outletId
+      ? api.get(`/api/v1/hotel-outlets/${outletId}/staff`)
+      : api.get(`/api/v1/staff/shop/${shopId}`);
+  },
   addStaff:         (sId, d)     => api.post(`/api/v1/staff/shop/${sId}`, d),
   updateStaff:      (id, d)      => api.put(`/api/v1/staff/${id}`, d),
   removeStaff:      (id)         => api.delete(`/api/v1/staff/${id}`),
@@ -168,6 +174,49 @@ export const hotelApi = {
   createRequest:  (d)        => api.post('/api/v1/room-requests', d),
 };
 
+// ── Hotel Guest Services (QR service hub, requests, bookings, folio) ──────────
+// PUBLIC endpoints — guest scans a QR, no auth needed
+export const guestServiceApi = {
+  // Service hub the QR lands on: all outlets + charge-to-room eligibility
+  hub:        (hotelId, room, area) => api.get(`/api/v1/public/hotel/${hotelId}/services`, { params: { room, area } }),
+  // Raise a housekeeping / amenities / concierge request
+  request:    (hotelId, body)       => api.post(`/api/v1/public/hotel/${hotelId}/service-request`, body),
+  // Book a spa / activity / table slot
+  book:       (hotelId, body)       => api.post(`/api/v1/public/hotel/${hotelId}/book`, body),
+  // View running folio
+  folio:      (hotelId, room)       => api.get(`/api/v1/public/hotel/${hotelId}/folio`, { params: { room } }),
+  // Record a direct payment (card/UPI/wallet)
+  payDirect:  (hotelId, body)       => api.post(`/api/v1/public/hotel/${hotelId}/pay-direct`, body),
+};
+
+// ── Hotel staff ops (dashboard) ──────────────────────────────────────────────
+export const hotelOpsApi = {
+  listRequests:   (hotelId, status) => api.get(`/api/v1/hotel/${hotelId}/service-requests`, { params: { status } }),
+  updateRequest:  (id, status)      => api.put(`/api/v1/hotel/service-requests/${id}/status?status=${status}`),
+  listBookings:   (hotelId, status) => api.get(`/api/v1/hotel/${hotelId}/bookings`, { params: { status } }),
+  updateBooking:  (id, status)      => api.put(`/api/v1/hotel/bookings/${id}/status?status=${status}`),
+  roomCharges:    (roomId)          => api.get(`/api/v1/rooms/${roomId}/charges`),
+  settleCharges:  (roomId)          => api.post(`/api/v1/rooms/${roomId}/settle-charges`),
+};
+
+// ── Hotel Outlets (restaurants/spas/bars inside the hotel, each backed by a shop-service Shop) ─
+export const hotelOutletApi = {
+  list:         (hotelId)      => api.get(`/api/v1/hotel-outlets/hotel/${hotelId}`),
+  getById:      (id)           => api.get(`/api/v1/hotel-outlets/${id}`),
+  create:       (d)            => api.post('/api/v1/hotel-outlets', d),
+  toggleStatus: (id, active)   => api.put(`/api/v1/hotel-outlets/${id}/status?active=${active}`),
+  toggleQr:     (id, active)   => api.put(`/api/v1/hotel-outlets/${id}/qr?active=${active}`),
+  delete:       (id)           => api.delete(`/api/v1/hotel-outlets/${id}`),
+  createQr:     (id)           => api.post(`/api/v1/hotel-outlets/${id}/qr-code`),
+};
+
+// ── Hotel Access (hotel-wide staff roles: OWNER/GENERAL_MANAGER/OUTLET_MANAGER/STAFF) ─────
+export const hotelAccessApi = {
+  list:   (hotelId)      => api.get(`/api/v1/hotels/${hotelId}/access`),
+  grant:  (hotelId, d)   => api.post(`/api/v1/hotels/${hotelId}/access`, d),
+  revoke: (hotelId, id)  => api.delete(`/api/v1/hotels/${hotelId}/access/${id}`),
+};
+
 // ── Mall ──────────────────────────────────────────────────────────────────────
 export const mallApi = {
   getMyMalls:  ()            => api.get('/api/v1/malls/my'),
@@ -207,7 +256,12 @@ export const loyaltyApi = {
   getBalance:  (sId, phone)  => api.get(`/api/v1/loyalty/${sId}/balance`, { params: { phone } }),
   earn:        (sId, d)      => api.post(`/api/v1/loyalty/${sId}/earn`, d),
   redeem:      (sId, d)      => api.post(`/api/v1/loyalty/${sId}/redeem`, d),
-  getCustomers:(sId)         => api.get(`/api/v1/loyalty/${sId}/customers`),
+  getCustomers:(sId)         => {
+    const outletId = getActiveOutletId();
+    return outletId
+      ? api.get(`/api/v1/hotel-outlets/${outletId}/loyalty-customers`)
+      : api.get(`/api/v1/loyalty/${sId}/customers`);
+  },
   getHistory:  (sId, phone)  => api.get(`/api/v1/loyalty/${sId}/history`, { params: { phone } }),
 };
 

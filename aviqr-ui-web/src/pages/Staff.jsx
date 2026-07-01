@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, X, Check, Info } from 'lucide-react';
 import { useAuth, ROLE_PERMISSIONS } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { shopApi } from '../api/index.js';
 import './Staff.css';
 
@@ -26,7 +27,7 @@ const EMPTY = { name:'', phone:'', email:'', role:'CASHIER' };
 
 export default function Staff() {
   const { user } = useAuth();
-  const shopId = user?.shopId;
+  const shopId = useActiveShopId();
 
   const [staff, setStaff]   = useState([]);
   const [search, setSearch] = useState('');

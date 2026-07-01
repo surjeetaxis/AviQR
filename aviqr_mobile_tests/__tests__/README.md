@@ -4,20 +4,29 @@ Three layers, increasing fidelity and setup cost.
 
 ## Layer 1 — Logic & API-contract tests  (runs anywhere, no native deps)
 
-31 tests. Pure JS: routing map, order-status machine, cart/GST math, auth
-session storage, and API-endpoint contracts (mocked axios). These run in
-plain Node — no emulator, no Expo toolchain.
+66 tests. Pure JS: routing map, order-status machine, cart/GST math, auth
+session storage, guest-services folio/charge-to-room logic, and API-endpoint
+contracts (mocked axios). These run in plain Node — no emulator, no Expo
+toolchain.
 
     npm run test:logic
 
 Files:
-  __tests__/unit/roleRouting.test.js   — every role → correct home screen
-                                          (catches "admin sees owner dashboard")
-  __tests__/unit/orderStatus.test.js   — NEW→ACCEPTED→PREPARING→READY→COMPLETED
-  __tests__/unit/cartTotals.test.js    — subtotal, 5%/12% GST, rounding
-  __tests__/unit/authFlow.test.js      — token store/clear on login/logout
-  __tests__/api/authApi.test.js        — auth endpoints + payload shapes
-  __tests__/api/orderApi.test.js       — order endpoints
+  __tests__/unit/roleRouting.test.js        — every role → correct home screen
+                                               (catches "admin sees owner dashboard")
+  __tests__/unit/orderStatus.test.js        — NEW→ACCEPTED→PREPARING→READY→COMPLETED
+  __tests__/unit/cartTotals.test.js         — subtotal, 5%/12% GST, rounding
+  __tests__/unit/authFlow.test.js           — token store/clear on login/logout
+  __tests__/unit/guestFolio.test.js         — My Bill pending/settled totals,
+                                               settle-at-checkout button gating
+  __tests__/unit/chargeToRoomGating.test.js — charge-to-room only when OCCUPIED,
+                                               server re-validates on booking
+  __tests__/unit/guestRequestTypes.test.js  — every guest request type is known
+                                               to the staff dashboard's labels
+  __tests__/api/authApi.test.js             — auth endpoints + payload shapes
+  __tests__/api/orderApi.test.js            — order endpoints
+  __tests__/api/guestServiceApi.test.js     — QR hub/requests/bookings/folio +
+                                               staff bookings/room-bill endpoints
 
 ## Layer 2 — Component tests  (needs jest-expo on the dev machine)
 

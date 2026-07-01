@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -15,11 +17,16 @@ import java.util.*;
 @RestController @RequiredArgsConstructor @Slf4j
 public class HotelOutletController {
     private final HotelOutletRepository outletRepo;
+    private final HotelRepository hotelRepo;
     private final HotelAccessService accessService;
     private final RabbitTemplate rabbit;
+    private final RestTemplate restTemplate;
 
     @Value("${qr.service.url:http://qr-service}")
     private String qrServiceUrl;
+
+    @Value("${shop.service.url:http://shop-service}")
+    private String shopServiceUrl;
 
     @PostMapping("/api/v1/hotel-outlets")
     public ResponseEntity<ApiResponse<HotelOutlet>> create(
@@ -33,6 +40,12 @@ public class HotelOutletController {
                 || outlet.getOutletType() == OutletType.ACTIVITY
                 || outlet.getOutletType() == OutletType.BANQUET);
         }
+        if (outlet.getShopId() == null || outlet.getShopId().isBlank()) {
+            String provisionedShopId = provisionShop(outlet, uid);
+            if (provisionedShopId == null)
+                return ResponseEntity.status(502).body(ApiResponse.error("Could not provision shop for outlet"));
+            outlet.setShopId(provisionedShopId);
+        }
         HotelOutlet saved = outletRepo.save(outlet);
         try {
             rabbit.convertAndSend("aviqr.hotel", "outlet.new",
@@ -42,9 +55,47 @@ public class HotelOutletController {
         return ResponseEntity.ok(ApiResponse.ok("Created", saved));
     }
 
+    // Auto-provisions a shop-service Shop for a newly created outlet so it gets the full
+    // shop-owner toolset (menu, staff, settings, loyalty, orders, ...) for free. Returns
+    // the new shop's id, or null if shop-service could not be reached.
+    private String provisionShop(HotelOutlet outlet, String uid) {
+        try {
+            Hotel hotel = hotelRepo.findById(outlet.getHotelId()).orElse(null);
+            String phone = (hotel != null && hotel.getPhone() != null && !hotel.getPhone().isBlank())
+                ? hotel.getPhone() : "0000000000";
+            Map<String, Object> shopReq = Map.of("name", outlet.getName(), "phone", phone);
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-User-Id", uid);
+            ResponseEntity<Map> resp = restTemplate.postForEntity(
+                shopServiceUrl + "/api/v1/shops", new HttpEntity<>(shopReq, headers), Map.class);
+            Map<?, ?> data = (Map<?, ?>) resp.getBody().get("data");
+            return data.get("id").toString();
+        } catch (Exception e) {
+            log.warn("Failed to provision shop for outlet {}: {}", outlet.getName(), e.getMessage());
+            return null;
+        }
+    }
+
     @GetMapping("/api/v1/hotel-outlets/hotel/{hotelId}")
-    public ResponseEntity<ApiResponse<List<HotelOutlet>>> getOutlets(@PathVariable UUID hotelId) {
+    public ResponseEntity<ApiResponse<List<HotelOutlet>>> getOutlets(
+            @PathVariable UUID hotelId,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!accessService.hasAccess(hotelId, uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok(outletRepo.findByHotelId(hotelId)));
+    }
+
+    @GetMapping("/api/v1/hotel-outlets/{id}")
+    public ResponseEntity<ApiResponse<HotelOutlet>> getOutlet(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        HotelOutlet outlet = outletRepo.findById(id).orElse(null);
+        if (outlet == null) return ResponseEntity.notFound().build();
+        if (!accessService.hasAccess(outlet.getHotelId(), uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return ResponseEntity.ok(ApiResponse.ok(outlet));
     }
 
     @GetMapping("/api/v1/hotel-outlets/public/hotel/{hotelId}")

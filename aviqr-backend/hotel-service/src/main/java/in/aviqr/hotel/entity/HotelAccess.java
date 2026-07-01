@@ -5,7 +5,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Entity @Table(name="hotel_access", uniqueConstraints=@UniqueConstraint(columnNames={"hotelId","userId","outletId"}))
+@Entity @Table(name="hotel_access", uniqueConstraints=@UniqueConstraint(columnNames={"hotel_id","user_id","outlet_id"}))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class HotelAccess {
     @Id @GeneratedValue(strategy=GenerationType.UUID) private UUID id;

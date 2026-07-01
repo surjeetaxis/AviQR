@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { getActiveOutletId } from './outletContext.js';
 
 // ── Config ─────────────────────────────────────────────────────────────────
 import { Platform } from 'react-native';
@@ -81,7 +82,12 @@ export const authApi = {
 // ── Shop ────────────────────────────────────────────────────────────────────
 export const shopApi = {
   getMyShops:  ()       => api.get('/api/v1/shops/my'),
-  getStaff:    (sId)    => api.get(`/api/v1/staff/shop/${sId}`),
+  getStaff:    (sId)    => {
+    const outletId = getActiveOutletId();
+    return outletId
+      ? api.get(`/api/v1/hotel-outlets/${outletId}/staff`)
+      : api.get(`/api/v1/staff/shop/${sId}`);
+  },
   addStaff:    (sId, d) => api.post(`/api/v1/staff/shop/${sId}`, d),
   updateStaff: (id, d)  => api.put(`/api/v1/staff/${id}`, d),
   removeStaff: (id)     => api.delete(`/api/v1/staff/${id}`),
@@ -145,6 +151,37 @@ export const hotelApi = {
   getRequests:   (hId, p) => api.get(`/api/v1/room-requests/hotel/${hId}`, { params: p }),
   updateRequest: (id, s)  => api.put(`/api/v1/room-requests/${id}/status?status=${s}`),
   createRequest: (d)      => api.post('/api/v1/room-requests', d),
+};
+
+// ── Hotel Guest Services (QR service hub, requests, bookings, folio) ────────
+// PUBLIC endpoints — guest scans a QR, no auth needed
+export const guestServiceApi = {
+  hub:        (hotelId, room, area) => api.get(`/api/v1/public/hotel/${hotelId}/services`, { params: { room, area } }),
+  request:    (hotelId, body)       => api.post(`/api/v1/public/hotel/${hotelId}/service-request`, body),
+  book:       (hotelId, body)       => api.post(`/api/v1/public/hotel/${hotelId}/book`, body),
+  folio:      (hotelId, room)       => api.get(`/api/v1/public/hotel/${hotelId}/folio`, { params: { room } }),
+  payDirect:  (hotelId, body)       => api.post(`/api/v1/public/hotel/${hotelId}/pay-direct`, body),
+};
+
+// ── Hotel staff ops (dashboard) ──────────────────────────────────────────────
+export const hotelOpsApi = {
+  listRequests:   (hotelId, status) => api.get(`/api/v1/hotel/${hotelId}/service-requests`, { params: { status } }),
+  updateRequest:  (id, status)      => api.put(`/api/v1/hotel/service-requests/${id}/status?status=${status}`),
+  listBookings:   (hotelId, status) => api.get(`/api/v1/hotel/${hotelId}/bookings`, { params: { status } }),
+  updateBooking:  (id, status)      => api.put(`/api/v1/hotel/bookings/${id}/status?status=${status}`),
+  roomCharges:    (roomId)          => api.get(`/api/v1/rooms/${roomId}/charges`),
+  settleCharges:  (roomId)          => api.post(`/api/v1/rooms/${roomId}/settle-charges`),
+};
+
+// ── Hotel Outlets (restaurants/spas/bars inside the hotel, each backed by a shop-service Shop) ─
+export const hotelOutletApi = {
+  list:         (hotelId)      => api.get(`/api/v1/hotel-outlets/hotel/${hotelId}`),
+  getById:      (id)           => api.get(`/api/v1/hotel-outlets/${id}`),
+  create:       (d)            => api.post('/api/v1/hotel-outlets', d),
+  toggleStatus: (id, active)   => api.put(`/api/v1/hotel-outlets/${id}/status?active=${active}`),
+  toggleQr:     (id, active)   => api.put(`/api/v1/hotel-outlets/${id}/qr?active=${active}`),
+  delete:       (id)           => api.delete(`/api/v1/hotel-outlets/${id}`),
+  createQr:     (id)           => api.post(`/api/v1/hotel-outlets/${id}/qr-code`),
 };
 
 // ── Mall ─────────────────────────────────────────────────────────────────────

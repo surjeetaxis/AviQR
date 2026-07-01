@@ -4,6 +4,7 @@ import {
   ChevronDown, ChevronUp, Power, CheckCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { menuApi, variantApi, addonApi } from '../api/index.js';
 
 // ── Tiny toggle switch ────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ function StatusPill({ active }) {
 
 export default function MenuVariations() {
   const { user } = useAuth();
-  const shopId = user?.shopId;
+  const shopId = useActiveShopId();
 
   const [menuItems, setMenu]       = useState([]);
   const [allAddons, setAddons]     = useState([]);

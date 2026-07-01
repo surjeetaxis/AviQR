@@ -962,6 +962,132 @@ INSERT INTO room_requests (id, hotel_id, room_number, service_type, description,
   ('affb56f6-c6c5-4587-9c0f-1651ca1d4201', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'HOUSEKEEPING', 'Extra towels (2) and bed pillows (4)',               'DONE',      'NORMAL', NOW() - INTERVAL '1 hour',   NOW() - INTERVAL '45 min');
 
 
+
+-- ============================================================
+--  SECTION 8b — Hotel Guest Services (v2.3)
+--  Outlets, room charges (folio), QR service requests, bookings
+--  Tables created explicitly so production (ddl-auto=none) and
+--  SQL-based imports both work. JPA will no-op on IF NOT EXISTS.
+-- ============================================================
+
+-- ── hotel_outlets ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS hotel_outlets (
+    id           UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id     UUID          NOT NULL,
+    name         VARCHAR(255)  NOT NULL,
+    outlet_type  VARCHAR(30)   DEFAULT 'RESTAURANT',
+    description  TEXT,
+    location     VARCHAR(150),
+    shop_id      VARCHAR(100),
+    bookable     BOOLEAN       DEFAULT FALSE,
+    active       BOOLEAN       DEFAULT TRUE,
+    qr_active    BOOLEAN       DEFAULT TRUE,
+    created_at   TIMESTAMP     DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_outlets_hotel ON hotel_outlets (hotel_id);
+
+-- ── room_charges (guest folio) ────────────────────────────────
+CREATE TABLE IF NOT EXISTS room_charges (
+    id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id       UUID          NOT NULL,
+    room_number    VARCHAR(20)   NOT NULL,
+    outlet_id      UUID,
+    shop_id        VARCHAR(100),
+    order_id       VARCHAR(100),
+    order_number   VARCHAR(50),
+    amount         NUMERIC(10,2),
+    description    TEXT,
+    status         VARCHAR(20)   DEFAULT 'PENDING',
+    guest_name     VARCHAR(150),
+    payment_choice VARCHAR(20)   DEFAULT 'CHARGE_TO_ROOM',
+    payment_ref    VARCHAR(100),
+    created_at     TIMESTAMP     DEFAULT NOW(),
+    settled_at     TIMESTAMP,
+    settled_by     VARCHAR(100)
+);
+CREATE INDEX IF NOT EXISTS idx_charges_room ON room_charges (hotel_id, room_number);
+
+-- ── guest_service_requests (QR-raised requests) ───────────────
+CREATE TABLE IF NOT EXISTS guest_service_requests (
+    id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id      UUID          NOT NULL,
+    room_number   VARCHAR(20)   NOT NULL,
+    guest_name    VARCHAR(150),
+    type          VARCHAR(30)   DEFAULT 'HOUSEKEEPING',
+    details       VARCHAR(500),
+    priority      VARCHAR(20)   DEFAULT 'NORMAL',
+    status        VARCHAR(20)   DEFAULT 'NEW',
+    assigned_to   VARCHAR(100),
+    created_at    TIMESTAMP     DEFAULT NOW(),
+    completed_at  TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_gsr_hotel ON guest_service_requests (hotel_id, status);
+
+-- ── outlet_bookings (spa / activity / table slots) ────────────
+CREATE TABLE IF NOT EXISTS outlet_bookings (
+    id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id       UUID          NOT NULL,
+    outlet_id      UUID          NOT NULL,
+    outlet_name    VARCHAR(150),
+    room_number    VARCHAR(20)   NOT NULL,
+    guest_name     VARCHAR(150),
+    guest_phone    VARCHAR(20),
+    service_name   VARCHAR(200)  NOT NULL,
+    price          NUMERIC(10,2),
+    booking_date   VARCHAR(20)   NOT NULL,
+    booking_time   VARCHAR(10)   NOT NULL,
+    party_size     INTEGER       DEFAULT 1,
+    notes          VARCHAR(500),
+    status         VARCHAR(20)   DEFAULT 'REQUESTED',
+    payment_choice VARCHAR(20)   DEFAULT 'CHARGE_TO_ROOM',
+    created_at     TIMESTAMP     DEFAULT NOW(),
+    confirmed_at   TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_ob_hotel  ON outlet_bookings (hotel_id, status);
+CREATE INDEX IF NOT EXISTS idx_ob_outlet ON outlet_bookings (outlet_id, booking_date);
+
+
+-- ── Dummy data — hotel_outlets (Grand Palace Hotel) ───────────
+-- shop_id links an outlet to a shop in shop-service for menu/ordering.
+-- bookable=TRUE outlets use the booking flow (spa, activities, banquet).
+INSERT INTO hotel_outlets (id, hotel_id, name, outlet_type, description, location, shop_id, bookable, active, qr_active) VALUES
+  ('b1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Zodiac — Multi-cuisine Restaurant', 'RESTAURANT', 'All-day dining with Indian, Continental & Asian', 'Lobby Level',      'SHOP_101', FALSE, TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'The Cellar Bar',                    'BAR',        'Cocktails, wines & premium spirits',              '1st Floor',        NULL,       FALSE, TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Serenity Spa',                      'SPA',        'Ayurvedic & Swedish therapies',                    '2nd Floor',        NULL,       TRUE,  TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Infinity Pool & Poolside Grill',    'POOL',       'Rooftop pool with light bites & drinks',           'Rooftop',          NULL,       FALSE, TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000005', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Palace Boutique',                   'SHOP',       'Souvenirs, essentials & local crafts',             'Lobby Level',      NULL,       FALSE, TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000006', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'FitZone Gym',                       'GYM',        '24x7 fitness centre',                              'Ground Floor',     NULL,       FALSE, TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000007', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Heritage Walk & City Tours',        'ACTIVITY',   'Guided tours, cab & experience bookings',          'Concierge Desk',   NULL,       TRUE,  TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000008', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Grand Ballroom',                    'BANQUET',    'Events, weddings & conferences',                   '3rd Floor',        NULL,       TRUE,  TRUE, TRUE);
+
+-- ── Dummy data — room_charges (running folios) ────────────────
+-- Room 101 (Anjali Singh) has an open folio; some pending, some settled.
+INSERT INTO room_charges (id, hotel_id, room_number, outlet_id, amount, description, status, guest_name, payment_choice, created_at, settled_at) VALUES
+  ('c1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'b1000001-0000-4000-8000-000000000001', 780.00,  'Zodiac Restaurant — Dinner for 2',            'PENDING', 'Anjali Singh', 'CHARGE_TO_ROOM', NOW() - INTERVAL '3 hours',  NULL),
+  ('c1000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'b1000001-0000-4000-8000-000000000002', 1250.00, 'The Cellar Bar — Cocktails',                  'PENDING', 'Anjali Singh', 'CHARGE_TO_ROOM', NOW() - INTERVAL '2 hours',  NULL),
+  ('c1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'b1000001-0000-4000-8000-000000000004', 450.00,  'Poolside Grill — Snacks & juice',             'PENDING', 'Anjali Singh', 'CHARGE_TO_ROOM', NOW() - INTERVAL '1 hour',   NULL),
+  -- Room 201 (Ravi Kumar) — one settled, one direct-paid
+  ('c1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'b1000001-0000-4000-8000-000000000003', 2500.00, 'Serenity Spa — Swedish Massage 60min',        'SETTLED', 'Ravi Kumar',   'CHARGE_TO_ROOM', NOW() - INTERVAL '1 day',    NOW() - INTERVAL '20 hours'),
+  ('c1000001-0000-4000-8000-000000000005', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'b1000001-0000-4000-8000-000000000005', 320.00,  'Palace Boutique — Toiletries',                'SETTLED', 'Ravi Kumar',   'PAY_DIRECT',     NOW() - INTERVAL '5 hours',  NOW() - INTERVAL '5 hours'),
+  -- Room 301 (Meena Pillai) — single pending F&B charge
+  ('c1000001-0000-4000-8000-000000000006', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'b1000001-0000-4000-8000-000000000001', 1680.00, 'Zodiac Restaurant — Lunch buffet x3',         'PENDING', 'Meena Pillai', 'CHARGE_TO_ROOM', NOW() - INTERVAL '6 hours',  NULL);
+
+-- ── Dummy data — guest_service_requests (QR-raised) ───────────
+INSERT INTO guest_service_requests (id, hotel_id, room_number, guest_name, type, details, priority, status, created_at, completed_at) VALUES
+  ('d1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'Anjali Singh', 'AMENITIES',    '2 extra bath towels and a toothbrush',            'NORMAL', 'NEW',      NOW() - INTERVAL '8 min',   NULL),
+  ('d1000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'Ravi Kumar',   'HOUSEKEEPING', 'Please make up the room while we are at breakfast','NORMAL', 'ACCEPTED', NOW() - INTERVAL '25 min',  NULL),
+  ('d1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'Meena Pillai', 'MAINTENANCE',  'Bathroom sink draining slowly',                    'HIGH',   'NEW',      NOW() - INTERVAL '15 min',  NULL),
+  ('d1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'Anjali Singh', 'CONCIERGE',    'Book an airport cab for tomorrow 6 AM',            'NORMAL', 'ACCEPTED', NOW() - INTERVAL '40 min',  NULL),
+  ('d1000001-0000-4000-8000-000000000005', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'Ravi Kumar',   'LAUNDRY',      'Express laundry — 2 shirts, 1 trouser',            'NORMAL', 'DONE',     NOW() - INTERVAL '3 hours', NOW() - INTERVAL '90 min'),
+  ('d1000001-0000-4000-8000-000000000006', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'Meena Pillai', 'LATE_CHECKOUT','Requesting checkout at 3 PM instead of noon',      'NORMAL', 'DONE',     NOW() - INTERVAL '5 hours', NOW() - INTERVAL '4 hours');
+
+-- ── Dummy data — outlet_bookings (spa / activities) ───────────
+INSERT INTO outlet_bookings (id, hotel_id, outlet_id, outlet_name, room_number, guest_name, guest_phone, service_name, price, booking_date, booking_time, party_size, notes, status, payment_choice, created_at, confirmed_at) VALUES
+  ('e1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000003', 'Serenity Spa',                 '101', 'Anjali Singh', '9845012345', 'Aromatherapy Massage 90min',   3500.00, 'Jun 16, 2026', '16:00', 1, 'Prefers lavender oil',        'CONFIRMED', 'CHARGE_TO_ROOM', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '90 min'),
+  ('e1000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000007', 'Heritage Walk & City Tours',   '301', 'Meena Pillai', '9845067890', 'Old City Heritage Walk',       1200.00, 'Jun 17, 2026', '07:30', 2, 'Vegetarian breakfast en route','REQUESTED', 'CHARGE_TO_ROOM', NOW() - INTERVAL '50 min',  NULL),
+  ('e1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000001', 'Zodiac — Restaurant',          '201', 'Ravi Kumar',   '9845054321', 'Dinner table for 4',           0.00,    'Jun 16, 2026', '20:30', 4, 'Window table if possible',    'CONFIRMED', 'PAY_DIRECT',     NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours');
+
+
 -- ============================================================
 --  SECTION 9 — aviqr_mall
 -- ============================================================

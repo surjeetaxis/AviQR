@@ -6,6 +6,7 @@ import {
   Printer, ChevronRight, Wifi, WifiOff, RefreshCw, Info, Key, QrCode,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { shopApi, authApi, menuApi, aggregatorConfigApi } from '../api/index.js';
 
 const DAYS  = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -101,7 +102,7 @@ function StatusBadge({ ok, okLabel = 'Configured', noLabel = 'Not set' }) {
 // ── Main component ───────────────────────────────────────────────────────────
 export default function Settings() {
   const { user, lang: currentLang, changeLang, updateUser } = useAuth();
-  const shopId = user?.shopId;
+  const shopId = useActiveShopId();
   const [section, setSection] = useState('shop');
 
   // ── State ────────────────────────────────────────────────────────────────

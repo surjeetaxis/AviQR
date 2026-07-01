@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext.js';
+import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { reportApi, orderApi } from '../../src/api/index.js';
 import { MOCK_STATS, MOCK_ORDERS } from '../../src/api/mockData.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
@@ -30,7 +32,9 @@ function greeting() {
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
-  const shopId = user?.shopId || '00000000-0000-0000-0000-000000000101';
+  const { outletId } = useLocalSearchParams();
+  const basePath = outletId ? `/(hotel)/outlets/${outletId}` : '/(owner)';
+  const shopId = useActiveShopId() || '00000000-0000-0000-0000-000000000101';
 
   const [stats,     setStats]  = useState(null);
   const [orders,    setOrders] = useState([]);
@@ -74,12 +78,12 @@ export default function Dashboard() {
   const newOrders = orders.filter(o => o.status === 'NEW');
 
   const QUICK = [
-    { emoji:'📦', label:'Orders',   href:'/(owner)/orders',   badge: newOrders.length },
-    { emoji:'🍽️', label:'Menu',     href:'/(owner)/menu' },
-    { emoji:'📱', label:'QR Codes', href:'/(owner)/qrcodes' },
-    { emoji:'👥', label:'Staff',    href:'/(owner)/staff' },
-    { emoji:'📊', label:'Reports',  href:'/(owner)/reports' },
-    { emoji:'⚙️', label:'Settings', href:'/(owner)/settings' },
+    { emoji:'📦', label:'Orders',   href:`${basePath}/orders`,   badge: newOrders.length },
+    { emoji:'🍽️', label:'Menu',     href:`${basePath}/menu` },
+    { emoji:'📱', label:'QR Codes', href:`${basePath}/qrcodes` },
+    { emoji:'👥', label:'Staff',    href:`${basePath}/staff` },
+    { emoji:'📊', label:'Reports',  href:`${basePath}/reports` },
+    { emoji:'⚙️', label:'Settings', href:`${basePath}/settings` },
   ];
 
   const KPI = [
@@ -123,7 +127,7 @@ export default function Dashboard() {
 
         {/* New order alert */}
         {newOrders.length > 0 && (
-          <TouchableOpacity style={ss.newOrderBanner} onPress={() => router.push('/(owner)/orders')}>
+          <TouchableOpacity style={ss.newOrderBanner} onPress={() => router.push(`${basePath}/orders`)}>
             <Text style={ss.newOrderText}>🔔 {newOrders.length} new order{newOrders.length > 1 ? 's' : ''} waiting — tap to accept</Text>
           </TouchableOpacity>
         )}
@@ -153,7 +157,7 @@ export default function Dashboard() {
         {/* Live orders */}
         <View style={ss.sectionHeader}>
           <Text style={ss.sectionTitle}>Live orders</Text>
-          <TouchableOpacity onPress={() => router.push('/(owner)/orders')}>
+          <TouchableOpacity onPress={() => router.push(`${basePath}/orders`)}>
             <Text style={ss.seeAll}>View all →</Text>
           </TouchableOpacity>
         </View>

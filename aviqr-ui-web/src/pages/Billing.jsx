@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Minus, Printer, CreditCard, Wallet, Banknote, X, Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, PanelLeftClose, PanelLeftOpen, Maximize2, Minimize2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { menuApi, posApi, paymentApi, addonApi, variantApi, invoiceApi, shopApi } from '../api/index.js';
 
 const PAY_METHODS = [
@@ -11,7 +12,7 @@ const PAY_METHODS = [
 
 export default function Billing() {
   const { user } = useAuth();
-  const shopId = user?.shopId;
+  const shopId = useActiveShopId();
 
   const [categories, setCats]   = useState([]);
   const [allAddons,  setAddons] = useState([]);

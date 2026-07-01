@@ -5,6 +5,7 @@ import QRCode from 'react-native-qrcode-svg';
 // Toast replaced with Alert
 import { qrApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
+import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 // Header removed - expo-router handles navigation
 import { Button } from '../../src/components/common/Button.js';
 import { Card } from '../../src/components/common/Card.js';
@@ -13,7 +14,7 @@ import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 export default function QRCodesScreen() {
   const { user } = useAuth();
-  const shopId = user?.shopId || '00000000-0000-0000-0000-000000000101';
+  const shopId = useActiveShopId() || '00000000-0000-0000-0000-000000000101';
   const [codes, setCodes]     = useState([]);
   const [preview, setPreview] = useState(null);
   const [creating, setCreating] = useState(false);

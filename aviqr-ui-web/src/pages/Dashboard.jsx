@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, ShoppingBag, Users, Clock, ArrowRight, Plus, QrCode, RefreshCw, Bell, AlertTriangle, Package, ChevronRight, Zap } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import StatCard from '../components/StatCard.jsx';
 import OrderRow from '../components/OrderRow.jsx';
 import Onboarding from '../components/Onboarding.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { reportApi, orderApi, inventoryApi } from '../api/index.js';
 import './Dashboard.css';
 
@@ -19,11 +20,15 @@ function greeting() {
 export default function Dashboard() {
   const { user } = useAuth();
   const nav = useNavigate();
-  const shopId = user?.shopId;
+  const { outletId } = useParams();
+  const shopId = useActiveShopId();
 
   // Capture onboarding state once at mount — stays true through all wizard steps
   // even after linkShop updates user.shopId, so the wizard isn't unmounted early.
-  const [showOnboarding, setShowOnboarding] = useState(!shopId);
+  // When managing a hotel outlet, shopId resolves asynchronously (outlet fetch) and
+  // is guaranteed to exist once the route exists, so never gate on its transient
+  // pre-fetch undefined value — gate on the (synchronous) outletId route param instead.
+  const [showOnboarding, setShowOnboarding] = useState(!outletId && !shopId);
 
   const [stats,    setStats]    = useState(null);
   const [revenue,  setRevenue]  = useState([]);

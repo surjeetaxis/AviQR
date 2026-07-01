@@ -56,7 +56,7 @@ const NAV_GROUPS = [
   },
 ];
 
-export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0 }) {
+export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, basePath = '' }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const isAdmin = user?.role === 'ADMIN';
@@ -109,6 +109,11 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0 }) {
 
       {/* Navigation */}
       <nav className="sidebar-nav" aria-label="Primary navigation" style={{ flex:1, overflowY:'auto', padding:'8px 0' }}>
+        {basePath && (
+          <NavLink to="/hotel" onClick={onClose} className="sidebar-link" style={{ marginBottom:8 }}>
+            <span>&larr; Back to Outlets</span>
+          </NavLink>
+        )}
         {NAV_GROUPS.map(group => {
           const visibleItems = group.items.filter(item => canAccess(item.to));
           if (visibleItems.length === 0) return null;
@@ -118,7 +123,7 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0 }) {
                 {group.label}
               </div>
               {visibleItems.map(({ to, label, icon:Icon, badge }) => (
-                <NavLink key={to} to={to} onClick={onClose}
+                <NavLink key={to} to={`${basePath}${to}`} onClick={onClose}
                   className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}>
                   <Icon size={16} aria-hidden="true" />
                   <span>{label}</span>

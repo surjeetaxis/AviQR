@@ -3,6 +3,7 @@ import { Download, RefreshCw } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import StatCard from '../components/StatCard.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { reportApi } from '../api/index.js';
 import './Reports.css';
 
@@ -11,7 +12,7 @@ const CAT_COLORS = ['#1D9E75','#2563EB','#7C3AED','#D97706','#DC2626'];
 
 export default function Reports() {
   const { user } = useAuth();
-  const shopId = user?.shopId;
+  const shopId = useActiveShopId();
   const [stats,    setStats]    = useState(null);
   const [revenue,  setRevenue]  = useState([]);
   const [topItems, setTop]      = useState([]);

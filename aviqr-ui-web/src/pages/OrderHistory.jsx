@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Download, Search, Filter, Bike, ShoppingBag, UtensilsCrossed, FileText, RefreshCw, X, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { invoiceApi, orderApi, paymentApi } from '../api/index.js';
 
 const TYPE_ICON = { DINE_IN:UtensilsCrossed, TAKEAWAY:ShoppingBag, DELIVERY:Bike };
@@ -11,7 +12,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 export default function OrderHistory() {
   const { user } = useAuth();
-  const shopId = user?.shopId;
+  const shopId = useActiveShopId();
 
   const [orders,   setOrders]   = useState([]);
   const [loading,  setLoad]     = useState(true);

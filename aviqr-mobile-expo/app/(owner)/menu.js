@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Switch, Alert, TextInput, Modal, ScrollView } from 'react-native';
 import { useAuth } from '../../src/context/AuthContext.js';
+import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { menuApi } from '../../src/api/index.js';
 import { MOCK_CATEGORIES, MOCK_ITEMS } from '../../src/api/mockData.js';
 import { Button } from '../../src/components/common/Button.js';
@@ -11,7 +12,7 @@ import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index
 
 export default function MenuScreen() {
   const { user } = useAuth();
-  const shopId = user?.shopId || '00000000-0000-0000-0000-000000000101';
+  const shopId = useActiveShopId() || '00000000-0000-0000-0000-000000000101';
   const [cats, setCats]     = useState(MOCK_CATEGORIES);
   const [items, setItems]   = useState(MOCK_ITEMS);
   const [selCat, setSelCat] = useState(null);
