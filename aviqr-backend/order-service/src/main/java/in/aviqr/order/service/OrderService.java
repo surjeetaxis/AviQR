@@ -39,6 +39,11 @@ public class OrderService {
         BigDecimal total = subtotal.add(tax);
         // ────────────────────────────────────────────────────────────────────
 
+        PaymentMethod paymentMethod = PaymentMethod.valueOf(req.getPaymentMethod().toUpperCase());
+        if (paymentMethod == PaymentMethod.ROOM_CHARGE && (req.getHotelId() == null || req.getRoomNumber() == null || req.getRoomNumber().isBlank())) {
+            throw new IllegalArgumentException("hotelId and roomNumber are required for ROOM_CHARGE orders");
+        }
+
         Order order = Order.builder()
             .orderNumber("ORD-" + System.currentTimeMillis())
             .shopId(shopId)
@@ -46,8 +51,10 @@ public class OrderService {
             .customerName(req.getCustomerName())
             .customerPhone(req.getCustomerPhone())
             .tableNumber(req.getTableNumber())
+            .hotelId(paymentMethod == PaymentMethod.ROOM_CHARGE ? req.getHotelId() : null)
+            .roomNumber(paymentMethod == PaymentMethod.ROOM_CHARGE ? req.getRoomNumber() : null)
             .type(req.getType() != null ? OrderType.valueOf(req.getType().toUpperCase()) : OrderType.DINE_IN)
-            .paymentMethod(PaymentMethod.valueOf(req.getPaymentMethod().toUpperCase()))
+            .paymentMethod(paymentMethod)
             .subtotal(subtotal).tax(tax).totalAmount(total)
             .notes(req.getNotes())
             .build();
@@ -67,23 +74,26 @@ public class OrderService {
 
         // Publish to RabbitMQ — notification-service consumes this
         try {
-            rabbit.convertAndSend("aviqr.orders", "order.new", Map.of(
-                "orderId",       saved.getId().toString(),
-                "orderNumber",   saved.getOrderNumber(),
-                "shopId",        shopId,
-                "total",         total.toString(),
-                "subtotal",      subtotal.toString(),
-                "gstRate",       gstRate.toString(),
-                "customerName",  saved.getCustomerName() != null ? saved.getCustomerName() : "",
-                "customerPhone", saved.getCustomerPhone() != null ? saved.getCustomerPhone() : "",
-                "tableNumber",   saved.getTableNumber() != null ? saved.getTableNumber() : "",
-                "items",         req.getItems().stream().map(i -> Map.of(
-                    "menuItemId", i.getMenuItemId() != null ? i.getMenuItemId().toString() : "",
-                    "itemName",   i.getItemName(),
-                    "quantity",   i.getQuantity(),
-                    "unitPrice",  i.getUnitPrice().toString()
-                )).toList()
-            ));
+            Map<String, Object> event = new HashMap<>();
+            event.put("orderId",       saved.getId().toString());
+            event.put("orderNumber",   saved.getOrderNumber());
+            event.put("shopId",        shopId);
+            event.put("total",         total.toString());
+            event.put("subtotal",      subtotal.toString());
+            event.put("gstRate",       gstRate.toString());
+            event.put("customerName",  saved.getCustomerName() != null ? saved.getCustomerName() : "");
+            event.put("customerPhone", saved.getCustomerPhone() != null ? saved.getCustomerPhone() : "");
+            event.put("tableNumber",   saved.getTableNumber() != null ? saved.getTableNumber() : "");
+            event.put("paymentMethod", saved.getPaymentMethod().name());
+            if (saved.getHotelId() != null)   event.put("hotelId", saved.getHotelId().toString());
+            if (saved.getRoomNumber() != null) event.put("roomNumber", saved.getRoomNumber());
+            event.put("items", req.getItems().stream().map(i -> Map.of(
+                "menuItemId", i.getMenuItemId() != null ? i.getMenuItemId().toString() : "",
+                "itemName",   i.getItemName(),
+                "quantity",   i.getQuantity(),
+                "unitPrice",  i.getUnitPrice().toString()
+            )).toList());
+            rabbit.convertAndSend("aviqr.orders", "order.new", event);
         } catch (Exception e) { log.warn("Failed to publish order event: {}", e.getMessage()); }
 
         return toDto(saved);
@@ -165,6 +175,7 @@ public class OrderService {
             .id(o.getId()).orderNumber(o.getOrderNumber()).shopId(o.getShopId())
             .customerId(o.getCustomerId()).customerName(o.getCustomerName())
             .customerPhone(o.getCustomerPhone()).tableNumber(o.getTableNumber())
+            .hotelId(o.getHotelId()).roomNumber(o.getRoomNumber())
             .type(o.getType()).status(o.getStatus()).paymentMethod(o.getPaymentMethod())
             .paymentStatus(o.getPaymentStatus()).subtotal(o.getSubtotal())
             .tax(o.getTax()).totalAmount(o.getTotalAmount()).notes(o.getNotes())

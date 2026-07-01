@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import QRCode from 'qrcode';
-import { Plus, Minus, Printer, CreditCard, Wallet, Banknote, X, Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, PanelLeftClose, PanelLeftOpen, Maximize2, Minimize2, QrCode } from 'lucide-react';
+import { Plus, Minus, Printer, CreditCard, Wallet, Banknote, X, Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, PanelLeftClose, PanelLeftOpen, Maximize2, Minimize2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { menuApi, posApi, paymentApi, addonApi, variantApi, invoiceApi, shopApi } from '../api/index.js';
 
@@ -51,37 +50,49 @@ export default function Billing() {
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
+  // Critical path: menu data. Spinner clears only when this resolves.
   const load = useCallback(async () => {
-    if (!shopId) return;
+    if (!shopId) { setLoad(false); return; }
     try {
-      const [cRes, iRes, aRes, sRes, shopRes] = await Promise.all([
+      const [cRes, iRes, aRes] = await Promise.all([
         menuApi.getCategories(shopId),
         menuApi.getItems(shopId),
         addonApi.getByShop(shopId),
-        shopApi.getSettings(shopId).catch(() => ({ data:{ data:null } })),
-        shopApi.getById(shopId).catch(() => ({ data:{ data:null } })),
       ]);
       const cats  = cRes.data.data || [];
       const items = iRes.data.data?.content ?? iRes.data.data ?? [];
       setCats(cats.map(c => ({ ...c, items: items.filter(i => i.categoryId === c.id && i.available !== false) })));
       setAddons(aRes.data.data || []);
-      if (sRes.data.data?.upiEnabled && sRes.data.data?.upiId) {
-        setUpiId(sRes.data.data.upiId);
-        if (sRes.data.data.taxPercent) setTax(sRes.data.data.taxPercent);
-      }
-      if (shopRes.data.data?.name) setShopName(shopRes.data.data.name);
     } catch (e) { console.error('POS load error', e); }
     finally { setLoad(false); }
   }, [shopId]);
 
   useEffect(() => { load(); }, [load]);
 
+  // Non-critical: UPI ID, shop name, tax from settings. Runs independently; never blocks POS.
+  useEffect(() => {
+    if (!shopId) return;
+    shopApi.getSettings(shopId)
+      .then(r => {
+        const d = r?.data?.data;
+        if (!d) return;
+        if (d.upiEnabled && d.upiId) setUpiId(d.upiId);
+        if (d.taxPercent != null)    setTax(Number(d.taxPercent) || 5);
+      })
+      .catch(() => {});
+    shopApi.getById(shopId)
+      .then(r => { const n = r?.data?.data?.name; if (n) setShopName(n); })
+      .catch(() => {});
+  }, [shopId]);
+
   // Regenerate UPI QR when payment method, amount, or UPI ID changes
   useEffect(() => {
     if (payMethod !== 'UPI' || !upiId || total <= 0) { setUpiQrUrl(''); return; }
     const upiStr = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(shopName||'Shop')}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Order')}`;
-    QRCode.toDataURL(upiStr, { width:200, margin:1, color:{ dark:'#0F172A', light:'#FFFFFF' } })
-      .then(setUpiQrUrl).catch(() => setUpiQrUrl(''));
+    import('qrcode').then(mod => {
+      const QRCode = mod.default || mod;
+      return QRCode.toDataURL(upiStr, { width:200, margin:1, color:{ dark:'#0F172A', light:'#FFFFFF' } });
+    }).then(setUpiQrUrl).catch(() => setUpiQrUrl(''));
   }, [payMethod, upiId, total, shopName]);
 
   const loadVariants = async (itemId) => {
@@ -352,7 +363,7 @@ export default function Billing() {
                   </>
                 ) : (
                   <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12, color:'#7C3AED' }}>
-                    <QrCode size={16}/> Generating QR…
+                    ⏳ Generating QR…
                   </div>
                 )}
               </div>

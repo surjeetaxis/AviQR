@@ -77,6 +77,19 @@ public class QrController {
         return ResponseEntity.ok(ApiResponse.ok(service.getByShop(shopId)));
     }
 
+    // Internal, service-to-service only (not exposed through the gateway to end users).
+    // Callers such as hotel-service have already verified the caller owns/manages the
+    // parent hotel/outlet before invoking this, so no X-User-* ownership check applies here.
+    @PostMapping("/internal/shop/{shopId}")
+    public ResponseEntity<ApiResponse<QrCode>> createInternal(
+            @PathVariable String shopId,
+            @RequestParam(defaultValue="Main QR") String label,
+            @RequestParam(defaultValue="SHOP") String type,
+            @RequestParam(required=false) String group) {
+        return ResponseEntity.ok(ApiResponse.ok("QR created",
+            service.create(shopId, label, QrType.valueOf(type.toUpperCase()), group)));
+    }
+
     // Redirect — called when customer scans QR
     @GetMapping("/r/{code}")
     public ResponseEntity<Void> redirect(

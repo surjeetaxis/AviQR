@@ -9,6 +9,7 @@ import java.util.*;
 public class OrderResponse {
     UUID id; String orderNumber; String shopId;
     String customerId; String customerName; String customerPhone; String tableNumber;
+    UUID hotelId; String roomNumber;
     OrderType type; OrderStatus status; PaymentMethod paymentMethod;
     PaymentStatus paymentStatus; String paymentId;
     BigDecimal subtotal; BigDecimal tax; BigDecimal totalAmount;

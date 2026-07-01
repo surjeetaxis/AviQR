@@ -16,6 +16,8 @@ public class Order {
     @Column(nullable=false) private String customerName;
     private String customerPhone;
     private String tableNumber;
+    private UUID hotelId;      // set when paymentMethod=ROOM_CHARGE
+    private String roomNumber; // set when paymentMethod=ROOM_CHARGE
     @Enumerated(EnumType.STRING) @Builder.Default private OrderType type = OrderType.DINE_IN;
     @Enumerated(EnumType.STRING) @Builder.Default private OrderStatus status = OrderStatus.NEW;
     @Enumerated(EnumType.STRING) @Builder.Default private PaymentMethod paymentMethod = PaymentMethod.ONLINE;

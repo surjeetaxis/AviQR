@@ -11,6 +11,8 @@ public class CreateOrderRequest {
     @NotBlank String customerName;
     String customerPhone;
     String tableNumber;
+    UUID hotelId;      // required when paymentMethod=ROOM_CHARGE
+    String roomNumber; // required when paymentMethod=ROOM_CHARGE
     String type;
     @NotBlank String paymentMethod;
     String notes;

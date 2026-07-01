@@ -95,7 +95,13 @@ public class QrService {
 
     private String generateUniqueCode(String shopId, QrType type, String group) {
         String base = shopId.toLowerCase().replaceAll("[^a-z0-9]", "").substring(0, Math.min(8, shopId.length()));
-        String suffix = type == QrType.TABLE ? "-t" + group : type == QrType.GROUP ? "-g" + group : "";
+        String suffix = switch (type) {
+            case TABLE -> "-t" + group;
+            case GROUP -> "-g" + group;
+            case HOTEL_ROOM -> "-r" + group;
+            case HOTEL_OUTLET -> "-o" + group;
+            default -> "";
+        };
         String code = base + suffix;
         // ensure unique
         int i = 0;
@@ -107,10 +113,14 @@ public class QrService {
     private String buildUrl(String shopId, QrType type, String group) {
         String base = baseUrl + "/menu/" + shopId;
         return switch (type) {
-            case TABLE  -> base + "?table=" + group;
-            case GROUP  -> base + "?cat=" + group;
-            case MALL   -> baseUrl + "/mall/" + shopId;
-            default     -> base;
+            case TABLE        -> base + "?table=" + group;
+            case GROUP        -> base + "?cat=" + group;
+            case MALL         -> baseUrl + "/mall/" + shopId;
+            // shopId is a synthetic "hotel-{hotelId}" id (rooms have no shop-service Shop); group = room number
+            case HOTEL_ROOM   -> baseUrl + "/hotel/" + shopId.replaceFirst("^hotel-", "") + "/room/" + group;
+            // shopId is the outlet's real shop-service Shop id; group = hotelId, enables "bill to room" on the menu
+            case HOTEL_OUTLET -> base + "?hotel=" + group;
+            default           -> base;
         };
     }
 }
