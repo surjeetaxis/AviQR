@@ -70,7 +70,6 @@ public class RecipeService {
     }
 
     @Transactional
-    @Transactional
     public void deleteMaterial(UUID id) {
         materialRepo.deleteById(id);
     }
