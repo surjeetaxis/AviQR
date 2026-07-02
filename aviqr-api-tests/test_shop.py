@@ -75,6 +75,48 @@ def test_kitchen_role_can_also_read_settings(kitchen):
 
 
 @pytest.mark.mutates
+def test_owner_own_token_cannot_call_report_service_directly(owner):
+    """The owner's login JWT DOES carry a shopId, so this actually succeeds unlike
+    supplier/hotel/mall — included here for contrast with the /enter tests below."""
+    r = get(f"/api/v1/reports/shop/{SHOP_101}/revenue", token=owner["accessToken"], params={"days": 7})
+    assert r.status_code == 200
+
+
+def test_supplier_own_token_cannot_call_report_service_directly(supplier):
+    """A supplier owns several shops, not one, so their login JWT has no shopId —
+    report-service's same-shop check 403s it directly. This is why the Supplier
+    dashboard's Reports tab must go through shops/{id}/enter first (see next test)."""
+    mine = get("/api/v1/shops/my", token=supplier["accessToken"]).json()["data"]
+    r = get(f"/api/v1/reports/shop/{mine[0]['id']}/revenue", token=supplier["accessToken"], params={"days": 7})
+    assert r.status_code == 403
+
+
+def test_enter_shop_mints_scoped_token_that_report_service_accepts(supplier):
+    mine = get("/api/v1/shops/my", token=supplier["accessToken"]).json()["data"]
+    shop_id = mine[0]["id"]
+
+    entered = post(f"/api/v1/shops/{shop_id}/enter", token=supplier["accessToken"])
+    assert entered.status_code == 200
+    body = entered.json()["data"]
+    assert body["shopId"] == shop_id
+
+    r = get(f"/api/v1/reports/shop/{shop_id}/revenue", token=body["accessToken"], params={"days": 7})
+    assert r.status_code == 200
+    assert isinstance(r.json()["data"], list)
+
+
+def test_unrelated_owner_cannot_enter_someone_elses_shop(supplier, owner):
+    mine = get("/api/v1/shops/my", token=supplier["accessToken"]).json()["data"]
+    r = post(f"/api/v1/shops/{mine[0]['id']}/enter", token=owner["accessToken"])
+    assert r.status_code == 403
+
+
+def test_admin_can_enter_any_shop(supplier, admin):
+    mine = get("/api/v1/shops/my", token=supplier["accessToken"]).json()["data"]
+    r = post(f"/api/v1/shops/{mine[0]['id']}/enter", token=admin["accessToken"])
+    assert r.status_code == 200
+
+
 def test_owner_can_create_a_new_shop(owner3):
     r = post("/api/v1/shops", token=owner3["accessToken"], json={
         "name": "QA Automation Shop", "phone": "9000000003",

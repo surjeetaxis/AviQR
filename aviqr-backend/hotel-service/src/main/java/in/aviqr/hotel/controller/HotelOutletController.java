@@ -2,6 +2,7 @@ package in.aviqr.hotel.controller;
 import in.aviqr.hotel.dto.ApiResponse;
 import in.aviqr.hotel.entity.*;
 import in.aviqr.hotel.repository.*;
+import in.aviqr.hotel.security.OutletTokenService;
 import in.aviqr.hotel.service.HotelAccessService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ public class HotelOutletController {
     private final HotelAccessService accessService;
     private final RabbitTemplate rabbit;
     private final RestTemplate restTemplate;
+    private final OutletTokenService outletTokenService;
 
     @Value("${qr.service.url:http://qr-service}")
     private String qrServiceUrl;
@@ -96,6 +98,25 @@ public class HotelOutletController {
         if (!accessService.hasAccess(outlet.getHotelId(), uid, role))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok(outlet));
+    }
+
+    // Verifies the caller manages this outlet's hotel, then mints a short-lived JWT scoped
+    // to the outlet's shop so every reused shop-owner page (Orders, Menu, Inventory, Reports,
+    // QR, Billing, KOT, Payments, ...) authorizes correctly instead of hitting 403s caused by
+    // the gateway blanking X-Shop-Id for HOTEL-role logins.
+    @PostMapping("/api/v1/hotel-outlets/{id}/enter")
+    public ResponseEntity<ApiResponse<Map<String, String>>> enter(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        HotelOutlet outlet = outletRepo.findById(id).orElse(null);
+        if (outlet == null) return ResponseEntity.notFound().build();
+        if (!accessService.hasAccess(outlet.getHotelId(), uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (outlet.getShopId() == null || outlet.getShopId().isBlank())
+            return ResponseEntity.badRequest().body(ApiResponse.error("Outlet has no linked shop"));
+        String token = outletTokenService.mintOutletToken(uid, outlet.getShopId());
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("accessToken", token, "shopId", outlet.getShopId())));
     }
 
     @GetMapping("/api/v1/hotel-outlets/public/hotel/{hotelId}")

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { mallApi } from '../../api/index.js';
+import { mallApi, reportApi } from '../../api/index.js';
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
@@ -40,39 +40,71 @@ export default function MallDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [vendors, setVendors] = useState(VENDORS);
   const [loadingVendors, setLoadingVendors] = useState(true);
+  const [mall, setMall] = useState(null);
+
+  const mapVendor = vd => ({
+    id: vd.id,
+    name: vd.name || vd.shopName,
+    cat: vd.category || vd.cat || '',
+    floor: vd.floor || '',
+    contact: vd.phone || vd.contact || '',
+    shopId: vd.shopId || '',
+    orders: vd.ordersToday || 0,
+    revenue: vd.revenueToday || 0,
+    commission: vd.commissionToday || 0,
+    status: vd.active ? 'active' : 'inactive',
+    qrActive: !!vd.qrActive,
+  });
+
+  const loadVendors = (mallId) => {
+    setLoadingVendors(true);
+    mallApi.getVendors(mallId)
+      .then(res => {
+        const v = res.data.data || [];
+        if (v.length) setVendors(v.map(mapVendor));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingVendors(false));
+  };
 
   useEffect(() => {
     mallApi.getMyMalls()
       .then(res => {
         const malls = res.data.data || [];
-        const mallId = malls[0]?.id;
-        if (!mallId) { setLoadingVendors(false); return; }
-        return mallApi.getVendors(mallId);
+        const m = malls[0];
+        if (!m) { setLoadingVendors(false); return; }
+        setMall(m);
+        loadVendors(m.id);
       })
-      .then(res => {
-        if (!res) return;
-        const v = res.data.data || [];
-        if (v.length) {
-          setVendors(v.map(vd => ({
-            id: vd.id,
-            name: vd.name || vd.shopName,
-            cat: vd.category || vd.cat || '',
-            floor: vd.floor || '',
-            contact: vd.phone || vd.contact || '',
-            orders: vd.ordersToday || 0,
-            revenue: vd.revenueToday || 0,
-            commission: vd.commissionToday || 0,
-            status: vd.active ? 'active' : 'inactive',
-            qrActive: !!vd.qrActive,
-          })));
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoadingVendors(false));
+      .catch(() => setLoadingVendors(false));
   }, []);
 
-  const toggleVendor = id => setVendors(prev=>prev.map(v=>v.id!==id?v:{...v,status:v.status==='active'?'inactive':'active'}));
+  const toggleVendor = id => {
+    const v = vendors.find(x=>x.id===id);
+    if (!v) return;
+    const next = v.status !== 'active';
+    setVendors(prev=>prev.map(x=>x.id!==id?x:{...x,status:next?'active':'inactive'}));
+    mallApi.toggleVendor(id, next).catch(() => {
+      setVendors(prev=>prev.map(x=>x.id!==id?x:{...x,status:next?'inactive':'active'}));
+      alert('Could not update vendor status');
+    });
+  };
   const toggleQR = id => setVendors(prev=>prev.map(v=>v.id!==id?v:{...v,qrActive:!v.qrActive}));
+
+  const addVendor = async (form) => {
+    if (!mall) return;
+    const res = await mallApi.addVendor({ mallId: mall.id, ...form });
+    const created = res?.data?.data;
+    if (created) setVendors(prev => [...prev, mapVendor(created)]);
+    else loadVendors(mall.id);
+  };
+
+  const removeVendor = (id) => {
+    if (!confirm('Remove this vendor from the mall?')) return;
+    mallApi.deleteVendor(id)
+      .then(() => setVendors(prev => prev.filter(v => v.id !== id)))
+      .catch(() => alert('Could not remove vendor'));
+  };
 
   return (
     <div className="admin-layout">
@@ -115,12 +147,13 @@ export default function MallDashboard() {
         </header>
         <main className="admin-content">
           {tab==='overview'    && <MallOverview vendors={vendors} onNav={setTab}/>}
-          {tab==='vendors'     && <VendorsFull vendors={vendors} onToggle={toggleVendor} onToggleQR={toggleQR}/>}
+          {tab==='vendors'     && <VendorsFull vendors={vendors} onToggle={toggleVendor} onToggleQR={toggleQR} onAdd={addVendor} onRemove={removeVendor}/>}
           {tab==='revenue'     && <RevenueShare vendors={vendors}/>}
           {tab==='qr'          && <MallQRPage/>}
+          {tab==='reports'     && <MallReportsTab vendors={vendors}/>}
           {tab==='subscription'&& <SubscriptionPage userRole="mall" currentPlan="pro"/>}
-          {tab==='settings'    && <MallSettings user={user} lang={lang}/>}
-          {!['overview','vendors','revenue','qr','subscription','settings'].includes(tab)&&(
+          {tab==='settings'    && <MallSettings mall={mall} lang={lang}/>}
+          {!['overview','vendors','revenue','qr','reports','subscription','settings'].includes(tab)&&(
             <div className="admin-stub"><div className="admin-stub-icon"><BarChart2 size={28}/></div><h2>{NAV.find(n=>n.key===tab)?.label}</h2><p>Explore Vendors and Revenue Share tabs.</p></div>
           )}
         </main>
@@ -151,10 +184,37 @@ function MallOverview({vendors,onNav}) {
   );
 }
 
-function VendorsFull({vendors,onToggle,onToggleQR,compact}) {
+const VENDOR_FORM_DEFAULT = {name:'',category:'',floor:'',contact:'',shopId:''};
+
+function VendorsFull({vendors,onToggle,onToggleQR,onAdd,onRemove,compact}) {
+  const [showForm,setShowForm] = useState(false);
+  const [form,setForm] = useState(VENDOR_FORM_DEFAULT);
+  const [saving,setSaving] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      await onAdd(form);
+      setForm(VENDOR_FORM_DEFAULT);
+      setShowForm(false);
+    } catch { alert('Could not add vendor'); }
+    finally { setSaving(false); }
+  };
+
   return (
     <div>
-      {!compact&&<div className="page-header"><div><h1 className="page-title">{t('vendors','en')}</h1></div><button className="btn-refresh"><Plus size={13}/> Add vendor</button></div>}
+      {!compact&&<div className="page-header"><div><h1 className="page-title">{t('vendors','en')}</h1></div><button className="btn-refresh" onClick={()=>setShowForm(f=>!f)}><Plus size={13}/> Add vendor</button></div>}
+      {!compact&&showForm&&(
+        <form onSubmit={submit} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
+          <div className="form-field"><label className="form-label">Name</label><input className="form-input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Spice Route" required/></div>
+          <div className="form-field"><label className="form-label">Category</label><input className="form-input" value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} placeholder="e.g. North Indian"/></div>
+          <div className="form-field"><label className="form-label">Floor</label><input className="form-input" value={form.floor} onChange={e=>setForm(f=>({...f,floor:e.target.value}))} placeholder="e.g. F1"/></div>
+          <div className="form-field"><label className="form-label">Contact</label><input className="form-input" value={form.contact} onChange={e=>setForm(f=>({...f,contact:e.target.value}))} placeholder="Phone"/></div>
+          <button className="btn btn-primary" type="submit" disabled={saving}>{saving?'Adding…':'Add'}</button>
+        </form>
+      )}
       <div className="admin-table-card">
         <table className="admin-table">
           <thead><tr><th>Vendor</th><th>Category</th><th>Floor</th><th>Phone</th><th>Orders</th><th>Revenue</th><th>Commission</th><th>QR</th><th>Status</th>{!compact&&<th>Actions</th>}</tr></thead>
@@ -170,7 +230,7 @@ function VendorsFull({vendors,onToggle,onToggleQR,compact}) {
                 <td style={{color:'var(--green-darker)',fontWeight:700}}>₹{v.commission.toLocaleString('en-IN')}</td>
                 <td><button className={`toggle-btn ${v.qrActive?'toggle-on':'toggle-off'}`} onClick={()=>onToggleQR(v.id)}>{v.qrActive?<ToggleRight size={18}/>:<ToggleLeft size={18}/>}</button></td>
                 <td><span className={`status-pill ${v.status==='active'?'st-active':'st-suspended'}`}>{v.status==='active'?<CheckCircle2 size={11}/>:<XCircle size={11}/>} {v.status}</span></td>
-                {!compact&&<td><div style={{display:'flex',gap:5}}><button className="admin-row-btn"><Eye size={12}/></button><button className="admin-row-btn" onClick={()=>onToggle(v.id)}>{v.status==='active'?<XCircle size={12}/>:<CheckCircle2 size={12}/>}</button><button className="admin-row-btn"><Edit2 size={12}/></button></div></td>}
+                {!compact&&<td><div style={{display:'flex',gap:5}}><button className="admin-row-btn"><Eye size={12}/></button><button className="admin-row-btn" onClick={()=>onToggle(v.id)}>{v.status==='active'?<XCircle size={12}/>:<CheckCircle2 size={12}/>}</button><button className="admin-row-btn admin-row-btn-danger" onClick={()=>onRemove(v.id)}><Trash2 size={12}/></button></div></td>}
               </tr>
             ))}
           </tbody>
@@ -211,6 +271,70 @@ function RevenueShare({vendors}) {
   );
 }
 
+function MallReportsTab({vendors}) {
+  const [revenueData,setRevenueData] = useState([]);
+  const [loading,setLoading] = useState(true);
+
+  useEffect(() => {
+    const withShop = vendors.filter(v=>v.shopId);
+    if (!withShop.length) { setLoading(false); return; }
+    setLoading(true);
+    Promise.all(
+      withShop.map(v =>
+        // The mall admin's own login token has no shopId, so report-service's
+        // same-shop check 403s a direct call — mint a vendor-scoped token first.
+        mallApi.enterVendor(v.id)
+          .then(res => reportApi.getRevenue(v.shopId, 7, res.data.data.accessToken))
+          .then(res => {
+            const data = res.data.data || [];
+            const total = Array.isArray(data) ? data.reduce((a,d)=>a+(d.revenue||d.totalRevenue||0),0) : 0;
+            return { name: v.name, total };
+          })
+          .catch(() => ({ name: v.name, total: 0 }))
+      )
+    ).then(setRevenueData).finally(()=>setLoading(false));
+  }, [vendors]);
+
+  if (loading) return <div style={{textAlign:'center',padding:40,color:'var(--gray-400)'}}>Loading reports…</div>;
+
+  const grandTotal = revenueData.reduce((a,r)=>a+r.total,0);
+
+  return (
+    <div>
+      <div className="page-header"><h1 className="page-title">Reports</h1><p className="page-subtitle">Outlet comparison · last 7 days</p></div>
+      <div className="admin-kpi-grid" style={{marginBottom:20}}>
+        <div className="admin-kpi-card"><div className="admin-kpi-icon icon-green"><TrendingUp size={18}/></div><div className="admin-kpi-value">₹{grandTotal.toLocaleString('en-IN')}</div><div className="admin-kpi-label">Total revenue (7 days)</div></div>
+        <div className="admin-kpi-card"><div className="admin-kpi-icon icon-blue"><Store size={18}/></div><div className="admin-kpi-value">{revenueData.length}</div><div className="admin-kpi-label">Vendors tracked</div></div>
+      </div>
+      {revenueData.length===0 ? (
+        <div style={{textAlign:'center',padding:32,color:'var(--gray-400)',fontSize:13}}>No vendors with a linked shop yet.</div>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead><tr><th>Vendor</th><th>Revenue (7 days)</th><th>Share</th></tr></thead>
+            <tbody>
+              {[...revenueData].sort((a,b)=>b.total-a.total).map(r=>(
+                <tr key={r.name}>
+                  <td style={{fontWeight:700}}>{r.name}</td>
+                  <td style={{fontWeight:700}}>₹{r.total.toLocaleString('en-IN')}</td>
+                  <td>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <div style={{flex:1,height:6,background:'var(--gray-100)',borderRadius:99,overflow:'hidden'}}>
+                        <div style={{width:`${grandTotal?(r.total/grandTotal)*100:0}%`,height:'100%',background:'var(--blue)',borderRadius:99}}/>
+                      </div>
+                      <span style={{fontSize:12,fontWeight:700,minWidth:36}}>{grandTotal?((r.total/grandTotal)*100).toFixed(1):0}%</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MallQRPage() {
   return (
     <div>
@@ -235,19 +359,54 @@ function MallQRPage() {
   );
 }
 
-function MallSettings({user,lang}) {
+const MALL_SAVED_FIELDS = [
+  {key:'name', label:'Mall name'},
+  {key:'city', label:'City'},
+  {key:'phone', label:'Contact phone'},
+  {key:'commissionPercent', label:'Commission %'},
+];
+const MALL_LOCAL_ONLY_FIELDS = [
+  {key:'contactEmail', label:'Contact email'},
+  {key:'openingHours', label:'Opening hours'},
+];
+
+function MallSettings({mall,lang}) {
+  const [form,setForm] = useState({
+    name: mall?.name || '', city: mall?.city || '', phone: mall?.phone || '',
+    commissionPercent: mall?.commissionPercent ?? '', contactEmail: '', openingHours: '',
+  });
+  const [saving,setSaving] = useState(false);
+  const [saved,setSaved] = useState(false);
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const save = () => {
+    if (!mall?.id) return;
+    setSaving(true);
+    mallApi.update(mall.id, {
+      name: form.name, city: form.city, phone: form.phone,
+      commissionPercent: form.commissionPercent === '' ? null : Number(form.commissionPercent),
+    })
+      .then(() => { setSaved(true); setTimeout(()=>setSaved(false), 2000); })
+      .catch(() => alert('Could not save settings'))
+      .finally(() => setSaving(false));
+  };
+
   return (
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
       <div className="page-header"><h1 className="page-title">{t('settings',lang)}</h1></div>
       <div className="admin-chart-card">
         <h3 style={{marginBottom:16}}>Mall profile</h3>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-          {['Mall name','City','Contact email','Contact phone','Commission %','Opening hours'].map(f=>(
-            <div key={f} className="form-field"><label className="form-label">{f}</label><input className="form-input" placeholder={f}/></div>
+          {MALL_SAVED_FIELDS.map(f=>(
+            <div key={f.key} className="form-field"><label className="form-label">{f.label}</label><input className="form-input" value={form[f.key]} onChange={e=>set(f.key,e.target.value)} placeholder={f.label}/></div>
+          ))}
+          {MALL_LOCAL_ONLY_FIELDS.map(f=>(
+            <div key={f.key} className="form-field"><label className="form-label">{f.label} <span style={{fontWeight:400,color:'var(--gray-400)'}}>(not saved yet)</span></label><input className="form-input" value={form[f.key]} onChange={e=>set(f.key,e.target.value)} placeholder={f.label}/></div>
           ))}
         </div>
-        <div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}>
-          <button className="btn btn-primary"><Save size={14}/> {t('save',lang)}</button>
+        <div style={{marginTop:14,display:'flex',alignItems:'center',gap:12,justifyContent:'flex-end'}}>
+          {saved && <span style={{color:'var(--green-darker)',fontSize:13,fontWeight:600}}>Saved!</span>}
+          <button className="btn btn-primary" onClick={save} disabled={saving || !mall?.id}><Save size={14}/> {saving?'Saving…':t('save',lang)}</button>
         </div>
       </div>
     </div>

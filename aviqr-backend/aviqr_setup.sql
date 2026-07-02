@@ -588,6 +588,8 @@ CREATE TABLE orders (
     customer_name  VARCHAR(255)  NOT NULL,
     customer_phone VARCHAR(20),
     table_number   VARCHAR(10),
+    hotel_id       UUID,         -- set when payment_method=ROOM_CHARGE (hotel outlet order)
+    room_number    VARCHAR(255), -- set when payment_method=ROOM_CHARGE
     type           VARCHAR(20)   DEFAULT 'DINE_IN',
     status         VARCHAR(20)   DEFAULT 'NEW',
     payment_method VARCHAR(20)   DEFAULT 'ONLINE',
@@ -1050,8 +1052,11 @@ CREATE INDEX IF NOT EXISTS idx_ob_outlet ON outlet_bookings (outlet_id, booking_
 -- ── Dummy data — hotel_outlets (Grand Palace Hotel) ───────────
 -- shop_id links an outlet to a shop in shop-service for menu/ordering.
 -- bookable=TRUE outlets use the booking flow (spa, activities, banquet).
+-- Zodiac's shop_id links to the real 'Spice Route' shop (aviqr_shop) so the
+-- outlet immediately gets a working menu, staff, settings & loyalty via the
+-- reused shop-owner tooling — no separate outlet-shop-provisioning needed for demo data.
 INSERT INTO hotel_outlets (id, hotel_id, name, outlet_type, description, location, shop_id, bookable, active, qr_active) VALUES
-  ('b1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Zodiac — Multi-cuisine Restaurant', 'RESTAURANT', 'All-day dining with Indian, Continental & Asian', 'Lobby Level',      'SHOP_101', FALSE, TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Zodiac — Multi-cuisine Restaurant', 'RESTAURANT', 'All-day dining with Indian, Continental & Asian', 'Lobby Level',      'ecdbc557-91fa-44ee-992f-03683ad8bbde', FALSE, TRUE, TRUE),
   ('b1000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'The Cellar Bar',                    'BAR',        'Cocktails, wines & premium spirits',              '1st Floor',        NULL,       FALSE, TRUE, TRUE),
   ('b1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Serenity Spa',                      'SPA',        'Ayurvedic & Swedish therapies',                    '2nd Floor',        NULL,       TRUE,  TRUE, TRUE),
   ('b1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Infinity Pool & Poolside Grill',    'POOL',       'Rooftop pool with light bites & drinks',           'Rooftop',          NULL,       FALSE, TRUE, TRUE),
@@ -1086,6 +1091,31 @@ INSERT INTO outlet_bookings (id, hotel_id, outlet_id, outlet_name, room_number, 
   ('e1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000003', 'Serenity Spa',                 '101', 'Anjali Singh', '9845012345', 'Aromatherapy Massage 90min',   3500.00, 'Jun 16, 2026', '16:00', 1, 'Prefers lavender oil',        'CONFIRMED', 'CHARGE_TO_ROOM', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '90 min'),
   ('e1000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000007', 'Heritage Walk & City Tours',   '301', 'Meena Pillai', '9845067890', 'Old City Heritage Walk',       1200.00, 'Jun 17, 2026', '07:30', 2, 'Vegetarian breakfast en route','REQUESTED', 'CHARGE_TO_ROOM', NOW() - INTERVAL '50 min',  NULL),
   ('e1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000001', 'Zodiac — Restaurant',          '201', 'Ravi Kumar',   '9845054321', 'Dinner table for 4',           0.00,    'Jun 16, 2026', '20:30', 4, 'Window table if possible',    'CONFIRMED', 'PAY_DIRECT',     NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours');
+
+-- ── hotel_access (hotel-wide / outlet-scoped staff roles) ─────
+-- Table created explicitly (same reasoning as hotel_outlets above): required
+-- by every hasAccess() check in hotel-service, so it must exist even before
+-- hotel-service's own ddl-auto=update run creates it.
+CREATE TABLE IF NOT EXISTS hotel_access (
+    id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id    UUID          NOT NULL,
+    user_id     VARCHAR(255)  NOT NULL,
+    role        VARCHAR(30)   DEFAULT 'STAFF' CHECK (role IN ('OWNER','GENERAL_MANAGER','OUTLET_MANAGER','STAFF')),
+    outlet_id   UUID,
+    created_at  TIMESTAMP     DEFAULT NOW(),
+    UNIQUE (hotel_id, user_id, outlet_id)
+);
+CREATE INDEX IF NOT EXISTS idx_hotel_access_hotel ON hotel_access (hotel_id);
+CREATE INDEX IF NOT EXISTS idx_hotel_access_user  ON hotel_access (user_id);
+
+-- ── Dummy data — hotel_access ──────────────────────────────────
+-- OWNER row per seeded hotel so gm@grandpalace.in can manage all 3 properties.
+-- Plus one OUTLET_MANAGER example scoped to a single outlet (Serenity Spa).
+INSERT INTO hotel_access (id, hotel_id, user_id, role, outlet_id) VALUES
+  ('f1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', 'OWNER',           NULL),
+  ('f1000001-0000-4000-8000-000000000002', '0a035141-82b3-4e32-ae79-024ff06dba3f', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', 'OWNER',           NULL),
+  ('f1000001-0000-4000-8000-000000000003', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', 'OWNER',           NULL),
+  ('f1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '43ff4c07-a85e-4ec0-be79-9cd05b78f94a', 'OUTLET_MANAGER',  'b1000001-0000-4000-8000-000000000003');
 
 
 -- ============================================================
@@ -1135,10 +1165,14 @@ CREATE INDEX idx_vendors_floor   ON vendors (floor);
 CREATE SEQUENCE seq_vendor_ref START 1001 INCREMENT 1;
 
 -- ── Dummy data ────────────────────────────────────────────────
-INSERT INTO malls (id, name, admin_id, city, address, phone, email, commission_percent, subscription_plan, active) VALUES
-  ('f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Forum Mall Bengaluru',  'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Bengaluru', 'Hosur Road, Koramangala', '08041234567', 'admin@forummall.in',   10.00, 'MALL_PRO',     TRUE),
-  ('c81747a6-c29f-422b-a241-ba50883cf76a', 'Phoenix Market City',   'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Mumbai',    'LBS Marg, Kurla',         '02261234567', 'admin@phoenixmc.in',  10.00, 'ENTERPRISE',   TRUE),
-  ('4c22330a-7173-4937-bfd1-1499a24effc9', 'Elante Mall',           'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Chandigarh','Industrial Area Phase I',  '01726543210', 'admin@elante.in',     12.00, 'MALL_BASIC',   TRUE);
+-- created_at is staggered explicitly (not left to NOW() on a shared multi-row
+-- INSERT, which would tie all three) so mall-service's findByAdminIdOrderByCreatedAtAsc
+-- deterministically surfaces Forum Mall Bengaluru — the one with a full vendor
+-- roster and a real shop-linked vendor — as this admin's default/first mall.
+INSERT INTO malls (id, name, admin_id, city, address, phone, email, commission_percent, subscription_plan, active, created_at) VALUES
+  ('f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Forum Mall Bengaluru',  'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Bengaluru', 'Hosur Road, Koramangala', '08041234567', 'admin@forummall.in',   10.00, 'MALL_PRO',     TRUE, NOW() - INTERVAL '2 minutes'),
+  ('c81747a6-c29f-422b-a241-ba50883cf76a', 'Phoenix Market City',   'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Mumbai',    'LBS Marg, Kurla',         '02261234567', 'admin@phoenixmc.in',  10.00, 'ENTERPRISE',   TRUE, NOW() - INTERVAL '1 minute'),
+  ('4c22330a-7173-4937-bfd1-1499a24effc9', 'Elante Mall',           'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Chandigarh','Industrial Area Phase I',  '01726543210', 'admin@elante.in',     12.00, 'MALL_BASIC',   TRUE, NOW());
 
 INSERT INTO vendors (id, mall_id, name, category, floor, contact, shop_id, active, qr_active) VALUES
   ('6efd1a31-ee35-447e-a2d2-d533ddbe272b', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Spice Route',       'North Indian',  'F1', '9845012345', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE),
@@ -1347,6 +1381,7 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aviqr;
 --
 -- \connect aviqr_hotel
 -- SELECT status, COUNT(*) FROM rooms GROUP BY status;
+-- SELECT h.name, ha.user_id, ha.role, ha.outlet_id FROM hotel_access ha JOIN hotels h ON h.id=ha.hotel_id;
 --
 -- \connect aviqr_mall
 -- SELECT m.name, COUNT(v.id) AS vendors FROM malls m LEFT JOIN vendors v ON v.mall_id=m.id GROUP BY m.name;

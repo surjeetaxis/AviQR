@@ -47,9 +47,25 @@ const BILLING = [
 
 export default function SubscriptionPage({ userRole = 'owner', currentPlan = 'growth' }) {
   const { lang } = useLang();
+  const [activePlan, setActivePlan] = useState(currentPlan);
   const [selected, setSelected] = useState(currentPlan);
   const [billing, setBilling] = useState('monthly');
   const plans = PLANS[userRole] || PLANS.owner;
+
+  const upgrade = (plan) => {
+    if (!confirm(`Switch to ${plan.name}? This is a demo — no payment will be charged.`)) return;
+    setActivePlan(plan.id);
+    setSelected(plan.id);
+    alert(`Plan updated to ${plan.name}.`);
+  };
+
+  const cancelPlan = () => {
+    const fallback = plans[0];
+    if (!confirm(`Cancel your ${plans.find(p=>p.id===activePlan)?.name} plan and move to ${fallback.name}?`)) return;
+    setActivePlan(fallback.id);
+    setSelected(fallback.id);
+    alert(`Plan cancelled — you're now on ${fallback.name}.`);
+  };
 
   const COLOR = { gray:'var(--gray-400)', green:'var(--green)', purple:'var(--purple)' };
 
@@ -59,7 +75,7 @@ export default function SubscriptionPage({ userRole = 'owner', currentPlan = 'gr
         <div>
           <h1 className="page-title">{t('subscription', lang)}</h1>
           <p className="page-subtitle">{t('currentPlan', lang)}: <strong style={{color:'var(--green)'}}>
-            {plans.find(p=>p.id===currentPlan)?.name || 'Growth'}</strong>
+            {plans.find(p=>p.id===activePlan)?.name || 'Growth'}</strong>
           </p>
         </div>
         <div className="sub-billing-toggle">
@@ -75,11 +91,11 @@ export default function SubscriptionPage({ userRole = 'owner', currentPlan = 'gr
         <div className="sub-current-left">
           <Crown size={18} style={{color:'var(--green)'}}/>
           <div>
-            <div className="sub-current-name">{plans.find(p=>p.id===currentPlan)?.name}</div>
+            <div className="sub-current-name">{plans.find(p=>p.id===activePlan)?.name}</div>
             <div className="sub-current-meta">Next billing: 14 July 2025 · Auto-debit HDFC ****4821</div>
           </div>
         </div>
-        <button className="sub-manage-btn">Manage billing</button>
+        <button className="sub-manage-btn" onClick={()=>alert('Billing portal is not available in this demo environment.')}>Manage billing</button>
       </div>
 
       {/* Plans */}
@@ -87,7 +103,7 @@ export default function SubscriptionPage({ userRole = 'owner', currentPlan = 'gr
         {plans.map(plan => {
           const Icon = plan.icon;
           const price = billing==='yearly' ? Math.round(plan.price * 0.8) : plan.price;
-          const isCurrent = plan.id === currentPlan;
+          const isCurrent = plan.id === activePlan;
           return (
             <div key={plan.id} className={`sub-plan-card ${selected===plan.id?'is-selected':''} ${isCurrent?'is-current':''}`}
               onClick={()=>setSelected(plan.id)}>
@@ -106,12 +122,12 @@ export default function SubscriptionPage({ userRole = 'owner', currentPlan = 'gr
                 ))}
               </ul>
               {!isCurrent && (
-                <button className={`sub-plan-btn ${plan.color==='green'?'sub-btn-primary':''}`}>
+                <button className={`sub-plan-btn ${plan.color==='green'?'sub-btn-primary':''}`} onClick={(e)=>{e.stopPropagation(); upgrade(plan);}}>
                   {t('upgradePlan', lang)} <ArrowRight size={13}/>
                 </button>
               )}
               {isCurrent && (
-                <button className="sub-plan-btn sub-btn-cancel">Cancel plan</button>
+                <button className="sub-plan-btn sub-btn-cancel" onClick={(e)=>{e.stopPropagation(); cancelPlan();}}>Cancel plan</button>
               )}
             </div>
           );

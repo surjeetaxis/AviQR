@@ -2,6 +2,7 @@ package in.aviqr.mall.controller;
 import in.aviqr.mall.dto.ApiResponse;
 import in.aviqr.mall.entity.*;
 import in.aviqr.mall.repository.*;
+import in.aviqr.mall.security.VendorTokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +12,7 @@ import java.util.*;
 public class MallController {
     private final MallRepository mallRepo;
     private final VendorRepository vendorRepo;
+    private final VendorTokenService vendorTokenService;
 
     @PostMapping("/api/v1/malls")
     public ResponseEntity<ApiResponse<Mall>> create(@RequestBody Mall mall, @RequestHeader("X-User-Id") String uid) {
@@ -20,7 +22,10 @@ public class MallController {
 
     @GetMapping("/api/v1/malls/my")
     public ResponseEntity<ApiResponse<List<Mall>>> myMalls(@RequestHeader("X-User-Id") String uid) {
-        return ResponseEntity.ok(ApiResponse.ok(mallRepo.findByAdminId(uid)));
+        // Ordered so dashboards that default to "my malls[0]" (Mall dashboard, Reports tab)
+        // deterministically land on the admin's first-registered mall instead of
+        // whatever order an unordered scan happens to return.
+        return ResponseEntity.ok(ApiResponse.ok(mallRepo.findByAdminIdOrderByCreatedAtAsc(uid)));
     }
 
     @GetMapping("/api/v1/malls/{id}")
@@ -80,6 +85,28 @@ public class MallController {
     public ResponseEntity<ApiResponse<Void>> deleteVendor(@PathVariable UUID id) {
         vendorRepo.deleteById(id);
         return ResponseEntity.ok(ApiResponse.ok("Deleted", null));
+    }
+
+    // Verifies the caller admins this vendor's mall (or is ADMIN), then mints a short-lived
+    // JWT scoped to the vendor's shop so report-service's per-shop revenue check (and any
+    // other shop/order/menu/qr/payment-service call) authorizes correctly — same mechanism
+    // as hotel-service's hotel-outlets/{id}/enter.
+    @PostMapping("/api/v1/vendors/{id}/enter")
+    public ResponseEntity<ApiResponse<Map<String, String>>> enterVendor(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        Vendor v = vendorRepo.findById(id).orElse(null);
+        if (v == null) return ResponseEntity.notFound().build();
+        if (!"ADMIN".equals(role)) {
+            boolean owns = v.getMallId() != null &&
+                mallRepo.findById(v.getMallId()).map(m -> uid.equals(m.getAdminId())).orElse(false);
+            if (!owns) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        }
+        if (v.getShopId() == null || v.getShopId().isBlank())
+            return ResponseEntity.badRequest().body(ApiResponse.error("Vendor has no linked shop"));
+        String token = vendorTokenService.mintVendorToken(uid, v.getShopId());
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("accessToken", token, "shopId", v.getShopId())));
     }
 
     // Public mall menu — all active vendors

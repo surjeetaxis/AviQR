@@ -1,6 +1,6 @@
 import pytest
 from client import get, post, put, delete
-from config import MALL_1
+from config import MALL_1, SHOP_101, VENDOR_SPICE_ROUTE, VENDOR_WOK_TO_WALK
 
 
 def test_get_mall_requires_auth(customer):
@@ -82,3 +82,34 @@ def test_mall_update_round_trip(mall_admin):
     put(f"/api/v1/malls/{MALL_1}", token=mall_admin["accessToken"], json={
         "name": original["name"], "city": original["city"],
     })
+
+
+# ── Vendor impersonation token (Mall Reports tab) ──────────────────────────────
+# Mirrors hotel-service's hotel-outlets/{id}/enter: the mall admin's own login JWT
+# has no shopId, so report-service (and any other shop-scoped service) 403s a
+# direct call — the Reports tab must mint a vendor-scoped token first.
+
+def test_mall_admin_own_token_cannot_call_report_service_directly(mall_admin):
+    r = get(f"/api/v1/reports/shop/{SHOP_101}/revenue", token=mall_admin["accessToken"], params={"days": 7})
+    assert r.status_code == 403
+
+
+def test_enter_vendor_with_shop_mints_scoped_token_that_report_service_accepts(mall_admin):
+    entered = post(f"/api/v1/vendors/{VENDOR_SPICE_ROUTE}/enter", token=mall_admin["accessToken"])
+    assert entered.status_code == 200
+    body = entered.json()["data"]
+    assert body["shopId"] == SHOP_101
+
+    r = get(f"/api/v1/reports/shop/{SHOP_101}/revenue", token=body["accessToken"], params={"days": 7})
+    assert r.status_code == 200
+    assert isinstance(r.json()["data"], list)
+
+
+def test_enter_vendor_without_shop_is_rejected(mall_admin):
+    r = post(f"/api/v1/vendors/{VENDOR_WOK_TO_WALK}/enter", token=mall_admin["accessToken"])
+    assert r.status_code == 400
+
+
+def test_unrelated_admin_cannot_enter_vendor(owner):
+    r = post(f"/api/v1/vendors/{VENDOR_SPICE_ROUTE}/enter", token=owner["accessToken"])
+    assert r.status_code == 403

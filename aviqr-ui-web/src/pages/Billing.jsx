@@ -36,6 +36,11 @@ export default function Billing() {
   const [shopName,   setShopName]= useState('');
   const [upiQrUrl,   setUpiQrUrl]= useState('');
 
+  // Computed before the effects below since the UPI QR effect depends on `total`.
+  const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const taxAmt   = +(subtotal * taxPct / 100).toFixed(2);
+  const total    = +(subtotal + taxAmt).toFixed(2);
+
   useEffect(() => {
     if (expanded) {
       document.body.classList.add('pos-expanded');
@@ -136,10 +141,6 @@ export default function Billing() {
   };
 
   const removeItem = (id) => setCart(prev => prev.filter(c => c.id !== id));
-
-  const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
-  const taxAmt   = +(subtotal * taxPct / 100).toFixed(2);
-  const total    = +(subtotal + taxAmt).toFixed(2);
 
   const placeBill = async () => {
     if (!cart.length) return;

@@ -2,7 +2,7 @@
 // Auto-falls back to mock data when backend is unreachable
 
 import axios from 'axios';
-import { getActiveOutletId } from './outletContext.js';
+import { getActiveOutletId, getActiveToken } from './outletContext.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -15,8 +15,18 @@ export const api = axios.create({
 
 // ── Attach JWT + shop context on every request ────────────────────────────────
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('aviqr_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  // While managing a hotel outlet, use the short-lived outlet-scoped token
+  // (carries the outlet's real shopId) instead of the user's own login token,
+  // so gateway-derived X-Shop-Id checks in shop/order/menu/report/qr/payment
+  // services authorize correctly.
+  // A caller can pre-set Authorization (e.g. a per-call outlet/vendor-scoped
+  // token) to opt out of this — used when aggregating across several outlets
+  // at once, where the single module-level active-outlet token doesn't fit.
+  if (!config.headers.Authorization) {
+    const outletToken = getActiveOutletId() ? getActiveToken() : null;
+    const token = outletToken || localStorage.getItem('aviqr_token');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  }
   try {
     const user = JSON.parse(localStorage.getItem('aviqr_user') || '{}');
     if (user.shopId) config.headers['X-Shop-Id']   = user.shopId;
@@ -105,6 +115,7 @@ export const shopApi = {
   removeStaff:      (id)         => api.delete(`/api/v1/staff/${id}`),
   getSettings:      (shopId)     => api.get(`/api/v1/settings/shop/${shopId}`),
   saveSettings:     (sId, d)     => api.put(`/api/v1/settings/shop/${sId}`, d),
+  enter:            (id)         => api.post(`/api/v1/shops/${id}/enter`),
 };
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
@@ -157,7 +168,10 @@ export const qrApi = {
 // ── Reports ───────────────────────────────────────────────────────────────────
 export const reportApi = {
   getDaily:     (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/daily`),
-  getRevenue:   (shopId, d)  => api.get(`/api/v1/reports/shop/${shopId}/revenue?days=${d || 7}`),
+  // token: optional per-call override (e.g. an outlet/vendor-scoped token) for
+  // callers whose own login JWT has no shopId — see api.js interceptor comment.
+  getRevenue:   (shopId, d, token) => api.get(`/api/v1/reports/shop/${shopId}/revenue?days=${d || 7}`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   getTopItems:  (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/top-items`),
   getPeakHours: (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/peak-hours`),
   getPlatform:  ()           => api.get('/api/v1/reports/admin/platform'),
@@ -169,6 +183,8 @@ export const hotelApi = {
   update:         (id, d)    => api.put(`/api/v1/hotels/${id}`, d),
   getRooms:       (hotelId)  => api.get(`/api/v1/rooms/hotel/${hotelId}`),
   updateRoom:     (id, d)    => api.put(`/api/v1/rooms/${id}`, d),
+  createRoom:     (d)        => api.post('/api/v1/rooms', d),
+  toggleRoomQr:   (id, active) => api.put(`/api/v1/rooms/${id}/qr?active=${active}`),
   getRequests:    (hId, p)   => api.get(`/api/v1/room-requests/hotel/${hId}`, { params: p }),
   updateRequest:  (id, s)    => api.put(`/api/v1/room-requests/${id}/status?status=${s}`),
   createRequest:  (d)        => api.post('/api/v1/room-requests', d),
@@ -208,6 +224,7 @@ export const hotelOutletApi = {
   toggleQr:     (id, active)   => api.put(`/api/v1/hotel-outlets/${id}/qr?active=${active}`),
   delete:       (id)           => api.delete(`/api/v1/hotel-outlets/${id}`),
   createQr:     (id)           => api.post(`/api/v1/hotel-outlets/${id}/qr-code`),
+  enter:        (id)           => api.post(`/api/v1/hotel-outlets/${id}/enter`),
 };
 
 // ── Hotel Access (hotel-wide staff roles: OWNER/GENERAL_MANAGER/OUTLET_MANAGER/STAFF) ─────
@@ -221,10 +238,12 @@ export const hotelAccessApi = {
 export const mallApi = {
   getMyMalls:  ()            => api.get('/api/v1/malls/my'),
   listAll:     ()            => api.get('/api/v1/malls'),
+  update:      (id, d)       => api.put(`/api/v1/malls/${id}`, d),
   getVendors:  (mallId)      => api.get(`/api/v1/vendors/mall/${mallId}`),
   addVendor:   (d)           => api.post('/api/v1/vendors', d),
   toggleVendor:(id, a)       => api.put(`/api/v1/vendors/${id}/status?active=${a}`),
   deleteVendor:(id)          => api.delete(`/api/v1/vendors/${id}`),
+  enterVendor: (id)          => api.post(`/api/v1/vendors/${id}/enter`),
 };
 
 // ── Support ───────────────────────────────────────────────────────────────────

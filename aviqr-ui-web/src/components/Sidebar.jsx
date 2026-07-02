@@ -22,6 +22,11 @@ const NAV_GROUPS = [
     items: [
       { to:'/menu',       label:'Menu Items',    icon:BookOpen },
       { to:'/variations', label:'Variants & Add-ons', icon:PlusCircle },
+    ],
+  },
+  {
+    label: 'QR Management',
+    items: [
       { to:'/qr-codes',   label:'QR Codes',     icon:QrCode },
     ],
   },
@@ -36,7 +41,12 @@ const NAV_GROUPS = [
     label: 'Customers',
     items: [
       { to:'/loyalty', label:'Loyalty Program', icon:Gift },
-      { to:'/staff',   label:'Staff',           icon:Users },
+    ],
+  },
+  {
+    label: 'Staff',
+    items: [
+      { to:'/staff', label:'Staff', icon:Users },
     ],
   },
   {
@@ -45,7 +55,12 @@ const NAV_GROUPS = [
       { to:'/reports',   label:'Reports',           icon:BarChart3 },
       { to:'/analytics',     label:'Advanced Analytics', icon:TrendingUp },
       { to:'/order-history', label:'Order History',       icon:Clock },
-      { to:'/ai',        label:'AI Features',        icon:Sparkles },
+    ],
+  },
+  {
+    label: 'AI Features',
+    items: [
+      { to:'/ai', label:'AI Features', icon:Sparkles },
     ],
   },
   {

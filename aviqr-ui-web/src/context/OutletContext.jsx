@@ -17,12 +17,13 @@ export function OutletProvider({ outletId, children }) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    hotelOutletApi.getById(outletId)
-      .then((res) => {
+    Promise.all([hotelOutletApi.getById(outletId), hotelOutletApi.enter(outletId)])
+      .then(([outletRes, enterRes]) => {
         if (cancelled) return;
-        const o = res.data.data;
+        const o = outletRes.data.data;
+        const { accessToken } = enterRes.data.data;
         setOutlet(o);
-        setActiveOutlet(o.id, o.shopId);
+        setActiveOutlet(o.id, o.shopId, accessToken);
       })
       .catch((err) => { if (!cancelled) setError(err); })
       .finally(() => { if (!cancelled) setLoading(false); });
