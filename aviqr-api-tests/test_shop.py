@@ -167,3 +167,33 @@ def test_shop_settings_update_round_trip(owner):
         "cashEnabled": original["cashEnabled"], "onlineEnabled": original["onlineEnabled"],
         "taxPercent": original["taxPercent"], "businessName": original.get("businessName"),
     })
+
+
+# ── Customer Portal: favorites (phone-keyed, same lightweight identity model as loyalty) ──
+
+@pytest.mark.mutates
+def test_favorite_toggle_and_list_round_trip(customer):
+    phone = "9" + "".join(str((i * 7) % 10) for i in range(9))  # deterministic-ish test phone
+
+    fav = post("/api/v1/favorites", token=customer["accessToken"], json={"phone": phone, "shopId": SHOP_101})
+    assert fav.status_code == 200
+    assert fav.json()["data"]["favorited"] is True
+
+    mine = get("/api/v1/favorites/mine", token=customer["accessToken"], params={"phone": phone})
+    assert mine.status_code == 200
+    shop_ids = [f["shopId"] for f in mine.json()["data"]]
+    assert SHOP_101 in shop_ids
+    assert any(f["shopName"] == "Spice Route" for f in mine.json()["data"])
+
+    unfav = post("/api/v1/favorites", token=customer["accessToken"], json={"phone": phone, "shopId": SHOP_101})
+    assert unfav.status_code == 200
+    assert unfav.json()["data"]["favorited"] is False
+
+    mine_after = get("/api/v1/favorites/mine", token=customer["accessToken"], params={"phone": phone}).json()["data"]
+    assert SHOP_101 not in [f["shopId"] for f in mine_after]
+
+
+def test_favorites_are_scoped_per_phone(customer):
+    mine = get("/api/v1/favorites/mine", token=customer["accessToken"], params={"phone": "9000000000"})
+    assert mine.status_code == 200
+    assert mine.json()["data"] == []

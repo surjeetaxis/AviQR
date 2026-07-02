@@ -276,6 +276,17 @@ CREATE TABLE loyalty_accounts (
 CREATE INDEX idx_loyalty_phone_shop ON loyalty_accounts (customer_phone, shop_id);
 CREATE INDEX idx_loyalty_shop       ON loyalty_accounts (shop_id);
 
+-- ── Customer Portal: favorite shops (phone-keyed, same lightweight identity
+--    model as loyalty_accounts — no customer account/password required) ──
+CREATE TABLE customer_favorites (
+    id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_phone VARCHAR(255) NOT NULL,
+    shop_id        VARCHAR(255) NOT NULL,
+    created_at     TIMESTAMP    DEFAULT NOW(),
+    UNIQUE (customer_phone, shop_id)
+);
+CREATE INDEX idx_favorite_phone ON customer_favorites (customer_phone);
+
 CREATE TABLE loyalty_transactions (
     id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     loyalty_account_id  UUID         NOT NULL,
@@ -1147,15 +1158,20 @@ CREATE INDEX idx_malls_active   ON malls (active);
 
 -- ── vendors ───────────────────────────────────────────────────
 CREATE TABLE vendors (
-    id        UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    mall_id   UUID         NOT NULL,
-    name      VARCHAR(255) NOT NULL,
-    category  VARCHAR(100),
-    floor     VARCHAR(50),
-    contact   VARCHAR(20),
-    shop_id   VARCHAR(100),
-    active    BOOLEAN      DEFAULT TRUE,
-    qr_active BOOLEAN      DEFAULT TRUE
+    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    mall_id    UUID         NOT NULL,
+    name       VARCHAR(255) NOT NULL,
+    category   VARCHAR(100),
+    floor      VARCHAR(50),
+    contact    VARCHAR(20),
+    shop_id    VARCHAR(100),
+    active     BOOLEAN      DEFAULT TRUE,
+    qr_active  BOOLEAN      DEFAULT TRUE,
+    -- PENDING = mall admin sent a link request, awaiting the restaurant owner's decision
+    -- (Restaurant Request Flow). ACTIVE vendors feed the mall dashboard, reports, and the
+    -- public food-court restaurant list (Food Court QR Flow). REJECTED is never shown.
+    status     VARCHAR(20)  DEFAULT 'ACTIVE' CHECK (status IN ('PENDING','ACTIVE','REJECTED')),
+    created_at TIMESTAMP    DEFAULT NOW()
 );
 
 CREATE INDEX idx_vendors_mall_id ON vendors (mall_id);
@@ -1174,16 +1190,16 @@ INSERT INTO malls (id, name, admin_id, city, address, phone, email, commission_p
   ('c81747a6-c29f-422b-a241-ba50883cf76a', 'Phoenix Market City',   'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Mumbai',    'LBS Marg, Kurla',         '02261234567', 'admin@phoenixmc.in',  10.00, 'ENTERPRISE',   TRUE, NOW() - INTERVAL '1 minute'),
   ('4c22330a-7173-4937-bfd1-1499a24effc9', 'Elante Mall',           'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Chandigarh','Industrial Area Phase I',  '01726543210', 'admin@elante.in',     12.00, 'MALL_BASIC',   TRUE, NOW());
 
-INSERT INTO vendors (id, mall_id, name, category, floor, contact, shop_id, active, qr_active) VALUES
-  ('6efd1a31-ee35-447e-a2d2-d533ddbe272b', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Spice Route',       'North Indian',  'F1', '9845012345', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE),
-  ('118c94a4-2206-4f79-84db-2643a9a4c77b', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Wok to Walk',       'Chinese',       'F1', '9876501234', NULL,                                   TRUE,  TRUE),
-  ('690bcf93-ff91-45c6-92f8-b660284fef21', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Burger Republic',   'Fast Food',     'F2', '9112345678', NULL,                                   TRUE,  TRUE),
-  ('d4020098-51cb-4c23-8681-3c17021463a3', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Rolls Corner',      'Kathi Rolls',   'F1', '9988000001', NULL,                                   FALSE, FALSE),
-  ('40d28351-2022-402c-874d-2e878870e398', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Ice Cream Palace',  'Desserts',      'F2', '9000112233', NULL,                                   TRUE,  TRUE),
-  ('bcd4e6e6-a0c8-47fa-aae2-1eba1b9b413c', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'South Spice',       'South Indian',  'F2', '9876509876', NULL,                                   TRUE,  TRUE),
-  ('137d55e4-6ed9-46e7-8e53-a8ded4333577', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Biryani Blues',     'Biryani',       'GF', '9900112244', NULL,                                   TRUE,  TRUE),
-  ('04156897-4daf-49e7-a7a3-17eb8dbd50f1', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Pizza Express',     'Italian',       'FF', '9900223355', NULL,                                   TRUE,  TRUE),
-  ('afaccb1f-4417-41fc-a7d8-05acc9e0a018', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Chaat Central',     'Street Food',   'GF', '9900334466', NULL,                                   TRUE,  TRUE);
+INSERT INTO vendors (id, mall_id, name, category, floor, contact, shop_id, active, qr_active, status) VALUES
+  ('6efd1a31-ee35-447e-a2d2-d533ddbe272b', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Spice Route',       'North Indian',  'F1', '9845012345', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE, 'ACTIVE'),
+  ('118c94a4-2206-4f79-84db-2643a9a4c77b', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Wok to Walk',       'Chinese',       'F1', '9876501234', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
+  ('690bcf93-ff91-45c6-92f8-b660284fef21', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Burger Republic',   'Fast Food',     'F2', '9112345678', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
+  ('d4020098-51cb-4c23-8681-3c17021463a3', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Rolls Corner',      'Kathi Rolls',   'F1', '9988000001', NULL,                                   FALSE, FALSE, 'ACTIVE'),
+  ('40d28351-2022-402c-874d-2e878870e398', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Ice Cream Palace',  'Desserts',      'F2', '9000112233', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
+  ('bcd4e6e6-a0c8-47fa-aae2-1eba1b9b413c', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'South Spice',       'South Indian',  'F2', '9876509876', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
+  ('137d55e4-6ed9-46e7-8e53-a8ded4333577', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Biryani Blues',     'Biryani',       'GF', '9900112244', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
+  ('04156897-4daf-49e7-a7a3-17eb8dbd50f1', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Pizza Express',     'Italian',       'FF', '9900223355', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
+  ('afaccb1f-4417-41fc-a7d8-05acc9e0a018', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Chaat Central',     'Street Food',   'GF', '9900334466', NULL,                                   TRUE,  TRUE, 'ACTIVE');
 
 
 -- ============================================================

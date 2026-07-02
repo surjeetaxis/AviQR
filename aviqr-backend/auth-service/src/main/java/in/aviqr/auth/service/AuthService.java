@@ -121,8 +121,25 @@ public class AuthService {
             otpRepo.save(otpRecord);
         }
 
-        User user = userRepo.findByPhone(req.getPhone()).orElseThrow(
-                () -> new RuntimeException("No account found for this number. Please register first."));
+        // A verified OTP is proof of phone ownership, so a first-time phone (the common
+        // case — a customer scanning a QR code has never registered anywhere) self-registers
+        // here as a CUSTOMER instead of being rejected. email/passwordHash stay required,
+        // not-null columns on User, but a customer never uses either — synthesize a unique
+        // placeholder email and a random, never-issued password hash.
+        User user = userRepo.findByPhone(req.getPhone()).orElseGet(() -> {
+            User created = User.builder()
+                    .name("Guest")
+                    .email(req.getPhone() + "@customer.aviqr.local")
+                    .phone(req.getPhone())
+                    .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
+                    .role(UserRole.CUSTOMER)
+                    .preferredLanguage("en")
+                    .status(UserStatus.ACTIVE)
+                    .build();
+            created = userRepo.save(created);
+            auditService.log("USER_REGISTERED", created.getId().toString(), "Customer self-registered via OTP: " + req.getPhone());
+            return created;
+        });
 
         user.setLastLoginAt(LocalDateTime.now());
         user.setPhoneVerified(true);

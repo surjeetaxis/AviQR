@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { TrendingUp, ShoppingBag, Users, Clock, ArrowRight, Plus, QrCode, RefreshCw, Bell, AlertTriangle, Package, ChevronRight, Zap } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Users, Clock, ArrowRight, Plus, QrCode, RefreshCw, Bell, AlertTriangle, Package, ChevronRight, Zap, Store, Check, X } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useNavigate, useParams } from 'react-router-dom';
 import StatCard from '../components/StatCard.jsx';
@@ -7,7 +7,7 @@ import OrderRow from '../components/OrderRow.jsx';
 import Onboarding from '../components/Onboarding.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
-import { reportApi, orderApi, inventoryApi } from '../api/index.js';
+import { reportApi, orderApi, inventoryApi, mallApi } from '../api/index.js';
 import './Dashboard.css';
 
 function greeting() {
@@ -35,6 +35,7 @@ export default function Dashboard() {
   const [orders,   setOrders]   = useState([]);
   const [topItems, setTop]      = useState([]);
   const [lowStock, setLowStock] = useState([]);
+  const [mallRequests, setMallRequests] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
   const [lastRefresh, setLast]  = useState(new Date());
@@ -43,12 +44,13 @@ export default function Dashboard() {
     if (!shopId) { setLoading(false); return; }
     setError(null);
     try {
-      const [s, r, o, t, ls] = await Promise.allSettled([
+      const [s, r, o, t, ls, mr] = await Promise.allSettled([
         reportApi.getDaily(shopId),
         reportApi.getRevenue(shopId, 7),
         orderApi.getLiveOrders(shopId),
         reportApi.getTopItems(shopId),
         inventoryApi.getLowStock(shopId),
+        mallApi.myRequests([shopId]), // Restaurant Request Flow — malls wanting to link this restaurant
       ]);
       if (s.status === 'fulfilled') setStats(s.value.data.data);
       else setError('Stats unavailable — ' + (s.reason?.response?.data?.message || 'check backend'));
@@ -59,11 +61,18 @@ export default function Dashboard() {
       if (o.status === 'fulfilled') setOrders(o.value.data.data || []);
       if (t.status === 'fulfilled') setTop(t.value.data.data || []);
       if (ls.status === 'fulfilled') setLowStock(ls.value.data.data || []);
+      if (mr.status === 'fulfilled') setMallRequests(mr.value.data.data || []);
       setLast(new Date());
     } catch (e) {
       setError('Dashboard error: ' + (e.message || 'unknown'));
     } finally { setLoading(false); }
   }, [shopId]);
+
+  const respondToMallRequest = async (id, decision) => {
+    setMallRequests(prev => prev.filter(r => r.id !== id)); // optimistic
+    try { await mallApi.respondToRequest(id, decision); }
+    catch { load(); } // revert to server truth on failure
+  };
 
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
 
@@ -108,6 +117,29 @@ export default function Dashboard() {
           {lowStock.slice(0, 2).map(i => ` ${i.name}`).join(',')}
           {lowStock.length > 2 && ` +${lowStock.length - 2} more`}
           <ChevronRight size={14} style={{ marginLeft:'auto' }} />
+        </div>
+      )}
+
+      {/* Mall link requests — Restaurant Request Flow */}
+      {mallRequests.length > 0 && (
+        <div className="card" style={{ marginBottom:16, borderColor:'#BFDBFE' }}>
+          <div className="card-header">
+            <div>
+              <div className="card-title"><Store size={14} style={{ verticalAlign:'-2px', marginRight:6 }} />Mall link requests</div>
+              <div className="card-subtitle">{mallRequests.length} mall{mallRequests.length !== 1 ? 's' : ''} want{mallRequests.length === 1 ? 's' : ''} to link your restaurant</div>
+            </div>
+          </div>
+          <div className="order-list">
+            {mallRequests.map(r => (
+              <div key={r.id} className="request-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 4px' }}>
+                <div style={{ flex:1 }}>
+                  <strong>{r.mallName}</strong>{r.mallCity ? ` · ${r.mallCity}` : ''} wants to link your restaurant to their food court.
+                </div>
+                <button className="btn btn-primary" style={{ padding:'6px 12px', fontSize:12 }} onClick={() => respondToMallRequest(r.id, 'ACCEPT')}><Check size={13} /> Accept</button>
+                <button className="btn-link" style={{ padding:'6px 12px', fontSize:12, color:'var(--red,#DC2626)' }} onClick={() => respondToMallRequest(r.id, 'REJECT')}><X size={13} /> Reject</button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

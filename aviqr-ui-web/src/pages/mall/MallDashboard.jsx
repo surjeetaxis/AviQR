@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { mallApi, reportApi } from '../../api/index.js';
+import QRCode from 'qrcode';
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
@@ -9,7 +10,7 @@ import {
   Building2, Store, ShoppingBag, CreditCard, BarChart2, Settings,
   LogOut, Menu as MenuIcon, TrendingUp, QrCode, CheckCircle2,
   XCircle, Plus, Edit2, Trash2, Eye, ToggleLeft, ToggleRight,
-  Phone, Save, Bell, Users, Star
+  Phone, Save, Bell, Users, Star, Clock, Download, Printer
 } from 'lucide-react';
 import '../admin/Admin.css';
 
@@ -53,6 +54,7 @@ export default function MallDashboard() {
     revenue: vd.revenueToday || 0,
     commission: vd.commissionToday || 0,
     status: vd.active ? 'active' : 'inactive',
+    linkStatus: vd.status || 'ACTIVE', // PENDING | ACTIVE | REJECTED — Restaurant Request Flow
     qrActive: !!vd.qrActive,
   });
 
@@ -106,6 +108,15 @@ export default function MallDashboard() {
       .catch(() => alert('Could not remove vendor'));
   };
 
+  // Restaurant Request Flow: mall admin enters a restaurant's shop id, mall-service looks
+  // it up in shop-service and creates a PENDING vendor row for the owner to accept/reject.
+  const inviteRestaurant = async (shopId) => {
+    if (!mall) return;
+    const res = await mallApi.requestVendor({ mallId: mall.id, shopId });
+    const created = res?.data?.data;
+    if (created) setVendors(prev => [...prev.filter(v => v.id !== created.id), mapVendor(created)]);
+  };
+
   return (
     <div className="admin-layout">
       <aside className={`admin-sidebar ${sidebarOpen?'open':''}`}>
@@ -147,9 +158,9 @@ export default function MallDashboard() {
         </header>
         <main className="admin-content">
           {tab==='overview'    && <MallOverview vendors={vendors} onNav={setTab}/>}
-          {tab==='vendors'     && <VendorsFull vendors={vendors} onToggle={toggleVendor} onToggleQR={toggleQR} onAdd={addVendor} onRemove={removeVendor}/>}
+          {tab==='vendors'     && <VendorsFull vendors={vendors} onToggle={toggleVendor} onToggleQR={toggleQR} onAdd={addVendor} onRemove={removeVendor} onInvite={inviteRestaurant}/>}
           {tab==='revenue'     && <RevenueShare vendors={vendors}/>}
-          {tab==='qr'          && <MallQRPage/>}
+          {tab==='qr'          && <MallQRPage mall={mall}/>}
           {tab==='reports'     && <MallReportsTab vendors={vendors}/>}
           {tab==='subscription'&& <SubscriptionPage userRole="mall" currentPlan="pro"/>}
           {tab==='settings'    && <MallSettings mall={mall} lang={lang}/>}
@@ -185,11 +196,21 @@ function MallOverview({vendors,onNav}) {
 }
 
 const VENDOR_FORM_DEFAULT = {name:'',category:'',floor:'',contact:'',shopId:''};
+const LINK_STATUS_CFG = {
+  PENDING:  {label:'Pending',  cls:'st-suspended', icon:Clock},
+  ACTIVE:   {label:'Active',   cls:'st-active',    icon:CheckCircle2},
+  REJECTED: {label:'Rejected', cls:'st-suspended', icon:XCircle},
+};
 
-function VendorsFull({vendors,onToggle,onToggleQR,onAdd,onRemove,compact}) {
+function VendorsFull({vendors,onToggle,onToggleQR,onAdd,onRemove,onInvite,compact}) {
   const [showForm,setShowForm] = useState(false);
   const [form,setForm] = useState(VENDOR_FORM_DEFAULT);
   const [saving,setSaving] = useState(false);
+  const [showInvite,setShowInvite] = useState(false);
+  const [inviteId,setInviteId] = useState('');
+  const [inviting,setInviting] = useState(false);
+  const [inviteError,setInviteError] = useState('');
+  const [filter,setFilter] = useState('all');
 
   const submit = async (e) => {
     e.preventDefault();
@@ -203,9 +224,43 @@ function VendorsFull({vendors,onToggle,onToggleQR,onAdd,onRemove,compact}) {
     finally { setSaving(false); }
   };
 
+  const submitInvite = async (e) => {
+    e.preventDefault();
+    if (!inviteId.trim()) return;
+    setInviting(true);
+    setInviteError('');
+    try {
+      await onInvite(inviteId.trim());
+      setInviteId('');
+      setShowInvite(false);
+    } catch (err) {
+      setInviteError(err?.response?.data?.message || 'Could not send request');
+    } finally { setInviting(false); }
+  };
+
+  const filtered = filter==='all' ? vendors : vendors.filter(v => (v.linkStatus||'ACTIVE').toLowerCase() === filter);
+
   return (
     <div>
-      {!compact&&<div className="page-header"><div><h1 className="page-title">{t('vendors','en')}</h1></div><button className="btn-refresh" onClick={()=>setShowForm(f=>!f)}><Plus size={13}/> Add vendor</button></div>}
+      {!compact&&(
+        <div className="page-header">
+          <div><h1 className="page-title">{t('vendors','en')}</h1></div>
+          <div style={{display:'flex',gap:8}}>
+            <button className="btn-refresh" onClick={()=>{setShowInvite(f=>!f);setShowForm(false);}}><Bell size={13}/> Invite Restaurant</button>
+            <button className="btn-refresh" onClick={()=>{setShowForm(f=>!f);setShowInvite(false);}}><Plus size={13}/> Add vendor</button>
+          </div>
+        </div>
+      )}
+      {!compact&&showInvite&&(
+        <form onSubmit={submitInvite} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'end'}}>
+          <div className="form-field">
+            <label className="form-label">Restaurant ID</label>
+            <input className="form-input" value={inviteId} onChange={e=>setInviteId(e.target.value)} placeholder="Paste the restaurant's shop ID" required/>
+            {inviteError && <div style={{color:'var(--red,#DC2626)',fontSize:12,marginTop:4}}>{inviteError}</div>}
+          </div>
+          <button className="btn btn-primary" type="submit" disabled={inviting}>{inviting?'Sending…':'Send Request'}</button>
+        </form>
+      )}
       {!compact&&showForm&&(
         <form onSubmit={submit} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
           <div className="form-field"><label className="form-label">Name</label><input className="form-input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Spice Route" required/></div>
@@ -215,11 +270,22 @@ function VendorsFull({vendors,onToggle,onToggleQR,onAdd,onRemove,compact}) {
           <button className="btn btn-primary" type="submit" disabled={saving}>{saving?'Adding…':'Add'}</button>
         </form>
       )}
+      {!compact&&(
+        <div style={{display:'flex',gap:8,marginBottom:14}}>
+          {['all','active','pending','rejected'].map(f=>(
+            <button key={f} className={`support-filter-tab ${filter===f?'active':''}`} onClick={()=>setFilter(f)}>
+              {f.charAt(0).toUpperCase()+f.slice(1)} <span className="support-filter-count">{f==='all'?vendors.length:vendors.filter(v=>(v.linkStatus||'ACTIVE').toLowerCase()===f).length}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="admin-table-card">
         <table className="admin-table">
-          <thead><tr><th>Vendor</th><th>Category</th><th>Floor</th><th>Phone</th><th>Orders</th><th>Revenue</th><th>Commission</th><th>QR</th><th>Status</th>{!compact&&<th>Actions</th>}</tr></thead>
+          <thead><tr><th>Vendor</th><th>Category</th><th>Floor</th><th>Phone</th><th>Orders</th><th>Revenue</th><th>Commission</th><th>QR</th><th>Status</th><th>Link Status</th>{!compact&&<th>Actions</th>}</tr></thead>
           <tbody>
-            {vendors.map(v=>(
+            {filtered.map(v=>{
+              const lcfg = LINK_STATUS_CFG[v.linkStatus] || LINK_STATUS_CFG.ACTIVE;
+              return (
               <tr key={v.id}>
                 <td style={{fontWeight:700}}>{v.name}</td>
                 <td style={{color:'var(--gray-500)',fontSize:12.5}}>{v.cat}</td>
@@ -230,9 +296,10 @@ function VendorsFull({vendors,onToggle,onToggleQR,onAdd,onRemove,compact}) {
                 <td style={{color:'var(--green-darker)',fontWeight:700}}>₹{v.commission.toLocaleString('en-IN')}</td>
                 <td><button className={`toggle-btn ${v.qrActive?'toggle-on':'toggle-off'}`} onClick={()=>onToggleQR(v.id)}>{v.qrActive?<ToggleRight size={18}/>:<ToggleLeft size={18}/>}</button></td>
                 <td><span className={`status-pill ${v.status==='active'?'st-active':'st-suspended'}`}>{v.status==='active'?<CheckCircle2 size={11}/>:<XCircle size={11}/>} {v.status}</span></td>
+                <td><span className={`status-pill ${lcfg.cls}`}><lcfg.icon size={11}/> {lcfg.label}</span></td>
                 {!compact&&<td><div style={{display:'flex',gap:5}}><button className="admin-row-btn"><Eye size={12}/></button><button className="admin-row-btn" onClick={()=>onToggle(v.id)}>{v.status==='active'?<XCircle size={12}/>:<CheckCircle2 size={12}/>}</button><button className="admin-row-btn admin-row-btn-danger" onClick={()=>onRemove(v.id)}><Trash2 size={12}/></button></div></td>}
               </tr>
-            ))}
+            );})}
           </tbody>
         </table>
       </div>
@@ -335,25 +402,43 @@ function MallReportsTab({vendors}) {
   );
 }
 
-function MallQRPage() {
+// Real, working Food Court QR: encodes the actual public /food-court/:mallId route
+// (Food Court QR Flow) so scanning it takes a customer to the live restaurant list —
+// unlike the old mocked entries here, Download/Print actually work.
+function MallQRPage({mall}) {
+  const [qrImg,setQrImg] = useState('');
+
+  const foodCourtUrl = mall ? `${window.location.origin}/food-court/${mall.id}` : '';
+
+  useEffect(() => {
+    if (!foodCourtUrl) return;
+    QRCode.toDataURL(foodCourtUrl, {
+      width: 512, margin: 2,
+      color: { dark: '#0F172A', light: '#ffffff' },
+    }).then(setQrImg).catch(() => {});
+  }, [foodCourtUrl]);
+
+  const download = () => {
+    if (!qrImg) return;
+    const a = document.createElement('a');
+    a.href = qrImg;
+    a.download = `${mall?.name || 'food-court'}-qr.png`.replace(/\s+/g, '-');
+    a.click();
+  };
+
+  if (!mall) return <div style={{textAlign:'center',padding:40,color:'var(--gray-400)'}}>Loading…</div>;
+
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Mall QR Codes</h1></div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:14}}>
-        {[{label:'Main Entrance QR',type:'Mall QR',scans:2841,url:'aviqr.in/menu/forummall'},{label:'Food Court F1',type:'Group QR',scans:1284,url:'aviqr.in/menu/forummall?floor=f1'},{label:'Food Court F2',type:'Group QR',scans:987,url:'aviqr.in/menu/forummall?floor=f2'}].map(q=>(
-          <div key={q.label} className="admin-chart-card" style={{display:'flex',flexDirection:'column',gap:12}}>
-            <div style={{fontWeight:700,fontSize:14}}>{q.label}</div>
-            <div style={{fontSize:11.5,color:'var(--gray-400)',fontFamily:'monospace'}}>{q.url}</div>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:13}}>
-              <span style={{color:'var(--gray-500)'}}>Type: {q.type}</span>
-              <span style={{fontWeight:700}}>{q.scans.toLocaleString()} scans</span>
-            </div>
-            <div style={{display:'flex',gap:8}}>
-              <button className="btn-refresh" style={{flex:1,justifyContent:'center'}}>⬇ Download</button>
-              <button className="btn-refresh" style={{flex:1,justifyContent:'center'}}>🖨 Print</button>
-            </div>
-          </div>
-        ))}
+      <div className="page-header"><h1 className="page-title">Food Court QR</h1><p className="page-subtitle">One QR for the whole food court — scan lands on the restaurant list</p></div>
+      <div className="admin-chart-card" style={{maxWidth:340,display:'flex',flexDirection:'column',gap:14,alignItems:'center',textAlign:'center'}}>
+        {qrImg ? <img src={qrImg} alt="Food Court QR" style={{width:220,height:220,borderRadius:8}}/> : <div style={{width:220,height:220,background:'var(--gray-100)',borderRadius:8}}/>}
+        <div style={{fontWeight:700,fontSize:14}}>{mall.name}</div>
+        <div style={{fontSize:11.5,color:'var(--gray-400)',fontFamily:'monospace',wordBreak:'break-all'}}>{foodCourtUrl}</div>
+        <div style={{display:'flex',gap:8,width:'100%'}}>
+          <button className="btn-refresh" style={{flex:1,justifyContent:'center'}} onClick={download}><Download size={14}/> Download</button>
+          <button className="btn-refresh" style={{flex:1,justifyContent:'center'}} onClick={()=>window.print()}><Printer size={14}/> Print</button>
+        </div>
       </div>
     </div>
   );

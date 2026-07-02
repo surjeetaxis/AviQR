@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { setCustomerContext } from '../../context/customerContext.js';
 import { guestServiceApi } from '../../api/index.js';
 import {
   UtensilsCrossed, Wine, Waves, Sparkles, ShoppingBag, Dumbbell,
@@ -39,6 +40,7 @@ export default function GuestServices() {
     try {
       const res = await guestServiceApi.hub(hotelId, room, area);
       setHub(res.data.data);
+      setCustomerContext('hotel', hotelId, res.data.data?.hotelName);
     } catch (e) {
       setError('Could not load hotel services. Please contact the front desk.');
     } finally { setLoad(false); }
@@ -102,6 +104,7 @@ export default function GuestServices() {
 // ── Service hub: grid of outlets ──────────────────────────────────────────────
 function HubView({ hub, room, hotelId, onBooked }) {
   const [booking, setBooking] = useState(null); // outlet being booked
+  const navigate = useNavigate();
 
   return (
     <>
@@ -115,7 +118,9 @@ function HubView({ hub, room, hotelId, onBooked }) {
             <button key={o.id} style={sx.outletCard}
               onClick={() => {
                 if (o.bookable) setBooking(o);
-                else if (o.shopId) window.location.href = `/menu/${o.shopId}?room=${room||''}&outlet=${o.id}&hotel=${hotelId}`;
+                // navigate() keeps the Customer Portal shell mounted across this
+                // transition instead of a full page reload (was window.location.href).
+                else if (o.shopId) navigate(`/menu/${o.shopId}?room=${room||''}&outlet=${o.id}&hotel=${hotelId}`);
               }}>
               <div style={sx.outletIcon}><Icon size={22} color="#1D9E75" /></div>
               <div style={{ fontWeight:700, fontSize:14, color:'#111' }}>{o.name}</div>

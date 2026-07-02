@@ -136,20 +136,23 @@ export const menuApi = {
 };
 
 // ── Orders ────────────────────────────────────────────────────────────────────
+// config: optional axios config override (Customer Portal calls pass
+// CustomerAuthContext's authHeader here since the shared interceptor only
+// attaches the staff aviqr_token, not the separate customer session token).
 export const orderApi = {
-  placeOrder:   (shopId, d) => api.post(`/api/v1/orders/shop/${shopId}`, d),
+  placeOrder:   (shopId, d, config={}) => api.post(`/api/v1/orders/shop/${shopId}`, d, config),
   getLiveOrders:(shopId)    => api.get(`/api/v1/orders/shop/${shopId}/live`),
   getOrders:    (shopId, p) => api.get(`/api/v1/orders/shop/${shopId}`, { params: p }),
   updateStatus: (id, s)     => api.put(`/api/v1/orders/${id}/status?status=${s}`),
-  getById:      (id)        => api.get(`/api/v1/orders/${id}`),
-  getHistory:   (p)         => api.get('/api/v1/orders/customer/history', { params: p }),
+  getById:      (id, config={}) => api.get(`/api/v1/orders/${id}`, config),
+  getHistory:   (p, config={})  => api.get('/api/v1/orders/customer/history', { ...config, params: p }),
   listAll:      (p)         => api.get('/api/v1/orders/admin/all', { params: p }),
 };
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 export const paymentApi = {
-  createOrder:    (d)        => api.post('/api/v1/payments/create-order', d),
-  verify:         (d)        => api.post('/api/v1/payments/verify', d),
+  createOrder:    (d, config={}) => api.post('/api/v1/payments/create-order', d, config),
+  verify:         (d, config={}) => api.post('/api/v1/payments/verify', d, config),
   getByShop:      (sId, p)   => api.get(`/api/v1/payments/shop/${sId}`, { params: p }),
   refund:         (payId)    => api.post(`/api/v1/payments/${payId}/refund`),
   listAll:        (p)        => api.get('/api/v1/payments', { params: p }),
@@ -244,6 +247,13 @@ export const mallApi = {
   toggleVendor:(id, a)       => api.put(`/api/v1/vendors/${id}/status?active=${a}`),
   deleteVendor:(id)          => api.delete(`/api/v1/vendors/${id}`),
   enterVendor: (id)          => api.post(`/api/v1/vendors/${id}/enter`),
+  // ── Restaurant Request Flow ──────────────────────────────────────────────
+  requestVendor:    (d)              => api.post('/api/v1/vendors/request', d),
+  myRequests:        (shopIds)       => api.get('/api/v1/vendors/requests/mine', { params: { shopIds: shopIds.join(',') } }),
+  respondToRequest:  (vendorId, dec) => api.put(`/api/v1/vendors/${vendorId}/respond?decision=${dec}`),
+  // ── Food Court QR Flow (public, no auth) ─────────────────────────────────
+  getPublicMall:     (id)            => api.get(`/api/v1/malls/public/${id}`),
+  getPublicVendors:  (mallId)        => api.get(`/api/v1/malls/public/${mallId}/vendors`),
 };
 
 // ── Support ───────────────────────────────────────────────────────────────────
@@ -272,7 +282,7 @@ export const inventoryApi = {
 
 // ── Loyalty ───────────────────────────────────────────────────────────────────
 export const loyaltyApi = {
-  getBalance:  (sId, phone)  => api.get(`/api/v1/loyalty/${sId}/balance`, { params: { phone } }),
+  getBalance:  (sId, phone, config={})  => api.get(`/api/v1/loyalty/${sId}/balance`, { ...config, params: { phone } }),
   earn:        (sId, d)      => api.post(`/api/v1/loyalty/${sId}/earn`, d),
   redeem:      (sId, d)      => api.post(`/api/v1/loyalty/${sId}/redeem`, d),
   getCustomers:(sId)         => {
@@ -281,7 +291,13 @@ export const loyaltyApi = {
       ? api.get(`/api/v1/hotel-outlets/${outletId}/loyalty-customers`)
       : api.get(`/api/v1/loyalty/${sId}/customers`);
   },
-  getHistory:  (sId, phone)  => api.get(`/api/v1/loyalty/${sId}/history`, { params: { phone } }),
+  getHistory:  (sId, phone, config={})  => api.get(`/api/v1/loyalty/${sId}/history`, { ...config, params: { phone } }),
+};
+
+// ── Customer Portal: favorites (phone-keyed, no account required) ─────────────
+export const favoritesApi = {
+  toggle: (phone, shopId, config={}) => api.post('/api/v1/favorites', { phone, shopId }, config),
+  mine:   (phone, config={})         => api.get('/api/v1/favorites/mine', { ...config, params: { phone } }),
 };
 
 // ── Invoice & KOT ─────────────────────────────────────────────────────────────
