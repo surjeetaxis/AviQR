@@ -107,7 +107,7 @@ export default function SubscriptionPage({ userRole = 'owner', currentPlan = 'gr
           return (
             <div key={plan.id} className={`sub-plan-card ${selected===plan.id?'is-selected':''} ${isCurrent?'is-current':''}`}
               onClick={()=>setSelected(plan.id)}>
-              {plan.tag && <div className="sub-plan-tag">{plan.tag}</div>}
+              {plan.tag && !isCurrent && <div className="sub-plan-tag">{plan.tag}</div>}
               {isCurrent && <div className="sub-current-tag">Current</div>}
               <div className="sub-plan-icon" style={{background:plan.color==='green'?'var(--green-light)':plan.color==='purple'?'var(--purple-bg)':'var(--gray-100)'}}>
                 <Icon size={20} style={{color:COLOR[plan.color]}}/>

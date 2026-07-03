@@ -78,6 +78,15 @@ const ROOM_STATUS_CFG = {
   maintenance: {cls:'rs-maintenance', label:'Maintenance'},
 };
 
+// Booking dates come from different sources (real ISO strings from the QR
+// booking flow vs. pre-formatted seed data) — normalise so they always
+// render the same way regardless of how they were stored.
+const fmtBookingDate = (d) => {
+  if (!d) return d;
+  const parsed = new Date(/^\d{4}-\d{2}-\d{2}$/.test(d) ? `${d}T00:00:00` : d);
+  return isNaN(parsed) ? d : parsed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+};
+
 export default function HotelDashboard() {
   const { user, logout } = useAuth();
   const { lang } = useLang();
@@ -91,6 +100,21 @@ export default function HotelDashboard() {
   const [bookings, setBookings] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+
+  // Normalise a backend room_requests row (legacy) into the shape this UI renders
+  const mapRoomRequest = (r) => ({
+    id: r.id,
+    room: r.roomNumber,
+    service: ({ROOM_SERVICE:'Room service', HOUSEKEEPING:'Housekeeping', AMENITIES:'Amenities',
+               MAINTENANCE:'Maintenance', CONCIERGE:'Concierge', LAUNDRY:'Laundry',
+               SPA:'Spa', WAKE_UP_CALL:'Wake-up call', LATE_CHECKOUT:'Late checkout',
+               TRANSPORT:'Transport'}[r.serviceType] || r.serviceType || 'Request'),
+    item: r.description || '',
+    time: r.createdAt ? new Date(r.createdAt).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '',
+    status: ({NEW:'new', ACCEPTED:'preparing', PREPARING:'preparing', CONFIRMED:'confirmed', DONE:'done'}[r.status] || 'new'),
+    priority: (r.priority||'NORMAL').toLowerCase(),
+    _source: 'room',
+  });
 
   // Normalise a backend guest_service_request into the shape this UI renders
   const mapGuestReq = (g) => ({
@@ -140,7 +164,7 @@ export default function HotelDashboard() {
           }
           // Merge legacy room_requests + new guest_service_requests
           let merged = [];
-          if (reqRes.status === 'fulfilled') merged = merged.concat(reqRes.value.data.data || []);
+          if (reqRes.status === 'fulfilled') merged = merged.concat((reqRes.value.data.data || []).map(mapRoomRequest));
           if (gsrRes.status === 'fulfilled') merged = merged.concat((gsrRes.value.data.data || []).map(mapGuestReq));
           if (merged.length) setRequests(merged);
           if (bkRes.status === 'fulfilled') setBookings(bkRes.value.data.data || []);
@@ -314,7 +338,7 @@ function HotelOverview({rooms,requests,bookings,onAdvance,onNav}) {
                     <td>{r.number} · {r.type}</td>
                     <td>{r.checkIn}</td>
                     <td>{isToday(r.checkOut) ? <strong style={{color:'var(--amber,#B45309)'}}>{r.checkOut} · Today</strong> : r.checkOut}</td>
-                    <td><button className="admin-row-btn" onClick={()=>setBillRoom(r)}>Bill</button></td>
+                    <td><button className="btn-room-action" onClick={()=>setBillRoom(r)}>💳 Bill</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -355,7 +379,7 @@ function AllRequests({requests,onAdvance,compact,roomFilter,onClearFilter}) {
       {roomFilter && (
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,fontSize:13}}>
           <span style={{background:'var(--gray-100)',padding:'4px 10px',borderRadius:99,fontWeight:600}}>Room {roomFilter}</span>
-          <button className="admin-row-btn" onClick={onClearFilter}>Clear filter ✕</button>
+          <button className="btn-room-action" onClick={onClearFilter}>Clear filter ✕</button>
         </div>
       )}
       <div className="requests-list">
@@ -381,7 +405,7 @@ function AllRequests({requests,onAdvance,compact,roomFilter,onClearFilter}) {
   );
 }
 
-function BookingsView({bookings,onUpdate}) {
+function BookingsView({bookings,onUpdate,compact}) {
   const badge = (s) => {
     const map = {
       REQUESTED: {bg:'var(--amber-bg,#FEF3C7)', c:'var(--amber,#B45309)', label:'Requested'},
@@ -393,7 +417,7 @@ function BookingsView({bookings,onUpdate}) {
   };
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Outlet Bookings</h1><span className="req-live-badge">● Live</span></div>
+      {!compact&&<div className="page-header"><h1 className="page-title">Outlet Bookings</h1><span className="req-live-badge">● Live</span></div>}
       <div className="requests-list">
         {bookings.map(b=>(
           <div key={b.id} className="request-row">
@@ -401,7 +425,7 @@ function BookingsView({bookings,onUpdate}) {
             <div className="req-info">
               <div className="req-service">{b.outletName} · {b.serviceName}</div>
               <div className="req-item">
-                {b.bookingDate} at {b.bookingTime} · {b.partySize} guest{b.partySize>1?'s':''}
+                {fmtBookingDate(b.bookingDate)} at {b.bookingTime} · {b.partySize} guest{b.partySize>1?'s':''}
                 {b.price>0 ? ` · ₹${Number(b.price).toLocaleString('en-IN')}` : ''}
                 {' · '}{b.paymentChoice==='PAY_DIRECT'?'Pay direct':'Charge to room'}
               </div>
@@ -452,7 +476,7 @@ function GuestsPage({rooms,bookings}) {
                 <div className="req-room">Room {b.roomNumber}</div>
                 <div className="req-info">
                   <div className="req-service">{b.guestName || 'Guest'} · {b.outletName}</div>
-                  <div className="req-item">{b.serviceName} · {b.bookingDate} at {b.bookingTime}</div>
+                  <div className="req-item">{b.serviceName} · {fmtBookingDate(b.bookingDate)} at {b.bookingTime}</div>
                 </div>
               </div>
             ))}
@@ -864,7 +888,7 @@ function RoomServiceMenu({menu:initialMenu}) {
           </div>
           <div style={{display:'flex',gap:8}}>
             <button className="btn btn-primary" type="submit">{editing?'Save':'Add'}</button>
-            <button className="admin-row-btn" type="button" onClick={()=>setShowAdd(false)}>Cancel</button>
+            <button className="btn-room-action" type="button" onClick={()=>setShowAdd(false)}>Cancel</button>
           </div>
         </form>
       )}
@@ -923,7 +947,7 @@ function ServicePage({title,requests,onAdvance}) {
   return (
     <div>
       <div className="page-header"><h1 className="page-title">{title}</h1><p className="page-subtitle">{requests.filter(r=>r.status!=='done').length} active</p></div>
-      <AllRequests requests={requests} onAdvance={onAdvance}/>
+      <AllRequests requests={requests} onAdvance={onAdvance} compact/>
     </div>
   );
 }
@@ -933,11 +957,11 @@ function SpaPage({bookings,outlets,onUpdate}) {
   const spaBookings = (bookings||[]).filter(b=>spaOutletIds.has(b.outletId));
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Spa</h1><p className="page-subtitle">{spaBookings.filter(b=>b.status!=='COMPLETED'&&b.status!=='CANCELLED').length} active bookings</p></div>
+      <div className="page-header"><h1 className="page-title">Spa</h1><p className="page-subtitle">{spaBookings.filter(b=>b.status!=='COMPLETED'&&b.status!=='CANCELLED').length} active booking{spaBookings.filter(b=>b.status!=='COMPLETED'&&b.status!=='CANCELLED').length===1?'':'s'}</p></div>
       {spaOutletIds.size===0 ? (
         <div style={{textAlign:'center',padding:32,color:'var(--gray-400)',fontSize:13}}>No spa outlet set up yet. Add one from the Outlets tab (type "SPA").</div>
       ) : (
-        <BookingsView bookings={spaBookings} onUpdate={onUpdate}/>
+        <BookingsView bookings={spaBookings} onUpdate={onUpdate} compact/>
       )}
     </div>
   );
@@ -992,7 +1016,7 @@ function QRManagementPage({rooms,setRooms,outlets}) {
                 <td style={{fontWeight:600}}>{o.name}</td>
                 <td>{o.outletType?.replace('_',' ')}</td>
                 <td><button className={`toggle-btn ${o.qrActive?'toggle-on':'toggle-off'}`} onClick={()=>toggleOutletQr(o)}>{o.qrActive?<ToggleRight size={18}/>:<ToggleLeft size={18}/>}</button></td>
-                <td><button className="admin-row-btn" onClick={()=>createOutletQr(o)}><QrCode size={12}/> Generate</button></td>
+                <td><button className="btn-room-action" onClick={()=>createOutletQr(o)}><QrCode size={12}/> Generate</button></td>
               </tr>
             ))}
             {outletList.length===0 && <tr><td colSpan={4} style={{textAlign:'center',color:'var(--gray-400)',padding:20}}>No outlets yet.</td></tr>}

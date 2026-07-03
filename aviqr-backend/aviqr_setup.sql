@@ -643,6 +643,19 @@ CREATE INDEX idx_order_items_menu_item_id ON order_items (menu_item_id);
 -- ── Sequence for order numbers ────────────────────────────────
 CREATE SEQUENCE seq_order_number START 100001 INCREMENT 1 CACHE 20;
 
+-- ── aggregator_shop_mapping ───────────────────────────────────
+CREATE TABLE aggregator_shop_mapping (
+    id                 UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id            VARCHAR(100)  NOT NULL,
+    platform           VARCHAR(20)   NOT NULL,
+    aggregator_shop_id VARCHAR(100)  NOT NULL,
+    created_at         TIMESTAMP     DEFAULT NOW(),
+    UNIQUE (shop_id, platform)
+);
+
+CREATE INDEX idx_agg_mapping_shop_id  ON aggregator_shop_mapping (shop_id);
+CREATE INDEX idx_agg_mapping_platform_aggid ON aggregator_shop_mapping (platform, aggregator_shop_id);
+
 -- ── Dummy data — orders ───────────────────────────────────────
 INSERT INTO orders (id, order_number, shop_id, customer_id, customer_name, customer_phone, table_number, type, status, payment_method, payment_status, payment_id, subtotal, tax, total_amount, notes, created_at, accepted_at, completed_at) VALUES
   ('8f95e3c3-ef6b-40a7-8796-855b021297f6', 'ORD-1001', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',   '9876543210', '4',  'DINE_IN',  'COMPLETED', 'ONLINE', 'PAID',    'pay_Abc123xyz001', 685.00,  34.25, 719.25,  NULL,             NOW() - INTERVAL '2 hours', NOW() - INTERVAL '115 min', NOW() - INTERVAL '90 min'),
