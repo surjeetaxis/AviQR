@@ -3,7 +3,6 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from
 import { useAuth } from '../../src/context/AuthContext.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { reportApi } from '../../src/api/index.js';
-import { MOCK_STATS, MOCK_REVENUE, MOCK_TOP_ITEMS } from '../../src/api/mockData.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
 import { Card } from '../../src/components/common/Card.js';
 import { Colors, FontSize, Radius, Shadow } from '../../src/theme/index.js';
@@ -12,14 +11,14 @@ const W = Dimensions.get('window').width;
 
 export default function Reports() {
   const { user } = useAuth();
-  const shopId = useActiveShopId() || '00000000-0000-0000-0000-000000000101';
-  const [stats, setStats]     = useState(MOCK_STATS);
-  const [revenue, setRevenue] = useState(MOCK_REVENUE);
-  const [topItems, setTop]    = useState(MOCK_TOP_ITEMS);
+  const shopId = useActiveShopId();
+  const [stats, setStats]     = useState(null);
+  const [revenue, setRevenue] = useState([]);
+  const [topItems, setTop]    = useState([]);
   const [offline, setOffline] = useState(false);
   const [range, setRange]     = useState(7);
 
-  useEffect(() => { load(); }, [range]);
+  useEffect(() => { if(shopId) load(); }, [shopId, range]);
 
   const load = async () => {
     try {
@@ -27,8 +26,8 @@ export default function Reports() {
         reportApi.getDaily(shopId), reportApi.getRevenue(shopId,range), reportApi.getTopItems(shopId)
       ]);
       if(s.status==='fulfilled'){setStats(s.value.data.data);setOffline(false);}else setOffline(true);
-      if(r.status==='fulfilled') setRevenue(r.value.data.data||MOCK_REVENUE);
-      if(t.status==='fulfilled') setTop(t.value.data.data||MOCK_TOP_ITEMS);
+      if(r.status==='fulfilled') setRevenue(r.value.data.data||[]);
+      if(t.status==='fulfilled') setTop(t.value.data.data||[]);
     } catch { setOffline(true); }
   };
 

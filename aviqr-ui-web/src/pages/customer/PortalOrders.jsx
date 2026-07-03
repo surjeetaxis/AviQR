@@ -50,7 +50,7 @@ export default function PortalOrders() {
       ) : (
         <div style={{ padding:'0 16px', display:'flex', flexDirection:'column', gap:10 }}>
           {orders.map(o => (
-            <button key={o.id} style={sx.card} onClick={() => navigate(`/menu/${o.shopId}`)}>
+            <button key={o.id} style={sx.card} onClick={() => navigate(`/portal/orders/${o.id}`)}>
               <div style={{ flex:1, textAlign:'left' }}>
                 <div style={{ fontWeight:700, fontSize:14 }}>#{o.orderNumber || o.id?.slice(0,8)}</div>
                 <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>

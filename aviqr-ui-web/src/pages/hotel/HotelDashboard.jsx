@@ -5,12 +5,13 @@ import { hotelApi, hotelOpsApi, hotelOutletApi, hotelAccessApi, reportApi } from
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
+import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import {
   Hotel, BedDouble, UtensilsCrossed, Shirt, Sparkles, Wrench,
   Bell, BarChart2, Settings, LogOut, Menu as MenuIcon, CheckCircle2,
   Clock, AlertCircle, Plus, Edit2, Trash2, ToggleLeft, ToggleRight,
   Star, Phone, Save, X, Coffee, Car, RefreshCw, Store, UserCog, QrCode,
-  Users, Flower2, TrendingUp
+  Users, Flower2, TrendingUp, Eye
 } from 'lucide-react';
 import '../admin/Admin.css';
 import './Hotel.css';
@@ -236,7 +237,18 @@ export default function HotelDashboard() {
           <span style={{fontWeight:700,fontSize:15}}>{user?.hotelName||'Grand Palace Hotel'}</span>
           <div style={{display:'flex',alignItems:'center',gap:10,marginLeft:'auto'}}>
             <LangPicker/>
-            <div className="admin-avatar sm" style={{background:'var(--purple)'}}>{user?.avatar}</div>
+            <ProfileMenu
+              name={user?.name}
+              email={user?.email}
+              avatar={user?.avatar}
+              avatarColor="var(--purple)"
+              onLogout={() => { logout(); navigate('/'); }}
+              items={[
+                { label:'Profile & Settings', icon:Settings, onClick:() => setTab('settings') },
+                ...(hotelId ? [{ label:'Preview guest page', icon:Eye, onClick:() => navigate(`/hotel-services/${hotelId}`) }] : []),
+                { label:'Onboarding guide', icon:Sparkles, onClick:() => navigate('/onboarding') },
+              ]}
+            />
           </div>
         </header>
         <main className="admin-content">

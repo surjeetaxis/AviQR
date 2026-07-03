@@ -3,7 +3,6 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, Tex
 import { useAuth } from '../../src/context/AuthContext.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { orderApi } from '../../src/api/index.js';
-import { MOCK_ORDERS } from '../../src/api/mockData.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
@@ -15,15 +14,16 @@ const timeSince=ts=>{const s=Math.floor((Date.now()-new Date(ts))/1000);if(s<60)
 
 export default function Orders() {
   const { user }=useAuth();
-  const shopId=useActiveShopId()||'00000000-0000-0000-0000-000000000101';
-  const [orders,setOrders]=useState(MOCK_ORDERS);
+  const shopId=useActiveShopId();
+  const [orders,setOrders]=useState([]);
   const [filter,setFilter]=useState('ALL');
   const [search,setSearch]=useState('');
   const [offline,setOffline]=useState(false);
   const [refreshing,setRef]=useState(false);
 
   const load=useCallback(async()=>{
-    try{const r=await orderApi.getLive(shopId);const d=r.data.data||[];if(d.length>0){setOrders(d);setOffline(false);}else setOffline(true);}
+    if(!shopId) return;
+    try{const r=await orderApi.getLive(shopId);setOrders(r.data.data||[]);setOffline(false);}
     catch{setOffline(true);}
   },[shopId]);
 

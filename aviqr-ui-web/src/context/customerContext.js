@@ -17,11 +17,12 @@ export function getCustomerContext() {
   }
 }
 
-// type -> the base route for that context ('shop' | 'hotel' | 'mall')
+// type -> the base route for that context ('shop' | 'hotel' | 'mall' | 'brand')
 export function contextRoute(ctx) {
   if (!ctx) return null;
   if (ctx.type === 'shop')  return `/menu/${ctx.id}`;
   if (ctx.type === 'hotel') return `/hotel-services/${ctx.id}`;
   if (ctx.type === 'mall')  return `/food-court/${ctx.id}`;
+  if (ctx.type === 'brand') return `/brand/${ctx.id}`;
   return null;
 }

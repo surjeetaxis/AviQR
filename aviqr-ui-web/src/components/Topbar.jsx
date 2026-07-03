@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Search, Bell, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth, ROLE_LABELS } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { LangPicker } from './shared/LangPicker.jsx';
 import { useLang } from './shared/LangPicker.jsx';
 import { t } from '../i18n/translations.js';
@@ -9,6 +10,7 @@ import './Topbar.css';
 
 export default function Topbar({ onMenuClick, onSearchOpen }) {
   const { user, logout } = useAuth();
+  const shopId = useActiveShopId();
   const { lang } = useLang();
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -56,7 +58,7 @@ export default function Topbar({ onMenuClick, onSearchOpen }) {
               <button className="topbar-dropdown-item" onClick={() => { setShowDropdown(false); navigate('/settings'); }}>
                 {t('profile', lang)} & {t('settings', lang)}
               </button>
-              <button className="topbar-dropdown-item" onClick={() => { setShowDropdown(false); navigate('/customer'); }}>
+              <button className="topbar-dropdown-item" onClick={() => { setShowDropdown(false); navigate(shopId ? `/menu/${shopId}` : '/customer'); }}>
                 Preview customer menu
               </button>
               <button className="topbar-dropdown-item" onClick={() => { setShowDropdown(false); navigate('/onboarding'); }}>

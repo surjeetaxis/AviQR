@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Gift, Search, Users, TrendingUp, Plus, RefreshCw,
   Award, Star, Clock, Phone, ChevronRight, Download, Bell, Settings
@@ -23,6 +23,8 @@ export default function Loyalty() {
   const { user } = useAuth();
   const shopId   = useActiveShopId();
   const navigate = useNavigate();
+  const location = useLocation();
+  const goToSettings = () => navigate(location.pathname.replace(/\/loyalty$/, '/settings'), { state: { section: 'payment' } });
 
   const [customers,      setCust]    = useState([]);
   const [loading,        setLoad]    = useState(true);
@@ -85,7 +87,7 @@ export default function Loyalty() {
         orderAmount:   parseFloat(form.amount),
       });
       if (res.data.data === null && res.data.message?.includes('not enabled')) {
-        alert('Loyalty is disabled. Go to Settings → Features and enable "Loyalty points" first.');
+        alert('Loyalty is disabled. Go to Settings → Payment Methods and enable "Loyalty Points" first.');
         setSaving(false); return;
       }
       setModal(null); setForm({ phone:'', amount:'' }); setBalRes(null);
@@ -165,7 +167,7 @@ export default function Loyalty() {
             </div>
           </div>
           <button
-            onClick={() => navigate('/settings')}
+            onClick={goToSettings}
             style={{
               background:'rgba(255,255,255,.2)', border:'1.5px solid rgba(255,255,255,.4)',
               borderRadius:10, padding:'10px 18px', color:'#fff', fontWeight:700, fontSize:13,

@@ -37,6 +37,19 @@ public class QrService {
     }
 
     @Transactional
+    public in.aviqr.qr.entity.QrCode updateMarketing(UUID id, String label, String targetUrl, String campaign) {
+        in.aviqr.qr.entity.QrCode qr = repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("QR code not found"));
+        if (qr.getType() != QrType.CAMPAIGN)
+            throw new RuntimeException("Not a marketing QR code");
+        // qrCode slug is left untouched so already-printed materials keep working after an edit
+        if (label != null && !label.isBlank()) qr.setLabel(label);
+        if (targetUrl != null && !targetUrl.isBlank()) qr.setTargetUrl(targetUrl);
+        if (campaign != null && !campaign.isBlank()) qr.setGroupParam(campaign);
+        return repo.save(qr);
+    }
+
+    @Transactional
     public in.aviqr.qr.entity.QrCode create(String shopId, String label, QrType type, String groupParam) {
         String code = generateUniqueCode(shopId, type, groupParam);
         String url  = buildUrl(shopId, type, groupParam);

@@ -103,7 +103,7 @@ export const menuApi = {
   createCategory: (d)         => api.post('/api/v1/categories', d),
   updateCategory: (id, d)     => api.put(`/api/v1/categories/${id}`, d),
   deleteCategory: (id)        => api.delete(`/api/v1/categories/${id}`),
-  getItems:       (sId)       => api.get(`/api/v1/items/shop/${sId}`),
+  getItems:       (sId)       => api.get(`/api/v1/items/shop/${sId}/all`),
   createItem:     (d)         => api.post('/api/v1/items', d),
   updateItem:     (id, d)     => api.put(`/api/v1/items/${id}`, d),
   toggleAvail:    (id, a)     => api.put(`/api/v1/items/${id}/availability?available=${a}`),

@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SEO from '../../components/shared/SEO.jsx';
+import { planApi, offerApi } from '../../api/index.js';
 import {
   QrCode, Zap, BarChart2, Users, ShoppingBag, Star,
   ChevronRight, Globe, Shield, Clock, Smartphone,
@@ -33,26 +35,37 @@ const VERTICALS = [
   { icon: ShoppingCart,     label: 'Cloud Kitchens', color: 'green' },
 ];
 
-const PLANS = [
+// Static fallback — used until the live plan list loads (or if the API is unreachable)
+// so the pricing section never looks broken. Admin edits in Subscription Management
+// (Manage Plans / Discount Offers) override this via planApi/offerApi below.
+const FALLBACK_PLANS = [
   {
-    name: 'Starter', price: '₹0', period: '/month', tag: null,
+    planKey: 'STARTER', name: 'Starter', price: 0, tag: null,
     desc: 'Perfect for food stalls and small shops.',
     features: ['Up to 20 menu items', '50 orders/day', '1 QR code', 'Basic analytics'],
     cta: 'Start free', primary: false,
   },
   {
-    name: 'Growth', price: '₹999', period: '/month', tag: 'Most popular',
+    planKey: 'GROWTH', name: 'Growth', price: 999, tag: 'Most popular',
     desc: 'For growing restaurants that need more.',
     features: ['Unlimited items & orders', 'Dynamic pricing', 'OCR menu upload', 'Staff roles (10)', 'Loyalty & wallet', 'WhatsApp campaigns'],
     cta: 'Start 14-day trial', primary: true,
   },
   {
-    name: 'Business', price: '₹2,499', period: '/month', tag: null,
+    planKey: 'BUSINESS', name: 'Business', price: 2499, tag: null,
     desc: 'Multi-outlet brands and cloud kitchens.',
     features: ['Everything in Growth', 'Multi-outlet dashboard', 'CRM & retention', 'AI recommendations', 'API access', 'Priority support'],
     cta: 'Contact sales', primary: false,
   },
 ];
+
+// Editorial copy that isn't part of the Plan record admin edits — keyed by planKey
+const PLAN_META = {
+  STARTER:    { desc: 'Perfect for food stalls and small shops.',           cta: 'Start free',         tag: null,           primary: false },
+  GROWTH:     { desc: 'For growing restaurants that need more.',           cta: 'Start 14-day trial', tag: 'Most popular', primary: true  },
+  BUSINESS:   { desc: 'Multi-outlet brands and cloud kitchens.',           cta: 'Contact sales',      tag: null,           primary: false },
+  ENTERPRISE: { desc: 'Custom contracts for large chains & franchises.',   cta: 'Contact sales',      tag: null,           primary: false },
+};
 
 const TESTIMONIALS = [
   { name: 'Ankit Joshi', shop: 'Chai & Chaat, Pune', avatar: 'AJ', text: 'Our weekend orders jumped 40% after switching to dynamic pricing. Customers love the instant menu — no waiting for a waiter.' },

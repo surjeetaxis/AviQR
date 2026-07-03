@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { shopApi, menuApi, orderApi, qrApi, reportApi, authApi } from '../../api/index.js';
+import { shopApi, menuApi, orderApi, qrApi, reportApi, authApi, brandApi } from '../../api/index.js';
+import QRCode from 'qrcode';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
+import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import {
   Store, BarChart2, ShoppingBag, Tag, QrCode, Settings, LogOut,
   Menu as MenuIcon, TrendingUp, CreditCard, ArrowLeft, ChevronRight,
-  RefreshCw, Save, CheckCircle2, XCircle, Package, Edit2, Plus, Search, Star
+  RefreshCw, Save, CheckCircle2, XCircle, Package, Edit2, Plus, Search, Star,
+  Eye, Sparkles
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import '../admin/Admin.css';
 import '../admin/AdminExtra.css';
+import '../hotel/HotelExtra.css';
 import './Supplier.css';
 
 const NAV = [
@@ -38,21 +42,45 @@ export default function SupplierDashboard() {
   const [weekly, setWeekly] = useState(WEEKLY_FALLBACK);
   const [loadingOutlets, setLoadingOutlets] = useState(true);
   const [managingOutlet, setManagingOutlet] = useState(null);
+  const [brand, setBrand] = useState(null);
 
-  useEffect(() => {
+  const loadOutlets = () => {
+    setLoadingOutlets(true);
     shopApi.getMyShops()
       .then(res => {
         const shops = res.data.data || [];
-        setOutlets(shops.map(s => ({
+        const base = shops.map(s => ({
           id: s.id,
           name: s.name,
-          orders: s.ordersToday || 0,
-          revenue: s.revenueToday || 0,
-          status: s.isOpen ? 'open' : 'closed',
-        })));
+          phone: s.phone,
+          city: s.city,
+          shopStatus: s.status || 'ACTIVE',
+          orders: 0,
+          revenue: 0,
+        }));
+        setOutlets(base);
+        setLoadingOutlets(false);
+        // Today's orders/revenue per outlet — the supplier's own login token has
+        // no shopId, so report-service's same-shop check 403s a direct call;
+        // mint a shop-scoped token first (same pattern as ReportsTab below).
+        Promise.all(base.map(o =>
+          shopApi.enter(o.id)
+            .then(res => reportApi.getDaily(o.id, res.data.data.accessToken))
+            .then(res => ({ id: o.id, ...res.data.data }))
+            .catch(() => null)
+        )).then(results => {
+          setOutlets(prev => prev.map(o => {
+            const r = results.find(x => x?.id === o.id);
+            return r ? { ...o, orders: r.totalOrders || 0, revenue: r.totalRevenue || 0 } : o;
+          }));
+        });
       })
-      .catch(() => {})
-      .finally(() => setLoadingOutlets(false));
+      .catch(() => setLoadingOutlets(false));
+  };
+
+  useEffect(() => {
+    loadOutlets();
+    brandApi.getMine().then(res => setBrand(res.data.data)).catch(() => setBrand(null));
   }, []);
 
   if (managingOutlet) {
@@ -80,7 +108,7 @@ export default function SupplierDashboard() {
         <div className="admin-user-card">
           <div className="admin-avatar" style={{ background: 'var(--blue)' }}>{user?.avatar || 'S'}</div>
           <div>
-            <div className="admin-user-name">{user?.brandName || user?.name || 'Supplier'}</div>
+            <div className="admin-user-name">{brand?.name || user?.name || 'Supplier'}</div>
             <div className="admin-user-role">Supplier · {outlets.length} outlets</div>
           </div>
         </div>
@@ -108,7 +136,19 @@ export default function SupplierDashboard() {
             <MenuIcon size={20} />
           </button>
           <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--gray-900)' }}>Supplier Dashboard</span>
-          <div className="admin-avatar sm" style={{ marginLeft: 'auto', background: 'var(--blue)' }}>{user?.avatar}</div>
+          <ProfileMenu
+            name={user?.name}
+            email={user?.email}
+            avatar={user?.avatar}
+            avatarColor="var(--blue)"
+            onLogout={() => { logout(); navigate('/'); }}
+            items={[
+              { label:'Profile & Settings', icon:Settings, onClick:() => setTab('settings') },
+              ...(brand ? [{ label:'Preview all outlets', icon:Eye, onClick:() => navigate(`/brand/${brand.id}`) }]
+                : outlets.length ? [{ label:'Preview customer menu', icon:Eye, onClick:() => navigate(`/menu/${outlets[0].id}`) }] : []),
+              { label:'Onboarding guide', icon:Sparkles, onClick:() => navigate('/onboarding') },
+            ]}
+          />
         </header>
         <main className="admin-content">
           {tab === 'overview' && (
@@ -117,17 +157,18 @@ export default function SupplierDashboard() {
               weekly={weekly}
               loading={loadingOutlets}
               onManage={setManagingOutlet}
+              onReload={loadOutlets}
             />
           )}
           {tab === 'outlets' && (
-            <OutletsList outlets={outlets} loading={loadingOutlets} onManage={setManagingOutlet} />
+            <OutletsList outlets={outlets} loading={loadingOutlets} onManage={setManagingOutlet} onReload={loadOutlets} />
           )}
           {tab === 'menu'    && <MenuSyncTab outlets={outlets} />}
           {tab === 'orders'  && <AllOrdersTab outlets={outlets} />}
-          {tab === 'qr'      && <QRCodesTab outlets={outlets} />}
+          {tab === 'qr'      && <QRCodesTab outlets={outlets} brand={brand} onBrandSaved={setBrand} />}
           {tab === 'reports' && <ReportsTab outlets={outlets} />}
           {tab === 'subscription' && <SubscriptionPage userRole="supplier" currentPlan="pro" />}
-          {tab === 'settings'&& <SettingsTab user={user} />}
+          {tab === 'settings'&& <SettingsTab user={user} brand={brand} onBrandSaved={setBrand} />}
         </main>
       </div>
     </div>
@@ -135,7 +176,7 @@ export default function SupplierDashboard() {
 }
 
 /* ─── Overview ─────────────────────────────────────────────────────────────── */
-function SupplierOverview({ outlets, weekly, loading, onManage }) {
+function SupplierOverview({ outlets, weekly, loading, onManage, onReload }) {
   if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading outlets…</div>;
   const totalRevenue = outlets.reduce((a, o) => a + o.revenue, 0);
   const totalOrders  = outlets.reduce((a, o) => a + o.orders, 0);
@@ -149,10 +190,10 @@ function SupplierOverview({ outlets, weekly, loading, onManage }) {
       </div>
       <div className="admin-kpi-grid">
         {[
-          { label: 'Total outlets',  value: outlets.length,                                    icon: Store,     color: 'green' },
-          { label: 'Open now',       value: outlets.filter(o => o.status === 'open').length,   icon: TrendingUp,color: 'blue' },
-          { label: 'Orders today',   value: totalOrders,                                        icon: ShoppingBag,color:'purple' },
-          { label: 'Revenue today',  value: `₹${totalRevenue.toLocaleString('en-IN')}`,        icon: CreditCard,color: 'amber' },
+          { label: 'Total outlets',  value: outlets.length,                                          icon: Store,     color: 'green' },
+          { label: 'Active now',     value: outlets.filter(o => o.shopStatus === 'ACTIVE').length,    icon: TrendingUp,color: 'blue' },
+          { label: 'Orders today',   value: totalOrders,                                                icon: ShoppingBag,color:'purple' },
+          { label: 'Revenue today',  value: `₹${totalRevenue.toLocaleString('en-IN')}`,               icon: CreditCard,color: 'amber' },
         ].map(k => (
           <div key={k.label} className="admin-kpi-card">
             <div className={`admin-kpi-icon icon-${k.color}`}><k.icon size={18} /></div>
@@ -173,26 +214,71 @@ function SupplierOverview({ outlets, weekly, loading, onManage }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <OutletsList outlets={outlets} onManage={onManage} />
+      <OutletsList outlets={outlets} onManage={onManage} onReload={onReload} />
     </div>
   );
 }
 
-/* ─── Outlets list ──────────────────────────────────────────────────────────── */
-function OutletsList({ outlets, loading, onManage }) {
+const SUPPLIER_ROOM_STATUS = { ACTIVE: 'rs-occupied', INACTIVE: 'rs-vacant', SUSPENDED: 'rs-maintenance' };
+
+/* ─── Outlets list — same card layout as the Hotel Outlets page ─────────────── */
+function OutletsList({ outlets, loading, onManage, onReload }) {
   const [search, setSearch] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: '', phone: '', city: '' });
+  const [saving, setSaving] = useState(false);
+
   if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading outlets…</div>;
   const filtered = search.trim()
     ? outlets.filter(o => o.name?.toLowerCase().includes(search.trim().toLowerCase()))
     : outlets;
+
+  const create = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.phone.trim()) return;
+    setSaving(true);
+    try {
+      await shopApi.create({ name: form.name, phone: form.phone, city: form.city });
+      setForm({ name: '', phone: '', city: '' });
+      setShowForm(false);
+      onReload?.();
+    } catch { alert('Could not create outlet'); }
+    finally { setSaving(false); }
+  };
+
+  const toggleActive = (o) => shopApi
+    .updateStatus(o.id, o.shopStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')
+    .then(onReload)
+    .catch(() => alert('Could not update outlet status'));
+
   return (
     <div>
       <div className="page-header">
         <div>
           <h1 className="page-title">Outlets</h1>
-          <p className="page-subtitle">{outlets.length} registered</p>
+          <p className="page-subtitle">{outlets.length} outlet{outlets.length !== 1 ? 's' : ''} · each gets its own menu, staff &amp; billing</p>
         </div>
+        <button className="btn-refresh" onClick={() => setShowForm(f => !f)}><Plus size={13} /> Add outlet</button>
       </div>
+
+      {showForm && (
+        <form onSubmit={create} className="admin-chart-card" style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+          <div className="form-field">
+            <label className="form-label">Name</label>
+            <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Domino's — Indiranagar" required />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Phone</label>
+            <input className="form-input" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="e.g. 9845012345" required />
+          </div>
+          <div className="form-field">
+            <label className="form-label">City</label>
+            <input className="form-input" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="e.g. Bengaluru" />
+          </div>
+          <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? 'Creating…' : 'Create'}</button>
+        </form>
+      )}
+
       {outlets.length > 0 && (
         <div style={{ position: 'relative', maxWidth: 320, marginBottom: 16 }}>
           <Search size={14} style={{ position: 'absolute', left: 12, top: 11, color: 'var(--gray-400)' }} />
@@ -209,7 +295,7 @@ function OutletsList({ outlets, loading, onManage }) {
         <div className="admin-stub">
           <div className="admin-stub-icon"><Store size={28} /></div>
           <h2>No outlets yet</h2>
-          <p>Your outlets will appear here once registered.</p>
+          <p>Add your first outlet or link an existing restaurant.</p>
         </div>
       )}
       {outlets.length > 0 && filtered.length === 0 && (
@@ -219,30 +305,32 @@ function OutletsList({ outlets, loading, onManage }) {
           <p>No outlets match "{search}".</p>
         </div>
       )}
-      <div className="outlets-grid">
+      <div className="rooms-grid">
         {filtered.map(o => (
-          <div key={o.id} className="outlet-card">
-            <div className="outlet-name">{o.name}</div>
-            <div className={`outlet-status ${o.status === 'open' ? 'st-active' : 'st-suspended'}`}>
-              {o.status === 'open' ? 'Open' : 'Closed'}
+          <div key={o.id} className="room-card">
+            <div className="room-card-header">
+              <div className="room-number">{o.name}</div>
+              <span className={`room-status-badge ${SUPPLIER_ROOM_STATUS[o.shopStatus] || 'rs-vacant'}`}>
+                {o.shopStatus === 'ACTIVE' ? 'Active' : o.shopStatus === 'SUSPENDED' ? 'Suspended' : 'Inactive'}
+              </span>
             </div>
-            <div className="outlet-stats">
+            <div className="room-type">{o.city || 'No city set'}</div>
+            <div className="outlet-stats" style={{ marginBottom: 10 }}>
               <div>
                 <div className="outlet-stat-val">{o.orders}</div>
-                <div className="outlet-stat-lbl">Orders</div>
+                <div className="outlet-stat-lbl">Orders today</div>
               </div>
               <div>
                 <div className="outlet-stat-val">₹{o.revenue.toLocaleString('en-IN')}</div>
-                <div className="outlet-stat-lbl">Revenue</div>
+                <div className="outlet-stat-lbl">Revenue today</div>
               </div>
             </div>
-            <button
-              className="btn-outline btn-sm"
-              style={{ marginTop: 10, width: '100%' }}
-              onClick={() => onManage(o)}
-            >
-              Manage outlet
-            </button>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button className="btn-room-action" onClick={() => onManage(o)}>⚙️ Manage</button>
+              <button className="btn-room-action" onClick={() => toggleActive(o)} disabled={o.shopStatus === 'SUSPENDED'}>
+                {o.shopStatus === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -487,7 +575,7 @@ function AllOrdersTab({ outlets }) {
 }
 
 /* ─── QR Codes tab ───────────────────────────────────────────────────────────── */
-function QRCodesTab({ outlets }) {
+function QRCodesTab({ outlets, brand, onBrandSaved }) {
   const [qrByOutlet, setQrByOutlet] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -520,6 +608,7 @@ function QRCodesTab({ outlets }) {
           <p className="page-subtitle">{allCodes.length} QR codes across {outlets.length} outlets</p>
         </div>
       </div>
+      {brand ? <BrandQR brand={brand} /> : <BrandSetup onSaved={onBrandSaved} />}
       {allCodes.length === 0 && (
         <div className="admin-stub">
           <div className="admin-stub-icon"><QrCode size={28} /></div>
@@ -542,6 +631,69 @@ function QRCodesTab({ outlets }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// One QR for the whole brand: encodes the public /brand/:brandId route (Brand QR
+// Flow) so scanning it lists every outlet the supplier owns — mirrors Mall's
+// Food Court QR (MallQRPage) one level up.
+function BrandQR({ brand }) {
+  const [qrImg, setQrImg] = useState('');
+  const brandUrl = `${window.location.origin}/brand/${brand.id}`;
+
+  useEffect(() => {
+    QRCode.toDataURL(brandUrl, { width: 512, margin: 2, color: { dark: '#0F172A', light: '#ffffff' } })
+      .then(setQrImg).catch(() => {});
+  }, [brandUrl]);
+
+  const download = () => {
+    if (!qrImg) return;
+    const a = document.createElement('a');
+    a.href = qrImg;
+    a.download = `${brand.name || 'brand'}-qr.png`.replace(/\s+/g, '-');
+    a.click();
+  };
+
+  return (
+    <div className="admin-chart-card" style={{ maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', textAlign: 'center', marginBottom: 20 }}>
+      <div style={{ fontWeight: 700, fontSize: 14 }}>Main Brand QR</div>
+      {qrImg ? <img src={qrImg} alt="Brand QR" style={{ width: 200, height: 200, borderRadius: 8 }} /> : <div style={{ width: 200, height: 200, background: 'var(--gray-100)', borderRadius: 8 }} />}
+      <div style={{ fontSize: 11.5, color: 'var(--gray-400)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{brandUrl}</div>
+      <button className="btn-primary" style={{ width: '100%' }} onClick={download}>Download PNG</button>
+    </div>
+  );
+}
+
+// Prompted once, lazily — a supplier has no brand until they name it. Saving
+// creates the shop-service Brand row that the QR above and /brand/:id page read from.
+function BrandSetup({ onSaved }) {
+  const [name, setName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = () => {
+    if (!name.trim()) return;
+    setSaving(true); setError('');
+    brandApi.save({ name: name.trim() })
+      .then(res => onSaved(res.data.data))
+      .catch(() => setError('Could not save. Please try again.'))
+      .finally(() => setSaving(false));
+  };
+
+  return (
+    <div className="admin-chart-card" style={{ maxWidth: 340, marginBottom: 20 }}>
+      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Set up your Brand QR</div>
+      <p style={{ fontSize: 12, color: 'var(--gray-400)', marginBottom: 12 }}>
+        Name your brand once to get one QR that lists all your outlets to customers.
+      </p>
+      <div className="form-field">
+        <input className="form-input" placeholder="e.g. Spice Route Group" value={name} onChange={e => setName(e.target.value)} />
+      </div>
+      {error && <p style={{ fontSize: 12, color: 'var(--red)', marginTop: 6 }}>{error}</p>}
+      <button className="btn-primary" style={{ width: '100%', marginTop: 10 }} disabled={saving || !name.trim()} onClick={save}>
+        {saving ? 'Saving…' : 'Create Brand QR'}
+      </button>
     </div>
   );
 }
@@ -629,20 +781,25 @@ function ReportsTab({ outlets }) {
 }
 
 /* ─── Settings tab ────────────────────────────────────────────────────────────── */
-function SettingsTab({ user }) {
+function SettingsTab({ user, brand, onBrandSaved }) {
   const [form, setForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    brandName: user?.brandName || '',
+    brandName: brand?.name || '',
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // brandName isn't a User field — auth-service silently drops it — so it's saved
+  // separately to shop-service's Brand (the entity the Brand QR / /brand/:id page read from).
   const save = () => {
     setSaving(true);
-    authApi.updateProfile(form)
-      .then(() => { setSaved(true); setTimeout(() => setSaved(false), 2000); })
+    Promise.all([
+      authApi.updateProfile({ name: form.name, email: form.email, phone: form.phone }),
+      form.brandName.trim() ? brandApi.save({ name: form.brandName.trim() }) : Promise.resolve(null),
+    ])
+      .then(([, brandRes]) => { if (brandRes) onBrandSaved(brandRes.data.data); setSaved(true); setTimeout(() => setSaved(false), 2000); })
       .catch(() => {})
       .finally(() => setSaving(false));
   };

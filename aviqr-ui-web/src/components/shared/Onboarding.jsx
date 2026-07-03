@@ -58,7 +58,7 @@ export default function Onboarding() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { lang } = useLang();
-  const role = user?.role || 'owner';
+  const role = (user?.role || 'owner').toLowerCase();
   const steps = STEPS[role] || STEPS.owner;
 
   const [step, setStep] = useState(0);

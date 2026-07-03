@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import QRCode from 'qrcode';
 import {
   Store, Clock, CreditCard, Bell, Shield, Tag, Save, Globe, Check, AlertTriangle,
@@ -103,7 +104,8 @@ function StatusBadge({ ok, okLabel = 'Configured', noLabel = 'Not set' }) {
 export default function Settings() {
   const { user, lang: currentLang, changeLang, updateUser } = useAuth();
   const shopId = useActiveShopId();
-  const [section, setSection] = useState('shop');
+  const location = useLocation();
+  const [section, setSection] = useState(location.state?.section || 'shop');
 
   // ── State ────────────────────────────────────────────────────────────────
   const [shopForm, setShopForm] = useState({

@@ -17,7 +17,7 @@ const ROLE_COLORS = { OWNER: '#1D9E75', MANAGER: '#2563EB', CASHIER: '#7C3AED', 
 
 export default function StaffScreen() {
   const { user } = useAuth();
-  const shopId = useActiveShopId() || '00000000-0000-0000-0000-000000000101';
+  const shopId = useActiveShopId();
   const [staff, setStaff]   = useState([]);
   const [showAdd, setShowAdd]= useState(false);
   const [editing, setEditing]= useState(null);
@@ -25,7 +25,7 @@ export default function StaffScreen() {
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  useEffect(() => { loadStaff(); }, []);
+  useEffect(() => { if(shopId) loadStaff(); }, [shopId]);
 
   const loadStaff = async () => {
     try {

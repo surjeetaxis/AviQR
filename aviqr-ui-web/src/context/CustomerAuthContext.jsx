@@ -54,11 +54,19 @@ export function CustomerAuthProvider({ children }) {
   // the staff aviqr_token, so customer-portal calls must pass this explicitly.
   const authHeader = customerToken ? { headers: { Authorization: `Bearer ${customerToken}` } } : {};
 
+  const updateProfile = async (data) => {
+    const res = await authApi.updateProfile(data, authHeader);
+    const updated = res.data.data;
+    localStorage.setItem(USER_KEY, JSON.stringify(updated));
+    setCustomer(updated);
+    return updated;
+  };
+
   return (
     <CustomerAuthContext.Provider value={{
       customer, customerToken, loading, authHeader,
       isLoggedIn: !!customerToken,
-      sendOtp, loginWithOtp, logout,
+      sendOtp, loginWithOtp, logout, updateProfile,
     }}>
       {children}
     </CustomerAuthContext.Provider>

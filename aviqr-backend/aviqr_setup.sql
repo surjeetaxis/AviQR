@@ -148,7 +148,9 @@ INSERT INTO users (id, email, phone, password_hash, name, role, status, avatar, 
   ('223f40ff-4020-4baf-8d8e-44e347263bd1', 'ravi@gmail.com',        '9123456789', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Ravi Kumar',        'CUSTOMER', 'ACTIVE', 'RK', NULL,                                 FALSE, FALSE, 'ta', NOW() - INTERVAL '15 days'),
   ('f4512249-1a01-4be8-bf08-93e312202827', 'priya@cake.in',         '9900001122', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Priya Menon',       'OWNER',    'ACTIVE', 'PM', '67685266-6b45-4e40-851c-8277ef650ca3', TRUE,  TRUE,  'ml', NOW() - INTERVAL '45 days'),
   ('26388851-77d5-4e7a-9d48-c382a14c8b9f', 'kitchen@spiceroute.in', '9845012346', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Chef Rangan',       'KITCHEN',  'ACTIVE', 'CR', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'kn', NOW() - INTERVAL '45 days'),
-  ('ccfb3287-2870-474f-9dcc-e4a3140eee05', 'cashier@spiceroute.in', '9845012347', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Deepa Cashier',     'CASHIER',  'ACTIVE', 'DC', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'en', NOW() - INTERVAL '30 days');
+  ('ccfb3287-2870-474f-9dcc-e4a3140eee05', 'cashier@spiceroute.in', '9845012347', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Deepa Cashier',     'CASHIER',  'ACTIVE', 'DC', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'en', NOW() - INTERVAL '30 days'),
+  ('b2c53d14-7f88-4c4b-ad2e-9f3a4b5c6d7e', 'menu@cakestudio.in',    '9900001133', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Rohit Verma',       'MENU_EDITOR', 'ACTIVE', 'RV', '67685266-6b45-4e40-851c-8277ef650ca3', TRUE, TRUE, 'en', NOW() - INTERVAL '20 days'),
+  ('a9b41c02-6e77-4b3a-9c1d-8f2e3a4b5c6d', 'anoop@coconut.in',      '9876500010', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Anoop Waiter',      'ORDER_VIEWER', 'ACTIVE', 'AW', '44aeca17-767e-410b-868f-9fdd593fa091', TRUE, TRUE, 'ml', NOW() - INTERVAL '25 days');
 
 INSERT INTO otp_records (id, target, otp, type, expires_at, used, created_at) VALUES
   (gen_random_uuid(), '9845012345', '$2a$12$abc123', 'PHONE_LOGIN', NOW() + INTERVAL '10 minutes', FALSE, NOW()),
@@ -287,6 +289,24 @@ CREATE TABLE customer_favorites (
 );
 CREATE INDEX idx_favorite_phone ON customer_favorites (customer_phone);
 
+-- ── Customer Portal: saved delivery/billing addresses (account-keyed,
+--    tied to users.id — unlike favorites this requires a logged-in customer) ──
+CREATE TABLE customer_addresses (
+    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID         NOT NULL,
+    label       VARCHAR(50)  NOT NULL,
+    line1       VARCHAR(255) NOT NULL,
+    line2       VARCHAR(255),
+    city        VARCHAR(100),
+    state       VARCHAR(100),
+    pincode     VARCHAR(10),
+    phone       VARCHAR(15),
+    is_default  BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMP    DEFAULT NOW(),
+    updated_at  TIMESTAMP    DEFAULT NOW()
+);
+CREATE INDEX idx_customer_addresses_user_id ON customer_addresses (user_id);
+
 CREATE TABLE loyalty_transactions (
     id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     loyalty_account_id  UUID         NOT NULL,
@@ -326,7 +346,8 @@ INSERT INTO shop_staff (id, shop_id, user_id, name, phone, email, avatar, role, 
   ('9ed3025a-01ce-40d3-b83e-bccf6e53c264', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '43ff4c07-a85e-4ec0-be79-9cd05b78f94a', 'Vikram Sharma',  '9900112233', 'vikram@gmail.com',      'VS', 'MANAGER',  TRUE),
   ('be16b07b-a184-481a-bd58-85a4b26751c3', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '26388851-77d5-4e7a-9d48-c382a14c8b9f', 'Chef Rangan',    '9845012346', 'kitchen@spiceroute.in', 'CR', 'KITCHEN',  TRUE),
   ('a4be1486-ecae-43dd-a6d1-9cb9441acdc6', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'ccfb3287-2870-474f-9dcc-e4a3140eee05', 'Deepa Cashier',  '9845012347', 'cashier@spiceroute.in', 'DC', 'CASHIER',  TRUE),
-  ('331cc4ea-b779-4711-ac03-4f6f458fd301', '44aeca17-767e-410b-868f-9fdd593fa091', '43ff4c07-a85e-4ec0-be79-9cd05b78f94a', 'Anoop Waiter',   '9876500010', 'anoop@coconut.in',      'AW', 'ORDER_VIEWER', TRUE);
+  ('331cc4ea-b779-4711-ac03-4f6f458fd301', '44aeca17-767e-410b-868f-9fdd593fa091', 'a9b41c02-6e77-4b3a-9c1d-8f2e3a4b5c6d', 'Anoop Waiter',   '9876500010', 'anoop@coconut.in',      'AW', 'ORDER_VIEWER', TRUE),
+  ('c7d8e9f0-1a2b-4c3d-8e9f-0a1b2c3d4e5f', '67685266-6b45-4e40-851c-8277ef650ca3', 'b2c53d14-7f88-4c4b-ad2e-9f3a4b5c6d7e', 'Rohit Verma',    '9900001133', 'menu@cakestudio.in',    'RV', 'MENU_EDITOR',  TRUE);
 
 INSERT INTO staff_permissions (shop_staff_id, permissions) VALUES
   ('9ed3025a-01ce-40d3-b83e-bccf6e53c264', 'VIEW_ORDERS'),
@@ -335,6 +356,8 @@ INSERT INTO staff_permissions (shop_staff_id, permissions) VALUES
   ('be16b07b-a184-481a-bd58-85a4b26751c3', 'VIEW_ORDERS'),
   ('be16b07b-a184-481a-bd58-85a4b26751c3', 'UPDATE_ORDER_STATUS'),
   ('a4be1486-ecae-43dd-a6d1-9cb9441acdc6', 'VIEW_ORDERS'),
+  ('331cc4ea-b779-4711-ac03-4f6f458fd301', 'VIEW_ORDERS'),
+  ('c7d8e9f0-1a2b-4c3d-8e9f-0a1b2c3d4e5f', 'MANAGE_MENU'),
   ('a4be1486-ecae-43dd-a6d1-9cb9441acdc6', 'ACCEPT_PAYMENT');
 
 INSERT INTO shop_settings (shop_id, cash_enabled, online_enabled, wallet_enabled, tax_percent, loyalty_enabled, loyalty_points_per_rupee, business_name) VALUES
@@ -345,13 +368,17 @@ INSERT INTO shop_settings (shop_id, cash_enabled, online_enabled, wallet_enabled
   ('0699ee91-c5b8-4b7f-94b7-19d2d0c13420', TRUE, FALSE,FALSE, 5.00, FALSE, 1, 'Chai and Chaat Pune'),
   ('117390e3-f3dc-4ea7-a6e2-1b073f18bad7', TRUE, TRUE, FALSE, 5.00, FALSE, 1, 'Ramesh Tea House MG Road'),
   ('da4440f6-1b19-48a4-8587-532474a3c258', TRUE, TRUE, FALSE, 5.00, FALSE, 1, 'Ramesh Tea House Koramangala'),
-  ('79292444-6912-4336-9894-1d89c18894d4', TRUE, FALSE,FALSE, 5.00, FALSE, 1, 'Ramesh Tea House Whitefield');
+  ('79292444-6912-4336-9894-1d89c18894d4', TRUE, FALSE,FALSE, 5.00, FALSE, 1, 'Ramesh Tea House Whitefield'),
+  ('8a1f2e3d-4c5b-4a69-8d7e-6f5a4b3c2d1e', TRUE, FALSE,FALSE, 5.00, FALSE, 1, 'Ramesh Tea House Electronic City');
 
 -- Ramesh Tea House outlets (SUPPLIER user — 3 linked shops)
 INSERT INTO shops (id, name, tagline, owner_id, phone, email, address, city, state, pincode, subscription_plan, min_order_amount, table_count, status, rating, rating_count, completion_rate, created_at) VALUES
   ('117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'Ramesh Tea House — MG Road',     'Authentic filter coffee & South Indian snacks', '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776601', 'mgroad@rameshteas.in',  '23, MG Road',          'Bengaluru', 'Karnataka', '560001', 'GROWTH',  50, 8, 'ACTIVE', 4.20, 180, 91.00, NOW() - INTERVAL '60 days'),
   ('da4440f6-1b19-48a4-8587-532474a3c258', 'Ramesh Tea House — Koramangala', 'South Indian tiffin & beverages',               '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776602', 'kora@rameshteas.in',    '7th Block, Koramangala','Bengaluru', 'Karnataka', '560095', 'GROWTH',  50, 6, 'ACTIVE', 4.10, 120, 88.00, NOW() - INTERVAL '55 days'),
-  ('79292444-6912-4336-9894-1d89c18894d4', 'Ramesh Tea House — Whitefield',  'Quick bites & refreshing beverages',            '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776603', 'wf@rameshteas.in',      'Whitefield Main Road',  'Bengaluru', 'Karnataka', '560066', 'STARTER', 30, 4, 'ACTIVE', 3.90,  60, 82.00, NOW() - INTERVAL '30 days');
+  ('79292444-6912-4336-9894-1d89c18894d4', 'Ramesh Tea House — Whitefield',  'Quick bites & refreshing beverages',            '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776603', 'wf@rameshteas.in',      'Whitefield Main Road',  'Bengaluru', 'Karnataka', '560066', 'STARTER', 30, 4, 'ACTIVE', 3.90,  60, 82.00, NOW() - INTERVAL '30 days'),
+  -- Newly registered outlet, not yet opened — validates the Supplier Outlets
+  -- page's Inactive badge / "Activate" action against a real non-ACTIVE row.
+  ('8a1f2e3d-4c5b-4a69-8d7e-6f5a4b3c2d1e', 'Ramesh Tea House — Electronic City', 'Opening soon',                              '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776604', 'ecity@rameshteas.in',   'Neeladri Road',        'Bengaluru', 'Karnataka', '560100', 'STARTER', 30, 4, 'INACTIVE', 0,  0, 0, NOW() - INTERVAL '2 days');
 
 INSERT INTO shop_opening_hours (shop_id, day_of_week, open, open_time, close_time) VALUES
   ('117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'MONDAY',    TRUE, '07:00', '21:00'),

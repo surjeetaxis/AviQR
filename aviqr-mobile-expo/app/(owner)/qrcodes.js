@@ -14,12 +14,12 @@ import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 export default function QRCodesScreen() {
   const { user } = useAuth();
-  const shopId = useActiveShopId() || '00000000-0000-0000-0000-000000000101';
+  const shopId = useActiveShopId();
   const [codes, setCodes]     = useState([]);
   const [preview, setPreview] = useState(null);
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => { loadCodes(); }, []);
+  useEffect(() => { if(shopId) loadCodes(); }, [shopId]);
 
   const loadCodes = async () => {
     try {

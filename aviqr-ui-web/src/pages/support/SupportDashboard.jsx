@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { supportApi, orderApi, authApi } from '../../api/index.js';
+import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import {
   Headphones, ShoppingBag, CreditCard, Users, Store, QrCode,
   ScanLine, MessageCircle, FileText, UserCheck, LogOut,
@@ -161,7 +162,13 @@ export default function SupportDashboard() {
               <Bell size={18} />
               <span className="support-bell-dot" />
             </button>
-            <div className="admin-avatar sm" style={{ background: '#D97706' }}>{user?.avatar || 'SA'}</div>
+            <ProfileMenu
+              name={user?.name}
+              email={user?.email}
+              avatar={user?.avatar || 'SA'}
+              avatarColor="#D97706"
+              onLogout={() => { logout(); navigate('/'); }}
+            />
           </div>
         </header>
 

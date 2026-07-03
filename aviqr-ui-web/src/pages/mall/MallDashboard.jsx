@@ -6,11 +6,12 @@ import QRCode from 'qrcode';
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
+import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import {
   Building2, Store, ShoppingBag, CreditCard, BarChart2, Settings,
   LogOut, Menu as MenuIcon, TrendingUp, QrCode, CheckCircle2,
   XCircle, Plus, Edit2, Trash2, Eye, ToggleLeft, ToggleRight,
-  Phone, Save, Bell, Users, Star, Clock, Download, Printer
+  Phone, Save, Bell, Users, Star, Clock, Download, Printer, Sparkles
 } from 'lucide-react';
 import '../admin/Admin.css';
 
@@ -153,7 +154,18 @@ export default function MallDashboard() {
           <span style={{fontWeight:700,fontSize:15}}>{user?.mallName||'Forum Mall'} — Food Court</span>
           <div style={{display:'flex',alignItems:'center',gap:10,marginLeft:'auto'}}>
             <LangPicker/>
-            <div className="admin-avatar sm" style={{background:'var(--blue)'}}>{user?.avatar}</div>
+            <ProfileMenu
+              name={user?.name}
+              email={user?.email}
+              avatar={user?.avatar}
+              avatarColor="var(--blue)"
+              onLogout={() => { logout(); navigate('/'); }}
+              items={[
+                { label:'Profile & Settings', icon:Settings, onClick:() => setTab('settings') },
+                ...(mall?.id ? [{ label:'Preview food court', icon:Eye, onClick:() => navigate(`/food-court/${mall.id}`) }] : []),
+                { label:'Onboarding guide', icon:Sparkles, onClick:() => navigate('/onboarding') },
+              ]}
+            />
           </div>
         </header>
         <main className="admin-content">

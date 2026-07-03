@@ -194,6 +194,14 @@ public class AuthService {
         refreshRepo.deleteByUserId(userId); // invalidate all sessions
     }
 
+    @Transactional
+    public void deactivateAccount(UUID userId) {
+        User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        user.setStatus(UserStatus.INACTIVE);
+        userRepo.save(user);
+        refreshRepo.deleteByUserId(userId); // invalidate all sessions
+    }
+
     public UserDto getProfile(UUID userId) {
         return toDto(userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found")));
     }

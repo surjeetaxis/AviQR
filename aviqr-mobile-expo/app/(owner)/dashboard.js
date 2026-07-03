@@ -32,9 +32,9 @@ function greeting() {
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
-  const { outletId } = useLocalSearchParams();
-  const basePath = outletId ? `/(hotel)/outlets/${outletId}` : '/(owner)';
-  const shopId = useActiveShopId() || '00000000-0000-0000-0000-000000000101';
+  const { outletId, shopId: routeShopId } = useLocalSearchParams();
+  const basePath = outletId ? `/(hotel)/outlets/${outletId}` : routeShopId ? `/(supplier)/shops/${routeShopId}` : '/(owner)';
+  const shopId = useActiveShopId();
 
   const [stats,     setStats]  = useState(null);
   const [orders,    setOrders] = useState([]);

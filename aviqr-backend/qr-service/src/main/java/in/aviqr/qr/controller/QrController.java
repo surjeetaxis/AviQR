@@ -43,6 +43,22 @@ public class QrController {
             service.createMarketing(label, targetUrl, campaign)));
     }
 
+    // Admin — update an existing marketing/campaign QR (label / target URL / campaign)
+    @PutMapping("/{id}/marketing")
+    public ResponseEntity<ApiResponse<QrCode>> updateMarketing(
+            @PathVariable java.util.UUID id,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role,
+            @RequestBody Map<String, String> body) {
+        if (!"ADMIN".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        try {
+            return ResponseEntity.ok(ApiResponse.ok("Marketing QR updated",
+                service.updateMarketing(id, body.get("label"), body.get("targetUrl"), body.get("campaign"))));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     // Admin — toggle QR active/inactive
     @PutMapping("/{id}/active")
     public ResponseEntity<ApiResponse<Void>> toggleActive(

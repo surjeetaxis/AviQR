@@ -76,6 +76,13 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok("Password changed", null));
     }
 
+    // PUT /api/v1/auth/deactivate
+    @PutMapping("/deactivate")
+    public ResponseEntity<ApiResponse<Void>> deactivate(@RequestHeader("X-User-Id") String userId) {
+        authService.deactivateAccount(UUID.fromString(userId));
+        return ResponseEntity.ok(ApiResponse.ok("Account deactivated", null));
+    }
+
     // PUT /api/v1/auth/link-shop  — called after onboarding shop creation; returns fresh JWT
     @PutMapping("/link-shop")
     public ResponseEntity<ApiResponse<AuthResponse>> linkShop(

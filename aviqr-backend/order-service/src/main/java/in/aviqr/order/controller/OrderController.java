@@ -110,11 +110,18 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.ok(service.getCustomerOrders(uid, page, size)));
     }
 
-    // Get single order
+    // Get single order — customers may only view their own
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<OrderResponse>> getById(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<OrderResponse>> getById(
+            @PathVariable UUID id,
+            @RequestHeader(value="X-User-Id", defaultValue="") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
         return service.getById(id)
-            .map(o -> ResponseEntity.ok(ApiResponse.ok(o)))
+            .map(o -> {
+                if ("CUSTOMER".equals(role) && !uid.equals(o.getCustomerId()))
+                    return ResponseEntity.status(403).body(ApiResponse.<OrderResponse>error("Forbidden"));
+                return ResponseEntity.ok(ApiResponse.ok(o));
+            })
             .orElse(ResponseEntity.notFound().build());
     }
 

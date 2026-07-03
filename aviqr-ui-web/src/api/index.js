@@ -84,8 +84,9 @@ export const authApi = {
   sendOtp:        (ph)   => api.post('/api/v1/auth/otp/send', { phone: ph }),
   register:       (d)    => api.post('/api/v1/auth/register', d),
   logout:         ()     => api.post('/api/v1/auth/logout'),
-  getProfile:     ()     => api.get('/api/v1/auth/profile'),
-  updateProfile:  (d)    => api.put('/api/v1/auth/profile', d),
+  getProfile:     (config={})    => api.get('/api/v1/auth/profile', config),
+  updateProfile:  (d, config={}) => api.put('/api/v1/auth/profile', d, config),
+  deactivateAccount: (config={}) => api.put('/api/v1/auth/deactivate', {}, config),
   forgotPassword:  (e)    => api.post(`/api/v1/auth/forgot-password?email=${e}`),
   changePassword:  (d)    => api.post('/api/v1/auth/change-password', d),
   linkShop:        (shopId) => api.put('/api/v1/auth/link-shop', { shopId }),
@@ -166,13 +167,35 @@ export const qrApi = {
   listAll:         (p)           => api.get('/api/v1/qr-codes/admin/all', { params: p }),
   toggleActive:    (id, active)  => api.put(`/api/v1/qr-codes/${id}/active?active=${active}`),
   createMarketing: (body)        => api.post('/api/v1/qr-codes/admin/marketing', body),
+  updateMarketing: (id, body)    => api.put(`/api/v1/qr-codes/${id}/marketing`, body),
+  redirectUrl:     (code)         => `${BASE_URL}/api/v1/qr-codes/r/${code}`,
+};
+
+// ── Subscription Plans ──────────────────────────────────────────────────────────
+export const planApi = {
+  listPublic:   (vertical)     => api.get('/api/v1/plans/public', { params: vertical ? { vertical } : {} }),
+  listAdmin:    ()             => api.get('/api/v1/plans'),
+  create:       (body)         => api.post('/api/v1/plans', body),
+  update:       (id, body)     => api.put(`/api/v1/plans/${id}`, body),
+  toggleActive: (id, active)   => api.put(`/api/v1/plans/${id}/active?active=${active}`),
+};
+
+// ── Discount Offers ──────────────────────────────────────────────────────────────
+export const offerApi = {
+  listActive:   ()             => api.get('/api/v1/offers/public'),
+  listAdmin:    ()             => api.get('/api/v1/offers'),
+  create:       (body)         => api.post('/api/v1/offers', body),
+  update:       (id, body)     => api.put(`/api/v1/offers/${id}`, body),
+  toggleActive: (id, active)   => api.put(`/api/v1/offers/${id}/active?active=${active}`),
+  remove:       (id)           => api.delete(`/api/v1/offers/${id}`),
 };
 
 // ── Reports ───────────────────────────────────────────────────────────────────
 export const reportApi = {
-  getDaily:     (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/daily`),
   // token: optional per-call override (e.g. an outlet/vendor-scoped token) for
   // callers whose own login JWT has no shopId — see api.js interceptor comment.
+  getDaily:     (shopId, token) => api.get(`/api/v1/reports/shop/${shopId}/daily`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   getRevenue:   (shopId, d, token) => api.get(`/api/v1/reports/shop/${shopId}/revenue?days=${d || 7}`,
     token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   getTopItems:  (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/top-items`),
@@ -256,6 +279,15 @@ export const mallApi = {
   getPublicVendors:  (mallId)        => api.get(`/api/v1/malls/public/${mallId}/vendors`),
 };
 
+// ── Supplier Brand ──────────────────────────────────────────────────────────
+export const brandApi = {
+  save:              (d)             => api.post('/api/v1/brands', d),
+  getMine:           ()              => api.get('/api/v1/brands/my'),
+  // ── Brand QR Flow (public, no auth) ──────────────────────────────────────
+  getPublicBrand:    (id)            => api.get(`/api/v1/brands/public/${id}`),
+  getPublicShops:    (id)            => api.get(`/api/v1/brands/public/${id}/shops`),
+};
+
 // ── Support ───────────────────────────────────────────────────────────────────
 export const supportApi = {
   getTickets:   (p)          => api.get('/api/v1/tickets', { params: p }),
@@ -298,6 +330,14 @@ export const loyaltyApi = {
 export const favoritesApi = {
   toggle: (phone, shopId, config={}) => api.post('/api/v1/favorites', { phone, shopId }, config),
   mine:   (phone, config={})         => api.get('/api/v1/favorites/mine', { ...config, params: { phone } }),
+};
+
+// ── Customer Portal: saved addresses (account-keyed, requires login) ──────────
+export const addressApi = {
+  list:   (config={})        => api.get('/api/v1/auth/addresses', config),
+  create: (d, config={})     => api.post('/api/v1/auth/addresses', d, config),
+  update: (id, d, config={}) => api.put(`/api/v1/auth/addresses/${id}`, d, config),
+  remove: (id, config={})    => api.delete(`/api/v1/auth/addresses/${id}`, config),
 };
 
 // ── Invoice & KOT ─────────────────────────────────────────────────────────────

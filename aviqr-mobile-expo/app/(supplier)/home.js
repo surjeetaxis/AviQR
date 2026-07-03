@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 // Icon not needed — using emoji
 import { shopApi, reportApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
@@ -8,7 +9,7 @@ import { Card } from '../../src/components/common/Card.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
-export default function SupplierHomeScreen({ navigation }) {
+export default function SupplierHomeScreen() {
   const { user, logout } = useAuth();
   const [shops, setShops]   = useState([]);
   const [refreshing, setRef]= useState(false);
@@ -26,7 +27,7 @@ export default function SupplierHomeScreen({ navigation }) {
   const totalOrders  = shops.reduce((s, sh) => s + (sh.orders || 0), 0);
 
   const ShopCard = ({ shop }) => (
-    <TouchableOpacity style={styles.shopCard} onPress={() => navigation.navigate('OwnerHome', { shopId: shop.id })} activeOpacity={0.85}>
+    <TouchableOpacity style={styles.shopCard} onPress={() => router.push(`/(supplier)/shops/${shop.id}/dashboard`)} activeOpacity={0.85}>
       <View style={styles.shopAvatar}>
         <Text style={styles.shopAvatarText}>{shop.name?.[0]}</Text>
       </View>
@@ -38,7 +39,7 @@ export default function SupplierHomeScreen({ navigation }) {
           <StatusBadge status={shop.status || 'ACTIVE'} />
         </View>
       </View>
-      <Icon name="chevron-right" size={16} color={Colors.gray300} />
+      <Text style={{fontSize:16,color:Colors.gray300}}>›</Text>
     </TouchableOpacity>
   );
 
@@ -51,7 +52,7 @@ export default function SupplierHomeScreen({ navigation }) {
             <Text style={styles.headerName}>{user?.name}</Text>
           </View>
           <TouchableOpacity onPress={logout} style={{ padding: 8 }}>
-            <Icon name="log-out" size={18} color="rgba(255,255,255,0.6)" />
+            <Text style={{fontSize:18,color:'rgba(255,255,255,0.6)'}}>⎋</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.statsRow}>

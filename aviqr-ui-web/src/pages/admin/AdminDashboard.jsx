@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
+import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import { t } from '../../i18n/translations.js';
 import {
   Users, Store, ShoppingBag, CreditCard, QrCode, BarChart2,
@@ -10,9 +11,10 @@ import {
   XCircle, Edit2, Menu as MenuIcon, Plus,
   Download, RefreshCw, ToggleLeft, ToggleRight,
   Lock, Unlock, Star, Send, AlertTriangle, ChevronLeft, ChevronRight,
-  BadgeCheck, Clock, Zap, Crown, ScanLine, ExternalLink
+  BadgeCheck, Clock, Zap, Crown, ScanLine, ExternalLink, Copy, Link2, Tag, Calendar,
+  Percent, Gift, Layers
 } from 'lucide-react';
-import { authApi, reportApi, shopApi, hotelApi, mallApi, orderApi, paymentApi, qrApi } from '../../api/index.js';
+import { authApi, reportApi, shopApi, hotelApi, mallApi, orderApi, paymentApi, qrApi, planApi, offerApi } from '../../api/index.js';
 import '../admin/Admin.css';
 import './AdminExtra.css';
 
@@ -26,6 +28,13 @@ const PLANS = {
 };
 
 function planInfo(p) { return PLANS[p?.toUpperCase()] || PLANS.STARTER; }
+
+const VERTICAL_COLORS = {
+  SHOP:     { label:'Restaurant/Shop', color:'#059669', bg:'#DCFCE7' },
+  HOTEL:    { label:'Hotel',           color:'#2563EB', bg:'#DBEAFE' },
+  MALL:     { label:'Mall',            color:'#7C3AED', bg:'#EDE9FE' },
+  SUPPLIER: { label:'Supplier',        color:'#D97706', bg:'#FEF3C7' },
+};
 
 const NAV = [
   {key:'overview',      label:'Overview',      icon:BarChart2},
@@ -106,7 +115,15 @@ export default function AdminDashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' }}>
             <LangPicker/>
             <button className="admin-icon-btn"><Bell size={18}/></button>
-            <div className="admin-avatar sm">{user?.name?.[0] || 'A'}</div>
+            <ProfileMenu
+              name={user?.name}
+              email={user?.email}
+              avatar={user?.name?.[0] || 'A'}
+              onLogout={() => { logout(); navigate('/'); }}
+              items={[
+                { label:'Profile & Settings', icon:Settings, onClick:() => setTab('settings') },
+              ]}
+            />
           </div>
         </header>
 
@@ -882,6 +899,8 @@ function AdminPaymentsPage() {
 // ── Admin Subscription Management ─────────────────────────────────────────────
 // Admin manages OTHER shops' subscriptions — admin has no personal subscription
 function AdminSubscriptionManagement() {
+  const [subTab, setSubTab]       = useState('assignments'); // assignments | plans | offers
+
   const [shops, setShops]         = useState([]);
   const [loading, setLoad]        = useState(true);
   const [error, setErr]           = useState('');
@@ -889,6 +908,9 @@ function AdminSubscriptionManagement() {
   const [search, setSearch]       = useState('');
   const [changePlan, setChangePlan]= useState(null); // { shop, newPlan }
   const [toast, setToast]         = useState('');
+
+  const [plans, setPlans]         = useState([]);
+  const [plansLoading, setPlansLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoad(true); setErr('');
@@ -901,9 +923,29 @@ function AdminSubscriptionManagement() {
     } finally { setLoad(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadPlans = useCallback(async () => {
+    setPlansLoading(true);
+    try {
+      const res = await planApi.listAdmin();
+      setPlans(res.data?.data || []);
+    } catch { /* keep whatever we had — page still works off local fallback colors */ }
+    finally { setPlansLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); loadPlans(); }, [load, loadPlans]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+
+  // Live plan data (label/price) merged with a color, shadowing the module-level
+  // hardcoded planInfo() so this page reflects admin edits made in "Manage Plans".
+  const planInfo = (key) => {
+    const k = (key || 'STARTER').toUpperCase();
+    const live = plans.find(pl => pl.planKey === k);
+    const fallback = PLANS[k];
+    const color = fallback?.color || ((live?.price || 0) > 0 ? '#7C3AED' : '#6B7280');
+    const bg    = fallback?.bg    || ((live?.price || 0) > 0 ? '#EDE9FE' : '#F3F4F6');
+    return { label: live?.label || fallback?.label || k, price: live ? live.price : (fallback?.price || 0), color, bg };
+  };
 
   const savePlan = async () => {
     if (!changePlan) return;
@@ -929,11 +971,17 @@ function AdminSubscriptionManagement() {
     return true;
   });
 
+  // Plans a shop can actually be assigned — live, active, SHOP-vertical plans
+  // (falls back to the hardcoded set if the Plan table hasn't loaded/is empty).
+  const shopPlanOptions = plans.filter(p => p.vertical === 'SHOP' && p.active).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
+  const planChoices = shopPlanOptions.length > 0
+    ? shopPlanOptions.map(p => ({ key: p.planKey, ...planInfo(p.planKey) }))
+    : Object.keys(PLANS).map(key => ({ key, ...planInfo(key) }));
+
   // KPIs
   const total    = shops.length;
-  const paid     = shops.filter(s => ['GROWTH','BUSINESS','ENTERPRISE'].includes((s.subscriptionPlan||'').toUpperCase())).length;
-  const free     = shops.filter(s => !s.subscriptionPlan || s.subscriptionPlan.toUpperCase() === 'STARTER').length;
-  const suspended= shops.filter(s => s.status === 'SUSPENDED').length;
+  const paid     = shops.filter(s => planInfo(s.subscriptionPlan).price > 0).length;
+  const free     = total - paid;
   const mrr      = shops.reduce((acc, s) => acc + (planInfo(s.subscriptionPlan).price || 0), 0);
 
   return (
@@ -947,93 +995,269 @@ function AdminSubscriptionManagement() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Subscription Management</h1>
-          <p className="page-subtitle">Manage plans, billing & reminders for all shops</p>
+          <p className="page-subtitle">Manage plans, discount offers, billing & reminders</p>
         </div>
-        <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
+        <button className="btn-refresh" onClick={() => { load(); loadPlans(); }}><RefreshCw size={13}/> Refresh</button>
       </div>
 
-      {/* KPI Cards */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
+      {/* Sub-tabs */}
+      <div style={{ display:'flex', gap:4, marginBottom:18, borderBottom:'1px solid var(--gray-200)' }}>
         {[
-          { label:'Total shops',      value: total,            icon: Store,    color:'#2563EB', bg:'#DBEAFE' },
-          { label:'Paid subscribers', value: paid,             icon: BadgeCheck,color:'#059669', bg:'#DCFCE7' },
-          { label:'Free (Starter)',   value: free,             icon: Users,    color:'#D97706', bg:'#FEF3C7' },
-          { label:'MRR (est.)',       value:`₹${mrr.toLocaleString('en-IN')}`, icon: TrendingUp, color:'#7C3AED', bg:'#EDE9FE' },
-        ].map(k => (
-          <div key={k.label} className="admin-kpi-card" style={{ textAlign:'left' }}>
-            <div style={{ width:36, height:36, borderRadius:9, background:k.bg, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 }}>
-              <k.icon size={17} color={k.color}/>
-            </div>
-            <div style={{ fontSize:22, fontWeight:700, color:'var(--gray-900)' }}>{k.value}</div>
-            <div style={{ fontSize:12, color:'var(--gray-500)', marginTop:2 }}>{k.label}</div>
-          </div>
+          { key:'assignments', label:'Shop Assignments', icon: Store },
+          { key:'plans',       label:'Manage Plans',     icon: Layers },
+          { key:'offers',      label:'Discount Offers',  icon: Gift },
+        ].map(t => (
+          <button key={t.key} onClick={() => setSubTab(t.key)}
+            style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 16px', fontSize:13, fontWeight:600,
+              border:'none', background:'none', cursor:'pointer', marginBottom:-1,
+              color: subTab === t.key ? '#0F6E56' : 'var(--gray-500)',
+              borderBottom: subTab === t.key ? '2px solid #0F6E56' : '2px solid transparent' }}>
+            <t.icon size={14}/> {t.label}
+          </button>
         ))}
       </div>
 
-      {/* Filters */}
-      <div className="admin-filter-bar">
-        <div style={{ position:'relative', flex:1, maxWidth:260 }}>
-          <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)' }}/>
-          <input className="admin-filter-input" style={{ paddingLeft:32 }} placeholder="Search shops…"
-            value={search} onChange={e => setSearch(e.target.value)}/>
+      {subTab === 'assignments' && (
+        <>
+          {/* KPI Cards */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
+            {[
+              { label:'Total shops',      value: total,            icon: Store,    color:'#2563EB', bg:'#DBEAFE' },
+              { label:'Paid subscribers', value: paid,             icon: BadgeCheck,color:'#059669', bg:'#DCFCE7' },
+              { label:'Free (Starter)',   value: free,             icon: Users,    color:'#D97706', bg:'#FEF3C7' },
+              { label:'MRR (est.)',       value:`₹${mrr.toLocaleString('en-IN')}`, icon: TrendingUp, color:'#7C3AED', bg:'#EDE9FE' },
+            ].map(k => (
+              <div key={k.label} className="admin-kpi-card" style={{ textAlign:'left' }}>
+                <div style={{ width:36, height:36, borderRadius:9, background:k.bg, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 }}>
+                  <k.icon size={17} color={k.color}/>
+                </div>
+                <div style={{ fontSize:22, fontWeight:700, color:'var(--gray-900)' }}>{k.value}</div>
+                <div style={{ fontSize:12, color:'var(--gray-500)', marginTop:2 }}>{k.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Filters */}
+          <div className="admin-filter-bar">
+            <div style={{ position:'relative', flex:1, maxWidth:260 }}>
+              <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)' }}/>
+              <input className="admin-filter-input" style={{ paddingLeft:32 }} placeholder="Search shops…"
+                value={search} onChange={e => setSearch(e.target.value)}/>
+            </div>
+            <select className="admin-filter-select" value={planFilter} onChange={e => setPlanFilter(e.target.value)}>
+              <option value="all">All plans</option>
+              {planChoices.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+            </select>
+          </div>
+
+          {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
+
+          {loading ? (
+            <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading shops…</div>
+          ) : (
+            <div className="admin-table-card">
+              <table className="admin-table">
+                <thead>
+                  <tr><th>Shop</th><th>City</th><th>Plan</th><th>Status</th><th>Tables</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={6} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No shops found</td></tr>
+                  )}
+                  {filtered.map(s => {
+                    const pi = planInfo(s.subscriptionPlan);
+                    return (
+                      <tr key={s.id}>
+                        <td>
+                          <div style={{ fontWeight:700, fontSize:13.5 }}>{s.name}</div>
+                          <div style={{ fontSize:11, color:'var(--gray-400)' }}>{s.email || s.phone || '—'}</div>
+                        </td>
+                        <td style={{ fontSize:13, color:'var(--gray-600)' }}>{s.city || '—'}</td>
+                        <td>
+                          <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
+                            background:pi.bg, color:pi.color }}>
+                            {pi.label}
+                            {pi.price > 0 && <span style={{ fontWeight:400, marginLeft:4 }}>₹{pi.price}/mo</span>}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontSize:11, fontWeight:700, color: s.status==='ACTIVE'?'#059669':'#DC2626' }}>
+                            {s.status === 'ACTIVE' ? '● Active' : '● Suspended'}
+                          </span>
+                        </td>
+                        <td style={{ fontSize:13, textAlign:'center' }}>{s.tableCount || '—'}</td>
+                        <td>
+                          <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                            <button className="admin-row-btn" title="Change plan"
+                              onClick={() => setChangePlan({ shop: s, newPlan: (s.subscriptionPlan||'STARTER').toUpperCase() })}
+                              style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#2563EB' }}>
+                              <Zap size={11}/> Plan
+                            </button>
+                            <button className="admin-row-btn" title="Send payment reminder"
+                              onClick={() => sendReminder(s)}
+                              style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#D97706' }}>
+                              <Send size={11}/> Remind
+                            </button>
+                            <button className="admin-row-btn" title="View invoices"
+                              style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#7C3AED' }}>
+                              <Download size={11}/> Invoice
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Change Plan Modal */}
+          {changePlan && (
+            <div className="modal-backdrop" onClick={() => setChangePlan(null)}>
+              <div className="modal" style={{ maxWidth:440 }} onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h2 className="modal-title">Change plan — {changePlan.shop.name}</h2>
+                  <button className="modal-close" onClick={() => setChangePlan(null)}>✕</button>
+                </div>
+                <div className="modal-body">
+                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                    {planChoices.map(pl => (
+                      <button key={pl.key}
+                        onClick={() => setChangePlan(p => ({ ...p, newPlan: pl.key }))}
+                        style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                          padding:'12px 16px', borderRadius:10, border:`2px solid ${changePlan.newPlan === pl.key ? pl.color : 'var(--gray-200)'}`,
+                          background: changePlan.newPlan === pl.key ? pl.bg : 'white',
+                          cursor:'pointer', textAlign:'left' }}>
+                        <div>
+                          <div style={{ fontWeight:700, color:pl.color }}>{pl.label}</div>
+                          <div style={{ fontSize:12, color:'var(--gray-500)' }}>
+                            {pl.price === 0 ? (pl.key === 'ENTERPRISE' ? 'Custom pricing' : 'Free') : `₹${pl.price}/month`}
+                          </div>
+                        </div>
+                        {changePlan.newPlan === pl.key && <CheckCircle2 size={18} color={pl.color}/>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button className="btn btn-secondary" onClick={() => setChangePlan(null)}>Cancel</button>
+                  <button className="btn btn-primary" onClick={savePlan}>Save plan</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {subTab === 'plans'  && <AdminPlansManager plans={plans} loading={plansLoading} onChanged={loadPlans}/>}
+      {subTab === 'offers' && <AdminOffersManager plans={plans}/>}
+    </div>
+  );
+}
+
+// ── Admin: Manage Plans ──────────────────────────────────────────────────────
+const EMPTY_PLAN_FORM = { id:null, planKey:'', label:'', vertical:'SHOP', price:0, features:'', sortOrder:0 };
+
+function AdminPlansManager({ plans, loading, onChanged }) {
+  const [verticalFilter, setVerticalFilter] = useState('all');
+  const [form, setForm]     = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr]       = useState('');
+  const [toast, setToast]   = useState('');
+
+  const showToast = (m) => { setToast(m); setTimeout(() => setToast(''), 2500); };
+
+  const openNew  = () => { setErr(''); setForm({ ...EMPTY_PLAN_FORM }); };
+  const openEdit = (p) => { setErr(''); setForm({ id:p.id, planKey:p.planKey, label:p.label, vertical:p.vertical, price:p.price, features:p.features||'', sortOrder:p.sortOrder||0 }); };
+
+  const save = async () => {
+    if (!form.planKey.trim() || !form.label.trim()) { setErr('Plan key and label are required'); return; }
+    setSaving(true); setErr('');
+    try {
+      const payload = {
+        planKey: form.planKey.trim(), label: form.label.trim(), vertical: form.vertical,
+        price: Number(form.price) || 0, features: form.features, sortOrder: Number(form.sortOrder) || 0,
+      };
+      if (form.id) await planApi.update(form.id, payload);
+      else await planApi.create(payload);
+      showToast(form.id ? 'Plan updated' : 'Plan created');
+      setForm(null);
+      onChanged();
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Failed to save plan');
+    } finally { setSaving(false); }
+  };
+
+  const toggleActive = async (p) => {
+    try {
+      await planApi.toggleActive(p.id, !p.active);
+      onChanged();
+      showToast(`${p.label} ${p.active ? 'hidden from' : 'now shown on'} customer pages`);
+    } catch { showToast('Failed to update plan'); }
+  };
+
+  const filtered = verticalFilter === 'all' ? plans : plans.filter(p => p.vertical === verticalFilter);
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ position:'fixed', bottom:24, right:24, background:'#1F2937', color:'#fff', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
+          ✓ {toast}
         </div>
-        <select className="admin-filter-select" value={planFilter} onChange={e => setPlanFilter(e.target.value)}>
-          <option value="all">All plans</option>
-          {Object.entries(PLANS).map(([k,v]) => <option key={k} value={k}>{v.label}</option>)}
+      )}
+
+      <div className="admin-filter-bar">
+        <select className="admin-filter-select" value={verticalFilter} onChange={e => setVerticalFilter(e.target.value)}>
+          <option value="all">All verticals</option>
+          {Object.keys(VERTICAL_COLORS).map(v => <option key={v} value={v}>{VERTICAL_COLORS[v].label}</option>)}
         </select>
+        <button onClick={openNew}
+          style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6,
+            background:'linear-gradient(135deg,#0F6E56,#1D9E75)', color:'#fff', border:'none',
+            borderRadius:8, padding:'9px 16px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+          <Plus size={14}/> Add Plan
+        </button>
       </div>
 
-      {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
-
       {loading ? (
-        <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading shops…</div>
+        <div style={{ padding:'40px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading plans…</div>
       ) : (
         <div className="admin-table-card">
           <table className="admin-table">
             <thead>
-              <tr><th>Shop</th><th>City</th><th>Plan</th><th>Status</th><th>Tables</th><th>Actions</th></tr>
+              <tr><th>Plan</th><th>Vertical</th><th>Price</th><th>Features</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No shops found</td></tr>
+                <tr><td colSpan={6} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No plans found</td></tr>
               )}
-              {filtered.map(s => {
-                const pi = planInfo(s.subscriptionPlan);
+              {filtered.map(p => {
+                const v = VERTICAL_COLORS[p.vertical] || VERTICAL_COLORS.SHOP;
+                const featureList = (p.features || '').split('\n').map(f => f.trim()).filter(Boolean);
                 return (
-                  <tr key={s.id}>
+                  <tr key={p.id}>
                     <td>
-                      <div style={{ fontWeight:700, fontSize:13.5 }}>{s.name}</div>
-                      <div style={{ fontSize:11, color:'var(--gray-400)' }}>{s.email || s.phone || '—'}</div>
+                      <div style={{ fontWeight:700, fontSize:13.5 }}>{p.label}</div>
+                      <div style={{ fontSize:11, color:'var(--gray-400)', fontFamily:'monospace' }}>{p.planKey}</div>
                     </td>
-                    <td style={{ fontSize:13, color:'var(--gray-600)' }}>{s.city || '—'}</td>
+                    <td><span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20, background:v.bg, color:v.color }}>{v.label}</span></td>
+                    <td style={{ fontWeight:700, fontSize:13 }}>{p.price > 0 ? `₹${p.price.toLocaleString('en-IN')}/mo` : 'Free'}</td>
+                    <td style={{ fontSize:12, color:'var(--gray-500)', maxWidth:240 }}>
+                      {featureList.slice(0, 2).join(', ')}{featureList.length > 2 ? ` +${featureList.length - 2} more` : ''}
+                    </td>
                     <td>
-                      <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
-                        background:pi.bg, color:pi.color }}>
-                        {pi.label}
-                        {pi.price > 0 && <span style={{ fontWeight:400, marginLeft:4 }}>₹{pi.price}/mo</span>}
+                      <span style={{ fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:20,
+                        background: p.active ? '#DCFCE7' : '#F3F4F6', color: p.active ? '#059669' : '#6B7280' }}>
+                        {p.active ? 'Live' : 'Hidden'}
                       </span>
                     </td>
                     <td>
-                      <span style={{ fontSize:11, fontWeight:700, color: s.status==='ACTIVE'?'#059669':'#DC2626' }}>
-                        {s.status === 'ACTIVE' ? '● Active' : '● Suspended'}
-                      </span>
-                    </td>
-                    <td style={{ fontSize:13, textAlign:'center' }}>{s.tableCount || '—'}</td>
-                    <td>
-                      <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                        <button className="admin-row-btn" title="Change plan"
-                          onClick={() => setChangePlan({ shop: s, newPlan: (s.subscriptionPlan||'STARTER').toUpperCase() })}
-                          style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#2563EB' }}>
-                          <Zap size={11}/> Plan
-                        </button>
-                        <button className="admin-row-btn" title="Send payment reminder"
-                          onClick={() => sendReminder(s)}
-                          style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#D97706' }}>
-                          <Send size={11}/> Remind
-                        </button>
-                        <button className="admin-row-btn" title="View invoices"
-                          style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#7C3AED' }}>
-                          <Download size={11}/> Invoice
+                      <div style={{ display:'flex', gap:6 }}>
+                        <button className="admin-row-btn" title="Edit" onClick={() => openEdit(p)} style={{ color:'#2563EB' }}><Edit2 size={13}/></button>
+                        <button className="admin-row-btn" title={p.active ? 'Hide from customers' : 'Show to customers'}
+                          onClick={() => toggleActive(p)} style={{ color: p.active ? '#DC2626' : '#059669' }}>
+                          {p.active ? <ToggleRight size={14}/> : <ToggleLeft size={14}/>}
                         </button>
                       </div>
                     </td>
@@ -1045,37 +1269,266 @@ function AdminSubscriptionManagement() {
         </div>
       )}
 
-      {/* Change Plan Modal */}
-      {changePlan && (
-        <div className="modal-backdrop" onClick={() => setChangePlan(null)}>
-          <div className="modal" style={{ maxWidth:440 }} onClick={e => e.stopPropagation()}>
+      {form && (
+        <div className="modal-backdrop" onClick={() => setForm(null)}>
+          <div className="modal" style={{ maxWidth:480 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Change plan — {changePlan.shop.name}</h2>
-              <button className="modal-close" onClick={() => setChangePlan(null)}>✕</button>
+              <h2 className="modal-title">{form.id ? 'Edit plan' : 'Add plan'}</h2>
+              <button className="modal-close" onClick={() => setForm(null)}>✕</button>
             </div>
-            <div className="modal-body">
-              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                {Object.entries(PLANS).map(([key, pl]) => (
-                  <button key={key}
-                    onClick={() => setChangePlan(p => ({ ...p, newPlan: key }))}
-                    style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-                      padding:'12px 16px', borderRadius:10, border:`2px solid ${changePlan.newPlan === key ? pl.color : 'var(--gray-200)'}`,
-                      background: changePlan.newPlan === key ? pl.bg : 'white',
-                      cursor:'pointer', textAlign:'left' }}>
-                    <div>
-                      <div style={{ fontWeight:700, color:pl.color }}>{pl.label}</div>
-                      <div style={{ fontSize:12, color:'var(--gray-500)' }}>
-                        {pl.price === 0 ? (key === 'ENTERPRISE' ? 'Custom pricing' : 'Free') : `₹${pl.price}/month`}
-                      </div>
-                    </div>
-                    {changePlan.newPlan === key && <CheckCircle2 size={18} color={pl.color}/>}
-                  </button>
-                ))}
+            <div className="modal-body" style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div>
+                <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>
+                  Plan key {form.id && <span style={{ color:'var(--gray-400)', fontWeight:400 }}>(locked — printed/assigned shops keep referencing it)</span>}
+                </label>
+                <input value={form.planKey} disabled={!!form.id}
+                  onChange={e => setForm(f => ({ ...f, planKey: e.target.value.toUpperCase() }))}
+                  placeholder="e.g. GROWTH"
+                  style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box',
+                    background: form.id ? 'var(--gray-100)' : 'white' }}/>
               </div>
+              <div>
+                <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Label</label>
+                <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+                  placeholder="e.g. Growth"
+                  style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box' }}/>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Vertical</label>
+                  <select value={form.vertical} onChange={e => setForm(f => ({ ...f, vertical: e.target.value }))}
+                    style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)' }}>
+                    {Object.keys(VERTICAL_COLORS).map(v => <option key={v} value={v}>{VERTICAL_COLORS[v].label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Price (₹/month, 0 = free)</label>
+                  <input type="number" min={0} value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                    style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box' }}/>
+                </div>
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>
+                  Features <span style={{ color:'var(--gray-400)', fontWeight:400 }}>(one per line)</span>
+                </label>
+                <textarea rows={5} value={form.features} onChange={e => setForm(f => ({ ...f, features: e.target.value }))}
+                  style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box', fontFamily:'inherit', fontSize:13 }}/>
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Sort order <span style={{ color:'var(--gray-400)', fontWeight:400 }}>(lower shows first)</span></label>
+                <input type="number" value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: e.target.value }))}
+                  style={{ width:120, padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box' }}/>
+              </div>
+              {err && <p style={{ color:'#DC2626', fontSize:13, margin:0 }}>{err}</p>}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setChangePlan(null)}>Cancel</button>
-              <button className="btn btn-primary" onClick={savePlan}>Save plan</button>
+              <button className="btn btn-secondary" onClick={() => setForm(null)}>Cancel</button>
+              <button className="btn btn-primary" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save plan'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Admin: Discount Offers ───────────────────────────────────────────────────
+const EMPTY_OFFER_FORM = { id:null, title:'', description:'', code:'', discountPercent:10, applicablePlans:'ALL', startsAt:'', endsAt:'' };
+
+function offerStatus(o) {
+  if (!o.active) return { label:'Draft', color:'#6B7280', bg:'#F3F4F6' };
+  const now = new Date();
+  if (o.startsAt && new Date(o.startsAt) > now) return { label:'Scheduled', color:'#D97706', bg:'#FEF3C7' };
+  if (o.endsAt && new Date(o.endsAt) < now)     return { label:'Expired',   color:'#DC2626', bg:'#FEE2E2' };
+  return { label:'Live', color:'#059669', bg:'#DCFCE7' };
+}
+
+function AdminOffersManager({ plans }) {
+  const [offers, setOffers]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm]       = useState(null);
+  const [saving, setSaving]   = useState(false);
+  const [err, setErr]         = useState('');
+  const [toast, setToast]     = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { const res = await offerApi.listAdmin(); setOffers(res.data?.data || []); }
+    catch { /* leave previous list visible */ }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const showToast = (m) => { setToast(m); setTimeout(() => setToast(''), 2500); };
+
+  const openNew  = () => { setErr(''); setForm({ ...EMPTY_OFFER_FORM }); };
+  const openEdit = (o) => { setErr(''); setForm({
+    id:o.id, title:o.title, description:o.description||'', code:o.code||'',
+    discountPercent:o.discountPercent, applicablePlans:o.applicablePlans||'ALL',
+    startsAt: o.startsAt ? o.startsAt.slice(0,16) : '', endsAt: o.endsAt ? o.endsAt.slice(0,16) : '',
+  }); };
+
+  const save = async () => {
+    if (!form.title.trim()) { setErr('Title is required'); return; }
+    const pct = Number(form.discountPercent);
+    if (!pct || pct <= 0 || pct > 100) { setErr('Discount must be between 1 and 100%'); return; }
+    setSaving(true); setErr('');
+    try {
+      const payload = {
+        title: form.title.trim(), description: form.description, code: form.code,
+        discountPercent: pct, applicablePlans: form.applicablePlans,
+        startsAt: form.startsAt || null, endsAt: form.endsAt || null,
+      };
+      if (form.id) await offerApi.update(form.id, payload);
+      else await offerApi.create(payload);
+      showToast(form.id ? 'Offer updated' : 'Offer saved as draft');
+      setForm(null);
+      load();
+    } catch (e) {
+      setErr(e.response?.data?.message || 'Failed to save offer');
+    } finally { setSaving(false); }
+  };
+
+  const release = async (o) => {
+    try {
+      await offerApi.toggleActive(o.id, !o.active);
+      load();
+      showToast(!o.active ? `"${o.title}" released to customers` : `"${o.title}" withdrawn`);
+    } catch { showToast('Failed to update offer'); }
+  };
+
+  const remove = async (o) => {
+    if (!confirm(`Delete offer "${o.title}"? This cannot be undone.`)) return;
+    try { await offerApi.remove(o.id); load(); showToast('Offer deleted'); }
+    catch { showToast('Failed to delete offer'); }
+  };
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ position:'fixed', bottom:24, right:24, background:'#1F2937', color:'#fff', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
+          ✓ {toast}
+        </div>
+      )}
+
+      <div className="admin-filter-bar">
+        <span style={{ fontSize:12, color:'var(--gray-500)' }}>{offers.length} offer{offers.length !== 1 ? 's' : ''}</span>
+        <button onClick={openNew}
+          style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6,
+            background:'linear-gradient(135deg,#0F6E56,#1D9E75)', color:'#fff', border:'none',
+            borderRadius:8, padding:'9px 16px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+          <Plus size={14}/> Create Offer
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ padding:'40px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading offers…</div>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead>
+              <tr><th>Offer</th><th>Discount</th><th>Applies to</th><th>Window</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+              {offers.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No offers yet — create one to promote a plan</td></tr>
+              )}
+              {offers.map(o => {
+                const st = offerStatus(o);
+                return (
+                  <tr key={o.id}>
+                    <td>
+                      <div style={{ fontWeight:700, fontSize:13.5 }}>{o.title}</div>
+                      {o.code && <div style={{ fontSize:11, color:'var(--gray-400)', fontFamily:'monospace' }}>Code: {o.code}</div>}
+                    </td>
+                    <td style={{ fontWeight:700, color:'#DC2626' }}>{o.discountPercent}% off</td>
+                    <td style={{ fontSize:12, color:'var(--gray-500)' }}>{o.applicablePlans === 'ALL' ? 'All plans' : o.applicablePlans}</td>
+                    <td style={{ fontSize:11, color:'var(--gray-400)' }}>
+                      {o.startsAt ? new Date(o.startsAt).toLocaleDateString('en-IN') : 'Now'} → {o.endsAt ? new Date(o.endsAt).toLocaleDateString('en-IN') : 'No end'}
+                    </td>
+                    <td><span style={{ fontSize:11, fontWeight:700, padding:'3px 8px', borderRadius:20, background:st.bg, color:st.color }}>{st.label}</span></td>
+                    <td>
+                      <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                        <button className="admin-row-btn" title="Edit" onClick={() => openEdit(o)} style={{ color:'#2563EB' }}><Edit2 size={12}/></button>
+                        <button className="admin-row-btn" title={o.active ? 'Withdraw' : 'Release to customers'}
+                          onClick={() => release(o)}
+                          style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color: o.active ? '#DC2626' : '#059669' }}>
+                          {o.active ? <><ToggleRight size={12}/> Withdraw</> : <><ToggleLeft size={12}/> Release</>}
+                        </button>
+                        <button className="admin-row-btn admin-row-btn-danger" title="Delete" onClick={() => remove(o)}><Trash2 size={12}/></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {form && (
+        <div className="modal-backdrop" onClick={() => setForm(null)}>
+          <div className="modal" style={{ maxWidth:520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{form.id ? 'Edit offer' : 'Create discount offer'}</h2>
+              <button className="modal-close" onClick={() => setForm(null)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div>
+                <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Title</label>
+                <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Diwali Sale — 20% off Growth & Business"
+                  style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box' }}/>
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Description <span style={{ color:'var(--gray-400)', fontWeight:400 }}>(optional)</span></label>
+                <textarea rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box', fontFamily:'inherit', fontSize:13 }}/>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Discount %</label>
+                  <input type="number" min={1} max={100} value={form.discountPercent}
+                    onChange={e => setForm(f => ({ ...f, discountPercent: e.target.value }))}
+                    style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box' }}/>
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Promo code <span style={{ color:'var(--gray-400)', fontWeight:400 }}>(optional)</span></label>
+                  <input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+                    placeholder="e.g. DIWALI20"
+                    style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box' }}/>
+                </div>
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Applies to</label>
+                <select value={form.applicablePlans} onChange={e => setForm(f => ({ ...f, applicablePlans: e.target.value }))}
+                  style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)' }}>
+                  <option value="ALL">All plans</option>
+                  {plans.map(p => <option key={p.planKey} value={p.planKey}>{p.label} ({VERTICAL_COLORS[p.vertical]?.label || p.vertical})</option>)}
+                </select>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Starts <span style={{ color:'var(--gray-400)', fontWeight:400 }}>(optional)</span></label>
+                  <input type="datetime-local" value={form.startsAt} onChange={e => setForm(f => ({ ...f, startsAt: e.target.value }))}
+                    style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box' }}/>
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Ends <span style={{ color:'var(--gray-400)', fontWeight:400 }}>(optional)</span></label>
+                  <input type="datetime-local" value={form.endsAt} onChange={e => setForm(f => ({ ...f, endsAt: e.target.value }))}
+                    style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box' }}/>
+                </div>
+              </div>
+              {err && <p style={{ color:'#DC2626', fontSize:13, margin:0 }}>{err}</p>}
+              <p style={{ margin:0, fontSize:11, color:'var(--gray-400)' }}>
+                <Percent size={11} style={{ verticalAlign:'-1px', marginRight:4 }}/>
+                Offers save as a draft — use <strong>Release</strong> in the table to make them live for customers.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setForm(null)}>Cancel</button>
+              <button className="btn btn-primary" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save offer'}</button>
             </div>
           </div>
         </div>
@@ -1170,6 +1623,7 @@ function AdminQRCodesPage() {
   const [page, setPage]       = useState(0);
   const [toggling, setToggling] = useState({});
   const [toast, setToast]     = useState('');
+  const [editQr, setEditQr]   = useState(null);
   const PAGE_SIZE = 30;
 
   const load = useCallback(async (pg = 0) => {
@@ -1221,7 +1675,11 @@ function AdminQRCodesPage() {
           <p className="page-subtitle">Platform-wide · {codes.length} total · {totalScans.toLocaleString('en-IN')} scans</p>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          <AdminMarketingQRGenerator onCreated={() => load(0)}/>
+          <AdminMarketingQRGenerator
+            onCreated={() => load(0)}
+            editTarget={editQr}
+            onEditDone={() => { setEditQr(null); load(page); }}
+          />
           <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
         </div>
       </div>
@@ -1302,6 +1760,15 @@ function AdminQRCodesPage() {
                   </td>
                   <td>
                     <div style={{ display:'flex', gap:6 }}>
+                      {qr.type === 'CAMPAIGN' && (
+                        <button
+                          className="admin-row-btn"
+                          title="Edit marketing QR"
+                          onClick={() => setEditQr(qr)}
+                          style={{ color: '#7C3AED' }}>
+                          <Edit2 size={13}/>
+                        </button>
+                      )}
                       <button
                         className="admin-row-btn"
                         title={qr.active ? 'Deactivate' : 'Activate'}
@@ -1357,7 +1824,7 @@ const QR_COLORS = [
   { fg: '#FFFFFF', bg: '#0F6E56', name: 'Inverted' },
 ];
 
-function AdminMarketingQRGenerator({ onCreated }) {
+function AdminMarketingQRGenerator({ onCreated, editTarget, onEditDone }) {
   const [open, setOpen]         = useState(false);
   const [preset, setPreset]     = useState(MARKETING_PRESETS[0]);
   const [customUrl, setCustom]  = useState('');
@@ -1366,10 +1833,27 @@ function AdminMarketingQRGenerator({ onCreated }) {
   const [saving, setSaving]     = useState(false);
   const [saved, setSaved]       = useState(null);
   const [err, setErr]           = useState('');
+  const [copied, setCopied]     = useState('');
+  const [editId, setEditId]     = useState(null);
   const canvasRef               = React.useRef(null);
 
+  const isEditing = !!editId;
   const targetUrl = preset.campaign === 'custom' ? customUrl : preset.url;
   const color     = QR_COLORS[colorIdx];
+
+  // Open in edit mode when a row's "Edit" action is clicked from the table
+  React.useEffect(() => {
+    if (!editTarget) return;
+    const match = MARKETING_PRESETS.find(p => p.url && p.url === editTarget.targetUrl);
+    setPreset(match || { ...MARKETING_PRESETS[MARKETING_PRESETS.length - 1], campaign: editTarget.groupParam || 'custom' });
+    setCustom(match ? '' : (editTarget.targetUrl || ''));
+    setLabel(editTarget.label || '');
+    setColorIdx(0);
+    setEditId(editTarget.id);
+    setSaved(null);
+    setErr('');
+    setOpen(true);
+  }, [editTarget]);
 
   React.useEffect(() => {
     if (!open || !targetUrl) return;
@@ -1381,21 +1865,20 @@ function AdminMarketingQRGenerator({ onCreated }) {
         errorCorrectionLevel: 'M',
       }).catch(() => {});
     });
-  }, [open, targetUrl, colorIdx]);
+  }, [open, targetUrl, colorIdx, saved]);
 
   const handleSave = async () => {
     if (!targetUrl) { setErr('Target URL is required'); return; }
     setSaving(true); setErr('');
     try {
-      const res = await qrApi.createMarketing({
-        label:     label || preset.label,
-        targetUrl,
-        campaign:  preset.campaign,
-      });
+      const payload = { label: label || preset.label, targetUrl, campaign: preset.campaign };
+      const res = isEditing
+        ? await qrApi.updateMarketing(editId, payload)
+        : await qrApi.createMarketing(payload);
       setSaved(res.data?.data);
       onCreated?.();
     } catch (e) {
-      setErr(e.response?.data?.message || 'Failed to create QR');
+      setErr(e.response?.data?.message || `Failed to ${isEditing ? 'update' : 'create'} QR`);
     } finally { setSaving(false); }
   };
 
@@ -1408,12 +1891,28 @@ function AdminMarketingQRGenerator({ onCreated }) {
     a.click();
   };
 
-  const reset = () => { setSaved(null); setLabel(''); setCustom(''); setPreset(MARKETING_PRESETS[0]); };
+  const handleCopy = (text, key) => {
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(key);
+      setTimeout(() => setCopied(''), 1600);
+    });
+  };
+
+  const reset = () => {
+    setSaved(null); setLabel(''); setCustom(''); setPreset(MARKETING_PRESETS[0]);
+    setColorIdx(0); setErr(''); setEditId(null);
+  };
+
+  const closeModal = () => {
+    setOpen(false);
+    if (isEditing) onEditDone?.();
+    reset();
+  };
 
   return (
     <>
       <button
-        onClick={() => { setOpen(true); reset(); }}
+        onClick={() => { reset(); setOpen(true); }}
         style={{
           display: 'flex', alignItems: 'center', gap: 7,
           background: 'linear-gradient(135deg,#0F6E56,#1D9E75)',
@@ -1429,9 +1928,9 @@ function AdminMarketingQRGenerator({ onCreated }) {
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)',
           zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: 16,
-        }} onClick={e => e.target === e.currentTarget && setOpen(false)}>
+        }} onClick={e => e.target === e.currentTarget && closeModal()}>
           <div style={{
-            background: '#fff', borderRadius: 16, width: '100%', maxWidth: 760,
+            background: '#fff', borderRadius: 16, width: '100%', maxWidth: 820,
             maxHeight: '92vh', overflowY: 'auto',
             boxShadow: '0 24px 64px rgba(0,0,0,.22)',
           }}>
@@ -1439,46 +1938,117 @@ function AdminMarketingQRGenerator({ onCreated }) {
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '20px 24px 16px', borderBottom: '1px solid #F1F5F9',
+              background: isEditing ? 'linear-gradient(135deg,#F5F3FF,#FFFFFF)' : 'transparent',
             }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0F172A' }}>
-                  Marketing QR Generator
+                  {isEditing ? 'Edit Marketing QR' : 'Marketing QR Generator'}
                 </h2>
                 <p style={{ margin: '3px 0 0', fontSize: 13, color: '#64748B' }}>
-                  Create branded QR codes for ads, banners, events &amp; sales collateral
+                  {isEditing
+                    ? 'Update the destination, label or campaign — the printed QR code keeps working.'
+                    : 'Create branded QR codes for ads, banners, events & sales collateral'}
                 </p>
               </div>
-              <button onClick={() => setOpen(false)}
+              <button onClick={closeModal}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: 22, lineHeight: 1 }}>×</button>
             </div>
 
             {saved ? (
-              /* ── Success state ── */
-              <div style={{ padding: 32, textAlign: 'center' }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
-                <h3 style={{ margin: '0 0 6px', color: '#0F172A' }}>Marketing QR Created!</h3>
-                <p style={{ color: '#64748B', fontSize: 13, marginBottom: 20 }}>
-                  Code: <strong style={{ fontFamily: 'monospace', color: '#7C3AED' }}>{saved.qrCode}</strong>
-                  &nbsp;·&nbsp;Scan count tracked automatically
-                </p>
-                <canvas ref={canvasRef} style={{ borderRadius: 8, border: '1px solid #E2E8F0', marginBottom: 16 }}/>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                  <button onClick={handleDownload}
-                    style={{ display:'flex', alignItems:'center', gap:6, background:'#0F6E56', color:'#fff',
-                      border:'none', borderRadius:8, padding:'9px 18px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                    <Download size={14}/> Download PNG
-                  </button>
-                  <a href={qrApi.imageUrl(saved.qrCode)} target="_blank" rel="noreferrer"
-                    style={{ display:'flex', alignItems:'center', gap:6, background:'#7C3AED', color:'#fff',
-                      border:'none', borderRadius:8, padding:'9px 18px', fontSize:13, fontWeight:600,
-                      cursor:'pointer', textDecoration:'none' }}>
-                    <ExternalLink size={14}/> High-res PNG
-                  </a>
-                  <button onClick={reset}
-                    style={{ background:'#F1F5F9', color:'#374151', border:'none', borderRadius:8,
-                      padding:'9px 18px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                    Create Another
-                  </button>
+              /* ── Success / detail state ── */
+              <div style={{ padding: '28px 24px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
+                  <div style={{ fontSize: 30 }}>{isEditing ? '✏️' : '✅'}</div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize:16, color: '#0F172A' }}>
+                      {isEditing ? 'Marketing QR updated' : 'Marketing QR created'}
+                    </h3>
+                    <p style={{ margin:'2px 0 0', color: '#64748B', fontSize: 12 }}>
+                      {isEditing ? 'Changes are live immediately — no reprint needed.' : 'Ready to publish on ads, banners & collateral.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display:'grid', gridTemplateColumns:'220px 1fr', gap:24 }}>
+                  {/* QR image */}
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
+                    <div style={{ background: color.bg, borderRadius: 12, padding: 12,
+                      boxShadow: '0 4px 16px rgba(0,0,0,.10)', border: '1px solid #E2E8F0' }}>
+                      <canvas ref={canvasRef} style={{ display:'block', borderRadius:6 }}/>
+                    </div>
+                    <div style={{ display:'flex', gap:8, marginTop:12, width:'100%' }}>
+                      <button onClick={handleDownload}
+                        style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#0F6E56', color:'#fff',
+                          border:'none', borderRadius:8, padding:'8px 10px', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                        <Download size={13}/> PNG
+                      </button>
+                      <a href={qrApi.imageUrl(saved.qrCode)} target="_blank" rel="noreferrer"
+                        style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#7C3AED', color:'#fff',
+                          border:'none', borderRadius:8, padding:'8px 10px', fontSize:12, fontWeight:600,
+                          cursor:'pointer', textDecoration:'none' }}>
+                        <ExternalLink size={13}/> Hi-res
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Detail panel */}
+                  <div>
+                    <div style={{ border:'1px solid #E2E8F0', borderRadius:10, overflow:'hidden' }}>
+                      {[
+                        { icon: QrCode,  label: 'Code',        value: saved.qrCode, mono: true },
+                        { icon: Tag,     label: 'Label',       value: saved.label || '—' },
+                        { icon: Tag,     label: 'Campaign',    value: saved.groupParam || '—' },
+                        { icon: Link2,   label: 'Target URL',  value: saved.targetUrl, copyKey: 'target', breakAll: true },
+                        { icon: Link2,   label: 'Scan link',   value: qrApi.redirectUrl(saved.qrCode), copyKey: 'scan', breakAll: true },
+                        { icon: ScanLine,label: 'Scans so far',value: (saved.scanCount ?? 0).toLocaleString('en-IN') },
+                        { icon: saved.active === false ? XCircle : CheckCircle2, label: 'Status', value: saved.active === false ? 'Inactive' : 'Active' },
+                        { icon: Calendar,label: 'Created',     value: saved.createdAt ? new Date(saved.createdAt).toLocaleString('en-IN') : '—' },
+                      ].map((row, i) => (
+                        <div key={row.label} style={{
+                          display:'flex', alignItems:'flex-start', gap:10, padding:'10px 14px',
+                          background: i % 2 ? '#FAFAFA' : '#fff',
+                          borderTop: i ? '1px solid #F1F5F9' : 'none',
+                        }}>
+                          <row.icon size={14} style={{ marginTop:2, color:'#94A3B8', flexShrink:0 }}/>
+                          <div style={{ minWidth:90, fontSize:11, color:'#94A3B8', fontWeight:600, textTransform:'uppercase', letterSpacing:'.03em' }}>
+                            {row.label}
+                          </div>
+                          <div style={{ flex:1, fontSize:13, color:'#1E293B', fontFamily: row.mono ? 'monospace' : 'inherit',
+                            fontWeight: row.mono ? 700 : 500, wordBreak: row.breakAll ? 'break-all' : 'normal' }}>
+                            {row.value}
+                          </div>
+                          {row.copyKey && (
+                            <button onClick={() => handleCopy(row.value, row.copyKey)}
+                              title="Copy to clipboard"
+                              style={{ background:'none', border:'none', cursor:'pointer', color: copied === row.copyKey ? '#059669' : '#94A3B8', flexShrink:0 }}>
+                              <Copy size={14}/>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {copied && <p style={{ margin:'8px 0 0', fontSize:11, color:'#059669', fontWeight:600 }}>Copied to clipboard ✓</p>}
+
+                    <div style={{ display:'flex', gap:10, marginTop:20, flexWrap:'wrap' }}>
+                      <button onClick={() => { setSaved(null); setErr(''); }}
+                        style={{ display:'flex', alignItems:'center', gap:6, background:'#EDE9FE', color:'#7C3AED', border:'none',
+                          borderRadius:8, padding:'9px 16px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                        <Edit2 size={14}/> Edit details
+                      </button>
+                      {!isEditing && (
+                        <button onClick={reset}
+                          style={{ background:'#F1F5F9', color:'#374151', border:'none', borderRadius:8,
+                            padding:'9px 16px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                          Create another
+                        </button>
+                      )}
+                      <button onClick={closeModal}
+                        style={{ marginLeft:'auto', background:'#0F172A', color:'#fff', border:'none', borderRadius:8,
+                          padding:'9px 18px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                        Done
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -1570,7 +2140,7 @@ function AdminMarketingQRGenerator({ onCreated }) {
                       background: saving || !targetUrl ? '#E2E8F0' : 'linear-gradient(135deg,#0F6E56,#1D9E75)',
                       color: saving || !targetUrl ? '#94A3B8' : '#fff', border:'none',
                     }}>
-                    {saving ? 'Generating…' : '✨ Generate & Save QR'}
+                    {saving ? (isEditing ? 'Saving…' : 'Generating…') : (isEditing ? '💾 Save Changes' : '✨ Generate & Save QR')}
                   </button>
                 </div>
 

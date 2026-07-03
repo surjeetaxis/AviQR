@@ -18,14 +18,15 @@ const LANGUAGES = [
 
 export default function Settings() {
   const { user, logout } = useAuth();
-  const shopId = useActiveShopId()||'00000000-0000-0000-0000-000000000101';
+  const shopId = useActiveShopId();
   const [settings, setSettings] = useState({cashEnabled:true,onlineEnabled:true,walletEnabled:false,loyaltyEnabled:false,taxPercent:5});
   const [lang, setLang]         = useState('en');
   const [showLang, setShowLang] = useState(false);
 
   useEffect(() => {
+    if(!shopId) return;
     shopApi.getSettings(shopId).then(r => setSettings(r.data.data||settings)).catch(()=>{});
-  }, []);
+  }, [shopId]);
 
   const toggle = k => setSettings(s=>({...s,[k]:!s[k]}));
   const save = async () => {

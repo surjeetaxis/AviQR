@@ -28,10 +28,13 @@ import MallDashboard     from './pages/mall/MallDashboard.jsx';
 import CustomerMenu      from './pages/customer/CustomerMenu.jsx';
 import GuestServices     from './pages/customer/GuestServices.jsx';
 import FoodCourtHome     from './pages/customer/FoodCourtHome.jsx';
+import BrandHome         from './pages/customer/BrandHome.jsx';
 import CustomerPortalShell from './layouts/CustomerPortalShell.jsx';
 import PortalHome        from './pages/customer/PortalHome.jsx';
 import PortalOrders      from './pages/customer/PortalOrders.jsx';
+import PortalOrderDetail from './pages/customer/PortalOrderDetail.jsx';
 import PortalProfile     from './pages/customer/PortalProfile.jsx';
+import PortalAddresses   from './pages/customer/PortalAddresses.jsx';
 import Onboarding        from './components/shared/Onboarding.jsx';
 import TermsPage         from './pages/legal/TermsPage.jsx';
 import PrivacyPage       from './pages/legal/PrivacyPage.jsx';
@@ -87,9 +90,12 @@ export default function App() {
         <Route path="/menu/:shopId"            element={<CustomerMenu />} />
         <Route path="/hotel-services/:hotelId" element={<GuestServices />} />
         <Route path="/food-court/:mallId"      element={<FoodCourtHome />} />
+        <Route path="/brand/:brandId"          element={<BrandHome />} />
         <Route path="/portal/home"             element={<PortalHome />} />
         <Route path="/portal/orders"           element={<PortalOrders />} />
+        <Route path="/portal/orders/:orderId"  element={<PortalOrderDetail />} />
         <Route path="/portal/profile"          element={<PortalProfile />} />
+        <Route path="/portal/profile/addresses" element={<PortalAddresses />} />
       </Route>
 
       {/* Main dashboard */}

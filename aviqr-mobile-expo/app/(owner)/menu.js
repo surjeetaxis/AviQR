@@ -3,7 +3,6 @@ import { View, Text, FlatList, StyleSheet, TouchableOpacity, Switch, Alert, Text
 import { useAuth } from '../../src/context/AuthContext.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { menuApi } from '../../src/api/index.js';
-import { MOCK_CATEGORIES, MOCK_ITEMS } from '../../src/api/mockData.js';
 import { Button } from '../../src/components/common/Button.js';
 import { Input } from '../../src/components/common/Input.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
@@ -12,9 +11,9 @@ import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index
 
 export default function MenuScreen() {
   const { user } = useAuth();
-  const shopId = useActiveShopId() || '00000000-0000-0000-0000-000000000101';
-  const [cats, setCats]     = useState(MOCK_CATEGORIES);
-  const [items, setItems]   = useState(MOCK_ITEMS);
+  const shopId = useActiveShopId();
+  const [cats, setCats]     = useState([]);
+  const [items, setItems]   = useState([]);
   const [selCat, setSelCat] = useState(null);
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
@@ -23,17 +22,16 @@ export default function MenuScreen() {
   const [saving, setSaving] = useState(false);
   const [offline, setOffline] = useState(false);
 
-  useEffect(() => { loadMenu(); }, []);
+  useEffect(() => { if(shopId) loadMenu(); }, [shopId]);
   const set = (k,v) => setForm(f => ({...f,[k]:v}));
 
   const loadMenu = async () => {
     try {
       const [c, i] = await Promise.all([menuApi.getCategories(shopId), menuApi.getItems(shopId)]);
       const cd = c.data.data || []; const id = i.data.data || [];
-      if(cd.length) { setCats(cd); setOffline(false); }
-      if(id.length) setItems(id);
+      setCats(cd); setItems(id); setOffline(false);
       if(cd.length && !selCat) setSelCat(cd[0]);
-    } catch { setOffline(true); if(!selCat&&cats.length) setSelCat(cats[0]); }
+    } catch { setOffline(true); }
   };
 
   const toggleAvail = async (item) => {
