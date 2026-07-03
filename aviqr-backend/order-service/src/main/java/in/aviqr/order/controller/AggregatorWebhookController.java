@@ -3,6 +3,7 @@ package in.aviqr.order.controller;
 
 import in.aviqr.order.dto.ApiResponse;
 import in.aviqr.order.entity.*;
+import in.aviqr.order.repository.AggregatorShopMappingRepository;
 import in.aviqr.order.repository.OrderRepository;
 import in.aviqr.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +47,7 @@ public class AggregatorWebhookController {
 
     private final OrderRepository orderRepo;
     private final OrderService    orderService;
+    private final AggregatorShopMappingRepository mappingRepo;
 
     @Value("${aggregator.zomato.secret:}")  private String zomatoSecret;
     @Value("${aggregator.swiggy.token:}")   private String swiggyToken;
@@ -145,13 +147,29 @@ public class AggregatorWebhookController {
      * Body: { "shopId": "uuid", "platform": "ZOMATO", "aggregatorShopId": "543210" }
      */
     @PostMapping("/mapping")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> saveMapping(
+    public ResponseEntity<ApiResponse<AggregatorShopMapping>> saveMapping(
             @RequestBody Map<String, Object> req) {
-        // TODO: persist to aggregator_shop_mapping table
-        // For now, acknowledge — implementation uses a simple Map cache or DB table
-        log.info("Aggregator mapping registered: platform={} aggId={} → shopId={}",
-            req.get("platform"), req.get("aggregatorShopId"), req.get("shopId"));
-        return ResponseEntity.ok(ApiResponse.ok("Mapping saved", req));
+        String shopId    = str(req, "shopId");
+        String platform  = str(req, "platform");
+        String aggShopId = str(req, "aggregatorShopId");
+        AggregatorShopMapping mapping = mappingRepo.findByShopIdAndPlatform(shopId, platform)
+            .orElseGet(AggregatorShopMapping::new);
+        mapping.setShopId(shopId);
+        mapping.setPlatform(platform);
+        mapping.setAggregatorShopId(aggShopId);
+        AggregatorShopMapping saved = mappingRepo.save(mapping);
+        log.info("Aggregator mapping registered: platform={} aggId={} → shopId={}", platform, aggShopId, shopId);
+        return ResponseEntity.ok(ApiResponse.ok("Mapping saved", saved));
+    }
+
+    /**
+     * Owner's current Zomato/Swiggy mapping(s) for their shop, shown in Settings.
+     *
+     * GET /api/v1/aggregator/mapping/{shopId}
+     */
+    @GetMapping("/mapping/{shopId}")
+    public ResponseEntity<ApiResponse<List<AggregatorShopMapping>>> getMapping(@PathVariable String shopId) {
+        return ResponseEntity.ok(ApiResponse.ok(mappingRepo.findByShopId(shopId)));
     }
 
     // ── Private helpers ──────────────────────────────────────────────────────
@@ -239,10 +257,9 @@ public class AggregatorWebhookController {
 
     /** Resolve aggregator's restaurant ID → AviQR shopId from mapping table */
     private String resolveShopId(String platform, String aggShopId) {
-        // TODO: query aggregator_shop_mapping table
-        // For now return the aggShopId as-is (owner must name their shop with same ID)
-        // Replace with: return mappingRepo.findByPlatformAndAggregatorShopId(platform, aggShopId).getShopId();
-        return aggShopId;
+        return mappingRepo.findByPlatformAndAggregatorShopId(platform, aggShopId)
+            .map(AggregatorShopMapping::getShopId)
+            .orElse(aggShopId); // unmapped — fall back to the raw aggregator id
     }
 
     private boolean verifyZomatoSignature(String payload, String signature) {

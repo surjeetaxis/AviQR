@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Save, X, Trash2, Search, AlertTriangle, Package, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { rawMaterialApi, menuApi, recipeApi } from '../api/index.js';
 
 const UNITS = ['kg','gram','litre','ml','piece','dozen','packet','bottle'];
@@ -9,7 +10,7 @@ const EMPTY_MAT = { name:'', unit:'kg', currentStock:'', minStockLevel:'', costP
 
 export default function RawMaterials() {
   const { user } = useAuth();
-  const shopId = user?.shopId;
+  const shopId = useActiveShopId();
 
   const [materials, setMats]   = useState([]);
   const [menuItems, setMenu]   = useState([]);

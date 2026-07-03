@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext.js';
+import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { shopApi } from '../../src/api/index.js';
 import { Input } from '../../src/components/common/Input.js';
 import { Button } from '../../src/components/common/Button.js';
@@ -17,7 +18,7 @@ const LANGUAGES = [
 
 export default function Settings() {
   const { user, logout } = useAuth();
-  const shopId = user?.shopId||'00000000-0000-0000-0000-000000000101';
+  const shopId = useActiveShopId()||'00000000-0000-0000-0000-000000000101';
   const [settings, setSettings] = useState({cashEnabled:true,onlineEnabled:true,walletEnabled:false,loyaltyEnabled:false,taxPercent:5});
   const [lang, setLang]         = useState('en');
   const [showLang, setShowLang] = useState(false);

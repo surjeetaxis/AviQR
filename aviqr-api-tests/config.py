@@ -35,13 +35,25 @@ SEED_USERS = {
 SUSPENDED_USER = {"email": "farhan@biryani.in", "password": "Axis321#"}
 
 # Known dummy-data IDs from aviqr_setup.sql.
-SHOP_101 = "00000000-0000-0000-0000-000000000101"  # Spice Route
-SHOP_102 = "00000000-0000-0000-0000-000000000102"  # The Coconut Grove
-SHOP_104 = "00000000-0000-0000-0000-000000000104"  # Cake Studio
-CATEGORY_101_MAIN = "00000000-0000-0000-0001-000000000002"  # Spice Route / Main Course
-ITEM_101_PANEER_TIKKA = "00000000-0000-0000-0002-000000000001"
+# NOTE: aviqr_setup.sql switched from deterministic 00000000-...-NNN IDs to
+# gen_random_uuid()/hand-picked real UUIDs at some point; these constants are
+# re-read from the live seeded DB, not hand-derived, to stay in sync.
+SHOP_101 = "ecdbc557-91fa-44ee-992f-03683ad8bbde"  # Spice Route
+SHOP_102 = "44aeca17-767e-410b-868f-9fdd593fa091"  # The Coconut Grove
+SHOP_104 = "67685266-6b45-4e40-851c-8277ef650ca3"  # Cake Studio
+CATEGORY_101_MAIN = "be8bc0ff-c579-4620-974c-b4970e5daf6c"  # Spice Route / Main Course
+ITEM_101_PANEER_TIKKA = "a9ab05b0-202c-4188-a0de-1ac8fb85f91b"
 ITEM_101_PANEER_TIKKA_PRICE = 280.00
-HOTEL_1 = "00000000-0000-0000-0006-000000000001"  # Grand Palace Hotel
-ROOM_1_VACANT = "00000000-0000-0000-0007-000000000002"  # room 102, VACANT in seed data
-MALL_1 = "00000000-0000-0000-0009-000000000001"  # Forum Mall Bengaluru
+HOTEL_1 = "ccbe65f3-bb7b-400c-81b3-af56495b6a08"  # Grand Palace Hotel
+ROOM_1_VACANT = "c581c211-34b7-49c4-87aa-30c5f82ecd6f"  # room 102, VACANT in seed data
+MALL_1 = "f35f1a27-5632-43fe-aa8d-1db992097e4e"  # Forum Mall Bengaluru
 QR_CODE_SPICEROUTE = "spiceroute"
+
+# hotel_outlets under Grand Palace Hotel (HOTEL_1)
+OUTLET_ZODIAC_RESTAURANT = "b1000001-0000-4000-8000-000000000001"  # RESTAURANT, has shop_id
+OUTLET_CELLAR_BAR = "b1000001-0000-4000-8000-000000000002"  # BAR, no shop_id
+OUTLET_SERENITY_SPA = "b1000001-0000-4000-8000-000000000003"  # SPA, bookable, has a seeded booking
+
+# vendors under Forum Mall Bengaluru (MALL_1)
+VENDOR_SPICE_ROUTE = "6efd1a31-ee35-447e-a2d2-d533ddbe272b"  # has shop_id (== SHOP_101)
+VENDOR_WOK_TO_WALK = "118c94a4-2206-4f79-84db-2643a9a4c77b"  # no shop_id

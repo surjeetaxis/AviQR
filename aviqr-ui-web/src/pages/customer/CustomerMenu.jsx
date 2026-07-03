@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { menuApi } from '../../api/index.js';
+import { menuApi, orderApi, paymentApi, favoritesApi } from '../../api/index.js';
+import { useCart } from '../../context/CartContext.jsx';
+import { useCustomerAuth } from '../../context/CustomerAuthContext.jsx';
+import { setCustomerContext } from '../../context/customerContext.js';
+import CustomerLoginSheet from '../../components/customer/CustomerLoginSheet.jsx';
 import {
   ShoppingCart, Plus, Minus, Search, Star, Clock, MapPin,
   X, ChevronRight, CheckCircle, QrCode, Globe, ChevronDown,
@@ -27,6 +31,17 @@ function loadModelViewerScript() {
   s.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js';
   s.setAttribute('data-mv-loader', '1');
   document.head.appendChild(s);
+}
+
+function loadRazorpayScript() {
+  if (window.Razorpay) return Promise.resolve(true);
+  return new Promise(resolve => {
+    const s = document.createElement('script');
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.body.appendChild(s);
+  });
 }
 
 // ─── Full-screen media modal ──────────────────────────────────────────────────
@@ -332,6 +347,8 @@ export default function CustomerMenu() {
   const tableFromQR  = searchParams.get('table') || '';
   const qrType       = searchParams.get('type') || 'shop';
   const groupFilter  = searchParams.get('cat') || '';
+  const focusSearchParam = searchParams.get('focusSearch') === '1';
+  const openCartParam    = searchParams.get('openCart') === '1';
 
   // State
   const [lang, setLang]                 = useState('en');
@@ -341,7 +358,12 @@ export default function CustomerMenu() {
   const [vegOnly, setVegOnly]           = useState(false);
   const [search, setSearch]             = useState('');
   const [activeCategory, setActiveCategory] = useState('');
-  const [cart, setCart]                 = useState({});
+  const { cart, addItem: cartAddItem, remItem: cartRemItem, bindShop, clearCart } = useCart();
+  const { isLoggedIn, customer, authHeader } = useCustomerAuth();
+  const [showLogin, setShowLogin] = useState(false);
+  const [placingOrder, setPlacingOrder] = useState(false);
+  const [orderError, setOrderError] = useState('');
+  const [placedOrder, setPlacedOrder] = useState(null);
 
   // Resolve shop: prefer API data, fall back to mock
   const shop = apiShop || SHOPS[shopId] || SHOPS.spiceroute;
@@ -362,7 +384,6 @@ export default function CustomerMenu() {
   const [mediaModal, setMediaModal]     = useState(null); // { item, view:'video'|'model' }
   const [showCart, setShowCart]         = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [orderPlaced, setOrderPlaced]   = useState(false);
   const [liked, setLiked]              = useState({});
   const [checkoutForm, setCheckoutForm] = useState({
     name: '', phone: '', table: tableFromQR, type: tableFromQR ? 'dine-in' : 'dine-in', payment: 'online',
@@ -371,14 +392,55 @@ export default function CustomerMenu() {
 
   // Derived
   const allItems = shop.categories.flatMap(c => c.items);
-  const addItem  = id => setCart(c => ({ ...c, [id]: (c[id] || 0) + 1 }));
-  const remItem  = id => setCart(c => { const n={...c}; n[id]>1?n[id]--:delete n[id]; return n; });
+  const addItem  = cartAddItem;
+  const remItem  = cartRemItem;
   const cartCount = Object.values(cart).reduce((a, v) => a + v, 0);
   const cartTotal = Object.entries(cart).reduce((a, [id, qty]) => {
     const item = allItems.find(i => i.id === id);
     return a + (item?.price || 0) * qty;
   }, 0);
   const cartItems = Object.entries(cart).map(([id, qty]) => ({ ...allItems.find(i=>i.id===id), qty }));
+
+  // Keep the shared cart context's catalog snapshot in sync so the shell's
+  // Cart/Home tabs can still render item names/prices after this page unmounts.
+  useEffect(() => {
+    if (shop?.id && allItems.length) bindShop(shop.id, shop.name, allItems);
+  }, [shop?.id, shop?.name, allItems.length]);
+
+  // Remember this as the shell's "current context" so its Home/Search/Cart
+  // tabs know to bring the customer back here.
+  useEffect(() => {
+    if (shop?.id) setCustomerContext('shop', shop.id, shop.name);
+  }, [shop?.id, shop?.name]);
+
+  // Deep links from the shell: /menu/:id?openCart=1 or ?focusSearch=1
+  useEffect(() => {
+    if (openCartParam) setShowCart(true);
+    if (focusSearchParam) setTimeout(() => document.querySelector('.cm-search-input')?.focus(), 300);
+  }, [openCartParam, focusSearchParam]);
+
+  const [isFavorited, setIsFavorited] = useState(false);
+  useEffect(() => {
+    if (isLoggedIn && customer?.phone && shop?.id) {
+      favoritesApi.mine(customer.phone, authHeader)
+        .then(res => setIsFavorited((res.data.data || []).some(f => f.shopId === shop.id)))
+        .catch(() => {});
+    }
+  }, [isLoggedIn, customer?.phone, shop?.id]);
+
+  const toggleShopFavorite = () => {
+    if (!isLoggedIn) { setShowLogin(true); return; }
+    favoritesApi.toggle(customer.phone, shop.id, authHeader)
+      .then(res => setIsFavorited(res.data.data.favorited))
+      .catch(() => {});
+  };
+
+  // Once logged in, prefill the checkout form instead of leaving it blank.
+  useEffect(() => {
+    if (customer?.phone) {
+      setCheckoutForm(f => ({ ...f, phone: f.phone || customer.phone, name: f.name || (customer.name !== 'Guest' ? customer.name : f.name) }));
+    }
+  }, [customer?.phone]);
 
   const getItemName = (item) => {
     if (lang === 'hi') return item.nameHi || item.name;
@@ -425,6 +487,76 @@ export default function CustomerMenu() {
     return () => obs.disconnect();
   }, [shop]);
 
+  // Real order placement — replaces the old setOrderPlaced(true) mock. Cash
+  // orders are placed directly; Online orders are placed then paid for via a
+  // real Razorpay order (payment-service gracefully returns a mock Razorpay
+  // order id in dev when no live gateway keys are configured, so this whole
+  // path is exercisable end-to-end without a production Razorpay account).
+  const placeRealOrder = async () => {
+    if (!isLoggedIn) { setShowLogin(true); return; }
+    setOrderError('');
+    setPlacingOrder(true);
+    try {
+      const orderReq = {
+        customerName: checkoutForm.name || customer?.name || 'Guest',
+        customerPhone: checkoutForm.phone || customer?.phone || '',
+        tableNumber: checkoutForm.type === 'dine-in' ? checkoutForm.table : '',
+        type: checkoutForm.type === 'dine-in' ? 'DINE_IN' : 'TAKEAWAY',
+        paymentMethod: checkoutForm.payment === 'online' ? 'ONLINE' : 'CASH',
+        items: cartItems.map(i => ({
+          menuItemId: i.id, itemName: getItemName(i), quantity: i.qty, unitPrice: i.price,
+        })),
+      };
+      const orderRes = await orderApi.placeOrder(shop.id, orderReq, authHeader);
+      const order = orderRes.data.data;
+
+      if (checkoutForm.payment === 'online') {
+        const payRes = await paymentApi.createOrder({
+          shopId: shop.id, orderId: order.id, amount: cartTotal,
+          currency: 'INR', customerId: customer?.userId,
+        }, authHeader);
+        const pay = payRes.data.data;
+        const loaded = await loadRazorpayScript();
+        if (loaded && window.Razorpay) {
+          const rzp = new window.Razorpay({
+            key: pay.key,
+            amount: pay.amount,
+            currency: pay.currency,
+            order_id: pay.razorpayOrderId,
+            name: shop.name,
+            description: `Order at ${shop.name}`,
+            prefill: { name: orderReq.customerName, contact: orderReq.customerPhone },
+            handler: async (resp) => {
+              try {
+                await paymentApi.verify({
+                  orderId: order.id,
+                  razorpayOrderId: resp.razorpay_order_id,
+                  razorpayPaymentId: resp.razorpay_payment_id,
+                  razorpaySignature: resp.razorpay_signature,
+                }, authHeader);
+              } catch { /* verification failure surfaces via order status, not blocking here */ }
+              setPlacedOrder(order);
+              clearCart();
+              setShowCheckout(false);
+            },
+            modal: { ondismiss: () => setPlacingOrder(false) },
+          });
+          rzp.open();
+          return; // placedOrder is set from the Razorpay handler callback above
+        }
+      }
+
+      // Cash orders (or if Razorpay failed to load) complete immediately.
+      setPlacedOrder(order);
+      clearCart();
+      setShowCheckout(false);
+    } catch (e) {
+      setOrderError(e?.response?.data?.message || 'Could not place order. Please try again.');
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
+
   if (menuLoading) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',flexDirection:'column',gap:12}}>
       <div style={{width:40,height:40,border:'3px solid #E5E7EB',borderTopColor:'#1D9E75',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
@@ -433,11 +565,10 @@ export default function CustomerMenu() {
     </div>
   );
 
-  if (orderPlaced) return (
+  if (placedOrder) return (
     <OrderConfirmed
-      lang={lang} shop={shop} total={cartTotal}
-      cartItems={cartItems} allItems={allItems}
-      onBack={() => { setCart({}); setOrderPlaced(false); }}
+      lang={lang} shop={shop} order={placedOrder}
+      onBack={() => setPlacedOrder(null)}
     />
   );
 
@@ -486,7 +617,16 @@ export default function CustomerMenu() {
           <span className="cm-shop-emoji">{shop.emoji}</span>
         </div>
         <div className="cm-shop-info">
-          <h1 className="cm-shop-name">{getShopName()}</h1>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <h1 className="cm-shop-name" style={{ margin:0 }}>{getShopName()}</h1>
+            <button
+              onClick={toggleShopFavorite}
+              aria-label="Favorite this restaurant"
+              style={{ background:'rgba(255,255,255,.2)', border:'none', borderRadius:'50%', width:26, height:26, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}
+            >
+              <Heart size={13} fill={isFavorited ? '#DC2626' : 'none'} stroke={isFavorited ? '#DC2626' : '#fff'} />
+            </button>
+          </div>
           <p className="cm-shop-tagline">{shop.tagline}</p>
           <div className="cm-shop-meta">
             <span className="cm-meta-chip">
@@ -726,7 +866,10 @@ export default function CustomerMenu() {
             <span>{t('subtotal', lang)}</span>
             <span className="cm-cart-total-val">₹{cartTotal}</span>
           </div>
-          <button className="cm-proceed-btn" onClick={() => { setShowCart(false); setShowCheckout(true); }}>
+          <button className="cm-proceed-btn" onClick={() => {
+            setShowCart(false);
+            if (isLoggedIn) setShowCheckout(true); else setShowLogin(true);
+          }}>
             {t('proceedToOrder', lang)} <ChevronRight size={16} />
           </button>
         </BottomSheet>
@@ -807,13 +950,21 @@ export default function CustomerMenu() {
               </div>
             </div>
 
-            <button className="cm-proceed-btn" onClick={() => { setOrderPlaced(true); setShowCheckout(false); }}>
-              {checkoutForm.payment === 'online'
+            {orderError && <div className="cm-order-error" style={{color:'#DC2626',fontSize:12.5,marginBottom:8}}>{orderError}</div>}
+            <button className="cm-proceed-btn" onClick={placeRealOrder} disabled={placingOrder}>
+              {placingOrder ? '…' : checkoutForm.payment === 'online'
                 ? `${t('payOnline', lang)} · ₹${cartTotal}`
                 : `${t('placeOrder', lang)} · ₹${cartTotal}`}
             </button>
           </div>
         </BottomSheet>
+      )}
+
+      {showLogin && (
+        <CustomerLoginSheet
+          onClose={() => setShowLogin(false)}
+          onLoggedIn={() => { setShowLogin(false); setShowCheckout(true); }}
+        />
       )}
     </div>
   );
@@ -831,66 +982,79 @@ function BottomSheet({ children, onClose, tall }) {
   );
 }
 
-// ─── Order Confirmed ──────────────────────────────────────────────────────────
-function OrderConfirmed({ lang, shop, total, cartItems, allItems, onBack }) {
-  const [statusIdx, setStatusIdx] = useState(0);
-  const STATUSES = [
-    { key:'confirmed', en:'Confirmed',  hi:'कन्फर्म हुआ',    ta:'உறுதி செய்யப்பட்டது',  icon:'✅' },
-    { key:'preparing', en:'Preparing',  hi:'बन रहा है',       ta:'தயாரிக்கப்படுகிறது',   icon:'👨‍🍳' },
-    { key:'ready',     en:'Ready',      hi:'तैयार है',        ta:'தயார்',                 icon:'🔔' },
-    { key:'served',    en:'Served',     hi:'सर्व किया गया',  ta:'பரிமாறப்பட்டது',        icon:'🎉' },
-  ];
+// ─── Order Confirmed — real order tracking, polls the actual order status ────
+const STATUSES = [
+  { key:'NEW',       en:'Confirmed',  hi:'कन्फर्म हुआ',    ta:'உறுதி செய்யப்பட்டது',  icon:'✅' },
+  { key:'ACCEPTED',  en:'Confirmed',  hi:'कन्फर्म हुआ',    ta:'உறுதி செய்யப்பட்டது',  icon:'✅' },
+  { key:'PREPARING', en:'Preparing',  hi:'बन रहा है',       ta:'தயாரிக்கப்படுகிறது',   icon:'👨‍🍳' },
+  { key:'READY',     en:'Ready',      hi:'तैयार है',        ta:'தயார்',                 icon:'🔔' },
+  { key:'COMPLETED', en:'Served',     hi:'सर्व किया गया',  ta:'பரிமாறப்பட்டது',        icon:'🎉' },
+];
+const TRACK_STEPS = [STATUSES[1], STATUSES[2], STATUSES[3], STATUSES[4]]; // Confirmed/Preparing/Ready/Served
 
-  const currentStatus = STATUSES[statusIdx];
+function OrderConfirmed({ lang, shop, order: initialOrder, onBack }) {
+  const [order, setOrder] = useState(initialOrder);
+  const { authHeader } = useCustomerAuth();
+
+  // Poll the real order every 5s so status reflects what the kitchen actually does —
+  // no more "Simulate next status" button, this is the genuine order-tracking flow.
+  useEffect(() => {
+    const poll = () => orderApi.getById(initialOrder.id, authHeader)
+      .then(res => setOrder(res.data.data))
+      .catch(() => {});
+    const iv = setInterval(poll, 5000);
+    return () => clearInterval(iv);
+  }, [initialOrder.id]);
+
+  const statusIdx = Math.max(0, TRACK_STEPS.findIndex(s => s.key === order.status));
+  const currentStatus = STATUSES.find(s => s.key === order.status) || STATUSES[0];
   const statusLabel = lang === 'hi' ? currentStatus.hi : lang === 'ta' ? currentStatus.ta : currentStatus.en;
+  const cancelled = order.status === 'CANCELLED' || order.status === 'REJECTED';
 
   return (
     <div className="cm-confirmed-page">
       <div className="cm-confirmed-card">
         <div className="cm-confirmed-pulse">
-          <div className="cm-confirmed-emoji">{currentStatus.icon}</div>
+          <div className="cm-confirmed-emoji">{cancelled ? '❌' : currentStatus.icon}</div>
         </div>
         <h1 className="cm-confirmed-title">{t('orderConfirmed', lang)}</h1>
         <p className="cm-confirmed-sub">
           {lang === 'hi' ? `${shop.nameHi || shop.name} में आपका ऑर्डर हो गया।` : `Your order at ${shop.name} is placed.`}
         </p>
-        <div className="cm-order-id-chip">#ORD-2848 · ₹{total}</div>
+        <div className="cm-order-id-chip">#{order.orderNumber || order.id?.slice(0,8)} · ₹{order.totalAmount}</div>
 
         {/* Status bar */}
         <div className="cm-status-current">
           <div className="cm-status-dot-live" />
-          {lang === 'hi' ? 'स्थिति:' : lang === 'ta' ? 'நிலை:' : 'Status:'} <strong>{statusLabel}</strong>
+          {lang === 'hi' ? 'स्थिति:' : lang === 'ta' ? 'நிலை:' : 'Status:'} <strong>{cancelled ? order.status : statusLabel}</strong>
         </div>
 
         {/* Progress track */}
-        <div className="cm-track">
-          {STATUSES.map((s, i) => (
-            <div key={s.key} className={`cm-track-step ${i <= statusIdx ? 'done' : ''} ${i === statusIdx ? 'active' : ''}`}>
-              <div className="cm-track-dot">{i < statusIdx ? '✓' : s.icon}</div>
-              <span className="cm-track-label">
-                {lang === 'hi' ? s.hi : lang === 'ta' ? s.ta : s.en}
-              </span>
-              {i < STATUSES.length - 1 && <div className={`cm-track-line ${i < statusIdx ? 'done' : ''}`} />}
-            </div>
-          ))}
-        </div>
+        {!cancelled && (
+          <div className="cm-track">
+            {TRACK_STEPS.map((s, i) => (
+              <div key={s.key} className={`cm-track-step ${i <= statusIdx ? 'done' : ''} ${i === statusIdx ? 'active' : ''}`}>
+                <div className="cm-track-dot">{i < statusIdx ? '✓' : s.icon}</div>
+                <span className="cm-track-label">
+                  {lang === 'hi' ? s.hi : lang === 'ta' ? s.ta : s.en}
+                </span>
+                {i < TRACK_STEPS.length - 1 && <div className={`cm-track-line ${i < statusIdx ? 'done' : ''}`} />}
+              </div>
+            ))}
+          </div>
+        )}
 
-        {/* Cart summary */}
+        {/* Order summary — from the real placed order, not the (now-cleared) cart */}
         <div className="cm-confirmed-items">
-          {cartItems.map(item => (
+          {(order.items || []).map(item => (
             <div key={item.id} className="cm-conf-item-row">
-              <span>{item.qty}× {item.name}</span>
-              <span>₹{item.price * item.qty}</span>
+              <span>{item.quantity}× {item.itemName}</span>
+              <span>₹{item.totalPrice}</span>
             </div>
           ))}
         </div>
 
         <div className="cm-confirmed-actions">
-          {statusIdx < STATUSES.length - 1 && (
-            <button className="cm-proceed-btn" onClick={() => setStatusIdx(i => i + 1)}>
-              {lang === 'hi' ? 'अगली अवस्था →' : lang === 'ta' ? 'அடுத்த நிலை →' : 'Simulate next status →'}
-            </button>
-          )}
           <button className="cm-back-btn" onClick={onBack}>
             ← {lang === 'hi' ? 'मेनू पर वापस' : lang === 'ta' ? 'மெனுவிற்கு திரும்பு' : 'Back to menu'}
           </button>

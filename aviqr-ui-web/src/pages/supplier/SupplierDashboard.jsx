@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { shopApi, menuApi, orderApi, qrApi, reportApi, authApi } from '../../api/index.js';
+import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
 import {
   Store, BarChart2, ShoppingBag, Tag, QrCode, Settings, LogOut,
   Menu as MenuIcon, TrendingUp, CreditCard, ArrowLeft, ChevronRight,
-  RefreshCw, Save, CheckCircle2, XCircle, Package, Edit2, Plus
+  RefreshCw, Save, CheckCircle2, XCircle, Package, Edit2, Plus, Search, Star
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import '../admin/Admin.css';
@@ -19,6 +20,7 @@ const NAV = [
   { key: 'orders',   label: 'All Orders', icon: ShoppingBag },
   { key: 'qr',       label: 'QR Codes',  icon: QrCode },
   { key: 'reports',  label: 'Reports',   icon: TrendingUp },
+  { key: 'subscription', label: 'Subscription', icon: Star },
   { key: 'settings', label: 'Settings',  icon: Settings },
 ];
 
@@ -124,6 +126,7 @@ export default function SupplierDashboard() {
           {tab === 'orders'  && <AllOrdersTab outlets={outlets} />}
           {tab === 'qr'      && <QRCodesTab outlets={outlets} />}
           {tab === 'reports' && <ReportsTab outlets={outlets} />}
+          {tab === 'subscription' && <SubscriptionPage userRole="supplier" currentPlan="pro" />}
           {tab === 'settings'&& <SettingsTab user={user} />}
         </main>
       </div>
@@ -177,7 +180,11 @@ function SupplierOverview({ outlets, weekly, loading, onManage }) {
 
 /* ─── Outlets list ──────────────────────────────────────────────────────────── */
 function OutletsList({ outlets, loading, onManage }) {
+  const [search, setSearch] = useState('');
   if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading outlets…</div>;
+  const filtered = search.trim()
+    ? outlets.filter(o => o.name?.toLowerCase().includes(search.trim().toLowerCase()))
+    : outlets;
   return (
     <div>
       <div className="page-header">
@@ -186,6 +193,18 @@ function OutletsList({ outlets, loading, onManage }) {
           <p className="page-subtitle">{outlets.length} registered</p>
         </div>
       </div>
+      {outlets.length > 0 && (
+        <div style={{ position: 'relative', maxWidth: 320, marginBottom: 16 }}>
+          <Search size={14} style={{ position: 'absolute', left: 12, top: 11, color: 'var(--gray-400)' }} />
+          <input
+            className="form-input"
+            style={{ paddingLeft: 34 }}
+            placeholder="Search outlet by name…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+      )}
       {outlets.length === 0 && (
         <div className="admin-stub">
           <div className="admin-stub-icon"><Store size={28} /></div>
@@ -193,8 +212,15 @@ function OutletsList({ outlets, loading, onManage }) {
           <p>Your outlets will appear here once registered.</p>
         </div>
       )}
+      {outlets.length > 0 && filtered.length === 0 && (
+        <div className="admin-stub">
+          <div className="admin-stub-icon"><Search size={28} /></div>
+          <h2>No matches</h2>
+          <p>No outlets match "{search}".</p>
+        </div>
+      )}
       <div className="outlets-grid">
-        {outlets.map(o => (
+        {filtered.map(o => (
           <div key={o.id} className="outlet-card">
             <div className="outlet-name">{o.name}</div>
             <div className={`outlet-status ${o.status === 'open' ? 'st-active' : 'st-suspended'}`}>
@@ -529,7 +555,10 @@ function ReportsTab({ outlets }) {
     if (!outlets.length) { setLoading(false); return; }
     Promise.all(
       outlets.map(o =>
-        reportApi.getRevenue(o.id, 7)
+        // The supplier's own login token has no shopId, so report-service's
+        // same-shop check 403s a direct call — mint a shop-scoped token first.
+        shopApi.enter(o.id)
+          .then(res => reportApi.getRevenue(o.id, 7, res.data.data.accessToken))
           .then(res => {
             const data = res.data.data || [];
             const total = Array.isArray(data) ? data.reduce((a, d) => a + (d.revenue || d.totalRevenue || 0), 0) : 0;

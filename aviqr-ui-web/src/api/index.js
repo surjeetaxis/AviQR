@@ -2,6 +2,7 @@
 // Auto-falls back to mock data when backend is unreachable
 
 import axios from 'axios';
+import { getActiveOutletId, getActiveToken } from './outletContext.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -14,8 +15,18 @@ export const api = axios.create({
 
 // ── Attach JWT + shop context on every request ────────────────────────────────
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('aviqr_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  // While managing a hotel outlet, use the short-lived outlet-scoped token
+  // (carries the outlet's real shopId) instead of the user's own login token,
+  // so gateway-derived X-Shop-Id checks in shop/order/menu/report/qr/payment
+  // services authorize correctly.
+  // A caller can pre-set Authorization (e.g. a per-call outlet/vendor-scoped
+  // token) to opt out of this — used when aggregating across several outlets
+  // at once, where the single module-level active-outlet token doesn't fit.
+  if (!config.headers.Authorization) {
+    const outletToken = getActiveOutletId() ? getActiveToken() : null;
+    const token = outletToken || localStorage.getItem('aviqr_token');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  }
   try {
     const user = JSON.parse(localStorage.getItem('aviqr_user') || '{}');
     if (user.shopId) config.headers['X-Shop-Id']   = user.shopId;
@@ -93,12 +104,18 @@ export const shopApi = {
   update:           (id, d)      => api.put(`/api/v1/shops/${id}`, d),
   list:             (p)          => api.get('/api/v1/shops', { params: p }),
   updateStatus:     (id, status) => api.put(`/api/v1/shops/${id}/status?status=${status}`),
-  getStaff:         (shopId)     => api.get(`/api/v1/staff/shop/${shopId}`),
+  getStaff:         (shopId)     => {
+    const outletId = getActiveOutletId();
+    return outletId
+      ? api.get(`/api/v1/hotel-outlets/${outletId}/staff`)
+      : api.get(`/api/v1/staff/shop/${shopId}`);
+  },
   addStaff:         (sId, d)     => api.post(`/api/v1/staff/shop/${sId}`, d),
   updateStaff:      (id, d)      => api.put(`/api/v1/staff/${id}`, d),
   removeStaff:      (id)         => api.delete(`/api/v1/staff/${id}`),
   getSettings:      (shopId)     => api.get(`/api/v1/settings/shop/${shopId}`),
   saveSettings:     (sId, d)     => api.put(`/api/v1/settings/shop/${sId}`, d),
+  enter:            (id)         => api.post(`/api/v1/shops/${id}/enter`),
 };
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
@@ -119,20 +136,23 @@ export const menuApi = {
 };
 
 // ── Orders ────────────────────────────────────────────────────────────────────
+// config: optional axios config override (Customer Portal calls pass
+// CustomerAuthContext's authHeader here since the shared interceptor only
+// attaches the staff aviqr_token, not the separate customer session token).
 export const orderApi = {
-  placeOrder:   (shopId, d) => api.post(`/api/v1/orders/shop/${shopId}`, d),
+  placeOrder:   (shopId, d, config={}) => api.post(`/api/v1/orders/shop/${shopId}`, d, config),
   getLiveOrders:(shopId)    => api.get(`/api/v1/orders/shop/${shopId}/live`),
   getOrders:    (shopId, p) => api.get(`/api/v1/orders/shop/${shopId}`, { params: p }),
   updateStatus: (id, s)     => api.put(`/api/v1/orders/${id}/status?status=${s}`),
-  getById:      (id)        => api.get(`/api/v1/orders/${id}`),
-  getHistory:   (p)         => api.get('/api/v1/orders/customer/history', { params: p }),
+  getById:      (id, config={}) => api.get(`/api/v1/orders/${id}`, config),
+  getHistory:   (p, config={})  => api.get('/api/v1/orders/customer/history', { ...config, params: p }),
   listAll:      (p)         => api.get('/api/v1/orders/admin/all', { params: p }),
 };
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 export const paymentApi = {
-  createOrder:    (d)        => api.post('/api/v1/payments/create-order', d),
-  verify:         (d)        => api.post('/api/v1/payments/verify', d),
+  createOrder:    (d, config={}) => api.post('/api/v1/payments/create-order', d, config),
+  verify:         (d, config={}) => api.post('/api/v1/payments/verify', d, config),
   getByShop:      (sId, p)   => api.get(`/api/v1/payments/shop/${sId}`, { params: p }),
   refund:         (payId)    => api.post(`/api/v1/payments/${payId}/refund`),
   listAll:        (p)        => api.get('/api/v1/payments', { params: p }),
@@ -151,7 +171,10 @@ export const qrApi = {
 // ── Reports ───────────────────────────────────────────────────────────────────
 export const reportApi = {
   getDaily:     (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/daily`),
-  getRevenue:   (shopId, d)  => api.get(`/api/v1/reports/shop/${shopId}/revenue?days=${d || 7}`),
+  // token: optional per-call override (e.g. an outlet/vendor-scoped token) for
+  // callers whose own login JWT has no shopId — see api.js interceptor comment.
+  getRevenue:   (shopId, d, token) => api.get(`/api/v1/reports/shop/${shopId}/revenue?days=${d || 7}`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   getTopItems:  (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/top-items`),
   getPeakHours: (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/peak-hours`),
   getPlatform:  ()           => api.get('/api/v1/reports/admin/platform'),
@@ -163,19 +186,74 @@ export const hotelApi = {
   update:         (id, d)    => api.put(`/api/v1/hotels/${id}`, d),
   getRooms:       (hotelId)  => api.get(`/api/v1/rooms/hotel/${hotelId}`),
   updateRoom:     (id, d)    => api.put(`/api/v1/rooms/${id}`, d),
+  createRoom:     (d)        => api.post('/api/v1/rooms', d),
+  toggleRoomQr:   (id, active) => api.put(`/api/v1/rooms/${id}/qr?active=${active}`),
   getRequests:    (hId, p)   => api.get(`/api/v1/room-requests/hotel/${hId}`, { params: p }),
   updateRequest:  (id, s)    => api.put(`/api/v1/room-requests/${id}/status?status=${s}`),
   createRequest:  (d)        => api.post('/api/v1/room-requests', d),
+};
+
+// ── Hotel Guest Services (QR service hub, requests, bookings, folio) ──────────
+// PUBLIC endpoints — guest scans a QR, no auth needed
+export const guestServiceApi = {
+  // Service hub the QR lands on: all outlets + charge-to-room eligibility
+  hub:        (hotelId, room, area) => api.get(`/api/v1/public/hotel/${hotelId}/services`, { params: { room, area } }),
+  // Raise a housekeeping / amenities / concierge request
+  request:    (hotelId, body)       => api.post(`/api/v1/public/hotel/${hotelId}/service-request`, body),
+  // Book a spa / activity / table slot
+  book:       (hotelId, body)       => api.post(`/api/v1/public/hotel/${hotelId}/book`, body),
+  // View running folio
+  folio:      (hotelId, room)       => api.get(`/api/v1/public/hotel/${hotelId}/folio`, { params: { room } }),
+  // Record a direct payment (card/UPI/wallet)
+  payDirect:  (hotelId, body)       => api.post(`/api/v1/public/hotel/${hotelId}/pay-direct`, body),
+};
+
+// ── Hotel staff ops (dashboard) ──────────────────────────────────────────────
+export const hotelOpsApi = {
+  listRequests:   (hotelId, status) => api.get(`/api/v1/hotel/${hotelId}/service-requests`, { params: { status } }),
+  updateRequest:  (id, status)      => api.put(`/api/v1/hotel/service-requests/${id}/status?status=${status}`),
+  listBookings:   (hotelId, status) => api.get(`/api/v1/hotel/${hotelId}/bookings`, { params: { status } }),
+  updateBooking:  (id, status)      => api.put(`/api/v1/hotel/bookings/${id}/status?status=${status}`),
+  roomCharges:    (roomId)          => api.get(`/api/v1/rooms/${roomId}/charges`),
+  settleCharges:  (roomId)          => api.post(`/api/v1/rooms/${roomId}/settle-charges`),
+};
+
+// ── Hotel Outlets (restaurants/spas/bars inside the hotel, each backed by a shop-service Shop) ─
+export const hotelOutletApi = {
+  list:         (hotelId)      => api.get(`/api/v1/hotel-outlets/hotel/${hotelId}`),
+  getById:      (id)           => api.get(`/api/v1/hotel-outlets/${id}`),
+  create:       (d)            => api.post('/api/v1/hotel-outlets', d),
+  toggleStatus: (id, active)   => api.put(`/api/v1/hotel-outlets/${id}/status?active=${active}`),
+  toggleQr:     (id, active)   => api.put(`/api/v1/hotel-outlets/${id}/qr?active=${active}`),
+  delete:       (id)           => api.delete(`/api/v1/hotel-outlets/${id}`),
+  createQr:     (id)           => api.post(`/api/v1/hotel-outlets/${id}/qr-code`),
+  enter:        (id)           => api.post(`/api/v1/hotel-outlets/${id}/enter`),
+};
+
+// ── Hotel Access (hotel-wide staff roles: OWNER/GENERAL_MANAGER/OUTLET_MANAGER/STAFF) ─────
+export const hotelAccessApi = {
+  list:   (hotelId)      => api.get(`/api/v1/hotels/${hotelId}/access`),
+  grant:  (hotelId, d)   => api.post(`/api/v1/hotels/${hotelId}/access`, d),
+  revoke: (hotelId, id)  => api.delete(`/api/v1/hotels/${hotelId}/access/${id}`),
 };
 
 // ── Mall ──────────────────────────────────────────────────────────────────────
 export const mallApi = {
   getMyMalls:  ()            => api.get('/api/v1/malls/my'),
   listAll:     ()            => api.get('/api/v1/malls'),
+  update:      (id, d)       => api.put(`/api/v1/malls/${id}`, d),
   getVendors:  (mallId)      => api.get(`/api/v1/vendors/mall/${mallId}`),
   addVendor:   (d)           => api.post('/api/v1/vendors', d),
   toggleVendor:(id, a)       => api.put(`/api/v1/vendors/${id}/status?active=${a}`),
   deleteVendor:(id)          => api.delete(`/api/v1/vendors/${id}`),
+  enterVendor: (id)          => api.post(`/api/v1/vendors/${id}/enter`),
+  // ── Restaurant Request Flow ──────────────────────────────────────────────
+  requestVendor:    (d)              => api.post('/api/v1/vendors/request', d),
+  myRequests:        (shopIds)       => api.get('/api/v1/vendors/requests/mine', { params: { shopIds: shopIds.join(',') } }),
+  respondToRequest:  (vendorId, dec) => api.put(`/api/v1/vendors/${vendorId}/respond?decision=${dec}`),
+  // ── Food Court QR Flow (public, no auth) ─────────────────────────────────
+  getPublicMall:     (id)            => api.get(`/api/v1/malls/public/${id}`),
+  getPublicVendors:  (mallId)        => api.get(`/api/v1/malls/public/${mallId}/vendors`),
 };
 
 // ── Support ───────────────────────────────────────────────────────────────────
@@ -204,11 +282,22 @@ export const inventoryApi = {
 
 // ── Loyalty ───────────────────────────────────────────────────────────────────
 export const loyaltyApi = {
-  getBalance:  (sId, phone)  => api.get(`/api/v1/loyalty/${sId}/balance`, { params: { phone } }),
+  getBalance:  (sId, phone, config={})  => api.get(`/api/v1/loyalty/${sId}/balance`, { ...config, params: { phone } }),
   earn:        (sId, d)      => api.post(`/api/v1/loyalty/${sId}/earn`, d),
   redeem:      (sId, d)      => api.post(`/api/v1/loyalty/${sId}/redeem`, d),
-  getCustomers:(sId)         => api.get(`/api/v1/loyalty/${sId}/customers`),
-  getHistory:  (sId, phone)  => api.get(`/api/v1/loyalty/${sId}/history`, { params: { phone } }),
+  getCustomers:(sId)         => {
+    const outletId = getActiveOutletId();
+    return outletId
+      ? api.get(`/api/v1/hotel-outlets/${outletId}/loyalty-customers`)
+      : api.get(`/api/v1/loyalty/${sId}/customers`);
+  },
+  getHistory:  (sId, phone, config={})  => api.get(`/api/v1/loyalty/${sId}/history`, { ...config, params: { phone } }),
+};
+
+// ── Customer Portal: favorites (phone-keyed, no account required) ─────────────
+export const favoritesApi = {
+  toggle: (phone, shopId, config={}) => api.post('/api/v1/favorites', { phone, shopId }, config),
+  mine:   (phone, config={})         => api.get('/api/v1/favorites/mine', { ...config, params: { phone } }),
 };
 
 // ── Invoice & KOT ─────────────────────────────────────────────────────────────

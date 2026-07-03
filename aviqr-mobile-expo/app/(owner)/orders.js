@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, TextInput } from 'react-native';
 import { useAuth } from '../../src/context/AuthContext.js';
+import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { orderApi } from '../../src/api/index.js';
 import { MOCK_ORDERS } from '../../src/api/mockData.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
@@ -14,7 +15,7 @@ const timeSince=ts=>{const s=Math.floor((Date.now()-new Date(ts))/1000);if(s<60)
 
 export default function Orders() {
   const { user }=useAuth();
-  const shopId=user?.shopId||'00000000-0000-0000-0000-000000000101';
+  const shopId=useActiveShopId()||'00000000-0000-0000-0000-000000000101';
   const [orders,setOrders]=useState(MOCK_ORDERS);
   const [filter,setFilter]=useState('ALL');
   const [search,setSearch]=useState('');

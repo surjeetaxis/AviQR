@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar.jsx';
 import Topbar from '../components/Topbar.jsx';
 import GlobalSearch from '../components/GlobalSearch.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { OutletProvider } from '../context/OutletContext.jsx';
 import { orderApi } from '../api/index.js';
 import './DashboardLayout.css';
 
@@ -12,6 +13,8 @@ export default function DashboardLayout() {
   const [liveOrderCount, setLiveOrderCount] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
   const { user } = useAuth();
+  const { outletId } = useParams();
+  const basePath = outletId ? `/hotel/outlets/${outletId}` : '';
 
   useEffect(() => {
     const shopId = user?.shopId;
@@ -40,9 +43,9 @@ export default function DashboardLayout() {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
-  return (
+  const content = (
     <div className="layout">
-      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} liveOrderCount={liveOrderCount} />
+      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} liveOrderCount={liveOrderCount} basePath={basePath} />
       {mobileOpen && <div className="layout-backdrop" onClick={() => setMobileOpen(false)} />}
       <div className="layout-main">
         <Topbar onMenuClick={() => setMobileOpen(true)} onSearchOpen={() => setSearchOpen(true)} />
@@ -53,4 +56,6 @@ export default function DashboardLayout() {
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
+
+  return outletId ? <OutletProvider outletId={outletId}>{content}</OutletProvider> : content;
 }

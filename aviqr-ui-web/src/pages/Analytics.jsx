@@ -9,6 +9,7 @@ import {
   Cell, PieChart, Pie, Legend
 } from 'recharts';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { reportApi, rawMaterialApi } from '../api/index.js';
 
 const PALETTE  = ['#1D9E75','#2563EB','#7C3AED','#D97706','#DC2626','#0891B2'];
@@ -32,7 +33,7 @@ const fmtRupee = n => `₹${Number(n||0).toLocaleString('en-IN',{maximumFraction
 
 export default function Analytics() {
   const { user } = useAuth();
-  const shopId = user?.shopId;
+  const shopId = useActiveShopId();
 
   const [range,   setRange]  = useState(30);
   const [tab,     setTab]    = useState('overview');

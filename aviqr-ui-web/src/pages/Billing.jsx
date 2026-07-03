@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Minus, Printer, CreditCard, Wallet, Banknote, X, Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, PanelLeftClose, PanelLeftOpen, Maximize2, Minimize2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { menuApi, posApi, paymentApi, addonApi, variantApi, invoiceApi, shopApi } from '../api/index.js';
 
 const PAY_METHODS = [
@@ -11,7 +12,7 @@ const PAY_METHODS = [
 
 export default function Billing() {
   const { user } = useAuth();
-  const shopId = user?.shopId;
+  const shopId = useActiveShopId();
 
   const [categories, setCats]   = useState([]);
   const [allAddons,  setAddons] = useState([]);
@@ -34,6 +35,11 @@ export default function Billing() {
   const [upiId,      setUpiId]   = useState('');
   const [shopName,   setShopName]= useState('');
   const [upiQrUrl,   setUpiQrUrl]= useState('');
+
+  // Computed before the effects below since the UPI QR effect depends on `total`.
+  const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const taxAmt   = +(subtotal * taxPct / 100).toFixed(2);
+  const total    = +(subtotal + taxAmt).toFixed(2);
 
   useEffect(() => {
     if (expanded) {
@@ -135,10 +141,6 @@ export default function Billing() {
   };
 
   const removeItem = (id) => setCart(prev => prev.filter(c => c.id !== id));
-
-  const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
-  const taxAmt   = +(subtotal * taxPct / 100).toFixed(2);
-  const total    = +(subtotal + taxAmt).toFixed(2);
 
   const placeBill = async () => {
     if (!cart.length) return;

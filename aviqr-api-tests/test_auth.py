@@ -141,6 +141,26 @@ def test_login_with_dev_otp_bypass():
     assert login.json()["data"]["role"] == "CUSTOMER"
 
 
+@pytest.mark.mutates
+def test_first_time_phone_self_registers_as_customer():
+    """Customer Portal identity: a phone with no existing account self-registers
+    on its first OTP login instead of erroring "please register first" — this is
+    the only way a QR-scanning customer (no signup flow exists) gets an account."""
+    phone = random_indian_phone()
+    login = post("/api/v1/auth/otp/login", json={"phone": phone, "otp": "123456"})
+    assert login.status_code == 200
+    body = login.json()["data"]
+    assert body["role"] == "CUSTOMER"
+    assert body["phone"] == phone
+    assert body["name"] == "Guest"
+    user_id = body["userId"]
+
+    # Logging in again with the same phone must reuse the same user, not create a duplicate.
+    again = post("/api/v1/auth/otp/login", json={"phone": phone, "otp": "123456"})
+    assert again.status_code == 200
+    assert again.json()["data"]["userId"] == user_id
+
+
 def test_otp_login_with_wrong_code_is_rejected():
     r = post("/api/v1/auth/otp/login", json={"phone": "9876543210", "otp": "000001"})
     assert r.status_code == 400

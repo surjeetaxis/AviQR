@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { useAuth } from '../../src/context/AuthContext.js';
+import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { reportApi } from '../../src/api/index.js';
 import { MOCK_STATS, MOCK_REVENUE, MOCK_TOP_ITEMS } from '../../src/api/mockData.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
@@ -11,7 +12,7 @@ const W = Dimensions.get('window').width;
 
 export default function Reports() {
   const { user } = useAuth();
-  const shopId = user?.shopId || '00000000-0000-0000-0000-000000000101';
+  const shopId = useActiveShopId() || '00000000-0000-0000-0000-000000000101';
   const [stats, setStats]     = useState(MOCK_STATS);
   const [revenue, setRevenue] = useState(MOCK_REVENUE);
   const [topItems, setTop]    = useState(MOCK_TOP_ITEMS);

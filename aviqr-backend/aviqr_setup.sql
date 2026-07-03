@@ -276,6 +276,17 @@ CREATE TABLE loyalty_accounts (
 CREATE INDEX idx_loyalty_phone_shop ON loyalty_accounts (customer_phone, shop_id);
 CREATE INDEX idx_loyalty_shop       ON loyalty_accounts (shop_id);
 
+-- ── Customer Portal: favorite shops (phone-keyed, same lightweight identity
+--    model as loyalty_accounts — no customer account/password required) ──
+CREATE TABLE customer_favorites (
+    id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_phone VARCHAR(255) NOT NULL,
+    shop_id        VARCHAR(255) NOT NULL,
+    created_at     TIMESTAMP    DEFAULT NOW(),
+    UNIQUE (customer_phone, shop_id)
+);
+CREATE INDEX idx_favorite_phone ON customer_favorites (customer_phone);
+
 CREATE TABLE loyalty_transactions (
     id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     loyalty_account_id  UUID         NOT NULL,
@@ -588,6 +599,8 @@ CREATE TABLE orders (
     customer_name  VARCHAR(255)  NOT NULL,
     customer_phone VARCHAR(20),
     table_number   VARCHAR(10),
+    hotel_id       UUID,         -- set when payment_method=ROOM_CHARGE (hotel outlet order)
+    room_number    VARCHAR(255), -- set when payment_method=ROOM_CHARGE
     type           VARCHAR(20)   DEFAULT 'DINE_IN',
     status         VARCHAR(20)   DEFAULT 'NEW',
     payment_method VARCHAR(20)   DEFAULT 'ONLINE',
@@ -629,6 +642,19 @@ CREATE INDEX idx_order_items_menu_item_id ON order_items (menu_item_id);
 
 -- ── Sequence for order numbers ────────────────────────────────
 CREATE SEQUENCE seq_order_number START 100001 INCREMENT 1 CACHE 20;
+
+-- ── aggregator_shop_mapping ───────────────────────────────────
+CREATE TABLE aggregator_shop_mapping (
+    id                 UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id            VARCHAR(100)  NOT NULL,
+    platform           VARCHAR(20)   NOT NULL,
+    aggregator_shop_id VARCHAR(100)  NOT NULL,
+    created_at         TIMESTAMP     DEFAULT NOW(),
+    UNIQUE (shop_id, platform)
+);
+
+CREATE INDEX idx_agg_mapping_shop_id  ON aggregator_shop_mapping (shop_id);
+CREATE INDEX idx_agg_mapping_platform_aggid ON aggregator_shop_mapping (platform, aggregator_shop_id);
 
 -- ── Dummy data — orders ───────────────────────────────────────
 INSERT INTO orders (id, order_number, shop_id, customer_id, customer_name, customer_phone, table_number, type, status, payment_method, payment_status, payment_id, subtotal, tax, total_amount, notes, created_at, accepted_at, completed_at) VALUES
@@ -962,6 +988,160 @@ INSERT INTO room_requests (id, hotel_id, room_number, service_type, description,
   ('affb56f6-c6c5-4587-9c0f-1651ca1d4201', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'HOUSEKEEPING', 'Extra towels (2) and bed pillows (4)',               'DONE',      'NORMAL', NOW() - INTERVAL '1 hour',   NOW() - INTERVAL '45 min');
 
 
+
+-- ============================================================
+--  SECTION 8b — Hotel Guest Services (v2.3)
+--  Outlets, room charges (folio), QR service requests, bookings
+--  Tables created explicitly so production (ddl-auto=none) and
+--  SQL-based imports both work. JPA will no-op on IF NOT EXISTS.
+-- ============================================================
+
+-- ── hotel_outlets ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS hotel_outlets (
+    id           UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id     UUID          NOT NULL,
+    name         VARCHAR(255)  NOT NULL,
+    outlet_type  VARCHAR(30)   DEFAULT 'RESTAURANT',
+    description  TEXT,
+    location     VARCHAR(150),
+    shop_id      VARCHAR(100),
+    bookable     BOOLEAN       DEFAULT FALSE,
+    active       BOOLEAN       DEFAULT TRUE,
+    qr_active    BOOLEAN       DEFAULT TRUE,
+    created_at   TIMESTAMP     DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_outlets_hotel ON hotel_outlets (hotel_id);
+
+-- ── room_charges (guest folio) ────────────────────────────────
+CREATE TABLE IF NOT EXISTS room_charges (
+    id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id       UUID          NOT NULL,
+    room_number    VARCHAR(20)   NOT NULL,
+    outlet_id      UUID,
+    shop_id        VARCHAR(100),
+    order_id       VARCHAR(100),
+    order_number   VARCHAR(50),
+    amount         NUMERIC(10,2),
+    description    TEXT,
+    status         VARCHAR(20)   DEFAULT 'PENDING',
+    guest_name     VARCHAR(150),
+    payment_choice VARCHAR(20)   DEFAULT 'CHARGE_TO_ROOM',
+    payment_ref    VARCHAR(100),
+    created_at     TIMESTAMP     DEFAULT NOW(),
+    settled_at     TIMESTAMP,
+    settled_by     VARCHAR(100)
+);
+CREATE INDEX IF NOT EXISTS idx_charges_room ON room_charges (hotel_id, room_number);
+
+-- ── guest_service_requests (QR-raised requests) ───────────────
+CREATE TABLE IF NOT EXISTS guest_service_requests (
+    id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id      UUID          NOT NULL,
+    room_number   VARCHAR(20)   NOT NULL,
+    guest_name    VARCHAR(150),
+    type          VARCHAR(30)   DEFAULT 'HOUSEKEEPING',
+    details       VARCHAR(500),
+    priority      VARCHAR(20)   DEFAULT 'NORMAL',
+    status        VARCHAR(20)   DEFAULT 'NEW',
+    assigned_to   VARCHAR(100),
+    created_at    TIMESTAMP     DEFAULT NOW(),
+    completed_at  TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_gsr_hotel ON guest_service_requests (hotel_id, status);
+
+-- ── outlet_bookings (spa / activity / table slots) ────────────
+CREATE TABLE IF NOT EXISTS outlet_bookings (
+    id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id       UUID          NOT NULL,
+    outlet_id      UUID          NOT NULL,
+    outlet_name    VARCHAR(150),
+    room_number    VARCHAR(20)   NOT NULL,
+    guest_name     VARCHAR(150),
+    guest_phone    VARCHAR(20),
+    service_name   VARCHAR(200)  NOT NULL,
+    price          NUMERIC(10,2),
+    booking_date   VARCHAR(20)   NOT NULL,
+    booking_time   VARCHAR(10)   NOT NULL,
+    party_size     INTEGER       DEFAULT 1,
+    notes          VARCHAR(500),
+    status         VARCHAR(20)   DEFAULT 'REQUESTED',
+    payment_choice VARCHAR(20)   DEFAULT 'CHARGE_TO_ROOM',
+    created_at     TIMESTAMP     DEFAULT NOW(),
+    confirmed_at   TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_ob_hotel  ON outlet_bookings (hotel_id, status);
+CREATE INDEX IF NOT EXISTS idx_ob_outlet ON outlet_bookings (outlet_id, booking_date);
+
+
+-- ── Dummy data — hotel_outlets (Grand Palace Hotel) ───────────
+-- shop_id links an outlet to a shop in shop-service for menu/ordering.
+-- bookable=TRUE outlets use the booking flow (spa, activities, banquet).
+-- Zodiac's shop_id links to the real 'Spice Route' shop (aviqr_shop) so the
+-- outlet immediately gets a working menu, staff, settings & loyalty via the
+-- reused shop-owner tooling — no separate outlet-shop-provisioning needed for demo data.
+INSERT INTO hotel_outlets (id, hotel_id, name, outlet_type, description, location, shop_id, bookable, active, qr_active) VALUES
+  ('b1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Zodiac — Multi-cuisine Restaurant', 'RESTAURANT', 'All-day dining with Indian, Continental & Asian', 'Lobby Level',      'ecdbc557-91fa-44ee-992f-03683ad8bbde', FALSE, TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'The Cellar Bar',                    'BAR',        'Cocktails, wines & premium spirits',              '1st Floor',        NULL,       FALSE, TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Serenity Spa',                      'SPA',        'Ayurvedic & Swedish therapies',                    '2nd Floor',        NULL,       TRUE,  TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Infinity Pool & Poolside Grill',    'POOL',       'Rooftop pool with light bites & drinks',           'Rooftop',          NULL,       FALSE, TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000005', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Palace Boutique',                   'SHOP',       'Souvenirs, essentials & local crafts',             'Lobby Level',      NULL,       FALSE, TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000006', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'FitZone Gym',                       'GYM',        '24x7 fitness centre',                              'Ground Floor',     NULL,       FALSE, TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000007', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Heritage Walk & City Tours',        'ACTIVITY',   'Guided tours, cab & experience bookings',          'Concierge Desk',   NULL,       TRUE,  TRUE, TRUE),
+  ('b1000001-0000-4000-8000-000000000008', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Grand Ballroom',                    'BANQUET',    'Events, weddings & conferences',                   '3rd Floor',        NULL,       TRUE,  TRUE, TRUE);
+
+-- ── Dummy data — room_charges (running folios) ────────────────
+-- Room 101 (Anjali Singh) has an open folio; some pending, some settled.
+INSERT INTO room_charges (id, hotel_id, room_number, outlet_id, amount, description, status, guest_name, payment_choice, created_at, settled_at) VALUES
+  ('c1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'b1000001-0000-4000-8000-000000000001', 780.00,  'Zodiac Restaurant — Dinner for 2',            'PENDING', 'Anjali Singh', 'CHARGE_TO_ROOM', NOW() - INTERVAL '3 hours',  NULL),
+  ('c1000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'b1000001-0000-4000-8000-000000000002', 1250.00, 'The Cellar Bar — Cocktails',                  'PENDING', 'Anjali Singh', 'CHARGE_TO_ROOM', NOW() - INTERVAL '2 hours',  NULL),
+  ('c1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'b1000001-0000-4000-8000-000000000004', 450.00,  'Poolside Grill — Snacks & juice',             'PENDING', 'Anjali Singh', 'CHARGE_TO_ROOM', NOW() - INTERVAL '1 hour',   NULL),
+  -- Room 201 (Ravi Kumar) — one settled, one direct-paid
+  ('c1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'b1000001-0000-4000-8000-000000000003', 2500.00, 'Serenity Spa — Swedish Massage 60min',        'SETTLED', 'Ravi Kumar',   'CHARGE_TO_ROOM', NOW() - INTERVAL '1 day',    NOW() - INTERVAL '20 hours'),
+  ('c1000001-0000-4000-8000-000000000005', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'b1000001-0000-4000-8000-000000000005', 320.00,  'Palace Boutique — Toiletries',                'SETTLED', 'Ravi Kumar',   'PAY_DIRECT',     NOW() - INTERVAL '5 hours',  NOW() - INTERVAL '5 hours'),
+  -- Room 301 (Meena Pillai) — single pending F&B charge
+  ('c1000001-0000-4000-8000-000000000006', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'b1000001-0000-4000-8000-000000000001', 1680.00, 'Zodiac Restaurant — Lunch buffet x3',         'PENDING', 'Meena Pillai', 'CHARGE_TO_ROOM', NOW() - INTERVAL '6 hours',  NULL);
+
+-- ── Dummy data — guest_service_requests (QR-raised) ───────────
+INSERT INTO guest_service_requests (id, hotel_id, room_number, guest_name, type, details, priority, status, created_at, completed_at) VALUES
+  ('d1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'Anjali Singh', 'AMENITIES',    '2 extra bath towels and a toothbrush',            'NORMAL', 'NEW',      NOW() - INTERVAL '8 min',   NULL),
+  ('d1000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'Ravi Kumar',   'HOUSEKEEPING', 'Please make up the room while we are at breakfast','NORMAL', 'ACCEPTED', NOW() - INTERVAL '25 min',  NULL),
+  ('d1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'Meena Pillai', 'MAINTENANCE',  'Bathroom sink draining slowly',                    'HIGH',   'NEW',      NOW() - INTERVAL '15 min',  NULL),
+  ('d1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'Anjali Singh', 'CONCIERGE',    'Book an airport cab for tomorrow 6 AM',            'NORMAL', 'ACCEPTED', NOW() - INTERVAL '40 min',  NULL),
+  ('d1000001-0000-4000-8000-000000000005', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'Ravi Kumar',   'LAUNDRY',      'Express laundry — 2 shirts, 1 trouser',            'NORMAL', 'DONE',     NOW() - INTERVAL '3 hours', NOW() - INTERVAL '90 min'),
+  ('d1000001-0000-4000-8000-000000000006', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'Meena Pillai', 'LATE_CHECKOUT','Requesting checkout at 3 PM instead of noon',      'NORMAL', 'DONE',     NOW() - INTERVAL '5 hours', NOW() - INTERVAL '4 hours');
+
+-- ── Dummy data — outlet_bookings (spa / activities) ───────────
+INSERT INTO outlet_bookings (id, hotel_id, outlet_id, outlet_name, room_number, guest_name, guest_phone, service_name, price, booking_date, booking_time, party_size, notes, status, payment_choice, created_at, confirmed_at) VALUES
+  ('e1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000003', 'Serenity Spa',                 '101', 'Anjali Singh', '9845012345', 'Aromatherapy Massage 90min',   3500.00, 'Jun 16, 2026', '16:00', 1, 'Prefers lavender oil',        'CONFIRMED', 'CHARGE_TO_ROOM', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '90 min'),
+  ('e1000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000007', 'Heritage Walk & City Tours',   '301', 'Meena Pillai', '9845067890', 'Old City Heritage Walk',       1200.00, 'Jun 17, 2026', '07:30', 2, 'Vegetarian breakfast en route','REQUESTED', 'CHARGE_TO_ROOM', NOW() - INTERVAL '50 min',  NULL),
+  ('e1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000001', 'Zodiac — Restaurant',          '201', 'Ravi Kumar',   '9845054321', 'Dinner table for 4',           0.00,    'Jun 16, 2026', '20:30', 4, 'Window table if possible',    'CONFIRMED', 'PAY_DIRECT',     NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours');
+
+-- ── hotel_access (hotel-wide / outlet-scoped staff roles) ─────
+-- Table created explicitly (same reasoning as hotel_outlets above): required
+-- by every hasAccess() check in hotel-service, so it must exist even before
+-- hotel-service's own ddl-auto=update run creates it.
+CREATE TABLE IF NOT EXISTS hotel_access (
+    id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id    UUID          NOT NULL,
+    user_id     VARCHAR(255)  NOT NULL,
+    role        VARCHAR(30)   DEFAULT 'STAFF' CHECK (role IN ('OWNER','GENERAL_MANAGER','OUTLET_MANAGER','STAFF')),
+    outlet_id   UUID,
+    created_at  TIMESTAMP     DEFAULT NOW(),
+    UNIQUE (hotel_id, user_id, outlet_id)
+);
+CREATE INDEX IF NOT EXISTS idx_hotel_access_hotel ON hotel_access (hotel_id);
+CREATE INDEX IF NOT EXISTS idx_hotel_access_user  ON hotel_access (user_id);
+
+-- ── Dummy data — hotel_access ──────────────────────────────────
+-- OWNER row per seeded hotel so gm@grandpalace.in can manage all 3 properties.
+-- Plus one OUTLET_MANAGER example scoped to a single outlet (Serenity Spa).
+INSERT INTO hotel_access (id, hotel_id, user_id, role, outlet_id) VALUES
+  ('f1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', 'OWNER',           NULL),
+  ('f1000001-0000-4000-8000-000000000002', '0a035141-82b3-4e32-ae79-024ff06dba3f', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', 'OWNER',           NULL),
+  ('f1000001-0000-4000-8000-000000000003', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', 'OWNER',           NULL),
+  ('f1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '43ff4c07-a85e-4ec0-be79-9cd05b78f94a', 'OUTLET_MANAGER',  'b1000001-0000-4000-8000-000000000003');
+
+
 -- ============================================================
 --  SECTION 9 — aviqr_mall
 -- ============================================================
@@ -991,15 +1171,20 @@ CREATE INDEX idx_malls_active   ON malls (active);
 
 -- ── vendors ───────────────────────────────────────────────────
 CREATE TABLE vendors (
-    id        UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    mall_id   UUID         NOT NULL,
-    name      VARCHAR(255) NOT NULL,
-    category  VARCHAR(100),
-    floor     VARCHAR(50),
-    contact   VARCHAR(20),
-    shop_id   VARCHAR(100),
-    active    BOOLEAN      DEFAULT TRUE,
-    qr_active BOOLEAN      DEFAULT TRUE
+    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    mall_id    UUID         NOT NULL,
+    name       VARCHAR(255) NOT NULL,
+    category   VARCHAR(100),
+    floor      VARCHAR(50),
+    contact    VARCHAR(20),
+    shop_id    VARCHAR(100),
+    active     BOOLEAN      DEFAULT TRUE,
+    qr_active  BOOLEAN      DEFAULT TRUE,
+    -- PENDING = mall admin sent a link request, awaiting the restaurant owner's decision
+    -- (Restaurant Request Flow). ACTIVE vendors feed the mall dashboard, reports, and the
+    -- public food-court restaurant list (Food Court QR Flow). REJECTED is never shown.
+    status     VARCHAR(20)  DEFAULT 'ACTIVE' CHECK (status IN ('PENDING','ACTIVE','REJECTED')),
+    created_at TIMESTAMP    DEFAULT NOW()
 );
 
 CREATE INDEX idx_vendors_mall_id ON vendors (mall_id);
@@ -1009,21 +1194,25 @@ CREATE INDEX idx_vendors_floor   ON vendors (floor);
 CREATE SEQUENCE seq_vendor_ref START 1001 INCREMENT 1;
 
 -- ── Dummy data ────────────────────────────────────────────────
-INSERT INTO malls (id, name, admin_id, city, address, phone, email, commission_percent, subscription_plan, active) VALUES
-  ('f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Forum Mall Bengaluru',  'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Bengaluru', 'Hosur Road, Koramangala', '08041234567', 'admin@forummall.in',   10.00, 'MALL_PRO',     TRUE),
-  ('c81747a6-c29f-422b-a241-ba50883cf76a', 'Phoenix Market City',   'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Mumbai',    'LBS Marg, Kurla',         '02261234567', 'admin@phoenixmc.in',  10.00, 'ENTERPRISE',   TRUE),
-  ('4c22330a-7173-4937-bfd1-1499a24effc9', 'Elante Mall',           'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Chandigarh','Industrial Area Phase I',  '01726543210', 'admin@elante.in',     12.00, 'MALL_BASIC',   TRUE);
+-- created_at is staggered explicitly (not left to NOW() on a shared multi-row
+-- INSERT, which would tie all three) so mall-service's findByAdminIdOrderByCreatedAtAsc
+-- deterministically surfaces Forum Mall Bengaluru — the one with a full vendor
+-- roster and a real shop-linked vendor — as this admin's default/first mall.
+INSERT INTO malls (id, name, admin_id, city, address, phone, email, commission_percent, subscription_plan, active, created_at) VALUES
+  ('f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Forum Mall Bengaluru',  'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Bengaluru', 'Hosur Road, Koramangala', '08041234567', 'admin@forummall.in',   10.00, 'MALL_PRO',     TRUE, NOW() - INTERVAL '2 minutes'),
+  ('c81747a6-c29f-422b-a241-ba50883cf76a', 'Phoenix Market City',   'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Mumbai',    'LBS Marg, Kurla',         '02261234567', 'admin@phoenixmc.in',  10.00, 'ENTERPRISE',   TRUE, NOW() - INTERVAL '1 minute'),
+  ('4c22330a-7173-4937-bfd1-1499a24effc9', 'Elante Mall',           'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Chandigarh','Industrial Area Phase I',  '01726543210', 'admin@elante.in',     12.00, 'MALL_BASIC',   TRUE, NOW());
 
-INSERT INTO vendors (id, mall_id, name, category, floor, contact, shop_id, active, qr_active) VALUES
-  ('6efd1a31-ee35-447e-a2d2-d533ddbe272b', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Spice Route',       'North Indian',  'F1', '9845012345', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE),
-  ('118c94a4-2206-4f79-84db-2643a9a4c77b', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Wok to Walk',       'Chinese',       'F1', '9876501234', NULL,                                   TRUE,  TRUE),
-  ('690bcf93-ff91-45c6-92f8-b660284fef21', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Burger Republic',   'Fast Food',     'F2', '9112345678', NULL,                                   TRUE,  TRUE),
-  ('d4020098-51cb-4c23-8681-3c17021463a3', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Rolls Corner',      'Kathi Rolls',   'F1', '9988000001', NULL,                                   FALSE, FALSE),
-  ('40d28351-2022-402c-874d-2e878870e398', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Ice Cream Palace',  'Desserts',      'F2', '9000112233', NULL,                                   TRUE,  TRUE),
-  ('bcd4e6e6-a0c8-47fa-aae2-1eba1b9b413c', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'South Spice',       'South Indian',  'F2', '9876509876', NULL,                                   TRUE,  TRUE),
-  ('137d55e4-6ed9-46e7-8e53-a8ded4333577', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Biryani Blues',     'Biryani',       'GF', '9900112244', NULL,                                   TRUE,  TRUE),
-  ('04156897-4daf-49e7-a7a3-17eb8dbd50f1', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Pizza Express',     'Italian',       'FF', '9900223355', NULL,                                   TRUE,  TRUE),
-  ('afaccb1f-4417-41fc-a7d8-05acc9e0a018', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Chaat Central',     'Street Food',   'GF', '9900334466', NULL,                                   TRUE,  TRUE);
+INSERT INTO vendors (id, mall_id, name, category, floor, contact, shop_id, active, qr_active, status) VALUES
+  ('6efd1a31-ee35-447e-a2d2-d533ddbe272b', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Spice Route',       'North Indian',  'F1', '9845012345', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE, 'ACTIVE'),
+  ('118c94a4-2206-4f79-84db-2643a9a4c77b', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Wok to Walk',       'Chinese',       'F1', '9876501234', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
+  ('690bcf93-ff91-45c6-92f8-b660284fef21', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Burger Republic',   'Fast Food',     'F2', '9112345678', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
+  ('d4020098-51cb-4c23-8681-3c17021463a3', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Rolls Corner',      'Kathi Rolls',   'F1', '9988000001', NULL,                                   FALSE, FALSE, 'ACTIVE'),
+  ('40d28351-2022-402c-874d-2e878870e398', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Ice Cream Palace',  'Desserts',      'F2', '9000112233', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
+  ('bcd4e6e6-a0c8-47fa-aae2-1eba1b9b413c', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'South Spice',       'South Indian',  'F2', '9876509876', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
+  ('137d55e4-6ed9-46e7-8e53-a8ded4333577', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Biryani Blues',     'Biryani',       'GF', '9900112244', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
+  ('04156897-4daf-49e7-a7a3-17eb8dbd50f1', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Pizza Express',     'Italian',       'FF', '9900223355', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
+  ('afaccb1f-4417-41fc-a7d8-05acc9e0a018', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Chaat Central',     'Street Food',   'GF', '9900334466', NULL,                                   TRUE,  TRUE, 'ACTIVE');
 
 
 -- ============================================================
@@ -1221,6 +1410,7 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aviqr;
 --
 -- \connect aviqr_hotel
 -- SELECT status, COUNT(*) FROM rooms GROUP BY status;
+-- SELECT h.name, ha.user_id, ha.role, ha.outlet_id FROM hotel_access ha JOIN hotels h ON h.id=ha.hotel_id;
 --
 -- \connect aviqr_mall
 -- SELECT m.name, COUNT(v.id) AS vendors FROM malls m LEFT JOIN vendors v ON v.mall_id=m.id GROUP BY m.name;

@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { Plus, Printer, Eye, Link, Check, Palette, LayoutGrid, Layout, Megaphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { qrApi } from '../api/index.js';
 import './QRCodes.css';
 
@@ -267,7 +268,7 @@ function TypeChip({ type }) {
 export default function QRCodes() {
   const { user, isAdmin, isSupport } = useAuth();
   const nav = useNavigate();
-  const shopId = user?.shopId;
+  const shopId = useActiveShopId();
   const canAdvertise = isAdmin || isSupport;
 
   if (!shopId) return (

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { orderApi, invoiceApi } from '../api/index.js';
 import './Orders.css';
 
@@ -99,7 +100,7 @@ function KotPreview({ order, onClose }) {
 export default function Orders() {
   const { user } = useAuth();
   const nav      = useNavigate();
-  const shopId   = user?.shopId;
+  const shopId   = useActiveShopId();
 
   const [orders,     setOrders]   = useState([]);
   const [typeFilter, setTypeFilter]= useState('ALL');  // ALL | DINE_IN | TAKEAWAY | DELIVERY

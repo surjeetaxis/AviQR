@@ -4,6 +4,7 @@ import {
   Bell, Download, Plus, Search, ToggleLeft, ToggleRight,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { inventoryApi, menuApi, rawMaterialApi } from '../api/index.js';
 
 const TABS = [
@@ -13,7 +14,7 @@ const TABS = [
 
 export default function Inventory() {
   const { user } = useAuth();
-  const shopId   = user?.shopId;
+  const shopId   = useActiveShopId();
   const [tab, setTab] = useState('finished');
 
   // ── Finished goods ───────────────────────────────────────────────────────

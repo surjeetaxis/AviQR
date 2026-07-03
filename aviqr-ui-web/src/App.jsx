@@ -26,6 +26,12 @@ import SupplierDashboard from './pages/supplier/SupplierDashboard.jsx';
 import HotelDashboard    from './pages/hotel/HotelDashboard.jsx';
 import MallDashboard     from './pages/mall/MallDashboard.jsx';
 import CustomerMenu      from './pages/customer/CustomerMenu.jsx';
+import GuestServices     from './pages/customer/GuestServices.jsx';
+import FoodCourtHome     from './pages/customer/FoodCourtHome.jsx';
+import CustomerPortalShell from './layouts/CustomerPortalShell.jsx';
+import PortalHome        from './pages/customer/PortalHome.jsx';
+import PortalOrders      from './pages/customer/PortalOrders.jsx';
+import PortalProfile     from './pages/customer/PortalProfile.jsx';
 import Onboarding        from './components/shared/Onboarding.jsx';
 import TermsPage         from './pages/legal/TermsPage.jsx';
 import PrivacyPage       from './pages/legal/PrivacyPage.jsx';
@@ -71,9 +77,20 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/terms"           element={<TermsPage />} />
       <Route path="/privacy"         element={<PrivacyPage />} />
-      <Route path="/menu/:shopId"    element={<CustomerMenu />} />
       <Route path="/customer"        element={<CustomerMenu />} />
       <Route path="/onboarding"      element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+
+      {/* Customer Portal — persistent bottom-nav shell (Home/Search/Cart/Orders/Profile)
+          wraps the three QR-flow pages at their EXISTING paths, so already-printed
+          QR codes keep working unchanged, plus the new Orders/Profile pages. */}
+      <Route element={<CustomerPortalShell />}>
+        <Route path="/menu/:shopId"            element={<CustomerMenu />} />
+        <Route path="/hotel-services/:hotelId" element={<GuestServices />} />
+        <Route path="/food-court/:mallId"      element={<FoodCourtHome />} />
+        <Route path="/portal/home"             element={<PortalHome />} />
+        <Route path="/portal/orders"           element={<PortalOrders />} />
+        <Route path="/portal/profile"          element={<PortalProfile />} />
+      </Route>
 
       {/* Main dashboard */}
       <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
@@ -101,6 +118,25 @@ export default function App() {
         <Route path="loyalty"      element={<RoleRoute path="loyalty"><Loyalty /></RoleRoute>} />
         <Route path="analytics"    element={<RoleRoute path="analytics"><Analytics /></RoleRoute>} />
         <Route path="ai"           element={<RoleRoute path="ai"><AIHub /></RoleRoute>} />
+      </Route>
+
+      {/* Hotel owner managing a specific outlet — reuses the shop-owner pages above, scoped to the outlet's linked shop */}
+      <Route path="/hotel/outlets/:outletId" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+        <Route path="dashboard"      element={<Dashboard />} />
+        <Route path="staff"         element={<Staff />} />
+        <Route path="settings"      element={<Settings />} />
+        <Route path="loyalty"       element={<Loyalty />} />
+        <Route path="menu"          element={<Menu />} />
+        <Route path="variations"    element={<MenuVariations />} />
+        <Route path="orders"        element={<Orders />} />
+        <Route path="billing"       element={<Billing />} />
+        <Route path="kot"           element={<KOT />} />
+        <Route path="inventory"     element={<Inventory />} />
+        <Route path="raw-materials" element={<RawMaterials />} />
+        <Route path="analytics"     element={<Analytics />} />
+        <Route path="reports"       element={<Reports />} />
+        <Route path="order-history" element={<OrderHistory />} />
+        <Route path="qr-codes"      element={<QRCodes />} />
       </Route>
 
       {/* Role-specific dashboards — standalone (no owner sidebar) */}

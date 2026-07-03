@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Plus, Search, Edit2, Trash2, X, Video, Box, Image as ImageIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { menuApi } from '../api/index.js';
 import './Menu.css';
 
@@ -133,7 +134,7 @@ function VegDot({ veg }) {
 export default function Menu() {
   const { user } = useAuth();
   const nav = useNavigate();
-  const shopId = user?.shopId;
+  const shopId = useActiveShopId();
 
   if (!shopId) return (
     <div style={{ textAlign:'center', padding:'60px 24px', color:'#6B7280' }}>

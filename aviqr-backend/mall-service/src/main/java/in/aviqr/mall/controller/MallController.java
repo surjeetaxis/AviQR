@@ -2,15 +2,25 @@ package in.aviqr.mall.controller;
 import in.aviqr.mall.dto.ApiResponse;
 import in.aviqr.mall.entity.*;
 import in.aviqr.mall.repository.*;
+import in.aviqr.mall.security.VendorTokenService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import java.util.*;
+import java.util.stream.Collectors;
 
-@RestController @RequiredArgsConstructor
+@RestController @RequiredArgsConstructor @Slf4j
 public class MallController {
     private final MallRepository mallRepo;
     private final VendorRepository vendorRepo;
+    private final VendorTokenService vendorTokenService;
+    private final RestTemplate restTemplate;
+
+    @Value("${shop.service.url:http://shop-service}")
+    private String shopServiceUrl;
 
     @PostMapping("/api/v1/malls")
     public ResponseEntity<ApiResponse<Mall>> create(@RequestBody Mall mall, @RequestHeader("X-User-Id") String uid) {
@@ -20,7 +30,10 @@ public class MallController {
 
     @GetMapping("/api/v1/malls/my")
     public ResponseEntity<ApiResponse<List<Mall>>> myMalls(@RequestHeader("X-User-Id") String uid) {
-        return ResponseEntity.ok(ApiResponse.ok(mallRepo.findByAdminId(uid)));
+        // Ordered so dashboards that default to "my malls[0]" (Mall dashboard, Reports tab)
+        // deterministically land on the admin's first-registered mall instead of
+        // whatever order an unordered scan happens to return.
+        return ResponseEntity.ok(ApiResponse.ok(mallRepo.findByAdminIdOrderByCreatedAtAsc(uid)));
     }
 
     @GetMapping("/api/v1/malls/{id}")
@@ -82,9 +95,152 @@ public class MallController {
         return ResponseEntity.ok(ApiResponse.ok("Deleted", null));
     }
 
-    // Public mall menu — all active vendors
+    // Verifies the caller admins this vendor's mall (or is ADMIN), then mints a short-lived
+    // JWT scoped to the vendor's shop so report-service's per-shop revenue check (and any
+    // other shop/order/menu/qr/payment-service call) authorizes correctly — same mechanism
+    // as hotel-service's hotel-outlets/{id}/enter.
+    @PostMapping("/api/v1/vendors/{id}/enter")
+    public ResponseEntity<ApiResponse<Map<String, String>>> enterVendor(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        Vendor v = vendorRepo.findById(id).orElse(null);
+        if (v == null) return ResponseEntity.notFound().build();
+        if (!"ADMIN".equals(role)) {
+            boolean owns = v.getMallId() != null &&
+                mallRepo.findById(v.getMallId()).map(m -> uid.equals(m.getAdminId())).orElse(false);
+            if (!owns) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        }
+        if (v.getShopId() == null || v.getShopId().isBlank())
+            return ResponseEntity.badRequest().body(ApiResponse.error("Vendor has no linked shop"));
+        String token = vendorTokenService.mintVendorToken(uid, v.getShopId());
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("accessToken", token, "shopId", v.getShopId())));
+    }
+
+    // Looks up a shop in shop-service by id. Returns null if it doesn't exist or the
+    // service can't be reached — callers treat both as "not found".
+    private Map<String, Object> fetchShop(String shopId) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resp = restTemplate.getForObject(shopServiceUrl + "/api/v1/shops/" + shopId, Map.class);
+            Object data = resp != null ? resp.get("data") : null;
+            @SuppressWarnings("unchecked")
+            Map<String, Object> shop = (Map<String, Object>) data;
+            return shop;
+        } catch (Exception e) {
+            log.warn("Could not fetch shop {}: {}", shopId, e.getMessage());
+            return null;
+        }
+    }
+
+    // Mall admin enters a restaurant's shop id and sends a link request. Looks the shop up in
+    // shop-service (for its real name) rather than trusting a client-supplied name, and creates
+    // a PENDING vendor row the shop's owner must accept/reject via /respond below.
+    @PostMapping("/api/v1/vendors/request")
+    public ResponseEntity<ApiResponse<Vendor>> requestVendor(
+            @RequestBody Map<String, String> body,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        UUID mallId;
+        try {
+            mallId = UUID.fromString(body.get("mallId"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid mallId"));
+        }
+        String shopId = body.get("shopId");
+        if (shopId == null || shopId.isBlank())
+            return ResponseEntity.badRequest().body(ApiResponse.error("Restaurant ID is required"));
+
+        if (!"ADMIN".equals(role)) {
+            UUID finalMallId = mallId;
+            boolean owns = mallRepo.findById(finalMallId).map(m -> uid.equals(m.getAdminId())).orElse(false);
+            if (!owns) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        }
+
+        Optional<Vendor> existing = vendorRepo.findByMallIdAndShopId(mallId, shopId);
+        if (existing.isPresent() && existing.get().getStatus() != VendorStatus.REJECTED)
+            return ResponseEntity.status(409).body(ApiResponse.error(
+                existing.get().getStatus() == VendorStatus.PENDING
+                    ? "A request is already pending for this restaurant"
+                    : "This restaurant is already linked"));
+
+        Map<String, Object> shop = fetchShop(shopId);
+        if (shop == null)
+            return ResponseEntity.status(404).body(ApiResponse.error("Restaurant not found"));
+
+        Vendor v = existing.orElseGet(Vendor::new); // reuse the row if re-requesting after a rejection
+        v.setMallId(mallId);
+        v.setShopId(shopId);
+        v.setName(String.valueOf(shop.get("name")));
+        v.setStatus(VendorStatus.PENDING);
+        v.setActive(false);
+        return ResponseEntity.ok(ApiResponse.ok("Request sent", vendorRepo.save(v)));
+    }
+
+    // Restaurant owner's side: pending mall-link requests across all shops they manage.
+    @GetMapping("/api/v1/vendors/requests/mine")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> myRequests(@RequestParam String shopIds) {
+        List<String> ids = Arrays.stream(shopIds.split(","))
+            .map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList());
+        if (ids.isEmpty()) return ResponseEntity.ok(ApiResponse.ok(List.of()));
+
+        List<Map<String, Object>> result = vendorRepo.findByShopIdInAndStatus(ids, VendorStatus.PENDING).stream()
+            .map(v -> {
+                Mall mall = mallRepo.findById(v.getMallId()).orElse(null);
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", v.getId());
+                m.put("shopId", v.getShopId());
+                m.put("mallId", v.getMallId());
+                m.put("mallName", mall != null ? mall.getName() : "Unknown Mall");
+                m.put("mallCity", mall != null ? mall.getCity() : null);
+                m.put("createdAt", v.getCreatedAt());
+                return m;
+            })
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    // Restaurant owner accepts or rejects a pending mall-link request. Only on ACCEPT does
+    // the vendor become publicly visible (feeds the Mall's Vendors tab, Reports, and the
+    // Food Court QR's public restaurant list).
+    @PutMapping("/api/v1/vendors/{id}/respond")
+    public ResponseEntity<ApiResponse<Vendor>> respond(
+            @PathVariable UUID id,
+            @RequestParam String decision,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        Vendor v = vendorRepo.findById(id).orElse(null);
+        if (v == null) return ResponseEntity.notFound().build();
+        if (v.getStatus() != VendorStatus.PENDING)
+            return ResponseEntity.badRequest().body(ApiResponse.error("This request has already been resolved"));
+
+        if (!"ADMIN".equals(role)) {
+            Map<String, Object> shop = fetchShop(v.getShopId());
+            boolean owns = shop != null && uid.equals(String.valueOf(shop.get("ownerId")));
+            if (!owns) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        }
+
+        if ("ACCEPT".equalsIgnoreCase(decision)) {
+            v.setStatus(VendorStatus.ACTIVE);
+            v.setActive(true);
+        } else if ("REJECT".equalsIgnoreCase(decision)) {
+            v.setStatus(VendorStatus.REJECTED);
+        } else {
+            return ResponseEntity.badRequest().body(ApiResponse.error("decision must be ACCEPT or REJECT"));
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Updated", vendorRepo.save(v)));
+    }
+
+    // Public food-court menu — only restaurants that have accepted the mall's link request.
     @GetMapping("/api/v1/malls/public/{mallId}/vendors")
     public ResponseEntity<ApiResponse<List<Vendor>>> publicVendors(@PathVariable UUID mallId) {
-        return ResponseEntity.ok(ApiResponse.ok(vendorRepo.findByMallIdAndActiveTrue(mallId)));
+        return ResponseEntity.ok(ApiResponse.ok(vendorRepo.findByMallIdAndStatusAndActiveTrue(mallId, VendorStatus.ACTIVE)));
+    }
+
+    // Public mall info (Food Court QR Flow header) — the gateway only permits unauthenticated
+    // access under /api/v1/malls/public/**, unlike the authenticated GET /api/v1/malls/{id}.
+    @GetMapping("/api/v1/malls/public/{id}")
+    public ResponseEntity<ApiResponse<Mall>> publicMall(@PathVariable UUID id) {
+        return mallRepo.findById(id).map(m -> ResponseEntity.ok(ApiResponse.ok(m))).orElse(ResponseEntity.notFound().build());
     }
 }

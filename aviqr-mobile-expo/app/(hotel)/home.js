@@ -1,38 +1,51 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Alert } from 'react-native';
-// Icon not needed — using emoji
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Alert, Modal, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-// Toast replaced with Alert
-import { hotelApi } from '../../src/api/index.js';
+import { router } from 'expo-router';
+import { hotelApi, hotelOpsApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
-import { StatCard } from '../../src/components/common/StatCard.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
 import { Card } from '../../src/components/common/Card.js';
-// BottomSheet replaced with Modal
-import { Button } from '../../src/components/common/Button.js';
-import { Input } from '../../src/components/common/Input.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 const SERVICE_TYPES = [
-  { id:'ROOM_SERVICE', emoji:'🍽', label:'Room Service' },
-  { id:'LAUNDRY',      emoji:'👕', label:'Laundry' },
-  { id:'SPA',          emoji:'💆', label:'Spa' },
-  { id:'HOUSEKEEPING', emoji:'🧹', label:'Housekeeping' },
-  { id:'MAINTENANCE',  emoji:'🔧', label:'Maintenance' },
+  { id:'ROOM_SERVICE',  emoji:'🍽', label:'Room Service' },
+  { id:'LAUNDRY',       emoji:'👕', label:'Laundry' },
+  { id:'SPA',           emoji:'💆', label:'Spa' },
+  { id:'HOUSEKEEPING',  emoji:'🧹', label:'Housekeeping' },
+  { id:'MAINTENANCE',   emoji:'🔧', label:'Maintenance' },
+  { id:'AMENITIES',     emoji:'🛎', label:'Amenities' },
+  { id:'CONCIERGE',     emoji:'🔔', label:'Concierge' },
+  { id:'LATE_CHECKOUT', emoji:'⏰', label:'Late Checkout' },
+  { id:'WAKE_UP_CALL',  emoji:'⏰', label:'Wake-up Call' },
+  { id:'TRANSPORT',     emoji:'🚕', label:'Transport' },
 ];
 
 const STATUS_NEXT = { NEW:'ACCEPTED', ACCEPTED:'PREPARING', PREPARING:'CONFIRMED', CONFIRMED:'DONE' };
 const PRIORITY_COLOR = { HIGH:'#DC2626', NORMAL:'#6B7280', URGENT:'#DC2626' };
 
-export default function HotelHomeScreen({ navigation }) {
+// Normalise a QR-raised GuestServiceRequest into the same shape as legacy RoomRequest
+const mapGuestReq = (g) => ({
+  id: g.id,
+  roomNumber: g.roomNumber,
+  serviceType: g.type,
+  description: g.details || '',
+  status: g.status,
+  priority: g.priority,
+  createdAt: g.createdAt,
+  _source: 'guest',
+});
+
+export default function HotelHomeScreen() {
   const { user, logout } = useAuth();
   const [hotels, setHotels]       = useState([]);
   const [selectedHotel, setHotel] = useState(null);
   const [rooms, setRooms]         = useState([]);
   const [requests, setRequests]   = useState([]);
+  const [bookings, setBookings]   = useState([]);
   const [tab, setTab]             = useState('requests');
   const [refreshing, setRef]      = useState(false);
-  const [reqSheet, setReqSheet]   = useState(null);
+  const [billRoom, setBillRoom]   = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -46,12 +59,18 @@ export default function HotelHomeScreen({ navigation }) {
   const loadHotelData = useCallback(async (hotel) => {
     if (!hotel) return;
     try {
-      const [r, req] = await Promise.allSettled([
+      const [r, req, gsr, bk] = await Promise.allSettled([
         hotelApi.getRooms(hotel.id),
-        hotelApi.getHotelRequests(hotel.id, { liveOnly: false }),
+        hotelApi.getRequests(hotel.id, { status: 'new,preparing,confirmed' }),
+        hotelOpsApi.listRequests(hotel.id),
+        hotelOpsApi.listBookings(hotel.id),
       ]);
       if (r.status === 'fulfilled') setRooms(r.value.data.data || []);
-      if (req.status === 'fulfilled') setRequests(req.value.data.data || []);
+      let merged = [];
+      if (req.status === 'fulfilled') merged = merged.concat(req.value.data.data || []);
+      if (gsr.status === 'fulfilled') merged = merged.concat((gsr.value.data.data || []).map(mapGuestReq));
+      setRequests(merged);
+      if (bk.status === 'fulfilled') setBookings(bk.value.data.data || []);
     } catch {}
   }, []);
 
@@ -63,11 +82,19 @@ export default function HotelHomeScreen({ navigation }) {
   const advanceRequest = async (req) => {
     const next = STATUS_NEXT[req.status];
     if (!next) return;
+    setRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: next } : r));
     try {
-      await hotelApi.updateRequestStatus(req.id, next);
-      setRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: next } : r));
-      Toast.show({ type: 'success', text1: `Moved to ${next}` });
-    } catch { Toast.show({ type: 'error', text1: 'Failed to update' }); }
+      const call = req._source === 'guest' ? hotelOpsApi.updateRequest(req.id, next) : hotelApi.updateRequest(req.id, next);
+      await call;
+    } catch { Alert.alert('Failed to update request'); }
+  };
+
+  const advanceBooking = async (booking) => {
+    const next = booking.status === 'REQUESTED' ? 'CONFIRMED' : booking.status === 'CONFIRMED' ? 'COMPLETED' : null;
+    if (!next) return;
+    setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, status: next } : b));
+    try { await hotelOpsApi.updateBooking(booking.id, next); }
+    catch { Alert.alert('Failed to update booking'); }
   };
 
   const liveRequests  = requests.filter(r => r.status !== 'DONE' && r.status !== 'CANCELLED');
@@ -79,7 +106,7 @@ export default function HotelHomeScreen({ navigation }) {
       <View style={styles.reqTop}>
         <View>
           <Text style={styles.reqRoom}>Room {req.roomNumber}</Text>
-          <Text style={styles.reqType}>{SERVICE_TYPES.find(s => s.id === req.serviceType)?.emoji || '📋'} {req.serviceType?.replace('_',' ')}</Text>
+          <Text style={styles.reqType}>{SERVICE_TYPES.find(s => s.id === req.serviceType)?.emoji || '📋'} {req.serviceType?.replace(/_/g,' ')}</Text>
         </View>
         <StatusBadge status={req.status} />
       </View>
@@ -109,11 +136,45 @@ export default function HotelHomeScreen({ navigation }) {
       <Text style={styles.roomType}>{room.roomType} · {room.floor}</Text>
       {room.guestName && (
         <View style={styles.guestInfo}>
-          <Icon name="user" size={12} color={Colors.primary} />
-          <Text style={styles.guestName}>{room.guestName}</Text>
+          <Text style={styles.guestName}>👤 {room.guestName}</Text>
         </View>
       )}
       {room.checkInDate && <Text style={styles.roomDates}>In: {room.checkInDate} · Out: {room.checkOutDate}</Text>}
+      {room.status === 'OCCUPIED' && (
+        <TouchableOpacity style={styles.billBtn} onPress={() => setBillRoom(room)}>
+          <Text style={styles.billBtnText}>💳 Bill</Text>
+        </TouchableOpacity>
+      )}
+    </Card>
+  );
+
+  const BOOKING_BADGE = {
+    REQUESTED: 'Confirm',
+    CONFIRMED: 'Complete',
+  };
+
+  const BookingCard = ({ b }) => (
+    <Card style={styles.reqCard}>
+      <View style={styles.reqTop}>
+        <View>
+          <Text style={styles.reqRoom}>Room {b.roomNumber}</Text>
+          <Text style={styles.reqType}>{b.outletName} · {b.serviceName}</Text>
+        </View>
+        <StatusBadge status={b.status} />
+      </View>
+      <Text style={styles.reqDesc}>
+        {b.bookingDate} at {b.bookingTime} · {b.partySize} guest{b.partySize > 1 ? 's' : ''}
+        {b.price > 0 ? ` · ₹${Number(b.price).toLocaleString('en-IN')}` : ''}
+        {' · '}{b.paymentChoice === 'PAY_DIRECT' ? 'Pay direct' : 'Charge to room'}
+      </Text>
+      {BOOKING_BADGE[b.status] && (
+        <View style={styles.reqBottom}>
+          <View />
+          <TouchableOpacity style={styles.advBtn} onPress={() => advanceBooking(b)}>
+            <Text style={styles.advBtnText}>{BOOKING_BADGE[b.status]}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </Card>
   );
 
@@ -126,7 +187,7 @@ export default function HotelHomeScreen({ navigation }) {
             <Text style={styles.hotelName}>{selectedHotel?.name || 'Loading…'}</Text>
           </View>
           <TouchableOpacity onPress={logout} style={{ padding: 8 }}>
-            <Icon name="log-out" size={18} color="rgba(255,255,255,0.6)" />
+            <Text style={{ fontSize: 18 }}>🚪</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.statsRow}>
@@ -149,14 +210,17 @@ export default function HotelHomeScreen({ navigation }) {
 
       {/* Tabs */}
       <View style={styles.tabRow}>
-        {[['requests', `Requests (${liveRequests.length})`], ['rooms', `Rooms (${rooms.length})`]].map(([t, l]) => (
+        {[['requests', `Requests (${liveRequests.length})`], ['bookings', `Bookings (${bookings.length})`], ['rooms', `Rooms (${rooms.length})`]].map(([t, l]) => (
           <TouchableOpacity key={t} style={[styles.tabBtn, tab === t && styles.tabActive]} onPress={() => setTab(t)}>
             <Text style={[styles.tabText, tab === t && styles.tabActiveText]}>{l}</Text>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity style={styles.tabBtn} onPress={() => router.push('/(hotel)/outlets')}>
+          <Text style={styles.tabText}>Outlets →</Text>
+        </TouchableOpacity>
       </View>
 
-      {tab === 'requests' ? (
+      {tab === 'requests' && (
         <FlatList
           data={liveRequests}
           keyExtractor={r => r.id}
@@ -170,7 +234,25 @@ export default function HotelHomeScreen({ navigation }) {
             </View>
           }
         />
-      ) : (
+      )}
+
+      {tab === 'bookings' && (
+        <FlatList
+          data={bookings}
+          keyExtractor={b => b.id}
+          renderItem={({ item }) => <BookingCard b={item} />}
+          contentContainerStyle={{ padding: Spacing.base, gap: 10, paddingBottom: 32 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.white} />}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyEmoji}>📅</Text>
+              <Text style={styles.emptyText}>No bookings yet</Text>
+            </View>
+          }
+        />
+      )}
+
+      {tab === 'rooms' && (
         <FlatList
           data={rooms}
           keyExtractor={r => r.id}
@@ -180,7 +262,73 @@ export default function HotelHomeScreen({ navigation }) {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.white} />}
         />
       )}
+
+      {billRoom && <RoomBillModal room={billRoom} onClose={() => setBillRoom(null)} />}
     </View>
+  );
+}
+
+function RoomBillModal({ room, onClose }) {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [settling, setSettling] = useState(false);
+
+  const loadBill = useCallback(() => {
+    setLoading(true);
+    hotelOpsApi.roomCharges(room.id)
+      .then(r => setData(r.data.data))
+      .catch(() => setData({ charges: [], pendingTotal: 0 }))
+      .finally(() => setLoading(false));
+  }, [room.id]);
+
+  useEffect(() => { loadBill(); }, [loadBill]);
+
+  const settle = async () => {
+    setSettling(true);
+    try { await hotelOpsApi.settleCharges(room.id); loadBill(); }
+    catch { Alert.alert('Could not settle charges'); }
+    finally { setSettling(false); }
+  };
+
+  const pending = data?.charges?.filter(c => c.status === 'PENDING') || [];
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalHead}>
+            <Text style={styles.modalTitle}>Room {room.roomNumber} · Bill</Text>
+            <TouchableOpacity onPress={onClose} style={styles.modalClose}><Text>✕</Text></TouchableOpacity>
+          </View>
+          {loading ? (
+            <Text style={styles.emptyText}>Loading bill…</Text>
+          ) : (
+            <ScrollView>
+              <LinearGradient colors={['#1D9E75','#178A65']} style={styles.pendingCard}>
+                <Text style={styles.pendingLabel}>PENDING</Text>
+                <Text style={styles.pendingValue}>₹{Number(data?.pendingTotal || 0).toLocaleString('en-IN')}</Text>
+              </LinearGradient>
+              {pending.length === 0 ? (
+                <Text style={[styles.emptyText, { marginVertical: 20 }]}>No pending charges</Text>
+              ) : pending.map(c => (
+                <View key={c.id} style={styles.chargeRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.chargeDesc}>{c.description}</Text>
+                    <Text style={styles.chargeTime}>{new Date(c.createdAt).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}</Text>
+                  </View>
+                  <Text style={styles.chargeAmt}>₹{Number(c.amount).toLocaleString('en-IN')}</Text>
+                </View>
+              ))}
+              <TouchableOpacity
+                style={[styles.settleBtn, (settling || pending.length === 0) && { opacity: 0.5 }]}
+                onPress={settle} disabled={settling || pending.length === 0}>
+                <Text style={styles.settleBtnText}>{settling ? 'Settling…' : 'Settle & Checkout'}</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -218,7 +366,23 @@ const styles = StyleSheet.create({
   guestInfo:    { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   guestName:    { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '600' },
   roomDates:    { fontSize: FontSize.xs, color: Colors.gray400, marginTop: 2 },
+  billBtn:      { marginTop: 8, alignSelf: 'flex-start', backgroundColor: Colors.primaryLight, paddingVertical: 5, paddingHorizontal: 10, borderRadius: Radius.md },
+  billBtnText:  { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
   emptyWrap:    { alignItems: 'center', paddingTop: 60 },
   emptyEmoji:   { fontSize: 48, marginBottom: 12 },
-  emptyText:    { fontSize: FontSize.base, color: Colors.gray400 },
+  emptyText:    { fontSize: FontSize.base, color: Colors.gray400, textAlign: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  modalCard:    { backgroundColor: Colors.white, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Spacing.base, maxHeight: '85%' },
+  modalHead:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.base },
+  modalTitle:   { fontSize: FontSize.lg, fontWeight: '800' },
+  modalClose:   { backgroundColor: Colors.gray100, borderRadius: Radius.md, padding: 8 },
+  pendingCard:  { borderRadius: Radius.lg, padding: Spacing.base, marginBottom: Spacing.base },
+  pendingLabel: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.85)' },
+  pendingValue: { fontSize: FontSize['2xl'], fontWeight: '800', color: Colors.white },
+  chargeRow:    { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.borderLight || Colors.border },
+  chargeDesc:   { fontSize: FontSize.sm, fontWeight: '600' },
+  chargeTime:   { fontSize: FontSize.xs, color: Colors.gray400 },
+  chargeAmt:    { fontSize: FontSize.sm, fontWeight: '800' },
+  settleBtn:    { marginTop: Spacing.base, backgroundColor: Colors.primary, borderRadius: Radius.md, height: 48, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.base },
+  settleBtnText:{ color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
 });
