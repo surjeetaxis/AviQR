@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
-import { shopApi, authApi, menuApi, aggregatorConfigApi } from '../api/index.js';
+import { shopApi, authApi, menuApi, aggregatorConfigApi, planApi, offerApi } from '../api/index.js';
 
 const DAYS  = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const LANGS = [
@@ -156,6 +156,21 @@ export default function Settings() {
 
   // Plan
   const [shopPlan, setShopPlan]   = useState('STARTER');
+  const [livePlans, setLivePlans] = useState([]);
+  const [liveOffers, setLiveOffers] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [planRes, offerRes] = await Promise.all([planApi.listPublic('SHOP'), offerApi.listActive()]);
+        setLivePlans((planRes.data?.data || []).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)));
+        setLiveOffers(offerRes.data?.data || []);
+      } catch { /* keep static PLAN_INFO fallback */ }
+    })();
+  }, []);
+
+  const offerFor = (planKey) => liveOffers.find(o => o.applicablePlans === 'ALL'
+    || (o.applicablePlans || '').split(',').map(s => s.trim()).includes(planKey));
 
   // Save state
   const [saving, setSaving]       = useState(false);
@@ -330,7 +345,16 @@ export default function Settings() {
   const shopOk   = !!(shopForm.name && shopForm.phone);
   const intgOk   = intg.zomatoEnabled || intg.swiggyEnabled;
   const notifyOn = settings.notifyNewOrder || settings.notifyDailySummary;
-  const plan     = PLAN_INFO[shopPlan] || PLAN_INFO.STARTER;
+  const staticPlan  = PLAN_INFO[shopPlan] || PLAN_INFO.STARTER;
+  const livePlan    = livePlans.find(p => p.planKey === shopPlan);
+  const currentPrice = livePlan ? livePlan.price : ({ STARTER:0, GROWTH:999, BUSINESS:2499 }[shopPlan] ?? 0);
+  const plan = livePlan
+    ? { name: livePlan.label, price: livePlan.price === 0 ? 'Free' : `₹${livePlan.price.toLocaleString('en-IN')}/mo`,
+        color: staticPlan.color, features: (livePlan.features || '').split('\n').map(f => f.trim()).filter(Boolean) }
+    : staticPlan;
+  // Upgrade options: live active SHOP plans priced above the current one
+  const upgradeOptions = livePlans.filter(p => p.planKey !== shopPlan && p.price > currentPrice);
+  const upgradeColors  = ['#1D9E75', '#7C3AED', '#D97706'];
 
   const SECTIONS = [
     { key:'shop',     label:'Shop Profile',     icon:Store,     badge: shopOk ? 'ok' : 'warn' },
@@ -949,34 +973,43 @@ export default function Settings() {
               </div>
             </div>
 
-            {/* Upgrade cards */}
-            {shopPlan !== 'BUSINESS' && (
+            {/* Upgrade cards — live plans + any active discount offer */}
+            {upgradeOptions.length > 0 && (
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-                {shopPlan === 'STARTER' && (
-                  <div style={{ background:'white', borderRadius:12, border:'2px solid #1D9E75', padding:20, position:'relative' }}>
-                    <div style={{ position:'absolute', top:-1, right:16, background:'#1D9E75', color:'white', fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:'0 0 8px 8px', letterSpacing:.5 }}>POPULAR</div>
-                    <div style={{ fontSize:16, fontWeight:800, color:'#1D9E75', marginBottom:4 }}>Growth</div>
-                    <div style={{ fontSize:22, fontWeight:800, marginBottom:12 }}>₹999<span style={{ fontSize:13, fontWeight:400, color:'var(--gray-500)' }}>/mo</span></div>
-                    {['Unlimited items & orders','Dynamic pricing','Staff roles','Loyalty program','WhatsApp alerts','AI features'].map(f => (
-                      <div key={f} style={{ display:'flex', gap:6, alignItems:'center', fontSize:12, marginBottom:5 }}><Check size={12} style={{ color:'#1D9E75' }}/>{f}</div>
-                    ))}
-                    <button className="btn btn-primary" style={{ width:'100%', justifyContent:'center', marginTop:14 }}
-                      onClick={() => alert('Contact support@aviqr.in to upgrade')}>
-                      Upgrade to Growth
-                    </button>
-                  </div>
-                )}
-                <div style={{ background:'white', borderRadius:12, border:'2px solid #7C3AED', padding:20 }}>
-                  <div style={{ fontSize:16, fontWeight:800, color:'#7C3AED', marginBottom:4 }}>Business</div>
-                  <div style={{ fontSize:22, fontWeight:800, marginBottom:12 }}>₹2,499<span style={{ fontSize:13, fontWeight:400, color:'var(--gray-500)' }}>/mo</span></div>
-                  {['Everything in Growth','Multi-outlet dashboard','CRM & customer data','API access','Dedicated support'].map(f => (
-                    <div key={f} style={{ display:'flex', gap:6, alignItems:'center', fontSize:12, marginBottom:5 }}><Check size={12} style={{ color:'#7C3AED' }}/>{f}</div>
-                  ))}
-                  <button style={{ width:'100%', justifyContent:'center', marginTop:14, padding:'9px 0', borderRadius:8, border:'2px solid #7C3AED', background:'white', color:'#7C3AED', fontWeight:700, fontSize:13, cursor:'pointer' }}
-                    onClick={() => alert('Contact support@aviqr.in to upgrade')}>
-                    Upgrade to Business
-                  </button>
-                </div>
+                {upgradeOptions.map((p, i) => {
+                  const color = upgradeColors[i % upgradeColors.length];
+                  const offer = offerFor(p.planKey);
+                  const discounted = offer ? Math.round(p.price * (1 - offer.discountPercent / 100)) : null;
+                  const features = (p.features || '').split('\n').map(f => f.trim()).filter(Boolean);
+                  return (
+                    <div key={p.planKey} style={{ background:'white', borderRadius:12, border:`2px solid ${color}`, padding:20, position:'relative' }}>
+                      {offer && (
+                        <div style={{ position:'absolute', top:-1, right:16, background:'#DC2626', color:'white', fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:'0 0 8px 8px', letterSpacing:.5 }}>
+                          {offer.discountPercent}% OFF
+                        </div>
+                      )}
+                      <div style={{ fontSize:16, fontWeight:800, color, marginBottom:4 }}>{p.label}</div>
+                      <div style={{ fontSize:22, fontWeight:800, marginBottom:12 }}>
+                        {p.price === 0 ? 'Free' : (
+                          offer ? (
+                            <>
+                              <span style={{ textDecoration:'line-through', opacity:.5, fontSize:14, marginRight:6 }}>₹{p.price.toLocaleString('en-IN')}</span>
+                              ₹{discounted.toLocaleString('en-IN')}
+                            </>
+                          ) : `₹${p.price.toLocaleString('en-IN')}`
+                        )}
+                        {p.price > 0 && <span style={{ fontSize:13, fontWeight:400, color:'var(--gray-500)' }}>/mo</span>}
+                      </div>
+                      {features.map(f => (
+                        <div key={f} style={{ display:'flex', gap:6, alignItems:'center', fontSize:12, marginBottom:5 }}><Check size={12} style={{ color }}/>{f}</div>
+                      ))}
+                      <button style={{ width:'100%', justifyContent:'center', marginTop:14, padding:'9px 0', borderRadius:8, border:`2px solid ${color}`, background: i === 0 ? color : 'white', color: i === 0 ? 'white' : color, fontWeight:700, fontSize:13, cursor:'pointer' }}
+                        onClick={() => alert('Contact support@aviqr.in to upgrade')}>
+                        Upgrade to {p.label}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

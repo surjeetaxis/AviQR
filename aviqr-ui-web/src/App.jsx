@@ -25,6 +25,7 @@ import SupportDashboard  from './pages/support/SupportDashboard.jsx';
 import SupplierDashboard from './pages/supplier/SupplierDashboard.jsx';
 import HotelDashboard    from './pages/hotel/HotelDashboard.jsx';
 import MallDashboard     from './pages/mall/MallDashboard.jsx';
+import VendorQrCodes     from './pages/mall/VendorQrCodes.jsx';
 import CustomerMenu      from './pages/customer/CustomerMenu.jsx';
 import GuestServices     from './pages/customer/GuestServices.jsx';
 import FoodCourtHome     from './pages/customer/FoodCourtHome.jsx';
@@ -149,6 +150,10 @@ export default function App() {
       <Route path="/admin"    element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="/support"  element={<ProtectedRoute><SupportDashboard /></ProtectedRoute>} />
       <Route path="/supplier" element={<ProtectedRoute><SupplierDashboard /></ProtectedRoute>} />
+      {/* Mall admin managing a specific vendor's QR codes — reuses the shop-owner QR
+          designer, scoped to the vendor's linked shop (same idea as hotel outlets,
+          QR-only here since mall has its own vendor-management UI elsewhere) */}
+      <Route path="/mall/vendors/:vendorId/qr-codes" element={<ProtectedRoute><VendorQrCodes /></ProtectedRoute>} />
       <Route path="/hotel"    element={<ProtectedRoute><HotelDashboard /></ProtectedRoute>} />
       <Route path="/mall"     element={<ProtectedRoute><MallDashboard /></ProtectedRoute>} />
 

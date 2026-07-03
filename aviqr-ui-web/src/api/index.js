@@ -211,6 +211,7 @@ export const hotelApi = {
   updateRoom:     (id, d)    => api.put(`/api/v1/rooms/${id}`, d),
   createRoom:     (d)        => api.post('/api/v1/rooms', d),
   toggleRoomQr:   (id, active) => api.put(`/api/v1/rooms/${id}/qr?active=${active}`),
+  createRoomQr:   (id)         => api.post(`/api/v1/rooms/${id}/qr-code`),
   getRequests:    (hId, p)   => api.get(`/api/v1/room-requests/hotel/${hId}`, { params: p }),
   updateRequest:  (id, s)    => api.put(`/api/v1/room-requests/${id}/status?status=${s}`),
   createRequest:  (d)        => api.post('/api/v1/room-requests', d),
@@ -270,6 +271,8 @@ export const mallApi = {
   toggleVendor:(id, a)       => api.put(`/api/v1/vendors/${id}/status?active=${a}`),
   deleteVendor:(id)          => api.delete(`/api/v1/vendors/${id}`),
   enterVendor: (id)          => api.post(`/api/v1/vendors/${id}/enter`),
+  createVendorQr: (id)       => api.post(`/api/v1/vendors/${id}/qr-code`),
+  createMallQr:   (id)       => api.post(`/api/v1/malls/${id}/qr-code`),
   // ── Restaurant Request Flow ──────────────────────────────────────────────
   requestVendor:    (d)              => api.post('/api/v1/vendors/request', d),
   myRequests:        (shopIds)       => api.get('/api/v1/vendors/requests/mine', { params: { shopIds: shopIds.join(',') } }),

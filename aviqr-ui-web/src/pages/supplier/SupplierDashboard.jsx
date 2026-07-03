@@ -167,7 +167,7 @@ export default function SupplierDashboard() {
           {tab === 'orders'  && <AllOrdersTab outlets={outlets} />}
           {tab === 'qr'      && <QRCodesTab outlets={outlets} brand={brand} onBrandSaved={setBrand} />}
           {tab === 'reports' && <ReportsTab outlets={outlets} />}
-          {tab === 'subscription' && <SubscriptionPage userRole="supplier" currentPlan="pro" />}
+          {tab === 'subscription' && <SubscriptionPage userRole="supplier" currentPlan="SUPPLIER_PRO" />}
           {tab === 'settings'&& <SettingsTab user={user} brand={brand} onBrandSaved={setBrand} />}
         </main>
       </div>

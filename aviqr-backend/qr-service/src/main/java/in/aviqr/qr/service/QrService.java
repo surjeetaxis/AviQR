@@ -128,9 +128,10 @@ public class QrService {
         return switch (type) {
             case TABLE        -> base + "?table=" + group;
             case GROUP        -> base + "?cat=" + group;
-            case MALL         -> baseUrl + "/mall/" + shopId;
-            // shopId is a synthetic "hotel-{hotelId}" id (rooms have no shop-service Shop); group = room number
-            case HOTEL_ROOM   -> baseUrl + "/hotel/" + shopId.replaceFirst("^hotel-", "") + "/room/" + group;
+            case MALL         -> baseUrl + "/food-court/" + shopId;
+            // shopId is a synthetic "hotel-{hotelId}" id (rooms have no shop-service Shop); group = room number.
+            // Target is /hotel-services/:hotelId?room=..., the real GuestServices.jsx route (GuestServices.jsx:28-30).
+            case HOTEL_ROOM   -> baseUrl + "/hotel-services/" + shopId.replaceFirst("^hotel-", "") + "?room=" + group;
             // shopId is the outlet's real shop-service Shop id; group = hotelId, enables "bill to room" on the menu
             case HOTEL_OUTLET -> base + "?hotel=" + group;
             default           -> base;

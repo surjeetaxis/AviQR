@@ -6,12 +6,13 @@ import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
+import QRCode from 'qrcode';
 import {
   Hotel, BedDouble, UtensilsCrossed, Shirt, Sparkles, Wrench,
   Bell, BarChart2, Settings, LogOut, Menu as MenuIcon, CheckCircle2,
   Clock, AlertCircle, Plus, Edit2, Trash2, ToggleLeft, ToggleRight,
   Star, Phone, Save, X, Coffee, Car, RefreshCw, Store, UserCog, QrCode,
-  Users, Flower2, TrendingUp, Eye
+  Users, Flower2, TrendingUp, Eye, Download, Printer
 } from 'lucide-react';
 import '../admin/Admin.css';
 import './Hotel.css';
@@ -266,7 +267,7 @@ export default function HotelDashboard() {
           {tab==='maintenance'  && <ServicePage title="Maintenance" requests={requests.filter(r=>r.service==='Maintenance')} onAdvance={advanceRequest}/>}
           {tab==='qrmanagement' && <QRManagementPage rooms={rooms} setRooms={setRooms} outlets={outlets}/>}
           {tab==='reports'      && <HotelReportsTab outlets={outlets}/>}
-          {tab==='subscription' && <SubscriptionPage userRole="hotel" currentPlan="pro"/>}
+          {tab==='subscription' && <SubscriptionPage userRole="hotel" currentPlan="HOTEL_PRO"/>}
           {tab==='settings'     && <HotelSettings user={user} lang={lang} hotelId={hotelId}/>}
         </main>
       </div>
@@ -702,13 +703,7 @@ function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
     finally { setSaving(false); }
   };
 
-  const copyQrLink = (room) => {
-    const url = `${window.location.origin}/hotel-services/${hotelId}?room=${encodeURIComponent(room.number)}`;
-    navigator.clipboard?.writeText(url).then(
-      () => alert(`Guest QR link copied:\n${url}`),
-      () => prompt('Copy this guest QR link:', url)
-    );
-  };
+  const [qrRoom, setQrRoom] = useState(null);
 
   const viewRequests = (room) => {
     onRequestsFilter?.(room.number);
@@ -775,7 +770,7 @@ function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
               </div>
               <div style={{display:'flex',gap:6,marginTop:8}}>
                 <button className="btn-room-action" onClick={()=>viewRequests(room)}>📋 Requests</button>
-                <button className="btn-room-action" onClick={()=>copyQrLink(room)}>🔗 QR Link</button>
+                <button className="btn-room-action" onClick={()=>setQrRoom(room)}>📱 QR Code</button>
                 {room.status==='occupied' &&
                   <button className="btn-room-action" onClick={()=>setBillRoom(room)}>💳 Bill</button>}
               </div>
@@ -784,6 +779,69 @@ function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
         })}
       </div>
       {billRoom && <RoomBillModal room={billRoom} onClose={()=>setBillRoom(null)}/>}
+      {qrRoom && <RoomQrModal room={qrRoom} onClose={()=>setQrRoom(null)}/>}
+    </div>
+  );
+}
+
+function RoomQrModal({room,onClose}) {
+  const [qrImg,setQrImg] = useState('');
+  const [targetUrl,setTargetUrl] = useState('');
+  const [loading,setLoading] = useState(true);
+  const [error,setError] = useState('');
+
+  useEffect(() => {
+    hotelApi.createRoomQr(room.id)
+      .then(res => setTargetUrl(res.data.data?.targetUrl || ''))
+      .catch(() => setError('Could not generate QR code'))
+      .finally(() => setLoading(false));
+  }, [room.id]);
+
+  useEffect(() => {
+    if (!targetUrl) return;
+    QRCode.toDataURL(targetUrl, { width: 400, margin: 2, color: { dark: '#0F172A', light: '#ffffff' } })
+      .then(setQrImg).catch(() => {});
+  }, [targetUrl]);
+
+  const download = () => {
+    if (!qrImg) return;
+    const a = document.createElement('a');
+    a.href = qrImg;
+    a.download = `room-${room.number}-qr.png`;
+    a.click();
+  };
+
+  const copyLink = () => {
+    if (!targetUrl) return;
+    navigator.clipboard?.writeText(targetUrl).then(
+      () => alert(`Guest QR link copied:\n${targetUrl}`),
+      () => prompt('Copy this guest QR link:', targetUrl)
+    );
+  };
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}} onClick={onClose}>
+      <div style={{background:'#fff',borderRadius:16,padding:20,width:'92%',maxWidth:360,textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <div style={{fontWeight:800,fontSize:16}}>Room {room.number} · QR Code</div>
+          <button onClick={onClose} style={{background:'var(--gray-100)',border:'none',borderRadius:8,padding:6,cursor:'pointer'}}><X size={18}/></button>
+        </div>
+        {loading ? (
+          <p style={{fontSize:13,color:'var(--gray-400)',padding:'40px 0'}}>Generating…</p>
+        ) : error ? (
+          <p style={{fontSize:13,color:'#DC2626',padding:'40px 0'}}>{error}</p>
+        ) : (
+          <div style={{display:'flex',flexDirection:'column',gap:14,alignItems:'center'}}>
+            {qrImg ? <img src={qrImg} alt="Room QR" style={{width:220,height:220,borderRadius:8}}/> : <div style={{width:220,height:220,background:'var(--gray-100)',borderRadius:8}}/>}
+            <div style={{fontSize:11.5,color:'var(--gray-400)',fontFamily:'monospace',wordBreak:'break-all'}}>{targetUrl}</div>
+            <div style={{display:'flex',gap:8,width:'100%'}}>
+              <button className="btn-refresh" style={{flex:1,justifyContent:'center'}} onClick={download}><Download size={14}/> Download</button>
+              <button className="btn-refresh" style={{flex:1,justifyContent:'center'}} onClick={()=>window.print()}><Printer size={14}/> Print</button>
+            </div>
+            <button className="btn-room-action" style={{width:'100%'}} onClick={copyLink}>🔗 Copy Link</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

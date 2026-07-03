@@ -1,43 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, Zap, Crown, Building2, Star, CreditCard, Download, AlertCircle, ArrowRight } from 'lucide-react';
 import { useLang } from './LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
+import { planApi, offerApi } from '../../api/index.js';
 import './Subscription.css';
 
-const PLANS = {
-  owner: [
-    { id:'free',     name:'Starter',  price:0,    period:'forever', color:'gray',   icon:Star,     tag:null,
-      features:['Up to 20 menu items','50 orders/day','1 QR code','Basic analytics','Email support'] },
-    { id:'growth',   name:'Growth',   price:999,  period:'month',   color:'green',  icon:Zap,      tag:'Most popular',
-      features:['Unlimited items & orders','Dynamic pricing','OCR menu upload','Staff roles (10)','Loyalty & wallet','WhatsApp campaigns','Priority support'] },
-    { id:'business', name:'Business', price:2499, period:'month',   color:'purple', icon:Crown,    tag:null,
-      features:['Everything in Growth','Multi-outlet dashboard','CRM & retention','AI recommendations','API access','Dedicated support','Custom QR design'] },
-  ],
-  hotel: [
-    { id:'basic',    name:'Hotel Basic',   price:1499, period:'month', color:'gray',   icon:Star,   tag:null,
-      features:['Up to 50 rooms','Room service QR','Basic guest requests','Order tracking','Email support'] },
-    { id:'pro',      name:'Hotel Pro',     price:3499, period:'month', color:'green',  icon:Zap,    tag:'Recommended',
-      features:['Unlimited rooms','All service types','Housekeeping module','Laundry & spa','Maintenance tracking','Analytics dashboard','Priority support'] },
-    { id:'resort',   name:'Resort Suite',  price:7999, period:'month', color:'purple', icon:Crown,  tag:null,
-      features:['Everything in Pro','Multi-property','Guest loyalty','PMS integration','Custom branding','API access','Dedicated manager'] },
-  ],
-  mall: [
-    { id:'basic',    name:'Mall Basic',    price:2499, period:'month', color:'gray',   icon:Star,   tag:null,
-      features:['Up to 10 vendors','Mall QR code','Basic analytics','Vendor management','Email support'] },
-    { id:'pro',      name:'Mall Pro',      price:5999, period:'month', color:'green',  icon:Zap,    tag:'Recommended',
-      features:['Unlimited vendors','Revenue sharing','Commission tracking','All QR types','Vendor billing','Reports','Priority support'] },
-    { id:'enterprise',name:'Enterprise',  price:14999,period:'month', color:'purple', icon:Crown,  tag:null,
-      features:['Everything in Pro','Multi-mall management','Custom integrations','Footfall analytics','API access','Dedicated team'] },
-  ],
-  supplier: [
-    { id:'basic',    name:'Brand Basic',   price:1999, period:'month', color:'gray',   icon:Star,   tag:null,
-      features:['Up to 3 outlets','Central menu sync','Basic reports','Order management','Email support'] },
-    { id:'pro',      name:'Brand Pro',     price:4499, period:'month', color:'green',  icon:Zap,    tag:'Most popular',
-      features:['Up to 10 outlets','Central pricing','Analytics','Loyalty sync','Staff roles','Priority support'] },
-    { id:'enterprise',name:'Enterprise',  price:9999, period:'month', color:'purple', icon:Crown,  tag:null,
-      features:['Unlimited outlets','Franchise management','AI analytics','API access','Custom branding','Dedicated manager'] },
-  ],
-};
+// Maps this page's userRole prop to the Plan.vertical values admin manages
+// in Subscription Management (AdminDashboard "Manage Plans" tab).
+const VERTICAL_MAP = { owner:'SHOP', hotel:'HOTEL', mall:'MALL', supplier:'SUPPLIER' };
+const TIER_ICONS  = [Star, Zap, Crown];
+const TIER_COLORS = ['gray', 'green', 'purple'];
 
 const BILLING = [
   { date:'14 Jun 2025', amount:'₹999', invoice:'INV-2025-06', status:'Paid' },
@@ -47,10 +19,38 @@ const BILLING = [
 
 export default function SubscriptionPage({ userRole = 'owner', currentPlan = 'growth' }) {
   const { lang } = useLang();
+  const [plans, setPlans]     = useState([]);
+  const [offers, setOffers]   = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activePlan, setActivePlan] = useState(currentPlan);
-  const [selected, setSelected] = useState(currentPlan);
+  const [selected, setSelected]     = useState(currentPlan);
   const [billing, setBilling] = useState('monthly');
-  const plans = PLANS[userRole] || PLANS.owner;
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const vertical = VERTICAL_MAP[userRole] || 'SHOP';
+        const [planRes, offerRes] = await Promise.all([planApi.listPublic(vertical), offerApi.listActive()]);
+        const live = (planRes.data?.data || [])
+          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+          .map((p, i) => ({
+            id: p.planKey,
+            name: p.label,
+            price: p.price,
+            color: TIER_COLORS[Math.min(i, TIER_COLORS.length - 1)],
+            icon: TIER_ICONS[Math.min(i, TIER_ICONS.length - 1)],
+            tag: i === 1 ? 'Recommended' : null,
+            features: (p.features || '').split('\n').map(f => f.trim()).filter(Boolean),
+          }));
+        setPlans(live);
+        setOffers(offerRes.data?.data || []);
+      } catch { setPlans([]); }
+      finally { setLoading(false); }
+    })();
+  }, [userRole]);
+
+  useEffect(() => { setActivePlan(currentPlan); setSelected(currentPlan); }, [currentPlan]);
 
   const upgrade = (plan) => {
     if (!confirm(`Switch to ${plan.name}? This is a demo — no payment will be charged.`)) return;
@@ -61,13 +61,24 @@ export default function SubscriptionPage({ userRole = 'owner', currentPlan = 'gr
 
   const cancelPlan = () => {
     const fallback = plans[0];
+    if (!fallback) return;
     if (!confirm(`Cancel your ${plans.find(p=>p.id===activePlan)?.name} plan and move to ${fallback.name}?`)) return;
     setActivePlan(fallback.id);
     setSelected(fallback.id);
     alert(`Plan cancelled — you're now on ${fallback.name}.`);
   };
 
+  const offerFor = (planKey) => offers.find(o => o.applicablePlans === 'ALL'
+    || (o.applicablePlans || '').split(',').map(s => s.trim()).includes(planKey));
+
   const COLOR = { gray:'var(--gray-400)', green:'var(--green)', purple:'var(--purple)' };
+
+  if (loading) {
+    return <div className="sub-page"><p style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading plans…</p></div>;
+  }
+  if (plans.length === 0) {
+    return <div className="sub-page"><p style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>No plans configured yet — check back soon.</p></div>;
+  }
 
   return (
     <div className="sub-page">
@@ -102,20 +113,29 @@ export default function SubscriptionPage({ userRole = 'owner', currentPlan = 'gr
       <div className="sub-plans-grid">
         {plans.map(plan => {
           const Icon = plan.icon;
-          const price = billing==='yearly' ? Math.round(plan.price * 0.8) : plan.price;
+          const basePrice = billing==='yearly' ? Math.round(plan.price * 0.8) : plan.price;
+          const offer = offerFor(plan.id);
+          const price = offer ? Math.round(basePrice * (1 - offer.discountPercent / 100)) : basePrice;
           const isCurrent = plan.id === activePlan;
           return (
             <div key={plan.id} className={`sub-plan-card ${selected===plan.id?'is-selected':''} ${isCurrent?'is-current':''}`}
               onClick={()=>setSelected(plan.id)}>
-              {plan.tag && !isCurrent && <div className="sub-plan-tag">{plan.tag}</div>}
+              {offer && !isCurrent && <div className="sub-plan-tag" style={{ background:'#DC2626' }}>{offer.discountPercent}% OFF</div>}
+              {!offer && plan.tag && !isCurrent && <div className="sub-plan-tag">{plan.tag}</div>}
               {isCurrent && <div className="sub-current-tag">Current</div>}
               <div className="sub-plan-icon" style={{background:plan.color==='green'?'var(--green-light)':plan.color==='purple'?'var(--purple-bg)':'var(--gray-100)'}}>
                 <Icon size={20} style={{color:COLOR[plan.color]}}/>
               </div>
               <div className="sub-plan-name">{plan.name}</div>
               <div className="sub-plan-price">
-                {plan.price===0 ? 'Free' : <>₹{price.toLocaleString('en-IN')}<span>/mo</span></>}
+                {plan.price===0 ? 'Free' : (
+                  <>
+                    {offer && <span style={{ textDecoration:'line-through', opacity:.5, fontSize:'0.6em', marginRight:4 }}>₹{basePrice.toLocaleString('en-IN')}</span>}
+                    ₹{price.toLocaleString('en-IN')}<span>/mo</span>
+                  </>
+                )}
               </div>
+              {offer && !isCurrent && <div style={{ fontSize:11, color:'#DC2626', fontWeight:600, marginTop:-6, marginBottom:8 }}>🎉 {offer.title}</div>}
               <ul className="sub-plan-features">
                 {plan.features.map(f=>(
                   <li key={f}><Check size={12} style={{color:'var(--green)',flexShrink:0}}/>{f}</li>

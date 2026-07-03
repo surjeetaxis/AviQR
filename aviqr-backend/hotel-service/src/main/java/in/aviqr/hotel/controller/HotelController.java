@@ -4,14 +4,17 @@ import in.aviqr.hotel.entity.*;
 import in.aviqr.hotel.repository.*;
 import in.aviqr.hotel.service.HotelAccessService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import java.time.LocalDateTime;
 import java.util.*;
 
-@RestController @RequiredArgsConstructor
+@RestController @RequiredArgsConstructor @Slf4j
 public class HotelController {
     private final HotelRepository hotelRepo;
     private final RoomRepository roomRepo;
@@ -19,6 +22,10 @@ public class HotelController {
     private final HotelAccessRepository accessRepo;
     private final HotelAccessService accessService;
     private final RabbitTemplate rabbit;
+    private final RestTemplate restTemplate;
+
+    @Value("${qr.service.url:http://qr-service}")
+    private String qrServiceUrl;
 
     // ── Admin: list all hotels ────────────────────────────────────────────────
     @GetMapping("/api/v1/hotels/admin/all")
@@ -97,6 +104,48 @@ public class HotelController {
     public ResponseEntity<ApiResponse<Void>> toggleRoomQr(@PathVariable UUID id, @RequestParam boolean active) {
         roomRepo.findById(id).ifPresent(r -> { r.setQrActive(active); roomRepo.save(r); });
         return ResponseEntity.ok(ApiResponse.ok("Updated", null));
+    }
+
+    // Generates (or returns the already-existing) real, scannable QR for a room via
+    // qr-service — rooms have no shop-service Shop of their own, so they share a
+    // synthetic "hotel-{hotelId}" shopId bucket, distinguished by groupParam=roomNumber
+    // (same convention as qr-service's QrService.buildUrl HOTEL_ROOM case).
+    @PostMapping("/api/v1/rooms/{id}/qr-code")
+    public ResponseEntity<ApiResponse<Map>> createRoomQrCode(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        Room room = roomRepo.findById(id).orElse(null);
+        if (room == null) return ResponseEntity.notFound().build();
+        if (!accessService.hasAccess(room.getHotelId(), uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+
+        String syntheticShopId = "hotel-" + room.getHotelId();
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> listResp = restTemplate.getForObject(
+                qrServiceUrl + "/api/v1/qr-codes/shop/" + syntheticShopId, Map.class);
+            List<Map<String, Object>> existing = listResp != null
+                ? (List<Map<String, Object>>) listResp.get("data") : List.of();
+            Optional<Map<String, Object>> found = existing.stream()
+                .filter(q -> "HOTEL_ROOM".equals(q.get("type")) && room.getRoomNumber().equals(q.get("groupParam")))
+                .findFirst();
+            Map<String, Object> qr;
+            if (found.isPresent()) {
+                qr = found.get();
+            } else {
+                String url = qrServiceUrl + "/api/v1/qr-codes/internal/shop/" + syntheticShopId
+                    + "?label=Room " + room.getRoomNumber() + "&type=HOTEL_ROOM&group=" + room.getRoomNumber();
+                @SuppressWarnings("unchecked")
+                Map<String, Object> createResp = restTemplate.postForObject(url, null, Map.class);
+                qr = createResp != null ? (Map<String, Object>) createResp.get("data") : null;
+            }
+            room.setQrActive(true); roomRepo.save(room);
+            return ResponseEntity.ok(ApiResponse.ok("QR ready", qr));
+        } catch (Exception e) {
+            log.warn("Failed to create QR for room {}: {}", id, e.getMessage());
+            return ResponseEntity.status(502).body(ApiResponse.error("Could not reach qr-service"));
+        }
     }
 
     // ── Room Requests ─────────────────────────────────────────────────────────

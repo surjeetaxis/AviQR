@@ -75,6 +75,36 @@ const TESTIMONIALS = [
 
 export default function Landing() {
   const navigate = useNavigate();
+  const [plans, setPlans]   = useState(FALLBACK_PLANS);
+  const [offers, setOffers] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [planRes, offerRes] = await Promise.all([
+          planApi.listPublic('SHOP'),
+          offerApi.listActive(),
+        ]);
+        const live = planRes.data?.data || [];
+        if (live.length > 0) {
+          setPlans([...live].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(p => {
+            const meta = PLAN_META[p.planKey] || {};
+            return {
+              planKey: p.planKey,
+              name: p.label,
+              price: p.price,
+              features: (p.features || '').split('\n').map(f => f.trim()).filter(Boolean),
+              desc: meta.desc || `${p.label} plan`,
+              cta: meta.cta || (p.price === 0 ? 'Start free' : 'Contact sales'),
+              tag: meta.tag || null,
+              primary: meta.primary || false,
+            };
+          }));
+        }
+        setOffers(offerRes.data?.data || []);
+      } catch { /* keep the static fallback — pricing must never look broken */ }
+    })();
+  }, []);
 
   return (
     <div className="landing">
@@ -233,30 +263,48 @@ export default function Landing() {
           <p className="section-sub">Start free. Scale as you grow. No hidden charges.</p>
         </div>
         <div className="pricing-grid">
-          {PLANS.map(plan => (
-            <div key={plan.name} className={`pricing-card ${plan.primary ? 'pricing-primary' : ''}`}>
-              {plan.tag && <div className="pricing-tag">{plan.tag}</div>}
-              <div className="pricing-name">{plan.name}</div>
-              <div className="pricing-price">
-                {plan.price}<span className="pricing-period">{plan.period}</span>
+          {plans.map(plan => {
+            const offer = offers.find(o => o.applicablePlans === 'ALL'
+              || (o.applicablePlans || '').split(',').map(s => s.trim()).includes(plan.planKey));
+            const discounted = offer ? Math.round(plan.price * (1 - offer.discountPercent / 100)) : null;
+            return (
+              <div key={plan.planKey || plan.name} className={`pricing-card ${plan.primary ? 'pricing-primary' : ''}`}>
+                {offer
+                  ? <div className="pricing-tag" style={{ background: '#DC2626' }}>{offer.discountPercent}% OFF</div>
+                  : (plan.tag && <div className="pricing-tag">{plan.tag}</div>)}
+                <div className="pricing-name">{plan.name}</div>
+                <div className="pricing-price">
+                  {plan.price === 0 ? 'Free' : (
+                    offer ? (
+                      <>
+                        <span style={{ textDecoration: 'line-through', opacity: .5, fontSize: '0.55em', marginRight: 6 }}>
+                          ₹{plan.price.toLocaleString('en-IN')}
+                        </span>
+                        ₹{discounted.toLocaleString('en-IN')}
+                      </>
+                    ) : `₹${plan.price.toLocaleString('en-IN')}`
+                  )}
+                  {plan.price > 0 && <span className="pricing-period">/month</span>}
+                </div>
+                {offer && <div style={{ fontSize: 12, color: '#DC2626', fontWeight: 600, margin: '-8px 0 8px' }}>🎉 {offer.title}</div>}
+                <div className="pricing-desc">{plan.desc}</div>
+                <ul className="pricing-features">
+                  {plan.features.map(f => (
+                    <li key={f}>
+                      <CheckCircle size={13} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  className={plan.primary ? 'btn-pricing-primary' : 'btn-pricing-secondary'}
+                  onClick={() => navigate('/register')}
+                >
+                  {plan.cta}
+                </button>
               </div>
-              <div className="pricing-desc">{plan.desc}</div>
-              <ul className="pricing-features">
-                {plan.features.map(f => (
-                  <li key={f}>
-                    <CheckCircle size={13} />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <button
-                className={plan.primary ? 'btn-pricing-primary' : 'btn-pricing-secondary'}
-                onClick={() => navigate('/register')}
-              >
-                {plan.cta}
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

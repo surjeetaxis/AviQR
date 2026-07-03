@@ -22,6 +22,9 @@ public class MallController {
     @Value("${shop.service.url:http://shop-service}")
     private String shopServiceUrl;
 
+    @Value("${qr.service.url:http://qr-service}")
+    private String qrServiceUrl;
+
     @PostMapping("/api/v1/malls")
     public ResponseEntity<ApiResponse<Mall>> create(@RequestBody Mall mall, @RequestHeader("X-User-Id") String uid) {
         mall.setAdminId(uid);
@@ -115,6 +118,74 @@ public class MallController {
             return ResponseEntity.badRequest().body(ApiResponse.error("Vendor has no linked shop"));
         String token = vendorTokenService.mintVendorToken(uid, v.getShopId());
         return ResponseEntity.ok(ApiResponse.ok(Map.of("accessToken", token, "shopId", v.getShopId())));
+    }
+
+    // Convenience: QR-enable a vendor in one call instead of the frontend orchestrating
+    // mall-service + qr-service — same pattern as hotel-service's hotel-outlets/{id}/qr-code.
+    @PostMapping("/api/v1/vendors/{id}/qr-code")
+    public ResponseEntity<ApiResponse<Map>> createVendorQrCode(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        Vendor v = vendorRepo.findById(id).orElse(null);
+        if (v == null) return ResponseEntity.notFound().build();
+        if (!"ADMIN".equals(role)) {
+            boolean owns = v.getMallId() != null &&
+                mallRepo.findById(v.getMallId()).map(m -> uid.equals(m.getAdminId())).orElse(false);
+            if (!owns) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        }
+        if (v.getShopId() == null || v.getShopId().isBlank())
+            return ResponseEntity.badRequest().body(ApiResponse.error("Vendor has no linked shop"));
+        try {
+            String url = qrServiceUrl + "/api/v1/qr-codes/internal/shop/" + v.getShopId()
+                + "?label=" + v.getName() + "&type=SHOP&group=" + v.getMallId();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resp = restTemplate.postForObject(url, null, Map.class);
+            return ResponseEntity.ok(ApiResponse.ok("QR created", resp));
+        } catch (Exception e) {
+            log.warn("Failed to create QR for vendor {}: {}", id, e.getMessage());
+            return ResponseEntity.status(502).body(ApiResponse.error("Could not reach qr-service"));
+        }
+    }
+
+    // Real, scannable, backend-tracked QR for the mall's food-court landing page —
+    // replaces the old client-side-only QR image. Mall has no shop-service Shop of its
+    // own, so its own id doubles as the qr-service "shopId" for QrType.MALL.
+    @PostMapping("/api/v1/malls/{id}/qr-code")
+    public ResponseEntity<ApiResponse<Map>> createMallQrCode(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        Mall mall = mallRepo.findById(id).orElse(null);
+        if (mall == null) return ResponseEntity.notFound().build();
+        if (!"ADMIN".equals(role) && !uid.equals(mall.getAdminId()))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+
+        String shopId = id.toString();
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> listResp = restTemplate.getForObject(
+                qrServiceUrl + "/api/v1/qr-codes/shop/" + shopId, Map.class);
+            List<Map<String, Object>> existing = listResp != null
+                ? (List<Map<String, Object>>) listResp.get("data") : List.of();
+            Optional<Map<String, Object>> found = existing.stream()
+                .filter(q -> "MALL".equals(q.get("type")))
+                .findFirst();
+            Map<String, Object> qr;
+            if (found.isPresent()) {
+                qr = found.get();
+            } else {
+                String url = qrServiceUrl + "/api/v1/qr-codes/internal/shop/" + shopId
+                    + "?label=" + mall.getName() + "&type=MALL";
+                @SuppressWarnings("unchecked")
+                Map<String, Object> createResp = restTemplate.postForObject(url, null, Map.class);
+                qr = createResp != null ? (Map<String, Object>) createResp.get("data") : null;
+            }
+            return ResponseEntity.ok(ApiResponse.ok("QR ready", qr));
+        } catch (Exception e) {
+            log.warn("Failed to create QR for mall {}: {}", id, e.getMessage());
+            return ResponseEntity.status(502).body(ApiResponse.error("Could not reach qr-service"));
+        }
     }
 
     // Looks up a shop in shop-service by id. Returns null if it doesn't exist or the
