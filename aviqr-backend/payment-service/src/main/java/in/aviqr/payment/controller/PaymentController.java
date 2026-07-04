@@ -29,6 +29,9 @@ public class PaymentController {
     @Value("${razorpay.key.secret:rzp_test_placeholder_secret}")
     private String razorpaySecret;
 
+    @Value("${razorpay.webhook.secret:placeholder_secret}")
+    private String razorpayWebhookSecret;
+
     /** Create a real Razorpay order — called before Razorpay checkout */
     @PostMapping("/create-order")
     public ResponseEntity<ApiResponse<Map<String,Object>>> createOrder(@RequestBody CreatePaymentOrderRequest req) {
@@ -122,11 +125,16 @@ public class PaymentController {
             @RequestBody String payload,
             @RequestHeader(value = "X-Razorpay-Signature", required = false) String signature) {
 
-        // 1. Verify webhook signature
-        if (signature != null && !razorpaySecret.startsWith("rzp_test_placeholder")) {
+        // 1. Verify webhook signature (skipped only when running with placeholder dev secrets)
+        boolean devMode = razorpayWebhookSecret.equals("placeholder_secret");
+        if (!devMode) {
+            if (signature == null) {
+                log.warn("Razorpay webhook received with no signature header");
+                return ResponseEntity.status(400).body("Missing signature");
+            }
             try {
                 Mac mac = Mac.getInstance("HmacSHA256");
-                mac.init(new SecretKeySpec(razorpaySecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+                mac.init(new SecretKeySpec(razorpayWebhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
                 String computed = HexFormat.of().formatHex(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
                 if (!computed.equals(signature)) {
                     log.warn("Razorpay webhook signature mismatch");

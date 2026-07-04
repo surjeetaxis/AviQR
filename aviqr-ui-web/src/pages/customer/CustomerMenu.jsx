@@ -761,6 +761,8 @@ export default function CustomerMenu() {
                             <img
                               src={item.imageUrl}
                               alt={item.name}
+                              loading="lazy"
+                              decoding="async"
                               className="cm-item-img-photo"
                               onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }}
                             />

@@ -6,7 +6,8 @@ import {
   QrCode, Zap, BarChart2, Users, ShoppingBag, Star,
   ChevronRight, Globe, Shield, Clock, Smartphone,
   ArrowRight, CheckCircle, Building2, Hotel, Store,
-  Coffee, UtensilsCrossed, ShoppingCart, Wifi
+  Coffee, UtensilsCrossed, ShoppingCart, Wifi, ScanLine,
+  UploadCloud, PackageCheck
 } from 'lucide-react';
 import './Landing.css';
 
@@ -24,6 +25,21 @@ const FEATURES = [
   { icon: Star,          title: 'Loyalty & Wallet',        desc: 'Silver → Diamond tiers. Cashback wallet. Reward regulars, retain customers.' },
   { icon: BarChart2,     title: 'Analytics & CRM',         desc: 'Revenue trends, peak hours, top items, customer spend analysis in real time.' },
   { icon: Smartphone,    title: 'No App for Customers',    desc: 'Customers scan with phone camera. Menu opens instantly in browser. No download required.' },
+];
+
+const HOW_IT_WORKS = [
+  { icon: UploadCloud, title: 'Add your menu',           desc: 'Manually or upload a photo — our OCR reads your printed menu in minutes.' },
+  { icon: QrCode,      title: 'Get your QR',              desc: 'One permanent QR code for your shop. Print it on tables, boards, or receipts.' },
+  { icon: ScanLine,    title: 'Customers scan & order',   desc: 'Menu opens in their browser. They order and pay in 30 seconds.' },
+  { icon: PackageCheck,title: 'You receive & manage',     desc: 'Orders appear instantly on your dashboard. Track, prepare, complete.' },
+];
+
+// Real product screenshots, captured live from the running app (not mockups) —
+// see aviqr-ui-web/public/demo/.
+const SHOWCASE = [
+  { src: '/demo/owner-dashboard.png', alt: 'AviQR owner dashboard showing live orders, revenue and top-selling items', title: 'Owner dashboard', desc: 'Live orders, revenue and top items — updated in real time.', wide: true },
+  { src: '/demo/customer-menu.png',   alt: 'Customer-facing QR menu with real dish photos and a 3D preview badge', title: 'Customer menu', desc: 'Real dish photos, videos and 3D previews your customers actually see.' },
+  { src: '/demo/qr-designer.png',     alt: 'Print-ready QR code poster designer with live preview', title: 'QR poster designer', desc: 'Table tents, wall posters, counter cards — designed and printed in one click.' },
 ];
 
 const VERTICALS = [
@@ -85,7 +101,11 @@ export default function Landing() {
           planApi.listPublic('SHOP'),
           offerApi.listActive(),
         ]);
-        const live = planRes.data?.data || [];
+        // Enterprise is a "talk to sales" tier with a custom quote, not a self-serve
+        // ₹ price — showing it in this grid renders price=0 as "Free", which reads as
+        // a data bug next to the real Starter/Growth/Business tiers. Keep it out of the
+        // public pricing grid; it still exists for admin plan management elsewhere.
+        const live = (planRes.data?.data || []).filter(p => p.planKey !== 'ENTERPRISE');
         if (live.length > 0) {
           setPlans([...live].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(p => {
             const meta = PLAN_META[p.planKey] || {};
@@ -122,6 +142,7 @@ export default function Landing() {
           </div>
           <div className="land-nav-links">
             <a href="#features">Features</a>
+            <a href="#showcase">See it in action</a>
             <a href="#verticals">Who it's for</a>
             <a href="#pricing">Pricing</a>
           </div>
@@ -221,37 +242,40 @@ export default function Landing() {
 
         {/* How it works */}
         <div className="how-it-works">
-          <div className="hiw-step">
-            <div className="hiw-num">1</div>
-            <div className="hiw-text">
-              <strong>Add your menu</strong><br />
-              Manually or upload a photo — our OCR reads your printed menu in minutes.
+          <div className="hiw-track" aria-hidden="true" />
+          {HOW_IT_WORKS.map((s, i) => (
+            <div className="hiw-step" key={s.title}>
+              <div className="hiw-card">
+                <div className="hiw-icon"><s.icon size={22} /></div>
+                <div className="hiw-num">{i + 1}</div>
+                <div className="hiw-text">
+                  <strong>{s.title}</strong>
+                  {s.desc}
+                </div>
+              </div>
+              {i < HOW_IT_WORKS.length - 1 && <div className="hiw-arrow"><ChevronRight size={20} /></div>}
             </div>
-          </div>
-          <div className="hiw-arrow"><ChevronRight size={20} /></div>
-          <div className="hiw-step">
-            <div className="hiw-num">2</div>
-            <div className="hiw-text">
-              <strong>Get your QR</strong><br />
-              One permanent QR code for your shop. Print it on tables, boards, or receipts.
-            </div>
-          </div>
-          <div className="hiw-arrow"><ChevronRight size={20} /></div>
-          <div className="hiw-step">
-            <div className="hiw-num">3</div>
-            <div className="hiw-text">
-              <strong>Customers scan & order</strong><br />
-              Menu opens in their browser. They order and pay in 30 seconds.
-            </div>
-          </div>
-          <div className="hiw-arrow"><ChevronRight size={20} /></div>
-          <div className="hiw-step">
-            <div className="hiw-num">4</div>
-            <div className="hiw-text">
-              <strong>You receive & manage</strong><br />
-              Orders appear instantly on your dashboard. Track, prepare, complete.
-            </div>
-          </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Product Showcase — real screenshots, not mockups ── */}
+      <section className="showcase-section" id="showcase">
+        <div className="section-header">
+          <div className="section-eyebrow">See it in action</div>
+          <h2 className="section-title">Real screens. Real product.</h2>
+          <p className="section-sub">No mockups here — these are live screenshots of exactly what you and your customers see.</p>
+        </div>
+        <div className="showcase-grid">
+          {SHOWCASE.map(s => (
+            <figure key={s.src} className={`showcase-card ${s.wide ? 'showcase-wide' : ''}`}>
+              <img src={s.src} alt={s.alt} loading="lazy" />
+              <figcaption>
+                <div className="showcase-title">{s.title}</div>
+                <div className="showcase-desc">{s.desc}</div>
+              </figcaption>
+            </figure>
+          ))}
         </div>
       </section>
 

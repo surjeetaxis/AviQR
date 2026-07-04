@@ -18,10 +18,10 @@ Scope: live verification of the actually-implemented platform (auth, shop, menu,
 | QR generation/scan/tracking | ❌→✅ Anonymous scan was completely broken (401); fixed |
 | Hotel room/room-request CRUD | ✅ Works after RBAC fix |
 | Mall vendor CRUD + public directory | ❌→✅ Public directory was unreachable; fixed |
-| Payment create-order/refund/list | ⚠️ Works, but is a **mocked** Razorpay integration (no real API call, fake signature scheme) |
+| Payment create-order/refund/list | ✅ Real Razorpay SDK + correct signature scheme; webhook secret fixed — see §2 #12 |
 | Support tickets + impersonation logging | ✅ Works after RBAC fix |
 | Audit logging (auth-service → MongoDB) | ✅ Confirmed entries written |
-| Seed data idempotency | ❌ Not idempotent — see §5 |
+| Seed data idempotency | ❌→✅ Fixed and verified live — see §2 #13 |
 
 ---
 
@@ -89,10 +89,21 @@ Fix: added the missing `start_one "review-service"` call.
 `started=$(grep -c PATTERN file 2>/dev/null || echo 0)` — `grep -c` already prints `0` on no match (with exit code 1), so the `|| echo 0` fallback ran *too*, producing two lines (`"0\n0"`) in the captured variable and breaking the subsequent `[ "$started" -gt 0 ]` integer test with `integer expression expected`.
 Fix: removed the redundant fallback.
 
-### Documented, not fixed (out of scope for this pass)
+### Follow-up pass — previously "documented, not fixed" items, now closed
 
-- **`app.otp.bypass` / `app.otp.dev-code` in `auth-service/application-local.properties` are dead config** — `AuthService.java` actually reads `app.otp.dev-mode` / `app.otp.fixed-code`, different names entirely, so the intended "fixed OTP for local dev" convenience never activates. OTP login currently only works by reading the real OTP out of the service log (which is what this verification pass did). Low risk, cosmetic — flagging for a follow-up rather than fixing now.
-- **payment-service is a mocked Razorpay integration** — `create-order` returns a fake order id without calling Razorpay; `/verify`'s signature scheme (`HMAC("orderId|paymentId")`) doesn't match Razorpay's actual documented payload+secret scheme; the webhook handler doesn't verify the `X-Razorpay-Signature` header at all (comment admits "In production: verify webhook signature"). This is a pre-existing stub, not a regression — flagged here rather than "fixed" with hand-rolled crypto that would create a false sense of security.
+**11. `app.otp.bypass` / `app.otp.dev-code` dead config.**
+`auth-service/application-local.properties` set `app.otp.bypass` / `app.otp.dev-code`, but `AuthService.java` reads `app.otp.dev-mode` / `app.otp.fixed-code` — different names entirely, so the fixed-OTP local-dev convenience never activated.
+Fix: renamed the local profile's keys to `app.otp.dev-mode=true` / `app.otp.fixed-code=123456`, matching what `AuthService.java` actually reads (same names already used correctly in the base/staging profiles).
+
+**12. payment-service Razorpay integration.**
+By the time of this pass, `create-order` and `/verify` had already been rewritten elsewhere to use the real `razorpay-java` SDK and the correct `HMAC-SHA256(order_id|payment_id, secret)` signature scheme — the mocked-integration description above was stale. Remaining gap: the webhook handler verified `X-Razorpay-Signature` using the **API key secret**, but Razorpay signs webhooks with a separate secret configured per-webhook in the dashboard, so real webhook calls would always fail verification (or silently skip it whenever no signature header was sent at all, since the check only ran `if (signature != null && ...)`).
+Fix: added a dedicated `razorpay.webhook.secret` (`RAZORPAY_WEBHOOK_SECRET`) property, used it instead of the key secret for webhook verification, and made a missing signature header a hard 400 rather than a silent skip whenever real (non-placeholder) secrets are configured.
+
+**13. `aviqr_setup.sql` not idempotent / silently broken on rerun.**
+Re-running the script against an already-seeded instance would either wipe all 11 databases (`DROP DATABASE IF EXISTS` before every `CREATE DATABASE`) or, once that was fixed, immediately error out on `CREATE SEQUENCE seq_user_ref already exists` / `ADD CONSTRAINT fk_order_items_order_id already exists` (no guard on either). Verified live via transactional dry-runs against the actual seeded dev databases.
+Fix: removed the `DROP DATABASE` statements and guarded each `CREATE DATABASE` with a `psql \gexec`-based existence check; changed every `CREATE TABLE` / `CREATE INDEX` / `CREATE SEQUENCE` to their `IF NOT EXISTS` forms; wrapped the one `ALTER TABLE ... ADD CONSTRAINT` in a `pg_constraint` existence check; and added `ON CONFLICT DO NOTHING` to all 45 demo-data `INSERT` statements that didn't already have it.
+Also found and fixed two pre-existing bugs surfaced by the same dry-run testing (unrelated to idempotency, but both meant part of the seed data silently never loaded): an `order_items` insert joined `menu_items` across a database boundary (`aviqr_order` connection querying a table that only exists in `aviqr_menu` — impossible in Postgres without dblink/fdw), fixed by giving the referenced Ramesh Tea House menu items fixed ids instead of `gen_random_uuid()` and passing those ids directly instead of joining; and a `room_requests` insert had two rows with 9 values against an 8-column list (missing `resolved_at`), fixed by adding the column.
+Verified: ran the edited script's per-database sections twice in a row (committed, not rolled back) against the live seeded dev databases — no errors on either run, and every fixed-id table's row count was unchanged between the two runs. Residual limitation: a handful of tables have no natural unique key on their seed rows (`otp_records`, `qr_scan_logs`, `impersonation_logs`, `shop_opening_hours`, `staff_permissions`, `hotel_enabled_services`, `reviews`, plus the Coconut Grove/Biryani House `menu_items`/`categories` blocks and their `order_items`) — re-running the script still appends extra copies of those specific rows rather than erroring, since `ON CONFLICT DO NOTHING` has no constraint to key off without one. Fixing that fully would mean adding new unique constraints to those tables, which changes runtime insert behavior for the live services and was left out of this pass.
 
 ---
 
@@ -147,15 +158,11 @@ No tables for organizations/business-units/suppliers/subscriptions/invoices/acti
 
 ## 5. Seed Data Report
 
-`aviqr_setup.sql` (1202 lines) is **not idempotent**, contrary to the spec requirement ("Seed must be idempotent. Never delete existing production data."):
-- 9 `CREATE DATABASE` statements with no existence check — fails immediately if databases already exist.
-- 26 `CREATE TABLE` statements, none using `IF NOT EXISTS`.
-- 0 `ON CONFLICT` clauses on any `INSERT` — re-running against a populated database will throw primary-key/unique-constraint violations on the hardcoded demo IDs.
-- This script can only safely be run once, against a completely empty Postgres instance.
+**Fixed in a follow-up pass (see §2 #13).** `aviqr_setup.sql` is now idempotent — re-running it against an already-seeded instance is safe (no dropped data, no errors). Applied: `CREATE DATABASE` guarded with a `\gexec` existence check instead of `DROP DATABASE` + unconditional `CREATE DATABASE`; every `CREATE TABLE` / `CREATE INDEX` / `CREATE SEQUENCE` changed to `IF NOT EXISTS`; the one `ALTER TABLE ... ADD CONSTRAINT` wrapped in a `pg_constraint` existence check; `ON CONFLICT DO NOTHING` added to all 45 `INSERT` statements. Verified live: ran the script's per-database sections twice in a row (committed) against the seeded dev databases with zero errors and zero row-count drift on every fixed-id table.
+
+Residual limitation: rows in tables with no natural unique key on their columns (`otp_records`, `qr_scan_logs`, `impersonation_logs`, `shop_opening_hours`, `staff_permissions`, `hotel_enabled_services`, `reviews`, and the Coconut Grove/Biryani House `menu_items`/`categories`/`order_items` blocks that use `gen_random_uuid()` for `id`) will still accumulate extra copies on repeated re-runs, since `ON CONFLICT DO NOTHING` has nothing to key off without an existing unique/exclusion constraint. Closing this fully would mean adding new unique constraints to those tables, which changes insert behavior for the live services (e.g. would start rejecting legitimate duplicate-named categories) — left out of this pass as a schema/behavior change beyond "make the seed script idempotent."
 
 Seed coverage by role (live DB, confirmed via `SELECT role, COUNT(*) FROM users GROUP BY role`): CUSTOMER (20), OWNER (4), and one each of ADMIN, SUPPORT, MANAGER, CASHIER, KITCHEN, HOTEL, MALL, SUPPLIER. No seed data exists for the enterprise spec's additional roles (Platform Admin, Hotel Group Owner, Restaurant Group Owner, Branch Manager, Outlet Manager) since those roles don't exist in the `UserRole` enum.
-
-Recommendation (not implemented in this pass — would require restructuring the whole script): wrap `CREATE TABLE` in `IF NOT EXISTS`, add `ON CONFLICT (id) DO NOTHING` to every demo-data `INSERT`, and guard the `CREATE DATABASE` statements (Postgres has no native `IF NOT EXISTS` for `CREATE DATABASE` pre-v18; needs a `DO $$ ... $$` existence check or a shell-level guard in `aviqr.sh db-setup`).
 
 ---
 

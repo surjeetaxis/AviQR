@@ -10,6 +10,16 @@
 --  Includes hand-written demo records (Spice Route, Coconut Grove, etc.)
 --  plus a bulk-generated block of 100+ customers and 100+ orders
 --  (with matching order_items) — see SECTION 13.
+--
+--  Idempotent: safe to re-run against an already-seeded instance.
+--  Databases/tables/indexes are only created if missing, and every demo
+--  INSERT uses ON CONFLICT DO NOTHING — existing data is never dropped,
+--  overwritten, or duplicated for rows keyed by a fixed id. A handful of
+--  rows (e.g. otp_records, qr_scan_logs, impersonation_logs, and two
+--  gen_random_uuid()-keyed menu_items/categories blocks) have no natural
+--  unique key, so re-running will append extra copies of those specific
+--  demo/log rows rather than erroring — low-risk since they're transient
+--  or log-type data, not primary business entities.
 -- ============================================================
 
 -- ============================================================
@@ -24,31 +34,32 @@ BEGIN
   END IF;
 END $$;
 
--- Drop existing databases for a clean re-run
-DROP DATABASE IF EXISTS aviqr_auth;
-DROP DATABASE IF EXISTS aviqr_shop;
-DROP DATABASE IF EXISTS aviqr_menu;
-DROP DATABASE IF EXISTS aviqr_order;
-DROP DATABASE IF EXISTS aviqr_payment;
-DROP DATABASE IF EXISTS aviqr_qr;
-DROP DATABASE IF EXISTS aviqr_hotel;
-DROP DATABASE IF EXISTS aviqr_mall;
-DROP DATABASE IF EXISTS aviqr_support;
-DROP DATABASE IF EXISTS aviqr_report;
-DROP DATABASE IF EXISTS aviqr_review;
-
--- Create all 11 service databases
-CREATE DATABASE aviqr_auth     OWNER aviqr;
-CREATE DATABASE aviqr_shop     OWNER aviqr;
-CREATE DATABASE aviqr_menu     OWNER aviqr;
-CREATE DATABASE aviqr_order    OWNER aviqr;
-CREATE DATABASE aviqr_payment  OWNER aviqr;
-CREATE DATABASE aviqr_qr       OWNER aviqr;
-CREATE DATABASE aviqr_hotel    OWNER aviqr;
-CREATE DATABASE aviqr_mall     OWNER aviqr;
-CREATE DATABASE aviqr_support  OWNER aviqr;
-CREATE DATABASE aviqr_report   OWNER aviqr;
-CREATE DATABASE aviqr_review   OWNER aviqr;
+-- Create all 11 service databases — only if missing (CREATE DATABASE can't run
+-- inside a DO block/transaction, so we use psql's \gexec to run a conditionally
+-- generated statement). Never drops an existing database — re-running this
+-- script is safe against a populated instance and won't touch existing data.
+SELECT 'CREATE DATABASE aviqr_auth OWNER aviqr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_auth')\gexec
+SELECT 'CREATE DATABASE aviqr_shop OWNER aviqr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_shop')\gexec
+SELECT 'CREATE DATABASE aviqr_menu OWNER aviqr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_menu')\gexec
+SELECT 'CREATE DATABASE aviqr_order OWNER aviqr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_order')\gexec
+SELECT 'CREATE DATABASE aviqr_payment OWNER aviqr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_payment')\gexec
+SELECT 'CREATE DATABASE aviqr_qr OWNER aviqr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_qr')\gexec
+SELECT 'CREATE DATABASE aviqr_hotel OWNER aviqr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_hotel')\gexec
+SELECT 'CREATE DATABASE aviqr_mall OWNER aviqr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_mall')\gexec
+SELECT 'CREATE DATABASE aviqr_support OWNER aviqr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_support')\gexec
+SELECT 'CREATE DATABASE aviqr_report OWNER aviqr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_report')\gexec
+SELECT 'CREATE DATABASE aviqr_review OWNER aviqr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_review')\gexec
 
 -- Grant all privileges
 GRANT ALL PRIVILEGES ON DATABASE aviqr_auth    TO aviqr;
@@ -73,7 +84,7 @@ GRANT ALL PRIVILEGES ON DATABASE aviqr_review  TO aviqr;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ── users ────────────────────────────────────────────────────
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id                 UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     email              VARCHAR(255) NOT NULL UNIQUE,
     phone              VARCHAR(15)  UNIQUE,
@@ -95,14 +106,14 @@ CREATE TABLE users (
     last_login_at      TIMESTAMP
 );
 
-CREATE INDEX idx_users_email  ON users (email);
-CREATE INDEX idx_users_phone  ON users (phone);
-CREATE INDEX idx_users_role   ON users (role);
-CREATE INDEX idx_users_status ON users (status);
-CREATE INDEX idx_users_shop_id ON users (shop_id);
+CREATE INDEX IF NOT EXISTS idx_users_email  ON users (email);
+CREATE INDEX IF NOT EXISTS idx_users_phone  ON users (phone);
+CREATE INDEX IF NOT EXISTS idx_users_role   ON users (role);
+CREATE INDEX IF NOT EXISTS idx_users_status ON users (status);
+CREATE INDEX IF NOT EXISTS idx_users_shop_id ON users (shop_id);
 
 -- ── otp_records ──────────────────────────────────────────────
-CREATE TABLE otp_records (
+CREATE TABLE IF NOT EXISTS otp_records (
     id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     target     VARCHAR(255) NOT NULL,
     otp        VARCHAR(255) NOT NULL,
@@ -112,11 +123,11 @@ CREATE TABLE otp_records (
     created_at TIMESTAMP    DEFAULT NOW()
 );
 
-CREATE INDEX idx_otp_target     ON otp_records (target);
-CREATE INDEX idx_otp_expires_at ON otp_records (expires_at);
+CREATE INDEX IF NOT EXISTS idx_otp_target     ON otp_records (target);
+CREATE INDEX IF NOT EXISTS idx_otp_expires_at ON otp_records (expires_at);
 
 -- ── refresh_tokens ───────────────────────────────────────────
-CREATE TABLE refresh_tokens (
+CREATE TABLE IF NOT EXISTS refresh_tokens (
     id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     token      VARCHAR(500) NOT NULL UNIQUE,
     user_id    UUID         NOT NULL,
@@ -125,13 +136,13 @@ CREATE TABLE refresh_tokens (
     created_at TIMESTAMP    DEFAULT NOW()
 );
 
-CREATE INDEX idx_refresh_user_id   ON refresh_tokens (user_id);
-CREATE INDEX idx_refresh_expires   ON refresh_tokens (expires_at);
-CREATE INDEX idx_refresh_revoked   ON refresh_tokens (revoked);
+CREATE INDEX IF NOT EXISTS idx_refresh_user_id   ON refresh_tokens (user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_expires   ON refresh_tokens (expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_revoked   ON refresh_tokens (revoked);
 
 -- ── Customer Portal: saved delivery/billing addresses (account-keyed,
 --    tied to users.id — requires a logged-in customer) ──
-CREATE TABLE customer_addresses (
+CREATE TABLE IF NOT EXISTS customer_addresses (
     id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID         NOT NULL,
     label       VARCHAR(50)  NOT NULL,
@@ -145,10 +156,10 @@ CREATE TABLE customer_addresses (
     created_at  TIMESTAMP    DEFAULT NOW(),
     updated_at  TIMESTAMP    DEFAULT NOW()
 );
-CREATE INDEX idx_customer_addresses_user_id ON customer_addresses (user_id);
+CREATE INDEX IF NOT EXISTS idx_customer_addresses_user_id ON customer_addresses (user_id);
 
 -- ── Sequence for order_number style references ────────────────
-CREATE SEQUENCE seq_user_ref START 1001 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS seq_user_ref START 1001 INCREMENT 1;
 
 -- ── Dummy data — users ────────────────────────────────────────
 -- Passwords are all: Axis321#  (bcrypt $2b$12$)
@@ -168,11 +179,13 @@ INSERT INTO users (id, email, phone, password_hash, name, role, status, avatar, 
   ('26388851-77d5-4e7a-9d48-c382a14c8b9f', 'kitchen@spiceroute.in', '9845012346', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Chef Rangan',       'KITCHEN',  'ACTIVE', 'CR', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'kn', NOW() - INTERVAL '45 days'),
   ('ccfb3287-2870-474f-9dcc-e4a3140eee05', 'cashier@spiceroute.in', '9845012347', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Deepa Cashier',     'CASHIER',  'ACTIVE', 'DC', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'en', NOW() - INTERVAL '30 days'),
   ('b2c53d14-7f88-4c4b-ad2e-9f3a4b5c6d7e', 'menu@cakestudio.in',    '9900001133', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Rohit Verma',       'MENU_EDITOR', 'ACTIVE', 'RV', '67685266-6b45-4e40-851c-8277ef650ca3', TRUE, TRUE, 'en', NOW() - INTERVAL '20 days'),
-  ('a9b41c02-6e77-4b3a-9c1d-8f2e3a4b5c6d', 'anoop@coconut.in',      '9876500010', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Anoop Waiter',      'ORDER_VIEWER', 'ACTIVE', 'AW', '44aeca17-767e-410b-868f-9fdd593fa091', TRUE, TRUE, 'ml', NOW() - INTERVAL '25 days');
+  ('a9b41c02-6e77-4b3a-9c1d-8f2e3a4b5c6d', 'anoop@coconut.in',      '9876500010', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Anoop Waiter',      'ORDER_VIEWER', 'ACTIVE', 'AW', '44aeca17-767e-410b-868f-9fdd593fa091', TRUE, TRUE, 'ml', NOW() - INTERVAL '25 days')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO otp_records (id, target, otp, type, expires_at, used, created_at) VALUES
   (gen_random_uuid(), '9845012345', '$2a$12$abc123', 'PHONE_LOGIN', NOW() + INTERVAL '10 minutes', FALSE, NOW()),
-  (gen_random_uuid(), '9876543210', '$2a$12$def456', 'PHONE_LOGIN', NOW() - INTERVAL '20 minutes', TRUE,  NOW() - INTERVAL '25 minutes');
+  (gen_random_uuid(), '9876543210', '$2a$12$def456', 'PHONE_LOGIN', NOW() - INTERVAL '20 minutes', TRUE,  NOW() - INTERVAL '25 minutes')
+ON CONFLICT DO NOTHING;
 
 
 -- ============================================================
@@ -183,7 +196,7 @@ INSERT INTO otp_records (id, target, otp, type, expires_at, used, created_at) VA
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ── shops ─────────────────────────────────────────────────────
-CREATE TABLE shops (
+CREATE TABLE IF NOT EXISTS shops (
     id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     name              VARCHAR(255)  NOT NULL,
     tagline           VARCHAR(500),
@@ -214,14 +227,14 @@ CREATE TABLE shops (
     updated_at        TIMESTAMP     DEFAULT NOW()
 );
 
-CREATE INDEX idx_shops_owner_id ON shops (owner_id);
-CREATE INDEX idx_shops_city     ON shops (city);
-CREATE INDEX idx_shops_status   ON shops (status);
-CREATE INDEX idx_shops_tier     ON shops (tier);
+CREATE INDEX IF NOT EXISTS idx_shops_owner_id ON shops (owner_id);
+CREATE INDEX IF NOT EXISTS idx_shops_city     ON shops (city);
+CREATE INDEX IF NOT EXISTS idx_shops_status   ON shops (status);
+CREATE INDEX IF NOT EXISTS idx_shops_tier     ON shops (tier);
 
 -- ── brands (a Supplier's public brand identity, grouping all shops owned by
 --    the same supplier under one shareable QR/customer-facing page) ──
-CREATE TABLE brands (
+CREATE TABLE IF NOT EXISTS brands (
     id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_id   VARCHAR(255) NOT NULL UNIQUE,
     name       VARCHAR(255) NOT NULL,
@@ -232,7 +245,7 @@ CREATE TABLE brands (
 );
 
 -- ── shop_opening_hours ────────────────────────────────────────
-CREATE TABLE shop_opening_hours (
+CREATE TABLE IF NOT EXISTS shop_opening_hours (
     shop_id    UUID,
     day_of_week VARCHAR(15),
     open       BOOLEAN DEFAULT TRUE,
@@ -240,10 +253,10 @@ CREATE TABLE shop_opening_hours (
     close_time VARCHAR(10)
 );
 
-CREATE INDEX idx_opening_hours_shop ON shop_opening_hours (shop_id);
+CREATE INDEX IF NOT EXISTS idx_opening_hours_shop ON shop_opening_hours (shop_id);
 
 -- ── shop_staff ────────────────────────────────────────────────
-CREATE TABLE shop_staff (
+CREATE TABLE IF NOT EXISTS shop_staff (
     id        UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     shop_id   UUID         NOT NULL,
     user_id   VARCHAR(100),
@@ -256,17 +269,17 @@ CREATE TABLE shop_staff (
     joined_at TIMESTAMP    DEFAULT NOW()
 );
 
-CREATE INDEX idx_staff_shop_id ON shop_staff (shop_id);
-CREATE INDEX idx_staff_role    ON shop_staff (role);
+CREATE INDEX IF NOT EXISTS idx_staff_shop_id ON shop_staff (shop_id);
+CREATE INDEX IF NOT EXISTS idx_staff_role    ON shop_staff (role);
 
 -- ── staff_permissions ─────────────────────────────────────────
-CREATE TABLE staff_permissions (
+CREATE TABLE IF NOT EXISTS staff_permissions (
     shop_staff_id UUID,
     permissions   VARCHAR(100)
 );
 
 -- ── shop_settings ─────────────────────────────────────────────
-CREATE TABLE shop_settings (
+CREATE TABLE IF NOT EXISTS shop_settings (
     shop_id                 UUID         PRIMARY KEY,
     razorpay_key_id         VARCHAR(100),
     razorpay_key_secret     VARCHAR(255),
@@ -290,7 +303,7 @@ CREATE TABLE shop_settings (
 );
 
 -- ── Loyalty program tables ────────────────────────────────────
-CREATE TABLE loyalty_accounts (
+CREATE TABLE IF NOT EXISTS loyalty_accounts (
     id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     customer_phone  VARCHAR(20)   NOT NULL,
     customer_name   VARCHAR(200),
@@ -305,21 +318,21 @@ CREATE TABLE loyalty_accounts (
     last_visit_at   TIMESTAMP,
     UNIQUE (customer_phone, shop_id)
 );
-CREATE INDEX idx_loyalty_phone_shop ON loyalty_accounts (customer_phone, shop_id);
-CREATE INDEX idx_loyalty_shop       ON loyalty_accounts (shop_id);
+CREATE INDEX IF NOT EXISTS idx_loyalty_phone_shop ON loyalty_accounts (customer_phone, shop_id);
+CREATE INDEX IF NOT EXISTS idx_loyalty_shop       ON loyalty_accounts (shop_id);
 
 -- ── Customer Portal: favorite shops (phone-keyed, same lightweight identity
 --    model as loyalty_accounts — no customer account/password required) ──
-CREATE TABLE customer_favorites (
+CREATE TABLE IF NOT EXISTS customer_favorites (
     id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     customer_phone VARCHAR(255) NOT NULL,
     shop_id        VARCHAR(255) NOT NULL,
     created_at     TIMESTAMP    DEFAULT NOW(),
     UNIQUE (customer_phone, shop_id)
 );
-CREATE INDEX idx_favorite_phone ON customer_favorites (customer_phone);
+CREATE INDEX IF NOT EXISTS idx_favorite_phone ON customer_favorites (customer_phone);
 
-CREATE TABLE loyalty_transactions (
+CREATE TABLE IF NOT EXISTS loyalty_transactions (
     id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     loyalty_account_id  UUID         NOT NULL,
     shop_id             VARCHAR(100),
@@ -330,10 +343,10 @@ CREATE TABLE loyalty_transactions (
     description         TEXT,
     created_at          TIMESTAMP    DEFAULT NOW()
 );
-CREATE INDEX idx_lt_account ON loyalty_transactions (loyalty_account_id);
+CREATE INDEX IF NOT EXISTS idx_lt_account ON loyalty_transactions (loyalty_account_id);
 
 -- ── Sequence for shop reference numbers ──────────────────────
-CREATE SEQUENCE seq_shop_ref START 1001 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS seq_shop_ref START 1001 INCREMENT 1;
 
 -- ── Dummy data — shops ────────────────────────────────────────
 INSERT INTO shops (id, name, tagline, owner_id, phone, email, address, city, state, pincode, gstin, subscription_plan, min_order_amount, table_count, status, rating, rating_count, completion_rate, sales_volume, return_percentage, satisfaction_score, tier, latitude, longitude, created_at) VALUES
@@ -341,7 +354,8 @@ INSERT INTO shops (id, name, tagline, owner_id, phone, email, address, city, sta
   ('44aeca17-767e-410b-868f-9fdd593fa091', 'The Coconut Grove',  'Kerala cuisine at its finest',      '3580a702-e960-4a40-83eb-a596c88595f7', '9876500001', 'hello@coconut.in',    '45, Marine Drive, Fort Kochi',   'Kochi',     'Kerala',      '682001', '32AADFC1234R1ZM', 'BUSINESS', 150, 20, 'ACTIVE',   4.30, 180, 82.00, 156000.00, 3.50, 83.00, 'SILVER',  9.93988,  76.26022, NOW() - INTERVAL '80 days'),
   ('e8754df0-7965-400a-8923-35543d8a698b', 'Biryani House',      'Hyderabadi dum biryani specialists','d7ad7958-b4dc-4b94-8a8f-f4cfe39f0179', '9988776600', 'hello@biryani.in',    '78, Linking Road, Bandra',       'Mumbai',    'Maharashtra', '400050', '27AABFB5678R1ZM', 'GROWTH',   200, 8,  'SUSPENDED',3.80,  90,  65.00,  72000.00, 8.20, 62.00, 'BRONZE',  19.05972,  72.83569, NOW() - INTERVAL '70 days'),
   ('67685266-6b45-4e40-851c-8277ef650ca3', 'Cake Studio',        'Artisanal cakes & desserts',        'f4512249-1a01-4be8-bf08-93e312202827', '9900001122', 'hello@cakestudio.in', '23, Connaught Place',            'Delhi',     'Delhi',       '110001', '07AABCC9012R1ZM', 'STARTER',  50,  4,  'ACTIVE',   4.70,  55,  91.00,  48000.00, 1.50, 90.00, 'BRONZE',  28.63287,  77.21988, NOW() - INTERVAL '45 days'),
-  ('0699ee91-c5b8-4b7f-94b7-19d2d0c13420', 'Chai & Chaat',       'Street food with a twist',          '6dbae4cc-5e11-48c1-a3cb-4baae5f344aa', '9845099999', 'hello@chaichaat.in',  '5, FC Road, Shivajinagar',       'Pune',      'Maharashtra', '411004', '27AABFC3456R1ZM', 'STARTER',  80,  6,  'ACTIVE',   4.10,  30,  75.00,  22000.00, 4.00, 76.00, 'NEW',     18.51957,  73.85535, NOW() - INTERVAL '30 days');
+  ('0699ee91-c5b8-4b7f-94b7-19d2d0c13420', 'Chai & Chaat',       'Street food with a twist',          '6dbae4cc-5e11-48c1-a3cb-4baae5f344aa', '9845099999', 'hello@chaichaat.in',  '5, FC Road, Shivajinagar',       'Pune',      'Maharashtra', '411004', '27AABFC3456R1ZM', 'STARTER',  80,  6,  'ACTIVE',   4.10,  30,  75.00,  22000.00, 4.00, 76.00, 'NEW',     18.51957,  73.85535, NOW() - INTERVAL '30 days')
+ON CONFLICT DO NOTHING;
 
 -- Opening hours for Spice Route (all days)
 INSERT INTO shop_opening_hours (shop_id, day_of_week, open, open_time, close_time) VALUES
@@ -351,7 +365,8 @@ INSERT INTO shop_opening_hours (shop_id, day_of_week, open, open_time, close_tim
   ('ecdbc557-91fa-44ee-992f-03683ad8bbde', 'THURSDAY',  TRUE, '10:00', '22:30'),
   ('ecdbc557-91fa-44ee-992f-03683ad8bbde', 'FRIDAY',    TRUE, '10:00', '23:00'),
   ('ecdbc557-91fa-44ee-992f-03683ad8bbde', 'SATURDAY',  TRUE, '10:00', '23:00'),
-  ('ecdbc557-91fa-44ee-992f-03683ad8bbde', 'SUNDAY',    TRUE, '11:00', '22:00');
+  ('ecdbc557-91fa-44ee-992f-03683ad8bbde', 'SUNDAY',    TRUE, '11:00', '22:00')
+ON CONFLICT DO NOTHING;
 
 -- Staff for Spice Route
 INSERT INTO shop_staff (id, shop_id, user_id, name, phone, email, avatar, role, active) VALUES
@@ -359,7 +374,8 @@ INSERT INTO shop_staff (id, shop_id, user_id, name, phone, email, avatar, role, 
   ('be16b07b-a184-481a-bd58-85a4b26751c3', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '26388851-77d5-4e7a-9d48-c382a14c8b9f', 'Chef Rangan',    '9845012346', 'kitchen@spiceroute.in', 'CR', 'KITCHEN',  TRUE),
   ('a4be1486-ecae-43dd-a6d1-9cb9441acdc6', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'ccfb3287-2870-474f-9dcc-e4a3140eee05', 'Deepa Cashier',  '9845012347', 'cashier@spiceroute.in', 'DC', 'CASHIER',  TRUE),
   ('331cc4ea-b779-4711-ac03-4f6f458fd301', '44aeca17-767e-410b-868f-9fdd593fa091', 'a9b41c02-6e77-4b3a-9c1d-8f2e3a4b5c6d', 'Anoop Waiter',   '9876500010', 'anoop@coconut.in',      'AW', 'ORDER_VIEWER', TRUE),
-  ('c7d8e9f0-1a2b-4c3d-8e9f-0a1b2c3d4e5f', '67685266-6b45-4e40-851c-8277ef650ca3', 'b2c53d14-7f88-4c4b-ad2e-9f3a4b5c6d7e', 'Rohit Verma',    '9900001133', 'menu@cakestudio.in',    'RV', 'MENU_EDITOR',  TRUE);
+  ('c7d8e9f0-1a2b-4c3d-8e9f-0a1b2c3d4e5f', '67685266-6b45-4e40-851c-8277ef650ca3', 'b2c53d14-7f88-4c4b-ad2e-9f3a4b5c6d7e', 'Rohit Verma',    '9900001133', 'menu@cakestudio.in',    'RV', 'MENU_EDITOR',  TRUE)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO staff_permissions (shop_staff_id, permissions) VALUES
   ('9ed3025a-01ce-40d3-b83e-bccf6e53c264', 'VIEW_ORDERS'),
@@ -370,7 +386,8 @@ INSERT INTO staff_permissions (shop_staff_id, permissions) VALUES
   ('a4be1486-ecae-43dd-a6d1-9cb9441acdc6', 'VIEW_ORDERS'),
   ('331cc4ea-b779-4711-ac03-4f6f458fd301', 'VIEW_ORDERS'),
   ('c7d8e9f0-1a2b-4c3d-8e9f-0a1b2c3d4e5f', 'MANAGE_MENU'),
-  ('a4be1486-ecae-43dd-a6d1-9cb9441acdc6', 'ACCEPT_PAYMENT');
+  ('a4be1486-ecae-43dd-a6d1-9cb9441acdc6', 'ACCEPT_PAYMENT')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shop_settings (shop_id, cash_enabled, online_enabled, wallet_enabled, tax_percent, loyalty_enabled, loyalty_points_per_rupee, business_name) VALUES
   ('ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE, TRUE, TRUE,  5.00, TRUE,  10, 'Spice Route Restaurant Pvt Ltd'),
@@ -381,7 +398,8 @@ INSERT INTO shop_settings (shop_id, cash_enabled, online_enabled, wallet_enabled
   ('117390e3-f3dc-4ea7-a6e2-1b073f18bad7', TRUE, TRUE, FALSE, 5.00, FALSE, 1, 'Ramesh Tea House MG Road'),
   ('da4440f6-1b19-48a4-8587-532474a3c258', TRUE, TRUE, FALSE, 5.00, FALSE, 1, 'Ramesh Tea House Koramangala'),
   ('79292444-6912-4336-9894-1d89c18894d4', TRUE, FALSE,FALSE, 5.00, FALSE, 1, 'Ramesh Tea House Whitefield'),
-  ('8a1f2e3d-4c5b-4a69-8d7e-6f5a4b3c2d1e', TRUE, FALSE,FALSE, 5.00, FALSE, 1, 'Ramesh Tea House Electronic City');
+  ('8a1f2e3d-4c5b-4a69-8d7e-6f5a4b3c2d1e', TRUE, FALSE,FALSE, 5.00, FALSE, 1, 'Ramesh Tea House Electronic City')
+ON CONFLICT DO NOTHING;
 
 -- Ramesh Tea House outlets (SUPPLIER user — 3 linked shops)
 INSERT INTO shops (id, name, tagline, owner_id, phone, email, address, city, state, pincode, subscription_plan, min_order_amount, table_count, status, rating, rating_count, completion_rate, created_at) VALUES
@@ -390,7 +408,8 @@ INSERT INTO shops (id, name, tagline, owner_id, phone, email, address, city, sta
   ('79292444-6912-4336-9894-1d89c18894d4', 'Ramesh Tea House — Whitefield',  'Quick bites & refreshing beverages',            '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776603', 'wf@rameshteas.in',      'Whitefield Main Road',  'Bengaluru', 'Karnataka', '560066', 'STARTER', 30, 4, 'ACTIVE', 3.90,  60, 82.00, NOW() - INTERVAL '30 days'),
   -- Newly registered outlet, not yet opened — validates the Supplier Outlets
   -- page's Inactive badge / "Activate" action against a real non-ACTIVE row.
-  ('8a1f2e3d-4c5b-4a69-8d7e-6f5a4b3c2d1e', 'Ramesh Tea House — Electronic City', 'Opening soon',                              '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776604', 'ecity@rameshteas.in',   'Neeladri Road',        'Bengaluru', 'Karnataka', '560100', 'STARTER', 30, 4, 'INACTIVE', 0,  0, 0, NOW() - INTERVAL '2 days');
+  ('8a1f2e3d-4c5b-4a69-8d7e-6f5a4b3c2d1e', 'Ramesh Tea House — Electronic City', 'Opening soon',                              '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776604', 'ecity@rameshteas.in',   'Neeladri Road',        'Bengaluru', 'Karnataka', '560100', 'STARTER', 30, 4, 'INACTIVE', 0,  0, 0, NOW() - INTERVAL '2 days')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO shop_opening_hours (shop_id, day_of_week, open, open_time, close_time) VALUES
   ('117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'MONDAY',    TRUE, '07:00', '21:00'),
@@ -399,7 +418,8 @@ INSERT INTO shop_opening_hours (shop_id, day_of_week, open, open_time, close_tim
   ('117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'THURSDAY',  TRUE, '07:00', '21:00'),
   ('117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'FRIDAY',    TRUE, '07:00', '21:00'),
   ('117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'SATURDAY',  TRUE, '07:00', '22:00'),
-  ('117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'SUNDAY',    TRUE, '08:00', '20:00');
+  ('117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'SUNDAY',    TRUE, '08:00', '20:00')
+ON CONFLICT DO NOTHING;
 
 
 -- ============================================================
@@ -410,7 +430,7 @@ INSERT INTO shop_opening_hours (shop_id, day_of_week, open, open_time, close_tim
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ── categories ───────────────────────────────────────────────
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
     id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     name       VARCHAR(255) NOT NULL,
     name_hi    VARCHAR(255),
@@ -427,11 +447,11 @@ CREATE TABLE categories (
     active     BOOLEAN      DEFAULT TRUE
 );
 
-CREATE INDEX idx_categories_shop_id ON categories (shop_id);
-CREATE INDEX idx_categories_active  ON categories (active);
+CREATE INDEX IF NOT EXISTS idx_categories_shop_id ON categories (shop_id);
+CREATE INDEX IF NOT EXISTS idx_categories_active  ON categories (active);
 
 -- ── menu_items ────────────────────────────────────────────────
-CREATE TABLE menu_items (
+CREATE TABLE IF NOT EXISTS menu_items (
     id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     name           VARCHAR(255)  NOT NULL,
     name_hi        VARCHAR(255),
@@ -462,13 +482,13 @@ CREATE TABLE menu_items (
     updated_at     TIMESTAMP     DEFAULT NOW()
 );
 
-CREATE INDEX idx_menu_items_shop_id     ON menu_items (shop_id);
-CREATE INDEX idx_menu_items_category_id ON menu_items (category_id);
-CREATE INDEX idx_menu_items_available   ON menu_items (available);
-CREATE INDEX idx_menu_items_veg         ON menu_items (veg);
+CREATE INDEX IF NOT EXISTS idx_menu_items_shop_id     ON menu_items (shop_id);
+CREATE INDEX IF NOT EXISTS idx_menu_items_category_id ON menu_items (category_id);
+CREATE INDEX IF NOT EXISTS idx_menu_items_available   ON menu_items (available);
+CREATE INDEX IF NOT EXISTS idx_menu_items_veg         ON menu_items (veg);
 
 -- ── stock_items ────────────────────────────────────────────────
-CREATE TABLE stock_items (
+CREATE TABLE IF NOT EXISTS stock_items (
     id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     menu_item_id        UUID         NOT NULL UNIQUE,
     shop_id             VARCHAR(100) NOT NULL,
@@ -477,11 +497,11 @@ CREATE TABLE stock_items (
     track_stock         BOOLEAN      DEFAULT FALSE,
     updated_at          TIMESTAMP    DEFAULT NOW()
 );
-CREATE INDEX idx_stock_item_id ON stock_items (menu_item_id);
-CREATE INDEX idx_stock_shop    ON stock_items (shop_id);
+CREATE INDEX IF NOT EXISTS idx_stock_item_id ON stock_items (menu_item_id);
+CREATE INDEX IF NOT EXISTS idx_stock_shop    ON stock_items (shop_id);
 
 -- ── pricing_rules ─────────────────────────────────────────────
-CREATE TABLE pricing_rules (
+CREATE TABLE IF NOT EXISTS pricing_rules (
     id               UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     shop_id          VARCHAR(100)  NOT NULL,
     name             VARCHAR(255)  NOT NULL,
@@ -497,12 +517,12 @@ CREATE TABLE pricing_rules (
     active           BOOLEAN       DEFAULT TRUE
 );
 
-CREATE INDEX idx_pricing_shop_id ON pricing_rules (shop_id);
-CREATE INDEX idx_pricing_active  ON pricing_rules (active);
+CREATE INDEX IF NOT EXISTS idx_pricing_shop_id ON pricing_rules (shop_id);
+CREATE INDEX IF NOT EXISTS idx_pricing_active  ON pricing_rules (active);
 
 -- ── Sequences ─────────────────────────────────────────────────
-CREATE SEQUENCE seq_category_sort START 1 INCREMENT 1;
-CREATE SEQUENCE seq_item_sort     START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS seq_category_sort START 1 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS seq_item_sort     START 1 INCREMENT 1;
 
 -- ── Dummy data — categories (Spice Route) ────────────────────
 INSERT INTO categories (id, name, name_hi, name_ta, name_kn, emoji, shop_id, sort_order, active) VALUES
@@ -512,14 +532,16 @@ INSERT INTO categories (id, name, name_hi, name_ta, name_kn, emoji, shop_id, sor
   ('a24adc4d-ec96-4431-848f-7a3c6e14fe3b', 'Rice & Biryani', 'चावल बिरयानी', 'அரிசி & பிரியாணி','ಅಕ್ಕಿ ಮತ್ತು ಬಿರ್ಯಾನಿ','🍚', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 4, TRUE),
   ('fe68231d-7979-45df-bec5-f3fe45c07e88', 'Desserts',       'मिठाई',        'இனிப்புகள்',       'ಸಿಹಿತಿಂಡಿಗಳು',   '🍮', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 5, TRUE),
   ('0f41f620-6158-4387-b6e0-1448a1472c47', 'Beverages',      'पेय पदार्थ',   'பானங்கள்',         'ಪಾನೀಯಗಳು',        '🥤', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 6, TRUE),
-  ('5f023e49-1bb1-49bf-9cb9-758a77e24552', 'Soups',          'सूप',          'சூப்கள்',          'ಸೂಪ್‌ಗಳು',        '🍲', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 7, TRUE);
+  ('5f023e49-1bb1-49bf-9cb9-758a77e24552', 'Soups',          'सूप',          'சூப்கள்',          'ಸೂಪ್‌ಗಳು',        '🍲', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 7, TRUE)
+ON CONFLICT DO NOTHING;
 
 -- Coconut Grove categories
 INSERT INTO categories (id, name, emoji, shop_id, sort_order, active) VALUES
   ('993dcb95-3108-4ff5-8218-be3a554990bb', 'Kerala Starters', '🌴', '44aeca17-767e-410b-868f-9fdd593fa091', 1, TRUE),
   ('e02eb9ee-1022-4895-b122-d0c5c4538b48', 'Seafood',         '🦐', '44aeca17-767e-410b-868f-9fdd593fa091', 2, TRUE),
   ('7efccff6-c55e-4551-ac74-ac2f14b7bdce', 'Kerala Mains',    '🍛', '44aeca17-767e-410b-868f-9fdd593fa091', 3, TRUE),
-  ('e53d6995-27cf-468f-a091-306e446243ba', 'Drinks',          '🥥', '44aeca17-767e-410b-868f-9fdd593fa091', 4, TRUE);
+  ('e53d6995-27cf-468f-a091-306e446243ba', 'Drinks',          '🥥', '44aeca17-767e-410b-868f-9fdd593fa091', 4, TRUE)
+ON CONFLICT DO NOTHING;
 
 -- ── Dummy data — menu_items (Spice Route) ────────────────────
 INSERT INTO menu_items (id, name, name_hi, description, category_id, shop_id, price, veg, spicy, popular, available, tag, sort_order) VALUES
@@ -552,7 +574,8 @@ INSERT INTO menu_items (id, name, name_hi, description, category_id, shop_id, pr
   ('9bde5fa9-5627-4154-9d49-360b5948bf20', 'Masala Chai',              'मसाला चाय',        'Freshly brewed spiced Indian tea with milk',                                  '0f41f620-6158-4387-b6e0-1448a1472c47', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 40.00,  TRUE,  FALSE, FALSE, TRUE,  NULL,         1),
   ('ab52d364-8302-4122-b708-2629638349f0', 'Sweet Lassi',              'मीठी लस्सी',      'Chilled yoghurt drink sweetened with sugar and rose water',                   '0f41f620-6158-4387-b6e0-1448a1472c47', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 80.00,  TRUE,  FALSE, TRUE,  TRUE,  NULL,         2),
   ('46cd7a1d-bf01-4fc7-bb18-47608faaf2b9', 'Fresh Lime Soda',          'नींबू सोडा',       'Freshly squeezed lime with soda, salted or sweet',                            '0f41f620-6158-4387-b6e0-1448a1472c47', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 60.00,  TRUE,  FALSE, FALSE, TRUE,  NULL,         3),
-  ('2656822a-5b54-45b5-908b-f3838bfa20a6', 'Mango Lassi',              'मैंगो लस्सी',     'Thick yoghurt blended with fresh Alphonso mango pulp',                        '0f41f620-6158-4387-b6e0-1448a1472c47', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 100.00, TRUE,  FALSE, FALSE, TRUE,  'seasonal',   4);
+  ('2656822a-5b54-45b5-908b-f3838bfa20a6', 'Mango Lassi',              'मैंगो लस्सी',     'Thick yoghurt blended with fresh Alphonso mango pulp',                        '0f41f620-6158-4387-b6e0-1448a1472c47', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 100.00, TRUE,  FALSE, FALSE, TRUE,  'seasonal',   4)
+ON CONFLICT DO NOTHING;
 
 -- Rich media on a few popular Spice Route items — real, stable, publicly-hosted sample
 -- assets (not bespoke food photography/scans), every URL curl-verified to return 200:
@@ -581,7 +604,8 @@ INSERT INTO menu_items (id, name, description, category_id, shop_id, price, veg,
   ('3012baf3-b6bd-426c-997a-4147afc47dd1', 'Kerala Fish Curry','Traditional fish curry in coconut milk and kudampuli',      '7efccff6-c55e-4551-ac74-ac2f14b7bdce', '44aeca17-767e-410b-868f-9fdd593fa091', 420.00, FALSE, TRUE,  TRUE,  TRUE,  'bestseller', 1),
   ('a050595b-db30-4df3-89f6-39209ed9bb34', 'Appam',            'Soft lacy rice hoppers served with stew',                  '7efccff6-c55e-4551-ac74-ac2f14b7bdce', '44aeca17-767e-410b-868f-9fdd593fa091', 80.00,  TRUE,  FALSE, FALSE, TRUE,  NULL,         2),
   ('fcf73d5b-5ee5-432d-8bc1-860a88ee1f1d', 'Tender Coconut',   'Fresh tender coconut water straight from the shell',       'e53d6995-27cf-468f-a091-306e446243ba', '44aeca17-767e-410b-868f-9fdd593fa091', 80.00,  TRUE,  FALSE, TRUE,  TRUE,  NULL,         1),
-  ('a5f40e9c-927c-4a23-b438-14d9f81ade26', 'Nannari Sherbet',  'Refreshing Indian sarsaparilla syrup with lemon',          'e53d6995-27cf-468f-a091-306e446243ba', '44aeca17-767e-410b-868f-9fdd593fa091', 60.00,  TRUE,  FALSE, FALSE, TRUE,  NULL,         2);
+  ('a5f40e9c-927c-4a23-b438-14d9f81ade26', 'Nannari Sherbet',  'Refreshing Indian sarsaparilla syrup with lemon',          'e53d6995-27cf-468f-a091-306e446243ba', '44aeca17-767e-410b-868f-9fdd593fa091', 60.00,  TRUE,  FALSE, FALSE, TRUE,  NULL,         2)
+ON CONFLICT DO NOTHING;
 
 UPDATE menu_items SET media_type = 'VIDEO', video_url = 'https://media.w3.org/2010/05/bunny/trailer.mp4'
   WHERE id = 'f2d406f1-6dd9-4a5c-940b-40b87921983a'; -- Prawn Koliwada
@@ -593,7 +617,8 @@ INSERT INTO categories (id, name, emoji, shop_id, sort_order, active) VALUES
   (gen_random_uuid(), 'Biryani',   '🍚', 'e8754df0-7965-400a-8923-35543d8a698b', 1, TRUE),
   (gen_random_uuid(), 'Starters',  '🍗', 'e8754df0-7965-400a-8923-35543d8a698b', 2, TRUE),
   (gen_random_uuid(), 'Breads',    '🫓', 'e8754df0-7965-400a-8923-35543d8a698b', 3, TRUE),
-  (gen_random_uuid(), 'Beverages', '🥤', 'e8754df0-7965-400a-8923-35543d8a698b', 4, TRUE);
+  (gen_random_uuid(), 'Beverages', '🥤', 'e8754df0-7965-400a-8923-35543d8a698b', 4, TRUE)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO menu_items (id, name, description, category_id, shop_id, price, veg, spicy, popular, available, tag, sort_order)
 SELECT gen_random_uuid(), v.name, v.description, c.id, v.shop_id, v.price, v.veg, v.spicy, v.popular, TRUE, v.tag, v.sort_order
@@ -605,7 +630,8 @@ FROM (VALUES
   ('Raita',                          'Chilled yoghurt with cucumber, onion and mild spices',                        'e8754df0-7965-400a-8923-35543d8a698b',  60.00, TRUE,  FALSE, FALSE, NULL,         1, 'Breads'),
   ('Soft Drink (can)',               'Chilled cola, lemon or orange can — 330 ml',                                  'e8754df0-7965-400a-8923-35543d8a698b',  50.00, TRUE,  FALSE, FALSE, NULL,         1, 'Beverages')
 ) AS v(name, description, shop_id, price, veg, spicy, popular, tag, sort_order, cat_name)
-JOIN categories c ON c.shop_id = v.shop_id AND c.name = v.cat_name;
+JOIN categories c ON c.shop_id = v.shop_id AND c.name = v.cat_name
+ON CONFLICT DO NOTHING;
 
 -- Rich media for Biryani House — matched by name+shop_id since these rows use
 -- gen_random_uuid() rather than fixed ids.
@@ -622,29 +648,33 @@ INSERT INTO categories (id, name, emoji, shop_id, sort_order, active) VALUES
   (gen_random_uuid(), 'Filter Coffee & Tea', '☕', 'da4440f6-1b19-48a4-8587-532474a3c258', 1, TRUE),
   (gen_random_uuid(), 'Snacks',              '🥨', 'da4440f6-1b19-48a4-8587-532474a3c258', 2, TRUE),
   (gen_random_uuid(), 'Filter Coffee & Tea', '☕', '79292444-6912-4336-9894-1d89c18894d4', 1, TRUE),
-  (gen_random_uuid(), 'Snacks',              '🥨', '79292444-6912-4336-9894-1d89c18894d4', 2, TRUE);
+  (gen_random_uuid(), 'Snacks',              '🥨', '79292444-6912-4336-9894-1d89c18894d4', 2, TRUE)
+ON CONFLICT DO NOTHING;
 
+-- Fixed ids (rather than gen_random_uuid()) so the order_items batch below
+-- can reference them directly without an illegal cross-database join.
 INSERT INTO menu_items (id, name, description, category_id, shop_id, price, veg, spicy, popular, available, tag, sort_order)
-SELECT gen_random_uuid(), v.name, v.description, c.id, v.shop_id, v.price, TRUE, FALSE, v.popular, TRUE, v.tag, v.sort_order
+SELECT v.id::uuid, v.name, v.description, c.id, v.shop_id, v.price, TRUE, FALSE, v.popular, TRUE, v.tag, v.sort_order
 FROM (VALUES
-  ('Filter Coffee (Small)', 'South Indian filter coffee — 100 ml decoction with frothy milk',  '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  30.00, TRUE,  'bestseller', 1, 'Filter Coffee & Tea'),
-  ('Filter Coffee (Large)', 'Double-shot South Indian filter coffee — 200 ml tumbler',          '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  50.00, TRUE,  NULL,         2, 'Filter Coffee & Tea'),
-  ('Masala Tea',            'Ginger, cardamom & cinnamon spiced milk tea',                      '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  25.00, FALSE, NULL,         3, 'Filter Coffee & Tea'),
-  ('Vada (2 pcs)',          'Crispy medu vada with sambar and coconut chutney',                 '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  40.00, TRUE,  'bestseller', 1, 'Snacks'),
-  ('Masala Dosa',           'Crispy dosa with spiced potato filling and chutneys',              '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  80.00, TRUE,  NULL,         2, 'Snacks'),
-  ('Idli (3 pcs)',          'Soft steamed rice cakes with sambar and two chutneys',             '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  60.00, FALSE, NULL,         3, 'Snacks'),
-  ('Buttermilk',            'Chilled spiced buttermilk with coriander and ginger',              '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  25.00, FALSE, NULL,         1, 'Cold Beverages'),
-  ('Filter Coffee (Small)', 'South Indian filter coffee — 100 ml decoction with frothy milk',  'da4440f6-1b19-48a4-8587-532474a3c258',  30.00, TRUE,  'bestseller', 1, 'Filter Coffee & Tea'),
-  ('Filter Coffee (Large)', 'Double-shot South Indian filter coffee — 200 ml tumbler',          'da4440f6-1b19-48a4-8587-532474a3c258',  50.00, FALSE, NULL,         2, 'Filter Coffee & Tea'),
-  ('Masala Tea',            'Ginger, cardamom & cinnamon spiced milk tea',                      'da4440f6-1b19-48a4-8587-532474a3c258',  25.00, FALSE, NULL,         3, 'Filter Coffee & Tea'),
-  ('Vada (2 pcs)',          'Crispy medu vada with sambar and coconut chutney',                 'da4440f6-1b19-48a4-8587-532474a3c258',  40.00, TRUE,  'bestseller', 1, 'Snacks'),
-  ('Masala Dosa',           'Crispy dosa with spiced potato filling and chutneys',              'da4440f6-1b19-48a4-8587-532474a3c258',  80.00, TRUE,  NULL,         2, 'Snacks'),
-  ('Filter Coffee',         'South Indian filter coffee — strong decoction with frothy milk',   '79292444-6912-4336-9894-1d89c18894d4',  35.00, TRUE,  'bestseller', 1, 'Filter Coffee & Tea'),
-  ('Masala Tea',            'Ginger, cardamom & cinnamon spiced milk tea',                      '79292444-6912-4336-9894-1d89c18894d4',  25.00, FALSE, NULL,         2, 'Filter Coffee & Tea'),
-  ('Vada (2 pcs)',          'Crispy medu vada with sambar and chutney',                         '79292444-6912-4336-9894-1d89c18894d4',  40.00, TRUE,  NULL,         1, 'Snacks'),
-  ('Idli (3 pcs)',          'Soft steamed rice cakes with sambar and chutney',                  '79292444-6912-4336-9894-1d89c18894d4',  60.00, FALSE, NULL,         2, 'Snacks')
-) AS v(name, description, shop_id, price, popular, tag, sort_order, cat_name)
-JOIN categories c ON c.shop_id = v.shop_id AND c.name = v.cat_name;
+  ('72f82e61-7f11-4faf-baee-f85855cbf60f', 'Filter Coffee (Small)', 'South Indian filter coffee — 100 ml decoction with frothy milk',  '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  30.00, TRUE,  'bestseller', 1, 'Filter Coffee & Tea'),
+  ('6fd55950-9be1-4b83-9469-c969ac8aeba5', 'Filter Coffee (Large)', 'Double-shot South Indian filter coffee — 200 ml tumbler',          '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  50.00, TRUE,  NULL,         2, 'Filter Coffee & Tea'),
+  ('7570bfd1-64b0-4cc6-9796-9282e7b19797', 'Masala Tea',            'Ginger, cardamom & cinnamon spiced milk tea',                      '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  25.00, FALSE, NULL,         3, 'Filter Coffee & Tea'),
+  ('3f7f51a9-7402-46e0-9733-e4b8f005dccf', 'Vada (2 pcs)',          'Crispy medu vada with sambar and coconut chutney',                 '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  40.00, TRUE,  'bestseller', 1, 'Snacks'),
+  ('e2c7c669-a092-4c75-a186-7fc33bf0482f', 'Masala Dosa',           'Crispy dosa with spiced potato filling and chutneys',              '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  80.00, TRUE,  NULL,         2, 'Snacks'),
+  ('09161684-89b8-4f56-b6f3-32f5f6bdce16', 'Idli (3 pcs)',          'Soft steamed rice cakes with sambar and two chutneys',             '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  60.00, FALSE, NULL,         3, 'Snacks'),
+  ('b3e9a74e-5971-48cf-8c0c-36ccb070aa05', 'Buttermilk',            'Chilled spiced buttermilk with coriander and ginger',              '117390e3-f3dc-4ea7-a6e2-1b073f18bad7',  25.00, FALSE, NULL,         1, 'Cold Beverages'),
+  ('edfdcd22-bc17-45be-a21f-32dc8eadcaf8', 'Filter Coffee (Small)', 'South Indian filter coffee — 100 ml decoction with frothy milk',  'da4440f6-1b19-48a4-8587-532474a3c258',  30.00, TRUE,  'bestseller', 1, 'Filter Coffee & Tea'),
+  ('ddfb171b-5615-4f2d-9d3a-a028ffb0cfcb', 'Filter Coffee (Large)', 'Double-shot South Indian filter coffee — 200 ml tumbler',          'da4440f6-1b19-48a4-8587-532474a3c258',  50.00, FALSE, NULL,         2, 'Filter Coffee & Tea'),
+  ('3e2760f8-054d-4bd9-9b24-46e6cbe50fe0', 'Masala Tea',            'Ginger, cardamom & cinnamon spiced milk tea',                      'da4440f6-1b19-48a4-8587-532474a3c258',  25.00, FALSE, NULL,         3, 'Filter Coffee & Tea'),
+  ('a3a661fc-ac54-4376-a1fe-b42229910519', 'Vada (2 pcs)',          'Crispy medu vada with sambar and coconut chutney',                 'da4440f6-1b19-48a4-8587-532474a3c258',  40.00, TRUE,  'bestseller', 1, 'Snacks'),
+  ('1f265889-c9d0-499b-a112-82e9e5a33af5', 'Masala Dosa',           'Crispy dosa with spiced potato filling and chutneys',              'da4440f6-1b19-48a4-8587-532474a3c258',  80.00, TRUE,  NULL,         2, 'Snacks'),
+  ('9517026a-d4a3-4f37-bc4b-f35be060a76a', 'Filter Coffee',         'South Indian filter coffee — strong decoction with frothy milk',   '79292444-6912-4336-9894-1d89c18894d4',  35.00, TRUE,  'bestseller', 1, 'Filter Coffee & Tea'),
+  ('a4812a02-6f2a-482d-8fda-947ab2753c7a', 'Masala Tea',            'Ginger, cardamom & cinnamon spiced milk tea',                      '79292444-6912-4336-9894-1d89c18894d4',  25.00, FALSE, NULL,         2, 'Filter Coffee & Tea'),
+  ('7d7ef458-b11c-4d40-86b1-79307e371876', 'Vada (2 pcs)',          'Crispy medu vada with sambar and chutney',                         '79292444-6912-4336-9894-1d89c18894d4',  40.00, TRUE,  NULL,         1, 'Snacks'),
+  ('a6e7a4be-6d25-4346-929a-41024f332f7b', 'Idli (3 pcs)',          'Soft steamed rice cakes with sambar and chutney',                  '79292444-6912-4336-9894-1d89c18894d4',  60.00, FALSE, NULL,         2, 'Snacks')
+) AS v(id, name, description, shop_id, price, popular, tag, sort_order, cat_name)
+JOIN categories c ON c.shop_id = v.shop_id AND c.name = v.cat_name
+ON CONFLICT DO NOTHING;
 
 -- Rich media for Ramesh Tea House — one item per outlet, matched by name+shop_id.
 UPDATE menu_items SET media_type = 'VIDEO', video_url = 'https://download.samplelib.com/mp4/sample-15s.mp4'
@@ -654,10 +684,57 @@ UPDATE menu_items SET media_type = 'MODEL_3D', model_url = 'https://raw.githubus
 UPDATE menu_items SET media_type = 'VIDEO', video_url = 'https://download.samplelib.com/mp4/sample-20s.mp4'
   WHERE shop_id = '79292444-6912-4336-9894-1d89c18894d4' AND name = 'Vada (2 pcs)';
 
+-- Real dish photos for every seeded menu item — Wikimedia Commons (CC-licensed), matched
+-- per dish name via the Commons search API and curl-verified to return 200 before use.
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Appam_%28Kerala_dish%29.jpg/960px-Appam_%28Kerala_dish%29.jpg' WHERE name = 'Appam' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Chicken_butter_masala.jpg/960px-Chicken_butter_masala.jpg' WHERE name = 'Butter Chicken' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Mango_Lassi_and_Butter_Milk_-_Vel_South_Indian_Kitchen_%2B_Bar.jpg/960px-Mango_Lassi_and_Butter_Milk_-_Vel_South_Indian_Kitchen_%2B_Bar.jpg' WHERE name = 'Buttermilk' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Naan_Bread.JPG/960px-Naan_Bread.JPG' WHERE name = 'Butter Naan' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Chicken_65_3.jpg/960px-Chicken_65_3.jpg' WHERE name = 'Chicken 65' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/A_home_made_plate_of_mutton_biryani_served_with_chicken_kassa_cooked_in_the_bengali_style.jpg/960px-A_home_made_plate_of_mutton_biryani_served_with_chicken_kassa_cooked_in_the_bengali_style.jpg' WHERE name = 'Chicken Biryani' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/8/8c/Kadai_chicken_%28karahi%29.jpg' WHERE name = 'Chicken Kadai' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Chicken_tikka_in_Araku_Valley%2C_Andhra_Pradesh_01.jpg/960px-Chicken_tikka_in_Araku_Valley%2C_Andhra_Pradesh_01.jpg' WHERE name = 'Chicken Tikka' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/f/f8/Dal_Makhani.jpg' WHERE name = 'Dal Makhani' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/8/84/Indian_filter_coffee_in_Dabarah.jpg' WHERE name = 'Filter Coffee' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/8/84/Indian_filter_coffee_in_Dabarah.jpg' WHERE name = 'Filter Coffee (Large)' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/8/84/Indian_filter_coffee_in_Dabarah.jpg' WHERE name = 'Filter Coffee (Small)' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Cider_%28lemon-lime_drink%29.jpg/960px-Cider_%28lemon-lime_drink%29.jpg' WHERE name = 'Fresh Lime Soda' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Naan_Bread.JPG/960px-Naan_Bread.JPG' WHERE name = 'Garlic Naan' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Two_Gulab_Jamun_in_a_plate_01.jpg/960px-Two_Gulab_Jamun_in_a_plate_01.jpg' WHERE name = 'Gulab Jamun (2 pcs)' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Chicken_Hyderabadi_Biryani.JPG/960px-Chicken_Hyderabadi_Biryani.JPG' WHERE name = 'Hyderabadi Chicken Dum Biryani' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Idli_Sambar_Food_by_Ms_Ujwala_Kasambe_DSCN9744_%282%29.jpg/960px-Idli_Sambar_Food_by_Ms_Ujwala_Kasambe_DSCN9744_%282%29.jpg' WHERE name = 'Idli (3 pcs)' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Jeera-rice.JPG/960px-Jeera-rice.JPG' WHERE name = 'Jeera Rice' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Meen_curry_2.JPG/960px-Meen_curry_2.JPG' WHERE name = 'Kerala Fish Curry' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a6/Falooda_kulfi_from_India.jpg/960px-Falooda_kulfi_from_India.jpg' WHERE name = 'Kulfi Falooda' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/70/Laccha_Paratha.JPG/960px-Laccha_Paratha.JPG' WHERE name = 'Laccha Paratha' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Mango_Lassi_and_Butter_Milk_-_Vel_South_Indian_Kitchen_%2B_Bar.jpg/960px-Mango_Lassi_and_Butter_Milk_-_Vel_South_Indian_Kitchen_%2B_Bar.jpg' WHERE name = 'Mango Lassi' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Masala_Tea_-_2.jpg/960px-Masala_Tea_-_2.jpg' WHERE name = 'Masala Chai' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Masala_dosa_01.jpg/960px-Masala_dosa_01.jpg' WHERE name = 'Masala Dosa' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Masala_Tea_-_2.jpg/960px-Masala_Tea_-_2.jpg' WHERE name = 'Masala Tea' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Natural_Mushroom_fry.jpg/960px-Natural_Mushroom_fry.jpg' WHERE name = 'Mushroom Pepper Fry' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/A_home_made_plate_of_mutton_biryani_served_with_chicken_kassa_cooked_in_the_bengali_style.jpg/960px-A_home_made_plate_of_mutton_biryani_served_with_chicken_kassa_cooked_in_the_bengali_style.jpg' WHERE name = 'Mutton Dum Biryani' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Pioneer_Soda_Works_%281884%29_%28ADVERT_161%29.jpeg/960px-Pioneer_Soda_Works_%281884%29_%28ADVERT_161%29.jpeg' WHERE name = 'Nannari Sherbet' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Palakpaneer_Rayagada_Odisha_0009.jpg/960px-Palakpaneer_Rayagada_Odisha_0009.jpg' WHERE name = 'Palak Paneer' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Paneer_butter_masala_2.jpg/960px-Paneer_butter_masala_2.jpg' WHERE name = 'Paneer Butter Masala' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Panir_Tikka_Indian_cheese_grilled.jpg/960px-Panir_Tikka_Indian_cheese_grilled.jpg' WHERE name = 'Paneer Tikka' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/9/97/South_Indian_prawn_fry.jpg' WHERE name = 'Prawn Koliwada' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Food-Raita.jpg/960px-Food-Raita.jpg' WHERE name = 'Raita' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Samosa_4.jpg/960px-Samosa_4.jpg' WHERE name = 'Samosa (2 pcs)' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/5/58/Shahi_Paneer_%26_Butter_Naan.jpg' WHERE name = 'Shahi Paneer' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/HK_soft_drink_%E8%8A%AC%E9%81%94_Fanta_Orange_Flavoured_Soda_address_October_2024_R12S.jpg/960px-HK_soft_drink_%E8%8A%AC%E9%81%94_Fanta_Orange_Flavoured_Soda_address_October_2024_R12S.jpg' WHERE name = 'Soft Drink (can)' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Lassi_1.jpg/960px-Lassi_1.jpg' WHERE name = 'Sweet Lassi' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Tandoori_Roti-MB54.jpg/960px-Tandoori_Roti-MB54.jpg' WHERE name = 'Tandoori Roti' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/Tender_coconut_water_02.jpg/960px-Tender_coconut_water_02.jpg' WHERE name = 'Tender Coconut' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Medu_Vadas.JPG/960px-Medu_Vadas.JPG' WHERE name = 'Vada (2 pcs)' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/09/Vegetable_Biryani_IMG_001.jpg/960px-Vegetable_Biryani_IMG_001.jpg' WHERE name = 'Veg Dum Biryani' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Veg_Seekh_kebab.jpg/960px-Veg_Seekh_kebab.jpg' WHERE name = 'Veg Seekh Kebab' AND image_url IS NULL;
+UPDATE menu_items SET image_url = 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Piece_of_chocolate_cake_on_a_white_plate_decorated_with_chocolate_sauce.jpg/960px-Piece_of_chocolate_cake_on_a_white_plate_decorated_with_chocolate_sauce.jpg' WHERE name = 'cake' AND image_url IS NULL;
+
 -- Pricing rules
 INSERT INTO pricing_rules (id, shop_id, name, type, from_time, to_time, adjustment_type, adjustment_value, priority, active) VALUES
   ('217cb158-006e-4406-977a-35c21fef972c', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Happy Hours (3–6 PM)',  'TIME', '15:00', '18:00', 'PERCENTAGE_DECREASE', 10.00, 1, TRUE),
-  ('8aec29fb-b9b9-4503-b245-44419a666b77', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Weekend Surcharge',    'DAY',  NULL,    NULL,    'PERCENTAGE_INCREASE',  5.00,  2, TRUE);
+  ('8aec29fb-b9b9-4503-b245-44419a666b77', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Weekend Surcharge',    'DAY',  NULL,    NULL,    'PERCENTAGE_INCREASE',  5.00,  2, TRUE)
+ON CONFLICT DO NOTHING;
 
 UPDATE pricing_rules SET days_of_week = '["SATURDAY","SUNDAY"]'
   WHERE id = '8aec29fb-b9b9-4503-b245-44419a666b77';
@@ -671,7 +748,7 @@ UPDATE pricing_rules SET days_of_week = '["SATURDAY","SUNDAY"]'
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ── orders ────────────────────────────────────────────────────
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
     id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     order_number   VARCHAR(50)   NOT NULL UNIQUE,
     shop_id        VARCHAR(100)  NOT NULL,
@@ -696,14 +773,14 @@ CREATE TABLE orders (
     completed_at   TIMESTAMP
 );
 
-CREATE INDEX idx_orders_shop_id     ON orders (shop_id);
-CREATE INDEX idx_orders_customer_id ON orders (customer_id);
-CREATE INDEX idx_orders_status      ON orders (status);
-CREATE INDEX idx_orders_created_at  ON orders (created_at DESC);
-CREATE INDEX idx_orders_payment_status ON orders (payment_status);
+CREATE INDEX IF NOT EXISTS idx_orders_shop_id     ON orders (shop_id);
+CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders (customer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status      ON orders (status);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at  ON orders (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_payment_status ON orders (payment_status);
 
 -- ── order_items ───────────────────────────────────────────────
-CREATE TABLE order_items (
+CREATE TABLE IF NOT EXISTS order_items (
     id           UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id     UUID          NOT NULL,
     menu_item_id UUID          NOT NULL,
@@ -714,17 +791,22 @@ CREATE TABLE order_items (
     notes        TEXT
 );
 
-ALTER TABLE order_items ADD CONSTRAINT fk_order_items_order_id
-  FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_constraint WHERE conname = 'fk_order_items_order_id') THEN
+    ALTER TABLE order_items ADD CONSTRAINT fk_order_items_order_id
+      FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE;
+  END IF;
+END $$;
 
-CREATE INDEX idx_order_items_order_id    ON order_items (order_id);
-CREATE INDEX idx_order_items_menu_item_id ON order_items (menu_item_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_order_id    ON order_items (order_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_menu_item_id ON order_items (menu_item_id);
 
 -- ── Sequence for order numbers ────────────────────────────────
-CREATE SEQUENCE seq_order_number START 100001 INCREMENT 1 CACHE 20;
+CREATE SEQUENCE IF NOT EXISTS seq_order_number START 100001 INCREMENT 1 CACHE 20;
 
 -- ── aggregator_shop_mapping ───────────────────────────────────
-CREATE TABLE aggregator_shop_mapping (
+CREATE TABLE IF NOT EXISTS aggregator_shop_mapping (
     id                 UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     shop_id            VARCHAR(100)  NOT NULL,
     platform           VARCHAR(20)   NOT NULL,
@@ -733,8 +815,8 @@ CREATE TABLE aggregator_shop_mapping (
     UNIQUE (shop_id, platform)
 );
 
-CREATE INDEX idx_agg_mapping_shop_id  ON aggregator_shop_mapping (shop_id);
-CREATE INDEX idx_agg_mapping_platform_aggid ON aggregator_shop_mapping (platform, aggregator_shop_id);
+CREATE INDEX IF NOT EXISTS idx_agg_mapping_shop_id  ON aggregator_shop_mapping (shop_id);
+CREATE INDEX IF NOT EXISTS idx_agg_mapping_platform_aggid ON aggregator_shop_mapping (platform, aggregator_shop_id);
 
 -- ── Dummy data — orders ───────────────────────────────────────
 INSERT INTO orders (id, order_number, shop_id, customer_id, customer_name, customer_phone, table_number, type, status, payment_method, payment_status, payment_id, subtotal, tax, total_amount, notes, created_at, accepted_at, completed_at) VALUES
@@ -745,7 +827,8 @@ INSERT INTO orders (id, order_number, shop_id, customer_id, customer_name, custo
   ('fb91ae26-dbcc-4339-8320-fecef5d8e04c', 'ORD-1005', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',   '9876543210', '4',  'DINE_IN',  'READY',     'ONLINE', 'PAID',    'pay_Jkl012mno004', 320.00,  16.00, 336.00,  NULL,             NOW() - INTERVAL '35 min', NOW() - INTERVAL '30 min', NULL),
   ('19223584-6e9a-4b0c-86a3-459845066ee3', 'ORD-1006', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                  'Mohan Verma',    '9900887766', NULL, 'TAKEAWAY', 'COMPLETED', 'ONLINE', 'PAID',    'pay_Mno345pqr005', 380.00,  19.00, 399.00,  NULL,             NOW() - INTERVAL '4 hours', NOW() - INTERVAL '235 min', NOW() - INTERVAL '220 min'),
   ('cbef9f2c-44b0-4e03-8c46-476beb6bee0a', 'ORD-1007', '44aeca17-767e-410b-868f-9fdd593fa091', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',   '9876543210', '3',  'DINE_IN',  'COMPLETED', 'ONLINE', 'PAID',    'pay_Pqr678stu006', 500.00,  25.00, 525.00,  NULL,             NOW() - INTERVAL '1 day',  NOW() - INTERVAL '1 day',  NOW() - INTERVAL '23 hours'),
-  ('e5aa1100-0924-452e-abb2-4ca6aa1fce5e', 'ORD-1008', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                  'Karan Malhotra', '9811223344', '1',  'DINE_IN',  'ACCEPTED',  'CASH',   'PENDING', NULL,               840.00,  42.00, 882.00,  'Extra chapati',  NOW() - INTERVAL '25 min', NOW() - INTERVAL '20 min', NULL);
+  ('e5aa1100-0924-452e-abb2-4ca6aa1fce5e', 'ORD-1008', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                  'Karan Malhotra', '9811223344', '1',  'DINE_IN',  'ACCEPTED',  'CASH',   'PENDING', NULL,               840.00,  42.00, 882.00,  'Extra chapati',  NOW() - INTERVAL '25 min', NOW() - INTERVAL '20 min', NULL)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO order_items (id, order_id, menu_item_id, item_name, quantity, unit_price, total_price) VALUES
   -- Order 1
@@ -769,13 +852,15 @@ INSERT INTO order_items (id, order_id, menu_item_id, item_name, quantity, unit_p
   -- Order 8
   (gen_random_uuid(), 'e5aa1100-0924-452e-abb2-4ca6aa1fce5e', 'bbcba77a-d3dc-4497-a151-cc04e6bec540', 'Chicken Kadai',        1, 360.00, 360.00),
   (gen_random_uuid(), 'e5aa1100-0924-452e-abb2-4ca6aa1fce5e', '40b195f0-633a-42ac-86ef-f06b87d62934', 'Dal Makhani',          1, 280.00, 280.00),
-  (gen_random_uuid(), 'e5aa1100-0924-452e-abb2-4ca6aa1fce5e', '8bfa195a-adce-408b-b1fe-f717c0e2b625', 'Butter Naan',          4,  55.00, 220.00);
+  (gen_random_uuid(), 'e5aa1100-0924-452e-abb2-4ca6aa1fce5e', '8bfa195a-adce-408b-b1fe-f717c0e2b625', 'Butter Naan',          4,  55.00, 220.00)
+ON CONFLICT DO NOTHING;
 
 -- Additional orders for Coconut Grove (Meena — OWNER)
 INSERT INTO orders (id, order_number, shop_id, customer_id, customer_name, customer_phone, table_number, type, status, payment_method, payment_status, payment_id, subtotal, tax, total_amount, created_at, accepted_at, completed_at) VALUES
   (gen_random_uuid(), 'ORD-1009', '44aeca17-767e-410b-868f-9fdd593fa091', '223f40ff-4020-4baf-8d8e-44e347263bd1', 'Ravi Kumar',    '9123456789', '5',  'DINE_IN',  'PREPARING', 'ONLINE', 'PAID',    'pay_CG0001',  840.00, 42.00,  882.00,  NOW() - INTERVAL '18 min',  NOW() - INTERVAL '14 min', NULL),
   (gen_random_uuid(), 'ORD-1010', '44aeca17-767e-410b-868f-9fdd593fa091', NULL,                                  'Deepak Joshi',  '9988001122', '2',  'DINE_IN',  'NEW',       'ONLINE', 'PAID',    'pay_CG0002',  500.00, 25.00,  525.00,  NOW() - INTERVAL '7 min',   NULL,                       NULL),
-  (gen_random_uuid(), 'ORD-1011', '44aeca17-767e-410b-868f-9fdd593fa091', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',  '9876543210', NULL, 'TAKEAWAY', 'COMPLETED', 'CASH',   'CASH',    NULL,          420.00, 21.00,  441.00,  NOW() - INTERVAL '3 hours', NOW() - INTERVAL '178 min', NOW() - INTERVAL '165 min');
+  (gen_random_uuid(), 'ORD-1011', '44aeca17-767e-410b-868f-9fdd593fa091', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',  '9876543210', NULL, 'TAKEAWAY', 'COMPLETED', 'CASH',   'CASH',    NULL,          420.00, 21.00,  441.00,  NOW() - INTERVAL '3 hours', NOW() - INTERVAL '178 min', NOW() - INTERVAL '165 min')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO order_items (id, order_id, menu_item_id, item_name, quantity, unit_price, total_price)
 SELECT gen_random_uuid(), o.id, v.menu_item_id, v.item_name, v.qty, v.price, v.price * v.qty
@@ -786,7 +871,8 @@ FROM (VALUES
   ('ORD-1010', 'a050595b-db30-4df3-89f6-39209ed9bb34'::uuid, 'Appam',              2,  80.00),
   ('ORD-1011', '3012baf3-b6bd-426c-997a-4147afc47dd1'::uuid, 'Kerala Fish Curry',  1, 420.00)
 ) AS v(order_number, menu_item_id, item_name, qty, price)
-JOIN orders o ON o.order_number = v.order_number AND o.shop_id = '44aeca17-767e-410b-868f-9fdd593fa091';
+JOIN orders o ON o.order_number = v.order_number AND o.shop_id = '44aeca17-767e-410b-868f-9fdd593fa091'
+ON CONFLICT DO NOTHING;
 
 -- Orders for Ramesh Tea House outlets (SUPPLIER shops)
 INSERT INTO orders (id, order_number, shop_id, customer_name, customer_phone, table_number, type, status, payment_method, payment_status, payment_id, subtotal, tax, total_amount, created_at, accepted_at, completed_at) VALUES
@@ -802,31 +888,34 @@ INSERT INTO orders (id, order_number, shop_id, customer_name, customer_phone, ta
   (gen_random_uuid(), 'ORD-3008', 'da4440f6-1b19-48a4-8587-532474a3c258', 'Mohan Verma',    '9900887766', NULL,'TAKEAWAY', 'COMPLETED', 'CASH',   'CASH',    NULL,           55.00, 2.75,  57.75,  NOW() - INTERVAL '3 hours', NOW() - INTERVAL '178 min', NOW() - INTERVAL '165 min'),
   -- Whitefield outlet
   (gen_random_uuid(), 'ORD-3009', '79292444-6912-4336-9894-1d89c18894d4', 'Vivek Iyer',     '9001122334', '1', 'DINE_IN',  'COMPLETED', 'CASH',   'CASH',    NULL,           65.00, 3.25,  68.25,  NOW() - INTERVAL '1 hour',  NOW() - INTERVAL '58 min',  NOW() - INTERVAL '45 min'),
-  (gen_random_uuid(), 'ORD-3010', '79292444-6912-4336-9894-1d89c18894d4', 'Sara Thomas',    '9006677889', '2', 'DINE_IN',  'NEW',       'ONLINE', 'PAID',    'pay_RT0005',   35.00, 1.75,  36.75,  NOW() - INTERVAL '8 min',   NULL,                       NULL);
+  (gen_random_uuid(), 'ORD-3010', '79292444-6912-4336-9894-1d89c18894d4', 'Sara Thomas',    '9006677889', '2', 'DINE_IN',  'NEW',       'ONLINE', 'PAID',    'pay_RT0005',   35.00, 1.75,  36.75,  NOW() - INTERVAL '8 min',   NULL,                       NULL)
+ON CONFLICT DO NOTHING;
 
--- Supplier order_items: JOIN on order_number + item name (no hardcoded UUIDs)
+-- Supplier order_items: joined on order_number only — menu_item_id/price are
+-- given directly (fixed ids from the aviqr_menu insert above) since menu_items
+-- lives in a different database and can't be joined to from here.
 INSERT INTO order_items (id, order_id, menu_item_id, item_name, quantity, unit_price, total_price)
-SELECT gen_random_uuid(), o.id, m.id, r.item_name, r.qty, m.price, m.price * r.qty
+SELECT gen_random_uuid(), o.id, r.menu_item_id, r.item_name, r.qty, r.price, r.price * r.qty
 FROM (VALUES
-  ('ORD-3001', 'Filter Coffee (Small)', 2, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
-  ('ORD-3001', 'Vada (2 pcs)',          1, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
-  ('ORD-3002', 'Masala Dosa',           1, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
-  ('ORD-3003', 'Filter Coffee (Large)', 1, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
-  ('ORD-3004', 'Masala Dosa',           1, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
-  ('ORD-3004', 'Filter Coffee (Small)', 2, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
-  ('ORD-3005', 'Idli (3 pcs)',          1, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
-  ('ORD-3005', 'Masala Tea',            1, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
-  ('ORD-3006', 'Filter Coffee (Small)', 2, 'da4440f6-1b19-48a4-8587-532474a3c258'),
-  ('ORD-3006', 'Vada (2 pcs)',          1, 'da4440f6-1b19-48a4-8587-532474a3c258'),
-  ('ORD-3007', 'Masala Dosa',           1, 'da4440f6-1b19-48a4-8587-532474a3c258'),
-  ('ORD-3008', 'Masala Tea',            1, 'da4440f6-1b19-48a4-8587-532474a3c258'),
-  ('ORD-3008', 'Vada (2 pcs)',          1, 'da4440f6-1b19-48a4-8587-532474a3c258'),
-  ('ORD-3009', 'Filter Coffee',         1, '79292444-6912-4336-9894-1d89c18894d4'),
-  ('ORD-3009', 'Vada (2 pcs)',          1, '79292444-6912-4336-9894-1d89c18894d4'),
-  ('ORD-3010', 'Filter Coffee',         1, '79292444-6912-4336-9894-1d89c18894d4')
-) AS r(order_number, item_name, qty, shop_id)
+  ('ORD-3001', '72f82e61-7f11-4faf-baee-f85855cbf60f'::uuid, 'Filter Coffee (Small)', 2,  30.00, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
+  ('ORD-3001', '3f7f51a9-7402-46e0-9733-e4b8f005dccf'::uuid, 'Vada (2 pcs)',          1,  40.00, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
+  ('ORD-3002', 'e2c7c669-a092-4c75-a186-7fc33bf0482f'::uuid, 'Masala Dosa',           1,  80.00, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
+  ('ORD-3003', '6fd55950-9be1-4b83-9469-c969ac8aeba5'::uuid, 'Filter Coffee (Large)', 1,  50.00, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
+  ('ORD-3004', 'e2c7c669-a092-4c75-a186-7fc33bf0482f'::uuid, 'Masala Dosa',           1,  80.00, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
+  ('ORD-3004', '72f82e61-7f11-4faf-baee-f85855cbf60f'::uuid, 'Filter Coffee (Small)', 2,  30.00, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
+  ('ORD-3005', '09161684-89b8-4f56-b6f3-32f5f6bdce16'::uuid, 'Idli (3 pcs)',          1,  60.00, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
+  ('ORD-3005', '7570bfd1-64b0-4cc6-9796-9282e7b19797'::uuid, 'Masala Tea',            1,  25.00, '117390e3-f3dc-4ea7-a6e2-1b073f18bad7'),
+  ('ORD-3006', 'edfdcd22-bc17-45be-a21f-32dc8eadcaf8'::uuid, 'Filter Coffee (Small)', 2,  30.00, 'da4440f6-1b19-48a4-8587-532474a3c258'),
+  ('ORD-3006', 'a3a661fc-ac54-4376-a1fe-b42229910519'::uuid, 'Vada (2 pcs)',          1,  40.00, 'da4440f6-1b19-48a4-8587-532474a3c258'),
+  ('ORD-3007', '1f265889-c9d0-499b-a112-82e9e5a33af5'::uuid, 'Masala Dosa',           1,  80.00, 'da4440f6-1b19-48a4-8587-532474a3c258'),
+  ('ORD-3008', '3e2760f8-054d-4bd9-9b24-46e6cbe50fe0'::uuid, 'Masala Tea',            1,  25.00, 'da4440f6-1b19-48a4-8587-532474a3c258'),
+  ('ORD-3008', 'a3a661fc-ac54-4376-a1fe-b42229910519'::uuid, 'Vada (2 pcs)',          1,  40.00, 'da4440f6-1b19-48a4-8587-532474a3c258'),
+  ('ORD-3009', '9517026a-d4a3-4f37-bc4b-f35be060a76a'::uuid, 'Filter Coffee',         1,  35.00, '79292444-6912-4336-9894-1d89c18894d4'),
+  ('ORD-3009', '7d7ef458-b11c-4d40-86b1-79307e371876'::uuid, 'Vada (2 pcs)',          1,  40.00, '79292444-6912-4336-9894-1d89c18894d4'),
+  ('ORD-3010', '9517026a-d4a3-4f37-bc4b-f35be060a76a'::uuid, 'Filter Coffee',         1,  35.00, '79292444-6912-4336-9894-1d89c18894d4')
+) AS r(order_number, menu_item_id, item_name, qty, price, shop_id)
 JOIN orders o ON o.order_number = r.order_number AND o.shop_id = r.shop_id
-JOIN menu_items m ON m.shop_id = r.shop_id AND m.name = r.item_name;
+ON CONFLICT DO NOTHING;
 
 
 -- ============================================================
@@ -837,7 +926,7 @@ JOIN menu_items m ON m.shop_id = r.shop_id AND m.name = r.item_name;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ── payments ──────────────────────────────────────────────────
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
     id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     payment_id        VARCHAR(100)  NOT NULL UNIQUE,
     order_id          VARCHAR(100),
@@ -855,13 +944,13 @@ CREATE TABLE payments (
     refunded_at       TIMESTAMP
 );
 
-CREATE INDEX idx_payments_shop_id  ON payments (shop_id);
-CREATE INDEX idx_payments_order_id ON payments (order_id);
-CREATE INDEX idx_payments_status   ON payments (status);
-CREATE INDEX idx_payments_customer ON payments (customer_id);
-CREATE INDEX idx_payments_paid_at  ON payments (paid_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payments_shop_id  ON payments (shop_id);
+CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments (order_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status   ON payments (status);
+CREATE INDEX IF NOT EXISTS idx_payments_customer ON payments (customer_id);
+CREATE INDEX IF NOT EXISTS idx_payments_paid_at  ON payments (paid_at DESC);
 
-CREATE SEQUENCE seq_payment_ref START 1001 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS seq_payment_ref START 1001 INCREMENT 1;
 
 -- ── Dummy data — payments ─────────────────────────────────────
 INSERT INTO payments (id, payment_id, order_id, razorpay_order_id, shop_id, customer_id, amount, currency, status, gateway, created_at, paid_at) VALUES
@@ -880,7 +969,8 @@ INSERT INTO payments (id, payment_id, order_id, razorpay_order_id, shop_id, cust
   (gen_random_uuid(), 'pay_RT0002', 'ORD-3004', 'order_RT0002', '117390e3-f3dc-4ea7-a6e2-1b073f18bad7', '24e349fe-42b8-4ac1-b202-99261aac3165', 147.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '1 hour',  NOW() - INTERVAL '59 min'),
   (gen_random_uuid(), 'pay_RT0003', 'ORD-3005', 'order_RT0003', '117390e3-f3dc-4ea7-a6e2-1b073f18bad7', '223f40ff-4020-4baf-8d8e-44e347263bd1',  94.50, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '5 min',   NOW() - INTERVAL '4 min'),
   (gen_random_uuid(), 'pay_RT0004', 'ORD-3007', 'order_RT0004', 'da4440f6-1b19-48a4-8587-532474a3c258', NULL,                                    84.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '25 min',  NOW() - INTERVAL '24 min'),
-  (gen_random_uuid(), 'pay_RT0005', 'ORD-3010', 'order_RT0005', '79292444-6912-4336-9894-1d89c18894d4', NULL,                                    36.75, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '8 min',   NOW() - INTERVAL '7 min');
+  (gen_random_uuid(), 'pay_RT0005', 'ORD-3010', 'order_RT0005', '79292444-6912-4336-9894-1d89c18894d4', NULL,                                    36.75, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '8 min',   NOW() - INTERVAL '7 min')
+ON CONFLICT DO NOTHING;
 
 
 -- ============================================================
@@ -891,7 +981,7 @@ INSERT INTO payments (id, payment_id, order_id, razorpay_order_id, shop_id, cust
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ── qr_codes ──────────────────────────────────────────────────
-CREATE TABLE qr_codes (
+CREATE TABLE IF NOT EXISTS qr_codes (
     id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     qr_code     VARCHAR(100) NOT NULL UNIQUE,
     target_url  VARCHAR(2000) NOT NULL,
@@ -904,13 +994,13 @@ CREATE TABLE qr_codes (
     created_at  TIMESTAMP    DEFAULT NOW()
 );
 
-CREATE INDEX idx_qr_shop_id    ON qr_codes (shop_id);
-CREATE INDEX idx_qr_type       ON qr_codes (type);
-CREATE INDEX idx_qr_active     ON qr_codes (active);
-CREATE INDEX idx_qr_scan_count ON qr_codes (scan_count DESC);
+CREATE INDEX IF NOT EXISTS idx_qr_shop_id    ON qr_codes (shop_id);
+CREATE INDEX IF NOT EXISTS idx_qr_type       ON qr_codes (type);
+CREATE INDEX IF NOT EXISTS idx_qr_active     ON qr_codes (active);
+CREATE INDEX IF NOT EXISTS idx_qr_scan_count ON qr_codes (scan_count DESC);
 
 -- ── qr_scan_logs ──────────────────────────────────────────────
-CREATE TABLE qr_scan_logs (
+CREATE TABLE IF NOT EXISTS qr_scan_logs (
     id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     qr_code    VARCHAR(100) NOT NULL,
     ip_address VARCHAR(50),
@@ -918,11 +1008,11 @@ CREATE TABLE qr_scan_logs (
     scanned_at TIMESTAMP    DEFAULT NOW()
 );
 
-CREATE INDEX idx_qr_scan_logs_code       ON qr_scan_logs (qr_code);
-CREATE INDEX idx_qr_scan_logs_scanned_at ON qr_scan_logs (scanned_at DESC);
+CREATE INDEX IF NOT EXISTS idx_qr_scan_logs_code       ON qr_scan_logs (qr_code);
+CREATE INDEX IF NOT EXISTS idx_qr_scan_logs_scanned_at ON qr_scan_logs (scanned_at DESC);
 
 -- Sequence for scan stats
-CREATE SEQUENCE seq_qr_scan_batch START 1 INCREMENT 10;
+CREATE SEQUENCE IF NOT EXISTS seq_qr_scan_batch START 1 INCREMENT 10;
 
 -- ── Dummy data — qr_codes ─────────────────────────────────────
 INSERT INTO qr_codes (id, qr_code, target_url, shop_id, label, type, group_param, scan_count, active) VALUES
@@ -933,13 +1023,15 @@ INSERT INTO qr_codes (id, qr_code, target_url, shop_id, label, type, group_param
   ('3db703dc-5bd3-4e8b-a108-e734aabe1338', 'spiceroute-t4',  'https://aviqr.in/menu/ecdbc557-91fa-44ee-992f-03683ad8bbde?table=4',   'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Table 4',        'TABLE', '4',    421, TRUE),
   ('44e8826d-0c17-4842-9baa-3ff4810c1483', 'coconutgrove',   'https://aviqr.in/menu/44aeca17-767e-410b-868f-9fdd593fa091',           '44aeca17-767e-410b-868f-9fdd593fa091', 'Main Shop QR',   'SHOP',  NULL,  1547, TRUE),
   ('461d094f-9f54-4b0d-8870-077fed677b27', 'biryanihouse',   'https://aviqr.in/menu/e8754df0-7965-400a-8923-35543d8a698b',           'e8754df0-7965-400a-8923-35543d8a698b', 'Main Shop QR',   'SHOP',  NULL,   987, FALSE),
-  ('8b6d0bee-2372-41f2-9c15-3864bfab19bd', 'cakestudio-del', 'https://aviqr.in/menu/67685266-6b45-4e40-851c-8277ef650ca3',           '67685266-6b45-4e40-851c-8277ef650ca3', 'Main Shop QR',   'SHOP',  NULL,   234, TRUE);
+  ('8b6d0bee-2372-41f2-9c15-3864bfab19bd', 'cakestudio-del', 'https://aviqr.in/menu/67685266-6b45-4e40-851c-8277ef650ca3',           '67685266-6b45-4e40-851c-8277ef650ca3', 'Main Shop QR',   'SHOP',  NULL,   234, TRUE)
+ON CONFLICT DO NOTHING;
 
 -- Supplier (Ramesh Tea House) QR codes
 INSERT INTO qr_codes (id, qr_code, target_url, shop_id, label, type, scan_count, active) VALUES
   (gen_random_uuid(), 'rameshteas-mgrd', 'https://aviqr.in/menu/117390e3-f3dc-4ea7-a6e2-1b073f18bad7', '117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'MG Road — Main QR',     'SHOP', 412, TRUE),
   (gen_random_uuid(), 'rameshteas-kora', 'https://aviqr.in/menu/da4440f6-1b19-48a4-8587-532474a3c258', 'da4440f6-1b19-48a4-8587-532474a3c258', 'Koramangala — Main QR', 'SHOP', 287, TRUE),
-  (gen_random_uuid(), 'rameshteas-wfld', 'https://aviqr.in/menu/79292444-6912-4336-9894-1d89c18894d4', '79292444-6912-4336-9894-1d89c18894d4', 'Whitefield — Main QR',  'SHOP', 143, TRUE);
+  (gen_random_uuid(), 'rameshteas-wfld', 'https://aviqr.in/menu/79292444-6912-4336-9894-1d89c18894d4', '79292444-6912-4336-9894-1d89c18894d4', 'Whitefield — Main QR',  'SHOP', 143, TRUE)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO qr_scan_logs (id, qr_code, ip_address, user_agent, scanned_at) VALUES
   (gen_random_uuid(), 'spiceroute',       '103.21.58.12',  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)',  NOW() - INTERVAL '5 min'),
@@ -949,7 +1041,8 @@ INSERT INTO qr_scan_logs (id, qr_code, ip_address, user_agent, scanned_at) VALUE
   (gen_random_uuid(), 'spiceroute',       '115.114.88.33', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1)',  NOW() - INTERVAL '1 hour'),
   (gen_random_uuid(), 'rameshteas-mgrd',  '103.21.58.50',  'Mozilla/5.0 (Android 14; Mobile)',          NOW() - INTERVAL '8 min'),
   (gen_random_uuid(), 'rameshteas-kora',  '49.207.192.201','Mozilla/5.0 (iPhone; CPU iPhone OS 17_2)',  NOW() - INTERVAL '30 min'),
-  (gen_random_uuid(), 'rameshteas-wfld',  '117.197.52.90', 'Mozilla/5.0 (Android 12; Mobile)',          NOW() - INTERVAL '15 min');
+  (gen_random_uuid(), 'rameshteas-wfld',  '117.197.52.90', 'Mozilla/5.0 (Android 12; Mobile)',          NOW() - INTERVAL '15 min')
+ON CONFLICT DO NOTHING;
 
 
 -- ============================================================
@@ -960,7 +1053,7 @@ INSERT INTO qr_scan_logs (id, qr_code, ip_address, user_agent, scanned_at) VALUE
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ── hotels ────────────────────────────────────────────────────
-CREATE TABLE hotels (
+CREATE TABLE IF NOT EXISTS hotels (
     id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     name              VARCHAR(255) NOT NULL,
     owner_id          VARCHAR(100),
@@ -977,20 +1070,20 @@ CREATE TABLE hotels (
     created_at        TIMESTAMP    DEFAULT NOW()
 );
 
-CREATE INDEX idx_hotels_owner_id ON hotels (owner_id);
-CREATE INDEX idx_hotels_city     ON hotels (city);
-CREATE INDEX idx_hotels_active   ON hotels (active);
+CREATE INDEX IF NOT EXISTS idx_hotels_owner_id ON hotels (owner_id);
+CREATE INDEX IF NOT EXISTS idx_hotels_city     ON hotels (city);
+CREATE INDEX IF NOT EXISTS idx_hotels_active   ON hotels (active);
 
 -- ── hotel_enabled_services ────────────────────────────────────
-CREATE TABLE hotel_enabled_services (
+CREATE TABLE IF NOT EXISTS hotel_enabled_services (
     hotel_id         UUID,
     enabled_services VARCHAR(50)
 );
 
-CREATE INDEX idx_hotel_enabled_services ON hotel_enabled_services (hotel_id);
+CREATE INDEX IF NOT EXISTS idx_hotel_enabled_services ON hotel_enabled_services (hotel_id);
 
 -- ── rooms ─────────────────────────────────────────────────────
-CREATE TABLE rooms (
+CREATE TABLE IF NOT EXISTS rooms (
     id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     hotel_id       UUID         NOT NULL,
     room_number    VARCHAR(20)  NOT NULL,
@@ -1003,11 +1096,11 @@ CREATE TABLE rooms (
     qr_active      BOOLEAN      DEFAULT TRUE
 );
 
-CREATE INDEX idx_rooms_hotel_id ON rooms (hotel_id);
-CREATE INDEX idx_rooms_status   ON rooms (status);
+CREATE INDEX IF NOT EXISTS idx_rooms_hotel_id ON rooms (hotel_id);
+CREATE INDEX IF NOT EXISTS idx_rooms_status   ON rooms (status);
 
 -- ── room_requests ─────────────────────────────────────────────
-CREATE TABLE room_requests (
+CREATE TABLE IF NOT EXISTS room_requests (
     id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     hotel_id     UUID         NOT NULL,
     room_number  VARCHAR(20)  NOT NULL,
@@ -1021,18 +1114,19 @@ CREATE TABLE room_requests (
     resolved_at  TIMESTAMP
 );
 
-CREATE INDEX idx_requests_hotel_id   ON room_requests (hotel_id);
-CREATE INDEX idx_requests_status     ON room_requests (status);
-CREATE INDEX idx_requests_service    ON room_requests (service_type);
-CREATE INDEX idx_requests_created_at ON room_requests (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_requests_hotel_id   ON room_requests (hotel_id);
+CREATE INDEX IF NOT EXISTS idx_requests_status     ON room_requests (status);
+CREATE INDEX IF NOT EXISTS idx_requests_service    ON room_requests (service_type);
+CREATE INDEX IF NOT EXISTS idx_requests_created_at ON room_requests (created_at DESC);
 
-CREATE SEQUENCE seq_hotel_request_ref START 1001 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS seq_hotel_request_ref START 1001 INCREMENT 1;
 
 -- ── Dummy data — hotels ───────────────────────────────────────
 INSERT INTO hotels (id, name, owner_id, phone, email, address, city, total_rooms, check_in_time, check_out_time, subscription_plan, active) VALUES
   ('ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Grand Palace Hotel', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', '08011223344', 'gm@grandpalace.in', '45, Anna Salai, Teynampet', 'Chennai',   120, '14:00', '12:00', 'HOTEL_PRO',     TRUE),
   ('0a035141-82b3-4e32-ae79-024ff06dba3f', 'The Leela Resort',   '640e1946-5ffe-41cb-8be5-8ba499c08bd2', '08322445566', 'gm@leela.in',       'Calangute Beach Road',      'Goa',       280, '15:00', '11:00', 'RESORT_SUITE',  TRUE),
-  ('2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Budget Inn Jaipur',  '640e1946-5ffe-41cb-8be5-8ba499c08bd2', '01412223344', 'gm@budgetinn.in',   '12, MI Road',               'Jaipur',     40, '12:00', '10:00', 'HOTEL_BASIC',   TRUE);
+  ('2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Budget Inn Jaipur',  '640e1946-5ffe-41cb-8be5-8ba499c08bd2', '01412223344', 'gm@budgetinn.in',   '12, MI Road',               'Jaipur',     40, '12:00', '10:00', 'HOTEL_BASIC',   TRUE)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO hotel_enabled_services (hotel_id, enabled_services) VALUES
   ('ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'ROOM_SERVICE'),
@@ -1047,7 +1141,8 @@ INSERT INTO hotel_enabled_services (hotel_id, enabled_services) VALUES
   ('0a035141-82b3-4e32-ae79-024ff06dba3f', 'MAINTENANCE'),
   ('0a035141-82b3-4e32-ae79-024ff06dba3f', 'TRANSPORT'),
   ('2673d4b8-7f7c-4c61-8df9-2f775d482873', 'ROOM_SERVICE'),
-  ('2673d4b8-7f7c-4c61-8df9-2f775d482873', 'HOUSEKEEPING');
+  ('2673d4b8-7f7c-4c61-8df9-2f775d482873', 'HOUSEKEEPING')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO rooms (id, hotel_id, room_number, room_type, floor, status, guest_name, check_in_date, check_out_date, qr_active) VALUES
   ('ad1a22ff-c4cd-424a-84ad-505f8847c610', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'Standard',      '1st Floor', 'OCCUPIED',     'Anjali Singh',    'Jun 15, 2026', 'Jun 17, 2026', TRUE),
@@ -1057,15 +1152,17 @@ INSERT INTO rooms (id, hotel_id, room_number, room_type, floor, status, guest_na
   ('4a8ee55c-81c7-4bf0-90e2-efd322644e4b', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '202', 'Deluxe',        '2nd Floor', 'VACANT',       NULL,              NULL,           NULL,           TRUE),
   ('faa9e33d-3d94-486a-b099-3af0c3ba8d5d', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'Suite',         '3rd Floor', 'OCCUPIED',     'Meena Pillai',    'Jun 14, 2026', 'Jun 20, 2026', TRUE),
   ('16c91a70-661b-447b-8925-7195c1fb476d', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '302', 'Suite',         '3rd Floor', 'VACANT',       NULL,              NULL,           NULL,           TRUE),
-  ('4024cbc3-0eff-45ce-ab81-5784550d998e', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '401', 'Presidential',  '4th Floor', 'VACANT',       NULL,              NULL,           NULL,           TRUE);
+  ('4024cbc3-0eff-45ce-ab81-5784550d998e', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '401', 'Presidential',  '4th Floor', 'VACANT',       NULL,              NULL,           NULL,           TRUE)
+ON CONFLICT DO NOTHING;
 
-INSERT INTO room_requests (id, hotel_id, room_number, service_type, description, status, priority, created_at) VALUES
-  ('a4689441-ede3-4473-98f2-f6a8196945e5', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'ROOM_SERVICE', 'Club Sandwich + Fresh Lime Soda',                    'NEW',       'HIGH',   NOW() - INTERVAL '5 min'),
-  ('a2b66295-a0e3-4905-a6e9-c7f03ba4d49d', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'LAUNDRY',      '2 shirts, 1 trouser (express)',                      'PREPARING', 'NORMAL', NOW() - INTERVAL '12 min'),
-  ('c6d62dc4-f1f1-4929-94d1-52e675a89309', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'MAINTENANCE',  'AC not cooling — temperature stuck at 28 degrees',  'PREPARING', 'HIGH',   NOW() - INTERVAL '20 min'),
-  ('0f72e9ad-b42d-4c7f-8487-e99e09f17697', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'SPA',          '60-min Swedish Massage at 3 PM for 2 guests',       'CONFIRMED', 'NORMAL', NOW() - INTERVAL '35 min'),
+INSERT INTO room_requests (id, hotel_id, room_number, service_type, description, status, priority, created_at, resolved_at) VALUES
+  ('a4689441-ede3-4473-98f2-f6a8196945e5', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'ROOM_SERVICE', 'Club Sandwich + Fresh Lime Soda',                    'NEW',       'HIGH',   NOW() - INTERVAL '5 min',    NULL),
+  ('a2b66295-a0e3-4905-a6e9-c7f03ba4d49d', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'LAUNDRY',      '2 shirts, 1 trouser (express)',                      'PREPARING', 'NORMAL', NOW() - INTERVAL '12 min',   NULL),
+  ('c6d62dc4-f1f1-4929-94d1-52e675a89309', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'MAINTENANCE',  'AC not cooling — temperature stuck at 28 degrees',  'PREPARING', 'HIGH',   NOW() - INTERVAL '20 min',   NULL),
+  ('0f72e9ad-b42d-4c7f-8487-e99e09f17697', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'SPA',          '60-min Swedish Massage at 3 PM for 2 guests',       'CONFIRMED', 'NORMAL', NOW() - INTERVAL '35 min',   NULL),
   ('b362ddf3-36d4-4750-a772-fa7081c3eb83', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'ROOM_SERVICE', 'Breakfast for 2 — continental set',                  'DONE',      'NORMAL', NOW() - INTERVAL '2 hours',  NOW() - INTERVAL '90 min'),
-  ('affb56f6-c6c5-4587-9c0f-1651ca1d4201', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'HOUSEKEEPING', 'Extra towels (2) and bed pillows (4)',               'DONE',      'NORMAL', NOW() - INTERVAL '1 hour',   NOW() - INTERVAL '45 min');
+  ('affb56f6-c6c5-4587-9c0f-1651ca1d4201', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'HOUSEKEEPING', 'Extra towels (2) and bed pillows (4)',               'DONE',      'NORMAL', NOW() - INTERVAL '1 hour',   NOW() - INTERVAL '45 min')
+ON CONFLICT DO NOTHING;
 
 
 
@@ -1167,7 +1264,8 @@ INSERT INTO hotel_outlets (id, hotel_id, name, outlet_type, description, locatio
   ('b1000001-0000-4000-8000-000000000005', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Palace Boutique',                   'SHOP',       'Souvenirs, essentials & local crafts',             'Lobby Level',      NULL,       FALSE, TRUE, TRUE),
   ('b1000001-0000-4000-8000-000000000006', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'FitZone Gym',                       'GYM',        '24x7 fitness centre',                              'Ground Floor',     NULL,       FALSE, TRUE, TRUE),
   ('b1000001-0000-4000-8000-000000000007', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Heritage Walk & City Tours',        'ACTIVITY',   'Guided tours, cab & experience bookings',          'Concierge Desk',   NULL,       TRUE,  TRUE, TRUE),
-  ('b1000001-0000-4000-8000-000000000008', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Grand Ballroom',                    'BANQUET',    'Events, weddings & conferences',                   '3rd Floor',        NULL,       TRUE,  TRUE, TRUE);
+  ('b1000001-0000-4000-8000-000000000008', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Grand Ballroom',                    'BANQUET',    'Events, weddings & conferences',                   '3rd Floor',        NULL,       TRUE,  TRUE, TRUE)
+ON CONFLICT DO NOTHING;
 
 -- ── Dummy data — room_charges (running folios) ────────────────
 -- Room 101 (Anjali Singh) has an open folio; some pending, some settled.
@@ -1179,7 +1277,8 @@ INSERT INTO room_charges (id, hotel_id, room_number, outlet_id, amount, descript
   ('c1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'b1000001-0000-4000-8000-000000000003', 2500.00, 'Serenity Spa — Swedish Massage 60min',        'SETTLED', 'Ravi Kumar',   'CHARGE_TO_ROOM', NOW() - INTERVAL '1 day',    NOW() - INTERVAL '20 hours'),
   ('c1000001-0000-4000-8000-000000000005', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'b1000001-0000-4000-8000-000000000005', 320.00,  'Palace Boutique — Toiletries',                'SETTLED', 'Ravi Kumar',   'PAY_DIRECT',     NOW() - INTERVAL '5 hours',  NOW() - INTERVAL '5 hours'),
   -- Room 301 (Meena Pillai) — single pending F&B charge
-  ('c1000001-0000-4000-8000-000000000006', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'b1000001-0000-4000-8000-000000000001', 1680.00, 'Zodiac Restaurant — Lunch buffet x3',         'PENDING', 'Meena Pillai', 'CHARGE_TO_ROOM', NOW() - INTERVAL '6 hours',  NULL);
+  ('c1000001-0000-4000-8000-000000000006', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'b1000001-0000-4000-8000-000000000001', 1680.00, 'Zodiac Restaurant — Lunch buffet x3',         'PENDING', 'Meena Pillai', 'CHARGE_TO_ROOM', NOW() - INTERVAL '6 hours',  NULL)
+ON CONFLICT DO NOTHING;
 
 -- ── Dummy data — guest_service_requests (QR-raised) ───────────
 INSERT INTO guest_service_requests (id, hotel_id, room_number, guest_name, type, details, priority, status, created_at, completed_at) VALUES
@@ -1188,13 +1287,15 @@ INSERT INTO guest_service_requests (id, hotel_id, room_number, guest_name, type,
   ('d1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'Meena Pillai', 'MAINTENANCE',  'Bathroom sink draining slowly',                    'HIGH',   'NEW',      NOW() - INTERVAL '15 min',  NULL),
   ('d1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'Anjali Singh', 'CONCIERGE',    'Book an airport cab for tomorrow 6 AM',            'NORMAL', 'ACCEPTED', NOW() - INTERVAL '40 min',  NULL),
   ('d1000001-0000-4000-8000-000000000005', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'Ravi Kumar',   'LAUNDRY',      'Express laundry — 2 shirts, 1 trouser',            'NORMAL', 'DONE',     NOW() - INTERVAL '3 hours', NOW() - INTERVAL '90 min'),
-  ('d1000001-0000-4000-8000-000000000006', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'Meena Pillai', 'LATE_CHECKOUT','Requesting checkout at 3 PM instead of noon',      'NORMAL', 'DONE',     NOW() - INTERVAL '5 hours', NOW() - INTERVAL '4 hours');
+  ('d1000001-0000-4000-8000-000000000006', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'Meena Pillai', 'LATE_CHECKOUT','Requesting checkout at 3 PM instead of noon',      'NORMAL', 'DONE',     NOW() - INTERVAL '5 hours', NOW() - INTERVAL '4 hours')
+ON CONFLICT DO NOTHING;
 
 -- ── Dummy data — outlet_bookings (spa / activities) ───────────
 INSERT INTO outlet_bookings (id, hotel_id, outlet_id, outlet_name, room_number, guest_name, guest_phone, service_name, price, booking_date, booking_time, party_size, notes, status, payment_choice, created_at, confirmed_at) VALUES
   ('e1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000003', 'Serenity Spa',                 '101', 'Anjali Singh', '9845012345', 'Aromatherapy Massage 90min',   3500.00, 'Jun 16, 2026', '16:00', 1, 'Prefers lavender oil',        'CONFIRMED', 'CHARGE_TO_ROOM', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '90 min'),
   ('e1000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000007', 'Heritage Walk & City Tours',   '301', 'Meena Pillai', '9845067890', 'Old City Heritage Walk',       1200.00, 'Jun 17, 2026', '07:30', 2, 'Vegetarian breakfast en route','REQUESTED', 'CHARGE_TO_ROOM', NOW() - INTERVAL '50 min',  NULL),
-  ('e1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000001', 'Zodiac — Restaurant',          '201', 'Ravi Kumar',   '9845054321', 'Dinner table for 4',           0.00,    'Jun 16, 2026', '20:30', 4, 'Window table if possible',    'CONFIRMED', 'PAY_DIRECT',     NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours');
+  ('e1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'b1000001-0000-4000-8000-000000000001', 'Zodiac — Restaurant',          '201', 'Ravi Kumar',   '9845054321', 'Dinner table for 4',           0.00,    'Jun 16, 2026', '20:30', 4, 'Window table if possible',    'CONFIRMED', 'PAY_DIRECT',     NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours')
+ON CONFLICT DO NOTHING;
 
 -- ── hotel_access (hotel-wide / outlet-scoped staff roles) ─────
 -- Table created explicitly (same reasoning as hotel_outlets above): required
@@ -1219,7 +1320,8 @@ INSERT INTO hotel_access (id, hotel_id, user_id, role, outlet_id) VALUES
   ('f1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', 'OWNER',           NULL),
   ('f1000001-0000-4000-8000-000000000002', '0a035141-82b3-4e32-ae79-024ff06dba3f', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', 'OWNER',           NULL),
   ('f1000001-0000-4000-8000-000000000003', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', 'OWNER',           NULL),
-  ('f1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '43ff4c07-a85e-4ec0-be79-9cd05b78f94a', 'OUTLET_MANAGER',  'b1000001-0000-4000-8000-000000000003');
+  ('f1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '43ff4c07-a85e-4ec0-be79-9cd05b78f94a', 'OUTLET_MANAGER',  'b1000001-0000-4000-8000-000000000003')
+ON CONFLICT DO NOTHING;
 
 
 -- ============================================================
@@ -1230,7 +1332,7 @@ INSERT INTO hotel_access (id, hotel_id, user_id, role, outlet_id) VALUES
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ── malls ─────────────────────────────────────────────────────
-CREATE TABLE malls (
+CREATE TABLE IF NOT EXISTS malls (
     id                 UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     name               VARCHAR(255)  NOT NULL,
     admin_id           VARCHAR(100),
@@ -1245,12 +1347,12 @@ CREATE TABLE malls (
     created_at         TIMESTAMP     DEFAULT NOW()
 );
 
-CREATE INDEX idx_malls_admin_id ON malls (admin_id);
-CREATE INDEX idx_malls_city     ON malls (city);
-CREATE INDEX idx_malls_active   ON malls (active);
+CREATE INDEX IF NOT EXISTS idx_malls_admin_id ON malls (admin_id);
+CREATE INDEX IF NOT EXISTS idx_malls_city     ON malls (city);
+CREATE INDEX IF NOT EXISTS idx_malls_active   ON malls (active);
 
 -- ── vendors ───────────────────────────────────────────────────
-CREATE TABLE vendors (
+CREATE TABLE IF NOT EXISTS vendors (
     id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     mall_id    UUID         NOT NULL,
     name       VARCHAR(255) NOT NULL,
@@ -1267,11 +1369,11 @@ CREATE TABLE vendors (
     created_at TIMESTAMP    DEFAULT NOW()
 );
 
-CREATE INDEX idx_vendors_mall_id ON vendors (mall_id);
-CREATE INDEX idx_vendors_active  ON vendors (active);
-CREATE INDEX idx_vendors_floor   ON vendors (floor);
+CREATE INDEX IF NOT EXISTS idx_vendors_mall_id ON vendors (mall_id);
+CREATE INDEX IF NOT EXISTS idx_vendors_active  ON vendors (active);
+CREATE INDEX IF NOT EXISTS idx_vendors_floor   ON vendors (floor);
 
-CREATE SEQUENCE seq_vendor_ref START 1001 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS seq_vendor_ref START 1001 INCREMENT 1;
 
 -- ── Dummy data ────────────────────────────────────────────────
 -- created_at is staggered explicitly (not left to NOW() on a shared multi-row
@@ -1281,7 +1383,8 @@ CREATE SEQUENCE seq_vendor_ref START 1001 INCREMENT 1;
 INSERT INTO malls (id, name, admin_id, city, address, phone, email, commission_percent, subscription_plan, active, created_at) VALUES
   ('f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Forum Mall Bengaluru',  'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Bengaluru', 'Hosur Road, Koramangala', '08041234567', 'admin@forummall.in',   10.00, 'MALL_PRO',     TRUE, NOW() - INTERVAL '2 minutes'),
   ('c81747a6-c29f-422b-a241-ba50883cf76a', 'Phoenix Market City',   'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Mumbai',    'LBS Marg, Kurla',         '02261234567', 'admin@phoenixmc.in',  10.00, 'ENTERPRISE',   TRUE, NOW() - INTERVAL '1 minute'),
-  ('4c22330a-7173-4937-bfd1-1499a24effc9', 'Elante Mall',           'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Chandigarh','Industrial Area Phase I',  '01726543210', 'admin@elante.in',     12.00, 'MALL_BASIC',   TRUE, NOW());
+  ('4c22330a-7173-4937-bfd1-1499a24effc9', 'Elante Mall',           'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Chandigarh','Industrial Area Phase I',  '01726543210', 'admin@elante.in',     12.00, 'MALL_BASIC',   TRUE, NOW())
+ON CONFLICT DO NOTHING;
 
 INSERT INTO vendors (id, mall_id, name, category, floor, contact, shop_id, active, qr_active, status) VALUES
   ('6efd1a31-ee35-447e-a2d2-d533ddbe272b', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Spice Route',       'North Indian',  'F1', '9845012345', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE, 'ACTIVE'),
@@ -1292,7 +1395,8 @@ INSERT INTO vendors (id, mall_id, name, category, floor, contact, shop_id, activ
   ('bcd4e6e6-a0c8-47fa-aae2-1eba1b9b413c', 'f35f1a27-5632-43fe-aa8d-1db992097e4e', 'South Spice',       'South Indian',  'F2', '9876509876', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
   ('137d55e4-6ed9-46e7-8e53-a8ded4333577', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Biryani Blues',     'Biryani',       'GF', '9900112244', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
   ('04156897-4daf-49e7-a7a3-17eb8dbd50f1', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Pizza Express',     'Italian',       'FF', '9900223355', NULL,                                   TRUE,  TRUE, 'ACTIVE'),
-  ('afaccb1f-4417-41fc-a7d8-05acc9e0a018', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Chaat Central',     'Street Food',   'GF', '9900334466', NULL,                                   TRUE,  TRUE, 'ACTIVE');
+  ('afaccb1f-4417-41fc-a7d8-05acc9e0a018', 'c81747a6-c29f-422b-a241-ba50883cf76a', 'Chaat Central',     'Street Food',   'GF', '9900334466', NULL,                                   TRUE,  TRUE, 'ACTIVE')
+ON CONFLICT DO NOTHING;
 
 
 -- ============================================================
@@ -1303,7 +1407,7 @@ INSERT INTO vendors (id, mall_id, name, category, floor, contact, shop_id, activ
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ── support_tickets ───────────────────────────────────────────
-CREATE TABLE support_tickets (
+CREATE TABLE IF NOT EXISTS support_tickets (
     id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     ticket_number VARCHAR(30)  NOT NULL UNIQUE,
     user_id       VARCHAR(100),
@@ -1320,14 +1424,14 @@ CREATE TABLE support_tickets (
     resolved_at   TIMESTAMP
 );
 
-CREATE INDEX idx_tickets_status     ON support_tickets (status);
-CREATE INDEX idx_tickets_user_id    ON support_tickets (user_id);
-CREATE INDEX idx_tickets_priority   ON support_tickets (priority);
-CREATE INDEX idx_tickets_created_at ON support_tickets (created_at DESC);
-CREATE INDEX idx_tickets_assigned   ON support_tickets (assigned_to);
+CREATE INDEX IF NOT EXISTS idx_tickets_status     ON support_tickets (status);
+CREATE INDEX IF NOT EXISTS idx_tickets_user_id    ON support_tickets (user_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_priority   ON support_tickets (priority);
+CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON support_tickets (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tickets_assigned   ON support_tickets (assigned_to);
 
 -- ── impersonation_logs ────────────────────────────────────────
-CREATE TABLE impersonation_logs (
+CREATE TABLE IF NOT EXISTS impersonation_logs (
     id               UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_id         VARCHAR(100)  NOT NULL,
     agent_name       VARCHAR(255),
@@ -1338,11 +1442,11 @@ CREATE TABLE impersonation_logs (
     ended_at         TIMESTAMP
 );
 
-CREATE INDEX idx_impersonation_agent     ON impersonation_logs (agent_id);
-CREATE INDEX idx_impersonation_target    ON impersonation_logs (target_user_id);
-CREATE INDEX idx_impersonation_created   ON impersonation_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_impersonation_agent     ON impersonation_logs (agent_id);
+CREATE INDEX IF NOT EXISTS idx_impersonation_target    ON impersonation_logs (target_user_id);
+CREATE INDEX IF NOT EXISTS idx_impersonation_created   ON impersonation_logs (created_at DESC);
 
-CREATE SEQUENCE seq_ticket_number START 10001 INCREMENT 1;
+CREATE SEQUENCE IF NOT EXISTS seq_ticket_number START 10001 INCREMENT 1;
 
 -- ── Dummy data — support_tickets ─────────────────────────────
 INSERT INTO support_tickets (id, ticket_number, user_id, user_name, user_role, subject, description, priority, status, assigned_to, created_at, updated_at, resolved_at) VALUES
@@ -1352,18 +1456,21 @@ INSERT INTO support_tickets (id, ticket_number, user_id, user_name, user_role, s
   ('2680977a-919e-4635-8726-95cf20795dc6', 'TKT-10004', '6dbae4cc-5e11-48c1-a3cb-4baae5f344aa', 'Sujeet Narayanan', 'OWNER',   'How to bulk upload menu via Excel?',                     'Looking for documentation on uploading menu items in bulk without scanning each one.',  'LOW',    'RESOLVED', 'd4eaf7a7-6cce-41eb-916c-6d52336107be', NOW() - INTERVAL '1 day',     NOW() - INTERVAL '20 hours',  NOW() - INTERVAL '20 hours'),
   ('7c04cf19-cd9b-486c-bd60-c06568cd0d99', 'TKT-10005', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',    'CUSTOMER', 'Order placed but restaurant says they did not receive it','I placed order ORD-1001 at Spice Route, paid online, but the restaurant had no record.','HIGH',   'RESOLVED', 'd4eaf7a7-6cce-41eb-916c-6d52336107be', NOW() - INTERVAL '2 days',    NOW() - INTERVAL '1 day',     NOW() - INTERVAL '1 day'),
   ('98c6689e-a5e8-4ab0-88ae-8f3331fb9a7e', 'TKT-10006', 'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Forum Mall Admin', 'MALL',   'Commission report shows wrong percentage',               'Monthly commission report shows 12% instead of the agreed 10% rate.',                   'MEDIUM', 'OPEN',     NULL,                                   NOW() - INTERVAL '6 hours',   NOW() - INTERVAL '6 hours',   NULL),
-  ('3c94d23f-a115-4070-881f-f5f25c26564f', 'TKT-10007', 'd7ad7958-b4dc-4b94-8a8f-f4cfe39f0179', 'Farhan Khan',     'OWNER',   'Account suspended without notice',                       'My account was suspended. I have not violated any terms. Please review and reinstate.',  'URGENT', 'PENDING',  'd4eaf7a7-6cce-41eb-916c-6d52336107be', NOW() - INTERVAL '4 hours',   NOW() - INTERVAL '2 hours',   NULL);
+  ('3c94d23f-a115-4070-881f-f5f25c26564f', 'TKT-10007', 'd7ad7958-b4dc-4b94-8a8f-f4cfe39f0179', 'Farhan Khan',     'OWNER',   'Account suspended without notice',                       'My account was suspended. I have not violated any terms. Please review and reinstate.',  'URGENT', 'PENDING',  'd4eaf7a7-6cce-41eb-916c-6d52336107be', NOW() - INTERVAL '4 hours',   NOW() - INTERVAL '2 hours',   NULL)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO support_tickets (id, ticket_number, user_id, user_name, user_role, subject, description, priority, status, resolution, created_at, updated_at, resolved_at) VALUES
   ('9963aac9-6639-4c9c-b2dc-3e195a968e0f', 'TKT-10008', '6dbae4cc-5e11-48c1-a3cb-4baae5f344aa', 'Sujeet Narayanan', 'OWNER', 'OCR menu scan misread item prices',
    'Uploaded a photo of my physical menu. The AI extracted most items correctly but some prices show wrong values.',
    'MEDIUM', 'RESOLVED',
    'Improved OCR confidence threshold. Please re-upload the menu photo and approve the extracted items.',
-   NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days');
+   NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO impersonation_logs (id, agent_id, agent_name, target_user_id, target_user_name, reason, created_at, ended_at) VALUES
   (gen_random_uuid(), 'd4eaf7a7-6cce-41eb-916c-6d52336107be', 'Arjun Nair', '6dbae4cc-5e11-48c1-a3cb-4baae5f344aa', 'Sujeet Narayanan', 'Investigating TKT-10001 — QR scanning issue on Android', NOW() - INTERVAL '1 hour',  NOW() - INTERVAL '45 min'),
-  (gen_random_uuid(), 'd4eaf7a7-6cce-41eb-916c-6d52336107be', 'Arjun Nair', '3580a702-e960-4a40-83eb-a596c88595f7', 'Meena Pillai',     'Investigating TKT-10002 — payment stuck PENDING',         NOW() - INTERVAL '30 min', NULL);
+  (gen_random_uuid(), 'd4eaf7a7-6cce-41eb-916c-6d52336107be', 'Arjun Nair', '3580a702-e960-4a40-83eb-a596c88595f7', 'Meena Pillai',     'Investigating TKT-10002 — payment stuck PENDING',         NOW() - INTERVAL '30 min', NULL)
+ON CONFLICT DO NOTHING;
 
 
 -- ============================================================
@@ -1374,7 +1481,7 @@ INSERT INTO impersonation_logs (id, agent_id, agent_name, target_user_id, target
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ── reviews ───────────────────────────────────────────────────
-CREATE TABLE reviews (
+CREATE TABLE IF NOT EXISTS reviews (
     id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     shop_id       VARCHAR(100) NOT NULL,
     menu_item_id  UUID,
@@ -1386,10 +1493,10 @@ CREATE TABLE reviews (
     created_at    TIMESTAMP    DEFAULT NOW()
 );
 
-CREATE INDEX idx_reviews_shop_id      ON reviews (shop_id);
-CREATE INDEX idx_reviews_customer_id  ON reviews (customer_id);
-CREATE INDEX idx_reviews_menu_item_id ON reviews (menu_item_id);
-CREATE INDEX idx_reviews_created_at   ON reviews (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reviews_shop_id      ON reviews (shop_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_customer_id  ON reviews (customer_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_menu_item_id ON reviews (menu_item_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_created_at   ON reviews (created_at DESC);
 
 -- Dummy data — 3+ reviews for SHOP_101 required by tests
 INSERT INTO reviews (id, shop_id, menu_item_id, customer_id, customer_name, rating, comment, created_at) VALUES
@@ -1404,7 +1511,8 @@ INSERT INTO reviews (id, shop_id, menu_item_id, customer_id, customer_name, rati
   (gen_random_uuid(), '44aeca17-767e-410b-868f-9fdd593fa091', NULL,                                   '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',  4, 'Loved the Kerala fish curry.',                  NOW() - INTERVAL '7 days'),
   (gen_random_uuid(), '44aeca17-767e-410b-868f-9fdd593fa091', 'f2d406f1-6dd9-4a5c-940b-40b87921983a', '223f40ff-4020-4baf-8d8e-44e347263bd1', 'Ravi Kumar',    5, 'Prawn Koliwada is a must try!',                 NOW() - INTERVAL '5 days'),
   -- Biryani House (SHOP_103)
-  (gen_random_uuid(), 'e8754df0-7965-400a-8923-35543d8a698b', NULL,                                   '223f40ff-4020-4baf-8d8e-44e347263bd1', 'Ravi Kumar',    3, 'Good biryani but service was slow.',            NOW() - INTERVAL '10 days');
+  (gen_random_uuid(), 'e8754df0-7965-400a-8923-35543d8a698b', NULL,                                   '223f40ff-4020-4baf-8d8e-44e347263bd1', 'Ravi Kumar',    3, 'Good biryani but service was slow.',            NOW() - INTERVAL '10 days')
+ON CONFLICT DO NOTHING;
 
 GRANT ALL ON ALL TABLES IN SCHEMA public TO aviqr;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aviqr;
