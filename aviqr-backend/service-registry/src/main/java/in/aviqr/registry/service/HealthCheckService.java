@@ -30,17 +30,13 @@ public class HealthCheckService {
     static {
         SERVICE_META.put("api-gateway",           new String[]{"🔀", "API Gateway",           "Routes all client requests, JWT validation, rate limiting",    "INFRA"});
         SERVICE_META.put("auth-service",          new String[]{"🔐", "Auth Service",           "Registration, login, OTP, JWT tokens, user management",       "CORE"});
-        SERVICE_META.put("shop-service",          new String[]{"🏪", "Shop Service",           "Shop CRUD, staff management, settings, opening hours",        "BUSINESS"});
-        SERVICE_META.put("menu-service",          new String[]{"🍽️", "Menu Service",           "Categories, items, dynamic pricing engine (9 languages)",     "BUSINESS"});
-        SERVICE_META.put("order-service",         new String[]{"📦", "Order Service",          "Order placement, Kanban live feed, status tracking",          "BUSINESS"});
-        SERVICE_META.put("payment-service",       new String[]{"💳", "Payment Service",        "Razorpay integration, verify signatures, refunds",            "BUSINESS"});
-        SERVICE_META.put("qr-service",            new String[]{"📱", "QR Service",             "Generate QR codes, redirect tracking, PNG download",          "BUSINESS"});
-        SERVICE_META.put("notification-service",  new String[]{"🔔", "Notification Service",   "Push notifications, SMS, WhatsApp, RabbitMQ consumer",        "SUPPORT"});
+        SERVICE_META.put("shop-mall-service",          new String[]{"🏪", "Shop + Mall Service",         "Shop/staff/settings, and mall+vendor management (merged)",    "BUSINESS"});
+        SERVICE_META.put("menu-ocr-service",           new String[]{"🍽️", "Menu + OCR Service",          "Categories, items, dynamic pricing, OCR menu import (merged)","BUSINESS"});
+        SERVICE_META.put("order-qr-service",           new String[]{"📦", "Order + QR Service",         "Orders, Kanban feed, status tracking, QR codes (merged)",     "BUSINESS"});
+        SERVICE_META.put("payment-service",            new String[]{"💳", "Payment Service",            "Razorpay integration, verify signatures, refunds",            "BUSINESS"});
+        SERVICE_META.put("notification-report-review-service",new String[]{"🔔", "Notification + Report + Review Service","Push/SMS/WhatsApp, RabbitMQ consumer, reports, reviews (merged)","SUPPORT"});
         SERVICE_META.put("hotel-service",         new String[]{"🏨", "Hotel Service",          "Hotels, rooms, guest requests, housekeeping, laundry",        "BUSINESS"});
-        SERVICE_META.put("mall-service",          new String[]{"🏬", "Mall Service",           "Mall management, vendors, revenue share, food courts",        "BUSINESS"});
         SERVICE_META.put("support-service",       new String[]{"🎫", "Support Service",        "Tickets, priorities, impersonation logs, agent assignment",   "SUPPORT"});
-        SERVICE_META.put("report-service",        new String[]{"📊", "Report Service",         "Revenue reports, peak hours, top items, platform stats",      "SUPPORT"});
-        SERVICE_META.put("ocr-service",           new String[]{"🔍", "OCR Service",            "Menu image/PDF upload, AI extraction, async processing",      "SUPPORT"});
     }
 
     public HealthCheckService() {

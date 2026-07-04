@@ -6,13 +6,17 @@ import os
 BASE_URL = os.environ.get("AVIQR_BASE_URL", "http://localhost:8080")
 EUREKA_URL = os.environ.get("AVIQR_EUREKA_URL", "http://localhost:8761")
 
-# All 15 services registered with Eureka (service-registry itself doesn't
-# register with itself, so it's excluded here).
+# All 10 services registered with Eureka (service-registry itself doesn't
+# register with itself, so it's excluded here). The fleet was consolidated
+# from 15 to 10 — each merged service still answers the same API paths, just
+# via a combined app: shop-service+mall-service -> SHOP-MALL-SERVICE,
+# menu-service+ocr-service -> MENU-OCR-SERVICE, order-service+qr-service ->
+# ORDER-QR-SERVICE, notification-service+report-service+review-service ->
+# NOTIFICATION-REPORT-REVIEW-SERVICE.
 EXPECTED_SERVICES = [
-    "API-GATEWAY", "AUTH-SERVICE", "SHOP-SERVICE", "MENU-SERVICE",
-    "ORDER-SERVICE", "PAYMENT-SERVICE", "QR-SERVICE", "HOTEL-SERVICE",
-    "MALL-SERVICE", "SUPPORT-SERVICE", "NOTIFICATION-SERVICE",
-    "REPORT-SERVICE", "OCR-SERVICE", "REVIEW-SERVICE",
+    "API-GATEWAY", "AUTH-SERVICE", "SHOP-MALL-SERVICE", "MENU-OCR-SERVICE",
+    "ORDER-QR-SERVICE", "PAYMENT-SERVICE", "HOTEL-SERVICE",
+    "SUPPORT-SERVICE", "NOTIFICATION-REPORT-REVIEW-SERVICE",
 ]
 
 # Seeded by aviqr_setup.sql — every dev password is Axis321#. One login per

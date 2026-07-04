@@ -68,11 +68,40 @@ test.describe('Hotel GM — login + all tabs', () => {
     await page.screenshot({ path: 'screenshots/hotel-room-menu.png', fullPage: true });
   });
 
-  test('Hotel — QR Codes tab', async ({ page }) => {
-    await goToTab(page, 'QR Codes');
-    await assertNoCrash(page, 'Hotel/QRCodes');
+  test('Hotel — QR Management tab shows rooms and outlets', async ({ page }) => {
+    // The sidebar label is "QR Management", not "QR Codes" — this used to search
+    // for the wrong label and silently no-op without ever visiting the tab.
+    await goToTab(page, 'QR Management');
+    await assertNoCrash(page, 'Hotel/QRManagement');
     await page.waitForLoadState('networkidle');
+    await expect(page.locator('h1.page-title')).toHaveText('QR Management');
     await page.screenshot({ path: 'screenshots/hotel-qr-codes.png', fullPage: true });
+  });
+
+  // Regression test: the whole-hotel QR (lobby/front-desk, mirroring Supplier's
+  // Main Brand QR) didn't exist at all — only per-room and per-outlet QRs did.
+  test('Hotel — QR Management — Main Hotel QR renders with a real image and downloads', async ({ page }) => {
+    await goToTab(page, 'QR Management');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('text=Main Hotel QR')).toBeVisible({ timeout: 5_000 });
+
+    const qrImg = page.locator('img[alt="Hotel QR"]');
+    await expect(qrImg).toBeVisible({ timeout: 8_000 });
+    const src = await qrImg.getAttribute('src');
+    expect(src).toMatch(/^data:image\/png;base64,/);
+
+    const downloadBtn = page.locator('button:has-text("Download PNG")').first();
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 8_000 }),
+      downloadBtn.click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/\.png$/i);
+
+    // Design Banner & Print opens the shared QrDesignerModal
+    await page.locator('button:has-text("Design Banner & Print")').first().click();
+    await expect(page.locator('text=Live Preview')).toBeVisible({ timeout: 5_000 });
+    await page.screenshot({ path: 'screenshots/hotel-main-qr-designer.png', fullPage: true });
+    await page.keyboard.press('Escape');
   });
 
   test('Hotel — Reports tab', async ({ page }) => {

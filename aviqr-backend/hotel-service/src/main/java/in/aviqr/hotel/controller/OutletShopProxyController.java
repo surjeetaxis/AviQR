@@ -32,7 +32,7 @@ public class OutletShopProxyController {
     private final HotelAccessService accessService;
     private final RestTemplate restTemplate;
 
-    @Value("${shop.service.url:http://shop-service}")
+    @Value("${shop.service.url:http://shop-mall-service}")
     private String shopServiceUrl;
 
     @GetMapping("/api/v1/hotel-outlets/{outletId}/staff")

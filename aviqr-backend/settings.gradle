@@ -4,16 +4,11 @@ include(
     'service-registry',
     'api-gateway',
     'auth-service',
-    'shop-service',
-    'menu-service',
-    'order-service',
+    'shop-mall-service',
+    'menu-ocr-service',
+    'order-qr-service',
     'payment-service',
-    'qr-service',
-    'notification-service',
+    'notification-report-review-service',
     'hotel-service',
-    'mall-service',
-    'support-service',
-    'report-service',
-    'ocr-service',
-    'review-service'
+    'support-service'
 )

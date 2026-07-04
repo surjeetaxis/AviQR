@@ -24,10 +24,10 @@ public class HotelOutletController {
     private final RestTemplate restTemplate;
     private final OutletTokenService outletTokenService;
 
-    @Value("${qr.service.url:http://qr-service}")
+    @Value("${qr.service.url:http://order-qr-service}")
     private String qrServiceUrl;
 
-    @Value("${shop.service.url:http://shop-service}")
+    @Value("${shop.service.url:http://shop-mall-service}")
     private String shopServiceUrl;
 
     @PostMapping("/api/v1/hotel-outlets")

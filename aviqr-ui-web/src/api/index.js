@@ -212,6 +212,7 @@ export const hotelApi = {
   createRoom:     (d)        => api.post('/api/v1/rooms', d),
   toggleRoomQr:   (id, active) => api.put(`/api/v1/rooms/${id}/qr?active=${active}`),
   createRoomQr:   (id)         => api.post(`/api/v1/rooms/${id}/qr-code`),
+  createHotelQr:  (id)         => api.post(`/api/v1/hotels/${id}/qr-code`),
   getRequests:    (hId, p)   => api.get(`/api/v1/room-requests/hotel/${hId}`, { params: p }),
   updateRequest:  (id, s)    => api.put(`/api/v1/room-requests/${id}/status?status=${s}`),
   createRequest:  (d)        => api.post('/api/v1/room-requests', d),

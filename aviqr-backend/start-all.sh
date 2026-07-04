@@ -44,43 +44,31 @@ sleep 15
 start_svc "auth-service"
 sleep 8
 
-# ── 4. Shop & Menu (needed early for order flow) ─────────────────────────────
-start_svc "shop-service"
+# ── 4. Shop+Mall & Menu+OCR (needed early for order flow) ────────────────────
+start_svc "shop-mall-service"
 sleep 6
-start_svc "menu-service"
+start_svc "menu-ocr-service"
 sleep 6
 
-# ── 5. Order, Payment, QR ────────────────────────────────────────────────────
-start_svc "order-service"
+# ── 5. Order+QR, Payment ─────────────────────────────────────────────────────
+start_svc "order-qr-service"
 sleep 6
 start_svc "payment-service"
 sleep 5
-start_svc "qr-service"
-sleep 5
 
-# ── 6. Hotel, Mall ────────────────────────────────────────────────────────────
+# ── 6. Hotel ──────────────────────────────────────────────────────────────────
 start_svc "hotel-service"
 sleep 5
-start_svc "mall-service"
-sleep 5
 
-# ── 7. Support, Notification, Report, OCR ────────────────────────────────────
+# ── 7. Support, Notification+Report+Review ───────────────────────────────────
 start_svc "support-service"
 sleep 5
-start_svc "notification-service"
-sleep 5
-start_svc "report-service"
-sleep 5
-start_svc "ocr-service"
-sleep 3
-
-# ── 8. Review Service ─────────────────────────────────────────────────────────
-start_svc "review-service"
+start_svc "notification-report-review-service"
 sleep 5
 
 echo ""
 echo "================================================"
-echo " All 15 services started in background"
+echo " All 10 services started in background"
 echo "================================================"
 echo ""
 echo "  Wait 60s then open:  http://localhost:8761/health"

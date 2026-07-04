@@ -35,29 +35,24 @@ fi
 
 # ── Service catalog (start order matters: registry/gateway/auth go first) ────
 SERVICES=(
-  service-registry api-gateway auth-service shop-service menu-service
-  order-service payment-service qr-service hotel-service mall-service
-  support-service notification-service report-service ocr-service review-service
+  service-registry api-gateway auth-service shop-mall-service menu-ocr-service
+  order-qr-service payment-service hotel-service
+  support-service notification-report-review-service
 )
 
 desc_for() {
   case "$1" in
-    service-registry)     echo "Eureka service discovery — every other service registers here" ;;
-    api-gateway)          echo "Spring Cloud Gateway — routing, JWT validation, CORS, rate limiting" ;;
-    auth-service)         echo "Register/login, OTP login, JWT issue/refresh, profile, admin user mgmt" ;;
-    shop-service)         echo "Shop/restaurant profile, staff, settings" ;;
-    menu-service)         echo "Menu items, categories, dynamic pricing rules" ;;
-    order-service)        echo "Order lifecycle: create, accept, prepare, complete" ;;
-    payment-service)      echo "Razorpay payment orders + webhook verification" ;;
-    qr-service)           echo "QR code generation + scan logging" ;;
-    hotel-service)        echo "Hotel, room, and room-service request management" ;;
-    mall-service)         echo "Mall and vendor management" ;;
-    support-service)      echo "Support tickets, audit logs, admin impersonation logs" ;;
-    notification-service) echo "SMS/Email notifications, consumes RabbitMQ events" ;;
-    report-service)       echo "Reports and analytics" ;;
-    ocr-service)          echo "OCR via Google Vision API" ;;
-    review-service)       echo "Product and shop reviews, ratings" ;;
-    *)                    echo "Unknown service" ;;
+    service-registry)                     echo "Eureka service discovery — every other service registers here" ;;
+    api-gateway)                          echo "Spring Cloud Gateway — routing, JWT validation, CORS, rate limiting" ;;
+    auth-service)                         echo "Register/login, OTP login, JWT issue/refresh, profile, admin user mgmt" ;;
+    shop-mall-service)                    echo "Shop/restaurant profile, staff, settings, mall + vendor management" ;;
+    menu-ocr-service)                     echo "Menu items, categories, dynamic pricing rules, OCR menu import" ;;
+    order-qr-service)                     echo "Order lifecycle: create, accept, prepare, complete; QR generation + scan logging" ;;
+    payment-service)                      echo "Razorpay payment orders + webhook verification" ;;
+    hotel-service)                        echo "Hotel, room, and room-service request management" ;;
+    support-service)                      echo "Support tickets, audit logs, admin impersonation logs" ;;
+    notification-report-review-service)   echo "SMS/Email notifications, consumes RabbitMQ events; reports/analytics; product+shop reviews" ;;
+    *)                                    echo "Unknown service" ;;
   esac
 }
 
@@ -87,7 +82,7 @@ hr()   { echo "-----------------------------------------------------------------
 cmd_help() {
   cat <<'EOF'
 ================================================================================
- AviQR Backend — 14 Spring Boot microservices behind a Eureka + Gateway stack
+ AviQR Backend — 10 Spring Boot microservices behind a Eureka + Gateway stack
 ================================================================================
 
 Description:
@@ -429,17 +424,13 @@ cmd_run() {
     done
 
     start_one "auth-service"; sleep 8
-    start_one "shop-service"; sleep 6
-    start_one "menu-service"; sleep 6
-    start_one "order-service"; sleep 6
+    start_one "shop-mall-service"; sleep 6
+    start_one "menu-ocr-service"; sleep 6
+    start_one "order-qr-service"; sleep 6
     start_one "payment-service"; sleep 5
-    start_one "qr-service"; sleep 5
     start_one "hotel-service"; sleep 5
-    start_one "mall-service"; sleep 5
     start_one "support-service"; sleep 5
-    start_one "notification-service"; sleep 5
-    start_one "report-service"; sleep 5
-    start_one "ocr-service"; sleep 3
+    start_one "notification-report-review-service"; sleep 5
 
     echo ""
     echo "================================================================================"

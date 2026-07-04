@@ -179,39 +179,45 @@ services:
     networks:
       - aviqr-net
 
-  shop-service:
+  # shop-mall-service also serves mall + vendor management (merged from mall-service)
+  shop-mall-service:
     build:
       context: .
-      dockerfile: shop-service/Dockerfile
-    container_name: aviqr-shop
+      dockerfile: shop-mall-service/Dockerfile
+    container_name: aviqr-shop-mall
     environment:
       <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_shop
+      QR_SERVICE_URL: http://order-qr-service
     <<: *service-depends
     networks:
       - aviqr-net
 
-  menu-service:
+  # menu-ocr-service also serves OCR menu import (merged from ocr-service)
+  menu-ocr-service:
     build:
       context: .
-      dockerfile: menu-service/Dockerfile
-    container_name: aviqr-menu
+      dockerfile: menu-ocr-service/Dockerfile
+    container_name: aviqr-menu-ocr
     environment:
       <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_menu
+      GOOGLE_VISION_API_KEY: ${GOOGLE_VISION_API_KEY:-}
     <<: *service-depends
     networks:
       - aviqr-net
 
-  order-service:
+  # order-qr-service also serves QR generation/redirect + scan tracking (merged from qr-service)
+  order-qr-service:
     build:
       context: .
-      dockerfile: order-service/Dockerfile
-    container_name: aviqr-order
+      dockerfile: order-qr-service/Dockerfile
+    container_name: aviqr-order-qr
     environment:
       <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_order
-      SHOP_SERVICE_URL: http://shop-service
+      SHOP_SERVICE_URL: http://shop-mall-service
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:5173}
     <<: *service-depends
     networks:
       - aviqr-net
@@ -230,26 +236,19 @@ services:
     networks:
       - aviqr-net
 
-  qr-service:
+  # notification-report-review-service also serves reports/analytics (merged from
+  # report-service) and product/shop reviews (merged from review-service).
+  # spring.datasource -> aviqr_review (JPA, Review entity); report.datasource ->
+  # aviqr_order (JdbcTemplate, read-only, same DB as order-qr-service).
+  notification-report-review-service:
     build:
       context: .
-      dockerfile: qr-service/Dockerfile
-    container_name: aviqr-qr
+      dockerfile: notification-report-review-service/Dockerfile
+    container_name: aviqr-notification-report-review
     environment:
       <<: [*common-env, *postgres-env]
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_qr
-      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:5173}
-    <<: *service-depends
-    networks:
-      - aviqr-net
-
-  notification-service:
-    build:
-      context: .
-      dockerfile: notification-service/Dockerfile
-    container_name: aviqr-notification
-    environment:
-      <<: *common-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_review
+      REPORT_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_order
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-whatsapp:+14155238886}
@@ -258,13 +257,7 @@ services:
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-    depends_on:
-      service-registry:
-        condition: service_healthy
-      mongo:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
+    <<: *service-depends
     networks:
       - aviqr-net
 
@@ -280,18 +273,6 @@ services:
     networks:
       - aviqr-net
 
-  mall-service:
-    build:
-      context: .
-      dockerfile: mall-service/Dockerfile
-    container_name: aviqr-mall
-    environment:
-      <<: [*common-env, *postgres-env]
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_mall
-    <<: *service-depends
-    networks:
-      - aviqr-net
-
   support-service:
     build:
       context: .
@@ -300,49 +281,6 @@ services:
     environment:
       <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_support
-    <<: *service-depends
-    networks:
-      - aviqr-net
-
-  # report-service reads order data (cross-service analytics read-only)
-  report-service:
-    build:
-      context: .
-      dockerfile: report-service/Dockerfile
-    container_name: aviqr-report
-    environment:
-      <<: [*common-env, *postgres-env]
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_order
-    <<: *service-depends
-    networks:
-      - aviqr-net
-
-  ocr-service:
-    build:
-      context: .
-      dockerfile: ocr-service/Dockerfile
-    container_name: aviqr-ocr
-    environment:
-      <<: *common-env
-      GOOGLE_VISION_API_KEY: ${GOOGLE_VISION_API_KEY:-}
-    depends_on:
-      service-registry:
-        condition: service_healthy
-      mongo:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - aviqr-net
-
-  review-service:
-    build:
-      context: .
-      dockerfile: review-service/Dockerfile
-    container_name: aviqr-review
-    environment:
-      <<: [*common-env, *postgres-env]
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_review
     <<: *service-depends
     networks:
       - aviqr-net

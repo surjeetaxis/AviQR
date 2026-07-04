@@ -95,6 +95,30 @@ test.describe('Owner — login + all pages', () => {
     }
   });
 
+  // Regression test: the Print Designer tab used to have only "Print Now" — no way
+  // to download the QR as a PNG — and defaulted the shop name to the placeholder
+  // "My Restaurant" instead of the real shop name.
+  test('QR Codes — Print Designer has a working Download PNG button and the real shop name', async ({ page }) => {
+    await page.goto('/qr-codes');
+    await page.waitForLoadState('networkidle');
+    const designBtn = page.locator('button:has-text("Design")').first();
+    await expect(designBtn).toBeVisible({ timeout: 5_000 });
+    await designBtn.click();
+    await expect(page.locator('button:has-text("Print Designer")')).toHaveClass(/active/, { timeout: 5_000 });
+
+    // Real shop name, not the "My Restaurant" placeholder
+    await expect(page.locator('.tpl-shop-name, [class*="shop-name"]').first()).not.toHaveText('My Restaurant', { timeout: 8_000 });
+
+    const downloadBtn = page.locator('button:has-text("PNG")').first();
+    await expect(downloadBtn).toBeVisible({ timeout: 5_000 });
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 8_000 }),
+      downloadBtn.click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/\.png$/i);
+    await page.screenshot({ path: 'screenshots/owner-qr-designer-download.png', fullPage: true });
+  });
+
   test('Staff — page loads, add staff button visible', async ({ page }) => {
     await page.goto('/staff');
     await page.waitForLoadState('networkidle');

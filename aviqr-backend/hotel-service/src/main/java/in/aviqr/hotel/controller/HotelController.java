@@ -24,7 +24,7 @@ public class HotelController {
     private final RabbitTemplate rabbit;
     private final RestTemplate restTemplate;
 
-    @Value("${qr.service.url:http://qr-service}")
+    @Value("${qr.service.url:http://order-qr-service}")
     private String qrServiceUrl;
 
     // ── Admin: list all hotels ────────────────────────────────────────────────
@@ -76,6 +76,56 @@ public class HotelController {
             if(req.getEnabledServices()!=null) h.setEnabledServices(req.getEnabledServices());
             return ResponseEntity.ok(ApiResponse.ok("Updated", hotelRepo.save(h)));
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    // Real, scannable, backend-tracked QR for the whole hotel (lobby/front-desk) — same
+    // synthetic "hotel-{hotelId}" shopId bucket as room QRs, but QrType.HOTEL (no room
+    // number), so guests land on GuestServices.jsx without a room context and get
+    // prompted to scan their own room's QR for Requests/Bill — mirrors mall-service's
+    // Mall QR (MallController#createMallQrCode) and shop-service's Brand QR.
+    @PostMapping("/api/v1/hotels/{id}/qr-code")
+    public ResponseEntity<ApiResponse<Map>> createHotelQrCode(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        Hotel hotel = hotelRepo.findById(id).orElse(null);
+        if (hotel == null) return ResponseEntity.notFound().build();
+        if (!accessService.hasAccess(id, uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+
+        String syntheticShopId = "hotel-" + id;
+        try {
+            Map<String, Object> qr = findHotelQr(syntheticShopId);
+            if (qr == null) {
+                try {
+                    String url = qrServiceUrl + "/api/v1/qr-codes/internal/shop/" + syntheticShopId
+                        + "?label=" + hotel.getName() + "&type=HOTEL";
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> createResp = restTemplate.postForObject(url, null, Map.class);
+                    qr = createResp != null ? (Map<String, Object>) createResp.get("data") : null;
+                } catch (Exception createEx) {
+                    // Another concurrent request (e.g. React StrictMode's double-effect in dev, or
+                    // a genuine simultaneous double-click) may have just inserted the same
+                    // deterministic slug — re-check before giving up.
+                    qr = findHotelQr(syntheticShopId);
+                    if (qr == null) throw createEx;
+                }
+            }
+            return ResponseEntity.ok(ApiResponse.ok("QR ready", qr));
+        } catch (Exception e) {
+            log.warn("Failed to create QR for hotel {}: {}", id, e.getMessage());
+            return ResponseEntity.status(502).body(ApiResponse.error("Could not reach qr-service"));
+        }
+    }
+
+    private Map<String, Object> findHotelQr(String syntheticShopId) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> listResp = restTemplate.getForObject(
+            qrServiceUrl + "/api/v1/qr-codes/shop/" + syntheticShopId, Map.class);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> existing = listResp != null
+            ? (List<Map<String, Object>>) listResp.get("data") : List.of();
+        return existing.stream().filter(q -> "HOTEL".equals(q.get("type"))).findFirst().orElse(null);
     }
 
     // ── Rooms ─────────────────────────────────────────────────────────────────

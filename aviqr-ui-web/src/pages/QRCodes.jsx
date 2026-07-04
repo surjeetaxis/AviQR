@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
-import { Plus, Printer, Eye, Link, Check, Palette, LayoutGrid, Layout, Megaphone } from 'lucide-react';
+import { Plus, Printer, Download, Eye, Link, Check, Palette, LayoutGrid, Layout, Megaphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
-import { qrApi } from '../api/index.js';
+import { qrApi, shopApi } from '../api/index.js';
 import { THEMES, TEMPLATES, TentTemplate, TemplateRenderer, Section, Field, Toggle } from '../components/shared/QrTemplates.jsx';
 import './QRCodes.css';
 
@@ -140,13 +140,21 @@ export default function QRCodes() {
       .then(res => {
         const d = res.data.data || [];
         setCodes(d);
-        if (d.length) {
-          setSelCode(d[0]);
-          setDesign(p => ({ ...p, shopName: user?.businessName || p.shopName }));
-        }
+        if (d.length) setSelCode(d[0]);
       })
       .catch(e => setError(e.response?.data?.message || 'Could not load QR codes'));
-  }, [shopId, user?.businessName]);
+  }, [shopId]);
+
+  // Pre-fill the designer with the shop's real name instead of the "My Restaurant" placeholder
+  useEffect(() => {
+    if (!shopId) return;
+    shopApi.getById(shopId)
+      .then(res => {
+        const name = res.data.data?.name;
+        if (name) setDesign(p => ({ ...p, shopName: name }));
+      })
+      .catch(() => {});
+  }, [shopId]);
 
   const qrUrl  = selCode?.targetUrl || (shopId ? `https://aviqr.in/menu/${shopId}` : '');
   const theme  = THEMES[design.theme];
@@ -225,6 +233,14 @@ export default function QRCodes() {
   const handlePrint = useCallback(() => {
     window.print();
   }, []);
+
+  const handleDownload = useCallback(() => {
+    if (!qrImg) return;
+    const a = document.createElement('a');
+    a.href = qrImg;
+    a.download = `${(design.shopName || 'qr-code').replace(/\s+/g, '-')}-qr.png`;
+    a.click();
+  }, [qrImg, design.shopName]);
 
   const openDesigner = (code) => {
     setSelCode(code);
@@ -512,9 +528,14 @@ export default function QRCodes() {
                   {TEMPLATES.find(t => t.id === design.template)?.label} · {THEMES[design.theme].name}
                 </div>
               </div>
-              <button className="btn btn-primary qrd-print-btn" onClick={handlePrint}>
-                <Printer size={14}/> Print Now
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-secondary qrd-print-btn" onClick={handleDownload} disabled={!qrImg}>
+                  <Download size={14}/> PNG
+                </button>
+                <button className="btn btn-primary qrd-print-btn" onClick={handlePrint}>
+                  <Printer size={14}/> Print Now
+                </button>
+              </div>
             </div>
 
             <div className="qrd-preview-canvas">

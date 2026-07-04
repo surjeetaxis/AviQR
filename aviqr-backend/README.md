@@ -21,17 +21,13 @@ operation described below — run `./aviqr.sh help` at any time.
 | `service-registry` | 8761 | Eureka service discovery — every other service registers here |
 | `api-gateway` | 8080 | Spring Cloud Gateway — routing, JWT validation, CORS, rate limiting |
 | `auth-service` | dynamic* | Register/login, OTP login, JWT issue/refresh, profile, admin user management |
-| `shop-service` | dynamic* | Shop/restaurant profile, staff, settings |
-| `menu-service` | dynamic* | Menu items, categories, dynamic pricing rules |
-| `order-service` | dynamic* | Order lifecycle: create, accept, prepare, complete |
+| `shop-mall-service` | dynamic* | Shop/restaurant profile, staff, settings, mall + vendor management |
+| `menu-ocr-service` | dynamic* | Menu items, categories, dynamic pricing rules, OCR menu import |
+| `order-qr-service` | dynamic* | Order lifecycle: create, accept, prepare, complete; QR generation + scan logging |
 | `payment-service` | dynamic* | Razorpay payment orders + webhook verification |
-| `qr-service` | dynamic* | QR code generation + scan logging |
 | `hotel-service` | dynamic* | Hotel, room, and room-service request management |
-| `mall-service` | dynamic* | Mall and vendor management |
 | `support-service` | dynamic* | Support tickets, audit logs, admin impersonation logs |
-| `notification-service` | dynamic* | SMS/Email notifications, consumes RabbitMQ events |
-| `report-service` | dynamic* | Reports and analytics |
-| `ocr-service` | dynamic* | OCR via Google Vision API |
+| `notification-report-service` | dynamic* | SMS/Email notifications, consumes RabbitMQ events; reports and analytics |
 
 \* picks a random free port and registers it with Eureka; the gateway routes
 to it by service name, so you never call these ports directly.
@@ -104,7 +100,7 @@ This runs [`aviqr_setup.sql`](./aviqr_setup.sql) as the `postgres` superuser
 ## Build
 
 ```bash
-./aviqr.sh build                  # build all 14 services
+./aviqr.sh build                  # build all 11 services
 ./aviqr.sh build auth-service     # build just one
 ./aviqr.sh clean                  # ./gradlew clean
 ```

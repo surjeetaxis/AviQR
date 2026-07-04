@@ -266,7 +266,7 @@ export default function HotelDashboard() {
           {tab==='laundry'      && <ServicePage title="Laundry" requests={requests.filter(r=>r.service==='Laundry')} onAdvance={advanceRequest}/>}
           {tab==='spa'          && <SpaPage bookings={bookings} outlets={outlets} onUpdate={updateBooking}/>}
           {tab==='maintenance'  && <ServicePage title="Maintenance" requests={requests.filter(r=>r.service==='Maintenance')} onAdvance={advanceRequest}/>}
-          {tab==='qrmanagement' && <QRManagementPage rooms={rooms} setRooms={setRooms} outlets={outlets}/>}
+          {tab==='qrmanagement' && <QRManagementPage rooms={rooms} setRooms={setRooms} outlets={outlets} hotelId={hotelId} hotelName={user?.hotelName}/>}
           {tab==='reports'      && <HotelReportsTab outlets={outlets}/>}
           {tab==='subscription' && <SubscriptionPage userRole="hotel" currentPlan="HOTEL_PRO"/>}
           {tab==='settings'     && <HotelSettings user={user} lang={lang} hotelId={hotelId}/>}
@@ -1057,7 +1057,7 @@ function SpaPage({bookings,outlets,onUpdate}) {
   );
 }
 
-function QRManagementPage({rooms,setRooms,outlets}) {
+function QRManagementPage({rooms,setRooms,outlets,hotelId,hotelName}) {
   const navigate = useNavigate();
   const toggleRoomQR = (room) => {
     const next = !room.qrActive;
@@ -1077,6 +1077,9 @@ function QRManagementPage({rooms,setRooms,outlets}) {
   return (
     <div>
       <div className="page-header"><h1 className="page-title">QR Management</h1><p className="page-subtitle">{rooms.filter(r=>r.qrActive).length}/{rooms.length} room QRs active · {outletList.filter(o=>o.qrActive).length}/{outletList.length} outlet QRs active</p></div>
+
+      <div className="sub-section-header" style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Main Hotel QR</div>
+      <HotelQR hotelId={hotelId} hotelName={hotelName}/>
 
       <div className="sub-section-header" style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Rooms</div>
       <div className="admin-table-card" style={{marginBottom:20}}>
@@ -1117,6 +1120,61 @@ function QRManagementPage({rooms,setRooms,outlets}) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// One QR for the whole hotel (lobby/front-desk) — mirrors Supplier's Main Brand QR
+// and Mall's Food Court QR. Guests land on GuestServices.jsx with no room context.
+function HotelQR({ hotelId, hotelName }) {
+  const [qrImg, setQrImg] = useState('');
+  const [targetUrl, setTargetUrl] = useState('');
+  const [designing, setDesigning] = useState(false);
+
+  useEffect(() => {
+    if (!hotelId) return;
+    hotelApi.createHotelQr(hotelId)
+      .then(res => setTargetUrl(res.data.data?.targetUrl || `${window.location.origin}/hotel-services/${hotelId}`))
+      .catch(() => setTargetUrl(`${window.location.origin}/hotel-services/${hotelId}`));
+  }, [hotelId]);
+
+  useEffect(() => {
+    if (!targetUrl) return;
+    QRCode.toDataURL(targetUrl, { width: 512, margin: 2, color: { dark: '#0F172A', light: '#ffffff' } })
+      .then(setQrImg).catch(() => {});
+  }, [targetUrl]);
+
+  const download = () => {
+    if (!qrImg) return;
+    const a = document.createElement('a');
+    a.href = qrImg;
+    a.download = `${(hotelName || 'hotel')}-qr.png`.replace(/\s+/g, '-');
+    a.click();
+  };
+
+  return (
+    <div className="admin-chart-card" style={{ maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', textAlign: 'center', marginBottom: 20 }}>
+      {qrImg ? <img src={qrImg} alt="Hotel QR" style={{ width: 200, height: 200, borderRadius: 8 }} /> : <div style={{ width: 200, height: 200, background: 'var(--gray-100)', borderRadius: 8 }} />}
+      <div style={{ fontSize: 11.5, color: 'var(--gray-400)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{targetUrl}</div>
+      <button className="btn-primary" style={{ width: '100%' }} onClick={download}>Download PNG</button>
+      <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setDesigning(true)}>
+        🎨 Design Banner & Print
+      </button>
+      {designing && (
+        <QrDesignerModal
+          open={designing}
+          onClose={() => setDesigning(false)}
+          targetUrl={targetUrl}
+          title={`Design QR — ${hotelName || 'Hotel'}`}
+          nameLabel="Hotel Name"
+          nameDefault={hotelName || 'Our Hotel'}
+          taglineDefault="Scan to explore our services"
+          subLabel={null}
+          discountDefault=""
+          footerDefault="Enjoy your stay!"
+          downloadFilename={`${(hotelName || 'hotel').replace(/\s+/g, '-')}-qr-banner`}
+        />
+      )}
     </div>
   );
 }

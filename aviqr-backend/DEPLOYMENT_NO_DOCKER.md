@@ -475,7 +475,7 @@ cd ~/aviqr/aviqr-backend
 Each Spring Boot service runs on a **random port** and registers itself in Eureka.
 Start them in this order (Service Registry → Gateway → everything else).
 
-Open **14 separate terminal windows** or use a terminal multiplexer:
+Open **10 separate terminal windows** or use a terminal multiplexer:
 
 ### Using tmux (Mac/Linux — recommended)
 ```bash
@@ -515,19 +515,19 @@ cd ~/aviqr/aviqr-backend
 ```bash
 # ── Terminal 4: Shop Service
 cd ~/aviqr/aviqr-backend
-./gradlew shop-service:bootRun
+./gradlew shop-mall-service:bootRun
 ```
 
 ```bash
 # ── Terminal 5: Menu Service
 cd ~/aviqr/aviqr-backend
-./gradlew menu-service:bootRun
+./gradlew menu-ocr-service:bootRun
 ```
 
 ```bash
 # ── Terminal 6: Order Service
 cd ~/aviqr/aviqr-backend
-./gradlew order-service:bootRun
+./gradlew order-qr-service:bootRun
 ```
 
 ```bash
@@ -539,13 +539,13 @@ cd ~/aviqr/aviqr-backend
 ```bash
 # ── Terminal 8: QR Service
 cd ~/aviqr/aviqr-backend
-./gradlew qr-service:bootRun
+./gradlew order-qr-service:bootRun
 ```
 
 ```bash
 # ── Terminal 9: Notification Service
 cd ~/aviqr/aviqr-backend
-./gradlew notification-service:bootRun
+./gradlew notification-report-review-service:bootRun
 ```
 
 ```bash
@@ -557,7 +557,7 @@ cd ~/aviqr/aviqr-backend
 ```bash
 # ── Terminal 11: Mall Service
 cd ~/aviqr/aviqr-backend
-./gradlew mall-service:bootRun
+./gradlew shop-mall-service:bootRun
 ```
 
 ```bash
@@ -569,18 +569,18 @@ cd ~/aviqr/aviqr-backend
 ```bash
 # ── Terminal 13: Report Service
 cd ~/aviqr/aviqr-backend
-./gradlew report-service:bootRun
+./gradlew notification-report-review-service:bootRun
 ```
 
 ```bash
 # ── Terminal 14: OCR Service
 cd ~/aviqr/aviqr-backend
-./gradlew ocr-service:bootRun
+./gradlew menu-ocr-service:bootRun
 ```
 
 ### One-liner shell script (Mac/Linux)
 
-Save as `start-all.sh` and run instead of opening 14 terminals:
+Save as `start-all.sh` and run instead of opening 10 terminals:
 
 ```bash
 cat > ~/aviqr/aviqr-backend/start-all.sh << 'EOF'
@@ -605,9 +605,9 @@ start_service "api-gateway"
 sleep 10
 
 # Start all other services
-for svc in auth-service shop-service menu-service order-service \
-           payment-service qr-service notification-service hotel-service \
-           mall-service support-service report-service ocr-service; do
+for svc in auth-service shop-mall-service menu-ocr-service order-qr-service \
+           payment-service hotel-service \
+           support-service notification-report-review-service; do
   start_service "$svc"
   sleep 3
 done
@@ -646,7 +646,7 @@ cd ~/aviqr/aviqr-backend
 
 # Watch logs
 tail -f logs/auth-service.log
-tail -f logs/order-service.log
+tail -f logs/order-qr-service.log
 
 # Stop everything
 ./stop-all.sh
@@ -1087,13 +1087,13 @@ chmod +x /var/www/aviqr/create-service.sh
 chown -R www-data:www-data /var/www/aviqr
 
 # Create systemd service for EVERY microservice
-for SVC in service-registry api-gateway auth-service shop-service menu-service \
-           order-service payment-service qr-service notification-service \
-           hotel-service mall-service support-service report-service ocr-service; do
+for SVC in service-registry api-gateway auth-service shop-mall-service menu-ocr-service \
+           order-qr-service payment-service \
+           hotel-service support-service notification-report-review-service; do
   /var/www/aviqr/create-service.sh $SVC
 done
 
-echo "All 14 systemd services created"
+echo "All 10 systemd services created"
 ```
 
 ---
@@ -1115,9 +1115,8 @@ systemctl enable aviqr-api-gateway
 sleep 10
 
 # 3. All microservices
-for SVC in auth-service shop-service menu-service order-service payment-service \
-           qr-service notification-service hotel-service mall-service \
-           support-service report-service ocr-service; do
+for SVC in auth-service shop-mall-service menu-ocr-service order-qr-service payment-service \
+           hotel-service support-service notification-report-review-service; do
   echo "Starting aviqr-${SVC}..."
   systemctl start aviqr-${SVC}
   systemctl enable aviqr-${SVC}
@@ -1318,7 +1317,7 @@ curl -I https://yourdomain.com
 ```bash
 # One service
 journalctl -u aviqr-auth-service -f
-journalctl -u aviqr-order-service -f --since "1 hour ago"
+journalctl -u aviqr-order-qr-service -f --since "1 hour ago"
 
 # All aviqr services
 journalctl -u 'aviqr-*' -f
@@ -1331,7 +1330,7 @@ tail -f /var/log/nginx/access.log
 ### Restart a service
 ```bash
 systemctl restart aviqr-auth-service
-systemctl restart aviqr-order-service
+systemctl restart aviqr-order-qr-service
 ```
 
 ### Redeploy after code change
@@ -1385,7 +1384,7 @@ tail -f logs/auth-service.log  # watch logs
 ```bash
 systemctl restart aviqr-auth-service       # restart one service
 systemctl restart aviqr-*                  # restart all (careful!)
-journalctl -u aviqr-order-service -f       # live logs
+journalctl -u aviqr-order-qr-service -f       # live logs
 nginx -t && systemctl reload nginx         # reload Nginx after config change
 certbot renew                              # renew SSL (auto-renews via cron)
 ```

@@ -554,6 +554,27 @@ INSERT INTO menu_items (id, name, name_hi, description, category_id, shop_id, pr
   ('46cd7a1d-bf01-4fc7-bb18-47608faaf2b9', 'Fresh Lime Soda',          'नींबू सोडा',       'Freshly squeezed lime with soda, salted or sweet',                            '0f41f620-6158-4387-b6e0-1448a1472c47', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 60.00,  TRUE,  FALSE, FALSE, TRUE,  NULL,         3),
   ('2656822a-5b54-45b5-908b-f3838bfa20a6', 'Mango Lassi',              'मैंगो लस्सी',     'Thick yoghurt blended with fresh Alphonso mango pulp',                        '0f41f620-6158-4387-b6e0-1448a1472c47', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', 100.00, TRUE,  FALSE, FALSE, TRUE,  'seasonal',   4);
 
+-- Rich media on a few popular Spice Route items — real, stable, publicly-hosted sample
+-- assets (not bespoke food photography/scans), every URL curl-verified to return 200:
+-- MDN/w3.org/samplelib/w3schools sample MP4s for video, Khronos's official glTF-Sample-
+-- Assets .glb files for 3D (Avocado/WaterBottle chosen for thematic fit where possible),
+-- so the video/3D viewer in CustomerMenu.jsx has real content to render end to end.
+UPDATE menu_items SET media_type = 'VIDEO', video_url = 'https://www.w3schools.com/html/mov_bbb.mp4'
+  WHERE id = 'a9ab05b0-202c-4188-a0de-1ac8fb85f91b'; -- Paneer Tikka
+UPDATE menu_items SET media_type = 'MODEL_3D', model_url = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Avocado/glTF-Binary/Avocado.glb'
+  WHERE id = 'dc053f69-0fe3-4610-a4f8-c2feb7a9d291'; -- Chicken Tikka
+UPDATE menu_items SET media_type = 'VIDEO', video_url = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
+  WHERE id = '692fca3e-4f99-4a16-98d4-96affdfaa29a'; -- Butter Chicken
+-- Both a video AND a 3D model — CustomerMenu.jsx shows both media links independent of
+-- mediaType (it only checks whether each URL is present); mediaType itself just picks
+-- which the owner-side Menu.jsx editor treats as primary.
+UPDATE menu_items SET media_type = 'VIDEO', video_url = 'https://download.samplelib.com/mp4/sample-10s.mp4', model_url = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/BoomBox/glTF-Binary/BoomBox.glb'
+  WHERE id = '8961dab4-323d-45cf-b7f6-f6e1dc1086c7'; -- Chicken Biryani — has both video and 3D
+UPDATE menu_items SET media_type = 'VIDEO', video_url = 'https://media.w3.org/2010/05/sintel/trailer.mp4'
+  WHERE id = 'f7b34ab7-f703-4e71-9705-f131d55ebafe'; -- Gulab Jamun
+UPDATE menu_items SET media_type = 'MODEL_3D', model_url = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/WaterBottle/glTF-Binary/WaterBottle.glb'
+  WHERE id = '9bde5fa9-5627-4154-9d49-360b5948bf20'; -- Masala Chai
+
 -- Coconut Grove menu items
 INSERT INTO menu_items (id, name, description, category_id, shop_id, price, veg, spicy, popular, available, tag, sort_order) VALUES
   ('f2d406f1-6dd9-4a5c-940b-40b87921983a', 'Prawn Koliwada',   'Crispy fried prawns with coastal spices',                  '993dcb95-3108-4ff5-8218-be3a554990bb', '44aeca17-767e-410b-868f-9fdd593fa091', 360.00, FALSE, TRUE,  TRUE,  TRUE,  'bestseller', 1),
@@ -561,6 +582,11 @@ INSERT INTO menu_items (id, name, description, category_id, shop_id, price, veg,
   ('a050595b-db30-4df3-89f6-39209ed9bb34', 'Appam',            'Soft lacy rice hoppers served with stew',                  '7efccff6-c55e-4551-ac74-ac2f14b7bdce', '44aeca17-767e-410b-868f-9fdd593fa091', 80.00,  TRUE,  FALSE, FALSE, TRUE,  NULL,         2),
   ('fcf73d5b-5ee5-432d-8bc1-860a88ee1f1d', 'Tender Coconut',   'Fresh tender coconut water straight from the shell',       'e53d6995-27cf-468f-a091-306e446243ba', '44aeca17-767e-410b-868f-9fdd593fa091', 80.00,  TRUE,  FALSE, TRUE,  TRUE,  NULL,         1),
   ('a5f40e9c-927c-4a23-b438-14d9f81ade26', 'Nannari Sherbet',  'Refreshing Indian sarsaparilla syrup with lemon',          'e53d6995-27cf-468f-a091-306e446243ba', '44aeca17-767e-410b-868f-9fdd593fa091', 60.00,  TRUE,  FALSE, FALSE, TRUE,  NULL,         2);
+
+UPDATE menu_items SET media_type = 'VIDEO', video_url = 'https://media.w3.org/2010/05/bunny/trailer.mp4'
+  WHERE id = 'f2d406f1-6dd9-4a5c-940b-40b87921983a'; -- Prawn Koliwada
+UPDATE menu_items SET media_type = 'MODEL_3D', model_url = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/GlassHurricaneCandleHolder/glTF-Binary/GlassHurricaneCandleHolder.glb'
+  WHERE id = '3012baf3-b6bd-426c-997a-4147afc47dd1'; -- Kerala Fish Curry
 
 -- Biryani House categories (OWNER Farhan — suspended but menu still required)
 INSERT INTO categories (id, name, emoji, shop_id, sort_order, active) VALUES
@@ -580,6 +606,13 @@ FROM (VALUES
   ('Soft Drink (can)',               'Chilled cola, lemon or orange can — 330 ml',                                  'e8754df0-7965-400a-8923-35543d8a698b',  50.00, TRUE,  FALSE, FALSE, NULL,         1, 'Beverages')
 ) AS v(name, description, shop_id, price, veg, spicy, popular, tag, sort_order, cat_name)
 JOIN categories c ON c.shop_id = v.shop_id AND c.name = v.cat_name;
+
+-- Rich media for Biryani House — matched by name+shop_id since these rows use
+-- gen_random_uuid() rather than fixed ids.
+UPDATE menu_items SET media_type = 'VIDEO', video_url = 'https://vjs.zencdn.net/v/oceans.mp4'
+  WHERE shop_id = 'e8754df0-7965-400a-8923-35543d8a698b' AND name = 'Hyderabadi Chicken Dum Biryani';
+UPDATE menu_items SET media_type = 'MODEL_3D', model_url = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Lantern/glTF-Binary/Lantern.glb'
+  WHERE shop_id = 'e8754df0-7965-400a-8923-35543d8a698b' AND name = 'Mutton Dum Biryani';
 
 -- Ramesh Tea House categories (SUPPLIER user outlets)
 INSERT INTO categories (id, name, emoji, shop_id, sort_order, active) VALUES
@@ -612,6 +645,14 @@ FROM (VALUES
   ('Idli (3 pcs)',          'Soft steamed rice cakes with sambar and chutney',                  '79292444-6912-4336-9894-1d89c18894d4',  60.00, FALSE, NULL,         2, 'Snacks')
 ) AS v(name, description, shop_id, price, popular, tag, sort_order, cat_name)
 JOIN categories c ON c.shop_id = v.shop_id AND c.name = v.cat_name;
+
+-- Rich media for Ramesh Tea House — one item per outlet, matched by name+shop_id.
+UPDATE menu_items SET media_type = 'VIDEO', video_url = 'https://download.samplelib.com/mp4/sample-15s.mp4'
+  WHERE shop_id = '117390e3-f3dc-4ea7-a6e2-1b073f18bad7' AND name = 'Masala Dosa';
+UPDATE menu_items SET media_type = 'MODEL_3D', model_url = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Corset/glTF-Binary/Corset.glb'
+  WHERE shop_id = 'da4440f6-1b19-48a4-8587-532474a3c258' AND name = 'Filter Coffee (Small)';
+UPDATE menu_items SET media_type = 'VIDEO', video_url = 'https://download.samplelib.com/mp4/sample-20s.mp4'
+  WHERE shop_id = '79292444-6912-4336-9894-1d89c18894d4' AND name = 'Vada (2 pcs)';
 
 -- Pricing rules
 INSERT INTO pricing_rules (id, shop_id, name, type, from_time, to_time, adjustment_type, adjustment_value, priority, active) VALUES
@@ -843,9 +884,9 @@ INSERT INTO payments (id, payment_id, order_id, razorpay_order_id, shop_id, cust
 
 
 -- ============================================================
---  SECTION 7 — aviqr_qr
+--  SECTION 7 — QR codes (merged into order-qr-service's aviqr_order DB)
 -- ============================================================
-\connect "dbname=aviqr_qr host=localhost user=aviqr password=aviqr_secret"
+\connect "dbname=aviqr_order host=localhost user=aviqr password=aviqr_secret"
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -1182,9 +1223,9 @@ INSERT INTO hotel_access (id, hotel_id, user_id, role, outlet_id) VALUES
 
 
 -- ============================================================
---  SECTION 9 — aviqr_mall
+--  SECTION 9 — Malls/vendors (merged into shop-mall-service's aviqr_shop DB)
 -- ============================================================
-\connect "dbname=aviqr_mall host=localhost user=aviqr password=aviqr_secret"
+\connect "dbname=aviqr_shop host=localhost user=aviqr password=aviqr_secret"
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -1399,23 +1440,11 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aviqr;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO aviqr;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aviqr;
 
-\connect "dbname=aviqr_qr host=localhost user=aviqr password=aviqr_secret"
-GRANT ALL ON ALL TABLES IN SCHEMA public TO aviqr;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aviqr;
-
 \connect "dbname=aviqr_hotel host=localhost user=aviqr password=aviqr_secret"
 GRANT ALL ON ALL TABLES IN SCHEMA public TO aviqr;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aviqr;
 
-\connect "dbname=aviqr_mall host=localhost user=aviqr password=aviqr_secret"
-GRANT ALL ON ALL TABLES IN SCHEMA public TO aviqr;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aviqr;
-
 \connect "dbname=aviqr_support host=localhost user=aviqr password=aviqr_secret"
-GRANT ALL ON ALL TABLES IN SCHEMA public TO aviqr;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aviqr;
-
-\connect "dbname=aviqr_report host=localhost user=aviqr password=aviqr_secret"
 GRANT ALL ON ALL TABLES IN SCHEMA public TO aviqr;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aviqr;
 
@@ -1440,19 +1469,17 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO aviqr;
 --
 -- \connect aviqr_order
 -- SELECT status, COUNT(*) FROM orders GROUP BY status;
+-- SELECT qr_code, label, scan_count FROM qr_codes ORDER BY scan_count DESC;   -- merged from qr-service
 --
 -- \connect aviqr_payment
 -- SELECT status, COUNT(*), SUM(amount) FROM payments GROUP BY status;
---
--- \connect aviqr_qr
--- SELECT qr_code, label, scan_count FROM qr_codes ORDER BY scan_count DESC;
 --
 -- \connect aviqr_hotel
 -- SELECT status, COUNT(*) FROM rooms GROUP BY status;
 -- SELECT h.name, ha.user_id, ha.role, ha.outlet_id FROM hotel_access ha JOIN hotels h ON h.id=ha.hotel_id;
 --
--- \connect aviqr_mall
--- SELECT m.name, COUNT(v.id) AS vendors FROM malls m LEFT JOIN vendors v ON v.mall_id=m.id GROUP BY m.name;
+-- \connect aviqr_shop
+-- SELECT m.name, COUNT(v.id) AS vendors FROM malls m LEFT JOIN vendors v ON v.mall_id=m.id GROUP BY m.name;  -- merged from mall-service
 --
 -- \connect aviqr_support
 -- SELECT status, priority, COUNT(*) FROM support_tickets GROUP BY status, priority ORDER BY status;
