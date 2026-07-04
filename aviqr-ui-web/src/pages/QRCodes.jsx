@@ -6,28 +6,18 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { qrApi } from '../api/index.js';
+import { THEMES, TEMPLATES, TentTemplate, TemplateRenderer, Section, Field, Toggle } from '../components/shared/QrTemplates.jsx';
 import './QRCodes.css';
 
 // ── Design system ──────────────────────────────────────────────────────────────
-
-const THEMES = {
-  green:  { name: 'Brand Green',   bg: '#1D9E75', fg: '#ffffff', accent: '#d1fae5', acFg: '#065f46', qrDark: '#0a5c3e' },
-  dark:   { name: 'Dark Luxury',   bg: '#18181b', fg: '#ffffff', accent: '#fbbf24', acFg: '#18181b', qrDark: '#18181b' },
-  warm:   { name: 'Warm Sunset',   bg: '#ea580c', fg: '#ffffff', accent: '#fff7ed', acFg: '#7c2d12', qrDark: '#7c2d12' },
-  blue:   { name: 'Ocean Blue',    bg: '#1d4ed8', fg: '#ffffff', accent: '#dbeafe', acFg: '#1e3a8a', qrDark: '#1e3a8a' },
-  cream:  { name: 'Elegant Cream', bg: '#fef9c3', fg: '#1c1917', accent: '#fbbf24', acFg: '#1c1917', qrDark: '#78350f' },
-};
+// THEMES/TEMPLATES/TemplateRenderer/Section/Field/Toggle now live in
+// components/shared/QrTemplates.jsx so Hotel/Mall/Supplier QR surfaces can
+// reuse the same template/theme picker and printable banner.
 
 const QR_TYPES = [
   { value: 'TABLE', label: 'Table QR',  badge: 'blue'   },
   { value: 'SHOP',  label: 'Shop QR',   badge: 'green'  },
   { value: 'PROMO', label: 'Promo QR',  badge: 'amber'  },
-];
-
-const TEMPLATES = [
-  { id: 'tent',    label: 'Table Tent',   desc: 'Fold-over card for tables',   icon: '🪑' },
-  { id: 'poster',  label: 'Wall Poster',  desc: 'A4 portrait print poster',    icon: '🖼️' },
-  { id: 'counter', label: 'Counter Card', desc: 'Landscape card for counters', icon: '🏪' },
 ];
 
 const ADVERT_TARGETS = [
@@ -67,167 +57,15 @@ const DEFAULTS = {
   wifiOn:       false,
   wifiName:     'Restaurant_WiFi',
   wifiPass:     '',
+  contactOn:      false,
+  contactPhone:   '',
+  contactAddress: '',
+  contactWebsite: '',
   footerOn:     true,
   footerText:   'Thank you for dining with us!',
 };
 
-// ── Template Components ────────────────────────────────────────────────────────
-
-function TentTemplate({ d, qrImg, compact }) {
-  const t = THEMES[d.theme];
-  const scale = compact ? 0.65 : 1;
-  return (
-    <div className="tpl tpl-tent" style={compact ? { transform: `scale(${scale})`, transformOrigin: 'top center', marginBottom: -100 * (1 - scale) } : {}}>
-      {/* FRONT — shown to customer after folding */}
-      <div className="tpl-tent-front" style={{ background: t.bg, color: t.fg }}>
-        <div className="tpl-shop-name">{d.shopName}</div>
-        {qrImg && (
-          <div className="tpl-qr-wrap">
-            <img src={qrImg} alt="QR Code" className="tpl-qr-img" />
-          </div>
-        )}
-        <div className="tpl-tagline">{d.tagline}</div>
-        {d.tableNum && (
-          <div className="tpl-table-chip" style={{ background: t.accent, color: t.acFg }}>
-            Table {d.tableNum}
-          </div>
-        )}
-      </div>
-      {/* FOLD LINE */}
-      <div className="tpl-fold-line">
-        <span>✂ fold here</span>
-      </div>
-      {/* BACK — faces away after folding */}
-      <div className="tpl-tent-back" style={{ background: t.accent, color: t.acFg }}>
-        {d.discountOn && (
-          <div className="tpl-discount-pill" style={{ background: t.bg, color: t.fg }}>
-            🏷️ {d.discountText}
-          </div>
-        )}
-        {d.newItemOn && (
-          <div className="tpl-new-item-row">✨ {d.newItemText}</div>
-        )}
-        {d.wifiOn && (
-          <div className="tpl-wifi-block">
-            <span className="tpl-wifi-icon">📶</span>
-            <div>
-              <div className="tpl-wifi-name">{d.wifiName}</div>
-              {d.wifiPass && <div className="tpl-wifi-pass">🔑 {d.wifiPass}</div>}
-            </div>
-          </div>
-        )}
-        {d.footerOn && <div className="tpl-footer-msg">{d.footerText}</div>}
-        <div className="tpl-brand-tag">Powered by AviQR · aviqr.in</div>
-      </div>
-    </div>
-  );
-}
-
-function PosterTemplate({ d, qrImg }) {
-  const t = THEMES[d.theme];
-  return (
-    <div className="tpl tpl-poster">
-      <div className="tpl-poster-header" style={{ background: t.bg, color: t.fg }}>
-        <div className="tpl-poster-shop">{d.shopName}</div>
-        <div className="tpl-poster-sub">{d.tagline}</div>
-      </div>
-      <div className="tpl-poster-body">
-        <div className="tpl-poster-qr-frame" style={{ borderColor: t.bg }}>
-          {qrImg && <img src={qrImg} alt="QR Code" className="tpl-poster-qr" />}
-        </div>
-        <div className="tpl-poster-cta" style={{ color: t.bg }}>
-          {d.tableNum ? `📍 Table ${d.tableNum}` : '📱 Scan & Order Instantly'}
-        </div>
-      </div>
-      {(d.discountOn || d.newItemOn || d.wifiOn) && (
-        <div className="tpl-poster-strip" style={{ background: t.accent, color: t.acFg }}>
-          {d.discountOn && <div className="tpl-poster-offer" style={{ background: t.bg, color: t.fg }}>🏷️ {d.discountText}</div>}
-          {d.newItemOn  && <div className="tpl-poster-new">✨ {d.newItemText}</div>}
-          {d.wifiOn     && <div className="tpl-poster-wifi">📶 {d.wifiName}{d.wifiPass ? ` · ${d.wifiPass}` : ''}</div>}
-        </div>
-      )}
-      <div className="tpl-poster-footer" style={{ background: t.bg, color: t.fg }}>
-        {d.footerOn ? d.footerText + ' · ' : ''}aviqr.in
-      </div>
-    </div>
-  );
-}
-
-function CounterTemplate({ d, qrImg }) {
-  const t = THEMES[d.theme];
-  return (
-    <div className="tpl tpl-counter">
-      <div className="tpl-counter-left" style={{ background: t.bg, color: t.fg }}>
-        <div className="tpl-counter-shop">{d.shopName}</div>
-        {d.tableNum && (
-          <div className="tpl-counter-table-chip" style={{ background: t.accent, color: t.acFg }}>
-            Table {d.tableNum}
-          </div>
-        )}
-        {d.discountOn && <div className="tpl-counter-offer">🏷️ {d.discountText}</div>}
-        {d.newItemOn  && <div className="tpl-counter-new">✨ {d.newItemText}</div>}
-        {d.wifiOn && (
-          <div className="tpl-counter-wifi">
-            📶 <strong>{d.wifiName}</strong>
-            {d.wifiPass && <span> · {d.wifiPass}</span>}
-          </div>
-        )}
-        <div className="tpl-counter-brand">aviqr.in</div>
-      </div>
-      <div className="tpl-counter-right">
-        {qrImg && <img src={qrImg} alt="QR Code" className="tpl-counter-qr" />}
-        <div className="tpl-counter-cta" style={{ color: t.bg }}>{d.tagline}</div>
-        {d.footerOn && <div className="tpl-counter-footer">{d.footerText}</div>}
-      </div>
-    </div>
-  );
-}
-
-function TemplateRenderer({ d, qrImg, compact }) {
-  if (d.template === 'tent')    return <TentTemplate    d={d} qrImg={qrImg} compact={compact} />;
-  if (d.template === 'poster')  return <PosterTemplate  d={d} qrImg={qrImg} />;
-  if (d.template === 'counter') return <CounterTemplate d={d} qrImg={qrImg} />;
-  return null;
-}
-
-// ── Small shared components ────────────────────────────────────────────────────
-
-function Section({ title, children }) {
-  return (
-    <div className="qrd-section">
-      <div className="qrd-section-head">{title}</div>
-      {children}
-    </div>
-  );
-}
-
-function Field({ label, value, onChange, placeholder, type = 'text' }) {
-  return (
-    <div className="qrd-field">
-      {label && <label className="qrd-label">{label}</label>}
-      <input
-        className="qrd-input"
-        type={type}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder || ''}
-      />
-    </div>
-  );
-}
-
-function Toggle({ value, onChange }) {
-  return (
-    <button
-      className={`qrd-toggle${value ? ' on' : ''}`}
-      onClick={() => onChange(!value)}
-      aria-label="toggle"
-      style={{ background: value ? THEMES.green.bg : 'var(--gray-200)' }}
-    >
-      <div className="qrd-toggle-knob" style={{ transform: value ? 'translateX(18px)' : 'translateX(2px)' }} />
-    </button>
-  );
-}
+// ── Page-specific small components ─────────────────────────────────────────────
 
 function QrThumb({ code, size = 80 }) {
   const [err, setErr] = React.useState(false);
@@ -271,17 +109,11 @@ export default function QRCodes() {
   const shopId = useActiveShopId();
   const canAdvertise = isAdmin || isSupport;
 
-  if (!shopId) return (
-    <div style={{ textAlign:'center', padding:'60px 24px', color:'#6B7280' }}>
-      <div style={{ fontSize:48, marginBottom:16 }}>📱</div>
-      <h2 style={{ fontSize:20, fontWeight:700, color:'#111827', marginBottom:8 }}>No restaurant yet</h2>
-      <p style={{ fontSize:14, marginBottom:24 }}>Complete the setup to generate your QR codes.</p>
-      <button onClick={() => nav('/')} style={{ padding:'10px 24px', background:'#1D9E75', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer' }}>
-        Complete setup →
-      </button>
-    </div>
-  );
-
+  // All hooks must run unconditionally on every render (Rules of Hooks) — shopId
+  // can arrive a render late when this page is mounted under OutletProvider/
+  // VendorProvider (hotel outlet / mall vendor QR), which resolves it async.
+  // The "no shop yet" empty state is rendered further down instead of an early
+  // return here, so hook count never changes between renders.
   const [tab, setTab]             = useState('list');
   const [codes, setCodes]         = useState([]);
   const [creating, setCreating]   = useState(false);
@@ -303,6 +135,7 @@ export default function QRCodes() {
 
   // Load QR codes
   useEffect(() => {
+    if (!shopId) return;
     qrApi.getByShop(shopId)
       .then(res => {
         const d = res.data.data || [];
@@ -315,11 +148,12 @@ export default function QRCodes() {
       .catch(e => setError(e.response?.data?.message || 'Could not load QR codes'));
   }, [shopId, user?.businessName]);
 
-  const qrUrl  = selCode?.targetUrl || `https://aviqr.in/menu/${shopId}`;
+  const qrUrl  = selCode?.targetUrl || (shopId ? `https://aviqr.in/menu/${shopId}` : '');
   const theme  = THEMES[design.theme];
 
   // Regenerate QR data-URL when URL or theme color changes
   useEffect(() => {
+    if (!qrUrl) return;
     QRCode.toDataURL(qrUrl, {
       width: 512,
       margin: 2,
@@ -329,6 +163,7 @@ export default function QRCodes() {
 
   // Batch QR generation
   useEffect(() => {
+    if (!shopId) return;
     setBatchReady(false);
     const base = selCode?.targetUrl || `https://aviqr.in/menu/${shopId}`;
     Promise.all(
@@ -398,6 +233,17 @@ export default function QRCodes() {
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
+
+  if (!shopId) return (
+    <div style={{ textAlign:'center', padding:'60px 24px', color:'#6B7280' }}>
+      <div style={{ fontSize:48, marginBottom:16 }}>📱</div>
+      <h2 style={{ fontSize:20, fontWeight:700, color:'#111827', marginBottom:8 }}>No restaurant yet</h2>
+      <p style={{ fontSize:14, marginBottom:24 }}>Complete the setup to generate your QR codes.</p>
+      <button onClick={() => nav('/')} style={{ padding:'10px 24px', background:'#1D9E75', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer' }}>
+        Complete setup →
+      </button>
+    </div>
+  );
 
   return (
     <div className="page-content qrd-page">
@@ -619,6 +465,23 @@ export default function QRCodes() {
                     <div className="qrd-fields-stack">
                       <Field value={design.wifiName} onChange={v => setD('wifiName', v)} placeholder="Network name (SSID)" />
                       <Field value={design.wifiPass} onChange={v => setD('wifiPass', v)} placeholder="Password (leave blank if open)" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="qrd-extra-block">
+                  <div className="qrd-extra-row">
+                    <div className="qrd-extra-meta">
+                      <span className="qrd-extra-label">📍 Contact Info</span>
+                      <span className="qrd-extra-hint">Phone, address & website</span>
+                    </div>
+                    <Toggle value={design.contactOn} onChange={v => setD('contactOn', v)} />
+                  </div>
+                  {design.contactOn && (
+                    <div className="qrd-fields-stack">
+                      <Field label="Phone" value={design.contactPhone} onChange={v => setD('contactPhone', v)} placeholder="e.g. +91 98765 43210" />
+                      <Field label="Address" value={design.contactAddress} onChange={v => setD('contactAddress', v)} placeholder="e.g. MG Road, Bengaluru" />
+                      <Field label="Website" value={design.contactWebsite} onChange={v => setD('contactWebsite', v)} placeholder="e.g. yourrestaurant.com" />
                     </div>
                   )}
                 </div>

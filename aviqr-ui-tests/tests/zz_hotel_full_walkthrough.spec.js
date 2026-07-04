@@ -119,10 +119,11 @@ test('Hotel Owner — full walkthrough of every tab and major action', async ({ 
   await page.waitForLoadState('networkidle'); await pause(page);
   await expect(page.locator('h1.page-title')).toHaveText('QR Management');
   await page.screenshot({ path: 'screenshots/walk-13-qr-management.png', fullPage: true });
-  // Verify the Generate button now renders as a real styled button, not bare text
-  const generateBtn = page.locator('main').getByRole('button', { name: /Generate/ }).first();
-  await expect(generateBtn).toBeVisible();
-  const bg = await generateBtn.evaluate(el => getComputedStyle(el).backgroundColor);
+  // Outlets with a linked shop get a real "QR Codes" button (reusing the shop-owner
+  // QR Designer); outlets with none show "No linked shop" text instead of a dead-end.
+  const qrCodesBtn = page.locator('main').getByRole('button', { name: /QR Codes/ }).first();
+  await expect(qrCodesBtn).toBeVisible();
+  const bg = await qrCodesBtn.evaluate(el => getComputedStyle(el).backgroundColor);
   expect(bg).not.toBe('rgba(0, 0, 0, 0)'); // must have a real background, not transparent/unstyled
 
   // ── Reports ────────────────────────────────────────────────────────────

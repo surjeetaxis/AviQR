@@ -387,6 +387,34 @@
   box-shadow: var(--shadow-lg);
 }
 
+/* Wide variant — reused by QrDesignerModal (Hotel/Mall/Supplier QR banners) */
+.qrd-designer-modal {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 24px;
+  max-width: 960px;
+  width: 100%;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.qrd-designer-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.qrd-designer-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-400);
+  font-size: 22px;
+  line-height: 1;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════ */
 /* Template Styles                                                            */
 /* ══════════════════════════════════════════════════════════════════════════ */

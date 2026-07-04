@@ -8,7 +8,16 @@ import java.util.UUID;
 public class MenuResponse {
     String shopId;
     String lang;
+    ShopInfoDto shop;
     List<CategoryDto> categories;
+
+    // Real shop info for the customer menu banner — name/tagline/rating/phone/
+    // address, instead of the page falling back to generic placeholder text.
+    @Data
+    public static class ShopInfoDto {
+        String name; String tagline; String phone; String address;
+        BigDecimal rating; Integer reviews;
+    }
 
     @Data
     public static class CategoryDto {

@@ -6,6 +6,7 @@ import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
+import QrDesignerModal from '../../components/shared/QrDesignerModal.jsx';
 import QRCode from 'qrcode';
 import {
   Hotel, BedDouble, UtensilsCrossed, Shirt, Sparkles, Wrench,
@@ -785,10 +786,12 @@ function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
 }
 
 function RoomQrModal({room,onClose}) {
+  const { user } = useAuth();
   const [qrImg,setQrImg] = useState('');
   const [targetUrl,setTargetUrl] = useState('');
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState('');
+  const [designing,setDesigning] = useState(false);
 
   useEffect(() => {
     hotelApi.createRoomQr(room.id)
@@ -839,9 +842,26 @@ function RoomQrModal({room,onClose}) {
               <button className="btn-refresh" style={{flex:1,justifyContent:'center'}} onClick={()=>window.print()}><Printer size={14}/> Print</button>
             </div>
             <button className="btn-room-action" style={{width:'100%'}} onClick={copyLink}>🔗 Copy Link</button>
+            <button className="btn-room-action" style={{width:'100%'}} onClick={()=>setDesigning(true)}>🎨 Design Banner & Print</button>
           </div>
         )}
       </div>
+      {designing && (
+        <QrDesignerModal
+          open={designing}
+          onClose={()=>setDesigning(false)}
+          targetUrl={targetUrl}
+          title={`Design QR — Room ${room.number}`}
+          nameLabel="Hotel Name"
+          nameDefault={user?.hotelName || 'Our Hotel'}
+          taglineDefault="Scan for Room Service"
+          subLabel="Room"
+          subDefault={room.number}
+          discountDefault=""
+          footerDefault="Enjoy your stay!"
+          downloadFilename={`room-${room.number}-qr-banner`}
+        />
+      )}
     </div>
   );
 }
@@ -1038,6 +1058,7 @@ function SpaPage({bookings,outlets,onUpdate}) {
 }
 
 function QRManagementPage({rooms,setRooms,outlets}) {
+  const navigate = useNavigate();
   const toggleRoomQR = (room) => {
     const next = !room.qrActive;
     setRooms(prev=>prev.map(r=>r.id!==room.id?r:{...r,qrActive:next}));
@@ -1052,7 +1073,6 @@ function QRManagementPage({rooms,setRooms,outlets}) {
   const toggleOutletQr = (o) => hotelOutletApi.toggleQr(o.id, !o.qrActive)
     .then(()=>setOutletList(prev=>prev.map(x=>x.id!==o.id?x:{...x,qrActive:!o.qrActive})))
     .catch(() => alert('Could not update QR status'));
-  const createOutletQr = (o) => hotelOutletApi.createQr(o.id).then(()=>alert('QR created')).catch(()=>alert('Could not create QR'));
 
   return (
     <div>
@@ -1086,7 +1106,11 @@ function QRManagementPage({rooms,setRooms,outlets}) {
                 <td style={{fontWeight:600}}>{o.name}</td>
                 <td>{o.outletType?.replace('_',' ')}</td>
                 <td><button className={`toggle-btn ${o.qrActive?'toggle-on':'toggle-off'}`} onClick={()=>toggleOutletQr(o)}>{o.qrActive?<ToggleRight size={18}/>:<ToggleLeft size={18}/>}</button></td>
-                <td><button className="btn-room-action" onClick={()=>createOutletQr(o)}><QrCode size={12}/> Generate</button></td>
+                <td>
+                  {o.shopId
+                    ? <button className="btn-room-action" onClick={()=>navigate(`/hotel/outlets/${o.id}/qr-codes`)}><QrCode size={12}/> QR Codes</button>
+                    : <span style={{fontSize:11,color:'var(--gray-400)'}}>No linked shop</span>}
+                </td>
               </tr>
             ))}
             {outletList.length===0 && <tr><td colSpan={4} style={{textAlign:'center',color:'var(--gray-400)',padding:20}}>No outlets yet.</td></tr>}

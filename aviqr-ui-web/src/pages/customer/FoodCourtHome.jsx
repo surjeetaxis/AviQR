@@ -94,11 +94,17 @@ export default function FoodCourtHome() {
         ) : (
           <div style={sx.grid}>
             {filteredVendors.map(v => (
-              <button key={v.id} style={sx.vendorCard} onClick={() => navigate(`/menu/${v.shopId}`)}>
+              <button
+                key={v.id}
+                style={v.shopId ? sx.vendorCard : { ...sx.vendorCard, opacity:0.5, cursor:'default' }}
+                disabled={!v.shopId}
+                onClick={() => v.shopId && navigate(`/menu/${v.shopId}`)}
+              >
                 <div style={sx.vendorIcon}><UtensilsCrossed size={20} color="#1D9E75" /></div>
                 <div style={{ fontWeight:700, fontSize:14, color:'#111827' }}>{v.name}</div>
                 {v.category && <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>{v.category}</div>}
                 {v.floor && <div style={sx.floorTag}><MapPin size={11} /> {v.floor}</div>}
+                {!v.shopId && <div style={{ fontSize:11, color:'#9CA3AF', marginTop:8 }}>Menu unavailable</div>}
               </button>
             ))}
           </div>

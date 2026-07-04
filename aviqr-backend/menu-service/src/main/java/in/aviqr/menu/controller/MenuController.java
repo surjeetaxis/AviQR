@@ -5,18 +5,24 @@ import in.aviqr.menu.repository.*;
 import in.aviqr.menu.service.DynamicPricingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.ResolvableType;
 import org.springframework.data.domain.*;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.util.*;
 
-@RestController @RequiredArgsConstructor
+@RestController @RequiredArgsConstructor @Slf4j
 public class MenuController {
     private final CategoryRepository catRepo;
     private final MenuItemRepository itemRepo;
     private final PricingRuleRepository ruleRepo;
     private final DynamicPricingService pricingService;
+    private final RestTemplate restTemplate;
 
     // ── Public endpoint — called by customer QR scan ──────────────────────────
     @GetMapping("/api/v1/menu/public/{shopId}")
@@ -59,7 +65,30 @@ public class MenuController {
 
         MenuResponse resp = new MenuResponse();
         resp.setShopId(shopId); resp.setLang(lang); resp.setCategories(catDtos);
+        resp.setShop(fetchShopInfo(shopId));
         return ResponseEntity.ok(ApiResponse.ok(resp));
+    }
+
+    // Best-effort — the customer menu page falls back to generic placeholder
+    // text when this is null, so a shop-service hiccup shouldn't break the menu.
+    private MenuResponse.ShopInfoDto fetchShopInfo(String shopId) {
+        try {
+            ParameterizedTypeReference<ApiResponse<ShopDetailsResponse>> ref = ParameterizedTypeReference.forType(
+                ResolvableType.forClassWithGenerics(ApiResponse.class, ShopDetailsResponse.class).getType());
+            ResponseEntity<ApiResponse<ShopDetailsResponse>> res = restTemplate.exchange(
+                "http://shop-service/api/v1/shops/" + shopId, HttpMethod.GET, null, ref);
+            ShopDetailsResponse s = res.getBody() != null ? res.getBody().getData() : null;
+            if (s == null) return null;
+
+            MenuResponse.ShopInfoDto dto = new MenuResponse.ShopInfoDto();
+            dto.setName(s.getName()); dto.setTagline(s.getTagline());
+            dto.setPhone(s.getPhone()); dto.setAddress(s.getAddress());
+            dto.setRating(s.getRating()); dto.setReviews(s.getRatingCount());
+            return dto;
+        } catch (Exception e) {
+            log.warn("Could not fetch shop info for {}: {}", shopId, e.getMessage());
+            return null;
+        }
     }
 
     // ── Category CRUD ─────────────────────────────────────────────────────────

@@ -65,6 +65,7 @@ public class ShopService {
         r.setAddress(s.getAddress()); r.setCity(s.getCity()); r.setLogoUrl(s.getLogoUrl());
         r.setStatus(s.getStatus()); r.setMinOrderAmount(s.getMinOrderAmount());
         r.setTableCount(s.getTableCount()); r.setSubscriptionPlan(s.getSubscriptionPlan());
+        r.setRating(s.getRating()); r.setRatingCount(s.getRatingCount());
         r.setCreatedAt(s.getCreatedAt());
         return r;
     }

@@ -5,6 +5,7 @@ import { shopApi, menuApi, orderApi, qrApi, reportApi, authApi, brandApi } from 
 import QRCode from 'qrcode';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
+import QrDesignerModal from '../../components/shared/QrDesignerModal.jsx';
 import {
   Store, BarChart2, ShoppingBag, Tag, QrCode, Settings, LogOut,
   Menu as MenuIcon, TrendingUp, CreditCard, ArrowLeft, ChevronRight,
@@ -578,6 +579,7 @@ function AllOrdersTab({ outlets }) {
 function QRCodesTab({ outlets, brand, onBrandSaved }) {
   const [qrByOutlet, setQrByOutlet] = useState({});
   const [loading, setLoading] = useState(true);
+  const [designingCode, setDesigningCode] = useState(null);
 
   useEffect(() => {
     if (!outlets.length) { setLoading(false); return; }
@@ -628,9 +630,27 @@ function QRCodesTab({ outlets, brand, onBrandSaved }) {
               </span>
             </div>
             <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--gray-400)', wordBreak: 'break-all' }}>{q.code || q.qrCode}</div>
+            <button className="btn btn-secondary" style={{ justifyContent: 'center', fontSize: 12 }} onClick={() => setDesigningCode(q)}>
+              🎨 Design Banner & Print
+            </button>
           </div>
         ))}
       </div>
+      {designingCode && (
+        <QrDesignerModal
+          open={!!designingCode}
+          onClose={() => setDesigningCode(null)}
+          targetUrl={designingCode.targetUrl}
+          title={`Design QR — ${designingCode.outletName}`}
+          nameLabel="Brand / Outlet Name"
+          nameDefault={brand?.name || designingCode.outletName}
+          taglineDefault="Scan to Order"
+          subLabel={null}
+          discountDefault=""
+          footerDefault="Thank you for dining with us!"
+          downloadFilename={`${(designingCode.outletName || 'outlet').replace(/\s+/g, '-')}-qr-banner`}
+        />
+      )}
     </div>
   );
 }
@@ -641,6 +661,7 @@ function QRCodesTab({ outlets, brand, onBrandSaved }) {
 function BrandQR({ brand }) {
   const [qrImg, setQrImg] = useState('');
   const [targetUrl, setTargetUrl] = useState('');
+  const [designing, setDesigning] = useState(false);
 
   useEffect(() => {
     if (!brand?.id) return;
@@ -669,6 +690,24 @@ function BrandQR({ brand }) {
       {qrImg ? <img src={qrImg} alt="Brand QR" style={{ width: 200, height: 200, borderRadius: 8 }} /> : <div style={{ width: 200, height: 200, background: 'var(--gray-100)', borderRadius: 8 }} />}
       <div style={{ fontSize: 11.5, color: 'var(--gray-400)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{targetUrl}</div>
       <button className="btn-primary" style={{ width: '100%' }} onClick={download}>Download PNG</button>
+      <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setDesigning(true)}>
+        🎨 Design Banner & Print
+      </button>
+      {designing && (
+        <QrDesignerModal
+          open={designing}
+          onClose={() => setDesigning(false)}
+          targetUrl={targetUrl}
+          title={`Design QR — ${brand.name}`}
+          nameLabel="Brand Name"
+          nameDefault={brand.name}
+          taglineDefault="Scan to browse all our outlets"
+          subLabel={null}
+          discountDefault=""
+          footerDefault="Thank you for choosing us!"
+          downloadFilename={`${(brand.name || 'brand').replace(/\s+/g, '-')}-qr-banner`}
+        />
+      )}
     </div>
   );
 }
@@ -1090,6 +1129,7 @@ function OutletOrdersTab({ shopId }) {
 function OutletQRTab({ shopId }) {
   const [codes, setCodes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [designingCode, setDesigningCode] = useState(null);
 
   useEffect(() => {
     qrApi.getByShop(shopId)
@@ -1126,9 +1166,27 @@ function OutletQRTab({ shopId }) {
               </span>
             </div>
             <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--gray-400)', wordBreak: 'break-all' }}>{q.code || q.qrCode}</div>
+            <button className="btn btn-secondary" style={{ justifyContent: 'center', fontSize: 12 }} onClick={() => setDesigningCode(q)}>
+              🎨 Design Banner & Print
+            </button>
           </div>
         ))}
       </div>
+      {designingCode && (
+        <QrDesignerModal
+          open={!!designingCode}
+          onClose={() => setDesigningCode(null)}
+          targetUrl={designingCode.targetUrl}
+          title="Design QR"
+          nameLabel="Outlet Name"
+          nameDefault={designingCode.label || 'Our Outlet'}
+          taglineDefault="Scan to Order"
+          subLabel={null}
+          discountDefault=""
+          footerDefault="Thank you for dining with us!"
+          downloadFilename="outlet-qr-banner"
+        />
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
+import QrDesignerModal from '../../components/shared/QrDesignerModal.jsx';
 import {
   Building2, Store, ShoppingBag, CreditCard, BarChart2, Settings,
   LogOut, Menu as MenuIcon, TrendingUp, QrCode, CheckCircle2,
@@ -423,6 +424,7 @@ function MallReportsTab({vendors}) {
 function MallQRPage({mall}) {
   const [qrImg,setQrImg] = useState('');
   const [targetUrl,setTargetUrl] = useState('');
+  const [designing,setDesigning] = useState(false);
 
   useEffect(() => {
     if (!mall?.id) return;
@@ -460,7 +462,24 @@ function MallQRPage({mall}) {
           <button className="btn-refresh" style={{flex:1,justifyContent:'center'}} onClick={download}><Download size={14}/> Download</button>
           <button className="btn-refresh" style={{flex:1,justifyContent:'center'}} onClick={()=>window.print()}><Printer size={14}/> Print</button>
         </div>
+        <button className="btn btn-secondary" style={{width:'100%',justifyContent:'center'}} onClick={()=>setDesigning(true)}>🎨 Design Banner & Print</button>
       </div>
+      {designing && (
+        <QrDesignerModal
+          open={designing}
+          onClose={()=>setDesigning(false)}
+          targetUrl={targetUrl}
+          title={`Design QR — ${mall.name}`}
+          nameLabel="Mall Name"
+          nameDefault={mall.name}
+          taglineDefault="Scan for the full food court menu"
+          subLabel={null}
+          discountDefault=""
+          footerDefault="Happy dining!"
+          contactDefault={{ phone: mall.phone, address: mall.address, website: '' }}
+          downloadFilename={`${(mall.name||'food-court').replace(/\s+/g,'-')}-qr-banner`}
+        />
+      )}
     </div>
   );
 }
