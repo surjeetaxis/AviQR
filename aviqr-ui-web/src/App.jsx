@@ -39,6 +39,10 @@ import PortalAddresses   from './pages/customer/PortalAddresses.jsx';
 import Onboarding        from './components/shared/Onboarding.jsx';
 import TermsPage         from './pages/legal/TermsPage.jsx';
 import PrivacyPage       from './pages/legal/PrivacyPage.jsx';
+import RefundPage        from './pages/legal/RefundPage.jsx';
+import AboutPage         from './pages/company/AboutPage.jsx';
+import ContactPage       from './pages/company/ContactPage.jsx';
+import FAQPage           from './pages/company/FAQPage.jsx';
 import AIHub             from './pages/ai/AIHub.jsx';
 import KOT              from './pages/KOT.jsx';
 
@@ -81,6 +85,10 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/terms"           element={<TermsPage />} />
       <Route path="/privacy"         element={<PrivacyPage />} />
+      <Route path="/refund"          element={<RefundPage />} />
+      <Route path="/about"           element={<AboutPage />} />
+      <Route path="/contact"         element={<ContactPage />} />
+      <Route path="/faq"             element={<FAQPage />} />
       <Route path="/customer"        element={<CustomerMenu />} />
       <Route path="/onboarding"      element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 

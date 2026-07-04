@@ -10,5 +10,6 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     Optional<Payment> findByRazorpayOrderId(String razorpayOrderId);
     Page<Payment> findByShopIdOrderByCreatedAtDesc(String shopId, Pageable pageable);
     Page<Payment> findByShopIdAndStatus(String shopId, PaymentStatus status, Pageable pageable);
+    Page<Payment> findByCustomerIdOrderByCreatedAtDesc(String customerId, Pageable pageable);
     Page<Payment> findAll(Pageable pageable);
 }

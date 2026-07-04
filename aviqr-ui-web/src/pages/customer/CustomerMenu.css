@@ -225,6 +225,15 @@
 }
 .cm-item:active { background: #FAFAFA; }
 
+/* Deep-linked from a QR poster's "Product Page" destination (?item=) */
+.cm-item-highlighted {
+  animation: cm-item-pulse 1.2s ease-in-out 2;
+}
+@keyframes cm-item-pulse {
+  0%, 100% { background: var(--white); }
+  50%      { background: #FFF7E6; }
+}
+
 /* veg/nonveg indicator */
 .cm-dot {
   width: 14px; height: 14px;

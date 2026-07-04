@@ -164,22 +164,22 @@ CREATE SEQUENCE IF NOT EXISTS seq_user_ref START 1001 INCREMENT 1;
 -- ── Dummy data — users ────────────────────────────────────────
 -- Passwords are all: Axis321#  (bcrypt $2b$12$)
 INSERT INTO users (id, email, phone, password_hash, name, role, status, avatar, shop_id, email_verified, phone_verified, preferred_language, created_at) VALUES
-  ('3cfd0b53-3eec-4285-af6a-9e0b115303ff', 'admin@aviqr.in',               '9999000001', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Priya Mehta',       'ADMIN',    'ACTIVE', 'PM', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '180 days'),
-  ('d4eaf7a7-6cce-41eb-916c-6d52336107be', 'support@aviqr.in',      '9999000002', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Arjun Nair',        'SUPPORT',  'ACTIVE', 'AN', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '150 days'),
-  ('6dbae4cc-5e11-48c1-a3cb-4baae5f344aa', 'sujeet@spiceroute.in',  '9845012345', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Sujeet Narayanan',  'OWNER',    'ACTIVE', 'SN', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'kn', NOW() - INTERVAL '90 days'),
-  ('3580a702-e960-4a40-83eb-a596c88595f7', 'meena@coconut.in',      '9876500001', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Meena Pillai',      'OWNER',    'ACTIVE', 'MP', '44aeca17-767e-410b-868f-9fdd593fa091', TRUE,  TRUE,  'ml', NOW() - INTERVAL '80 days'),
-  ('d7ad7958-b4dc-4b94-8a8f-f4cfe39f0179', 'farhan@biryani.in',     '9988776600', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Farhan Khan',       'OWNER',    'SUSPENDED','FK', 'e8754df0-7965-400a-8923-35543d8a698b', TRUE,  TRUE,  'hi', NOW() - INTERVAL '70 days'),
-  ('640e1946-5ffe-41cb-8be5-8ba499c08bd2', 'gm@grandpalace.in',     '8011223344', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Grand Palace Hotel','HOTEL',    'ACTIVE', 'GP', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '60 days'),
-  ('e3e551fa-0ede-4317-b7b1-015648bcdb94', 'admin@forum.in',        '7700112233', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Forum Mall Admin',  'MALL',     'ACTIVE', 'FM', NULL,                                 TRUE,  FALSE, 'en', NOW() - INTERVAL '50 days'),
-  ('3c34f672-3059-42f8-8bbb-613f517c8324', 'ramesh@teas.in',        '9988776655', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Ramesh Enterprises','SUPPLIER', 'ACTIVE', 'RE', NULL,                                 TRUE,  TRUE,  'hi', NOW() - INTERVAL '120 days'),
-  ('43ff4c07-a85e-4ec0-be79-9cd05b78f94a', 'vikram@gmail.com',      '9900112233', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Vikram Sharma',     'MANAGER',  'ACTIVE', 'VS', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'en', NOW() - INTERVAL '60 days'),
-  ('24e349fe-42b8-4ac1-b202-99261aac3165', 'anjali@gmail.com',      '9876543210', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Anjali Singh',      'CUSTOMER', 'ACTIVE', 'AS', NULL,                                 TRUE,  TRUE,  'hi', NOW() - INTERVAL '30 days'),
-  ('223f40ff-4020-4baf-8d8e-44e347263bd1', 'ravi@gmail.com',        '9123456789', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Ravi Kumar',        'CUSTOMER', 'ACTIVE', 'RK', NULL,                                 FALSE, FALSE, 'ta', NOW() - INTERVAL '15 days'),
-  ('f4512249-1a01-4be8-bf08-93e312202827', 'priya@cake.in',         '9900001122', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Priya Menon',       'OWNER',    'ACTIVE', 'PM', '67685266-6b45-4e40-851c-8277ef650ca3', TRUE,  TRUE,  'ml', NOW() - INTERVAL '45 days'),
-  ('26388851-77d5-4e7a-9d48-c382a14c8b9f', 'kitchen@spiceroute.in', '9845012346', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Chef Rangan',       'KITCHEN',  'ACTIVE', 'CR', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'kn', NOW() - INTERVAL '45 days'),
-  ('ccfb3287-2870-474f-9dcc-e4a3140eee05', 'cashier@spiceroute.in', '9845012347', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Deepa Cashier',     'CASHIER',  'ACTIVE', 'DC', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'en', NOW() - INTERVAL '30 days'),
-  ('b2c53d14-7f88-4c4b-ad2e-9f3a4b5c6d7e', 'menu@cakestudio.in',    '9900001133', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Rohit Verma',       'MENU_EDITOR', 'ACTIVE', 'RV', '67685266-6b45-4e40-851c-8277ef650ca3', TRUE, TRUE, 'en', NOW() - INTERVAL '20 days'),
-  ('a9b41c02-6e77-4b3a-9c1d-8f2e3a4b5c6d', 'anoop@coconut.in',      '9876500010', '$2b$12$.4Rt1tBa78eWphD0gMfSWOQ8M1XPIdfoX06jOHcY5/9IqfMTwivEG', 'Anoop Waiter',      'ORDER_VIEWER', 'ACTIVE', 'AW', '44aeca17-767e-410b-868f-9fdd593fa091', TRUE, TRUE, 'ml', NOW() - INTERVAL '25 days')
+  ('3cfd0b53-3eec-4285-af6a-9e0b115303ff', 'admin@aviqr.in',               '9999000001', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Priya Mehta',       'ADMIN',    'ACTIVE', 'PM', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '180 days'),
+  ('d4eaf7a7-6cce-41eb-916c-6d52336107be', 'support@aviqr.in',      '9999000002', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Arjun Nair',        'SUPPORT',  'ACTIVE', 'AN', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '150 days'),
+  ('6dbae4cc-5e11-48c1-a3cb-4baae5f344aa', 'sujeet@spiceroute.in',  '9845012345', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Sujeet Narayanan',  'OWNER',    'ACTIVE', 'SN', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'kn', NOW() - INTERVAL '90 days'),
+  ('3580a702-e960-4a40-83eb-a596c88595f7', 'meena@coconut.in',      '9876500001', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Meena Pillai',      'OWNER',    'ACTIVE', 'MP', '44aeca17-767e-410b-868f-9fdd593fa091', TRUE,  TRUE,  'ml', NOW() - INTERVAL '80 days'),
+  ('d7ad7958-b4dc-4b94-8a8f-f4cfe39f0179', 'farhan@biryani.in',     '9988776600', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Farhan Khan',       'OWNER',    'SUSPENDED','FK', 'e8754df0-7965-400a-8923-35543d8a698b', TRUE,  TRUE,  'hi', NOW() - INTERVAL '70 days'),
+  ('640e1946-5ffe-41cb-8be5-8ba499c08bd2', 'gm@grandpalace.in',     '8011223344', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Grand Palace Hotel','HOTEL',    'ACTIVE', 'GP', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '60 days'),
+  ('e3e551fa-0ede-4317-b7b1-015648bcdb94', 'admin@forum.in',        '7700112233', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Forum Mall Admin',  'MALL',     'ACTIVE', 'FM', NULL,                                 TRUE,  FALSE, 'en', NOW() - INTERVAL '50 days'),
+  ('3c34f672-3059-42f8-8bbb-613f517c8324', 'ramesh@teas.in',        '9988776655', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Ramesh Enterprises','SUPPLIER', 'ACTIVE', 'RE', NULL,                                 TRUE,  TRUE,  'hi', NOW() - INTERVAL '120 days'),
+  ('43ff4c07-a85e-4ec0-be79-9cd05b78f94a', 'vikram@gmail.com',      '9900112233', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Vikram Sharma',     'MANAGER',  'ACTIVE', 'VS', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'en', NOW() - INTERVAL '60 days'),
+  ('24e349fe-42b8-4ac1-b202-99261aac3165', 'anjali@gmail.com',      '9876543210', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Anjali Singh',      'CUSTOMER', 'ACTIVE', 'AS', NULL,                                 TRUE,  TRUE,  'hi', NOW() - INTERVAL '30 days'),
+  ('223f40ff-4020-4baf-8d8e-44e347263bd1', 'ravi@gmail.com',        '9123456789', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Ravi Kumar',        'CUSTOMER', 'ACTIVE', 'RK', NULL,                                 FALSE, FALSE, 'ta', NOW() - INTERVAL '15 days'),
+  ('f4512249-1a01-4be8-bf08-93e312202827', 'priya@cake.in',         '9900001122', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Priya Menon',       'OWNER',    'ACTIVE', 'PM', '67685266-6b45-4e40-851c-8277ef650ca3', TRUE,  TRUE,  'ml', NOW() - INTERVAL '45 days'),
+  ('26388851-77d5-4e7a-9d48-c382a14c8b9f', 'kitchen@spiceroute.in', '9845012346', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Chef Rangan',       'KITCHEN',  'ACTIVE', 'CR', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'kn', NOW() - INTERVAL '45 days'),
+  ('ccfb3287-2870-474f-9dcc-e4a3140eee05', 'cashier@spiceroute.in', '9845012347', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Deepa Cashier',     'CASHIER',  'ACTIVE', 'DC', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'en', NOW() - INTERVAL '30 days'),
+  ('b2c53d14-7f88-4c4b-ad2e-9f3a4b5c6d7e', 'menu@cakestudio.in',    '9900001133', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Rohit Verma',       'MENU_EDITOR', 'ACTIVE', 'RV', '67685266-6b45-4e40-851c-8277ef650ca3', TRUE, TRUE, 'en', NOW() - INTERVAL '20 days'),
+  ('a9b41c02-6e77-4b3a-9c1d-8f2e3a4b5c6d', 'anoop@coconut.in',      '9876500010', '$2b$12$QptYKqt8V0s2nCcE0ZAqaeC/Skf9Q/a2HihMX3NKqSgBEPHaT72rG', 'Anoop Waiter',      'ORDER_VIEWER', 'ACTIVE', 'AW', '44aeca17-767e-410b-868f-9fdd593fa091', TRUE, TRUE, 'ml', NOW() - INTERVAL '25 days')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO otp_records (id, target, otp, type, expires_at, used, created_at) VALUES
@@ -1913,6 +1913,23 @@ CREATE TABLE IF NOT EXISTS offers (
 );
 
 CREATE INDEX IF NOT EXISTS idx_offers_active ON offers (active);
+
+CREATE TABLE IF NOT EXISTS shop_promotions (
+    id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id        VARCHAR(100) NOT NULL,
+    code           VARCHAR(50)  NOT NULL,
+    label          VARCHAR(255) NOT NULL,
+    discount_type  VARCHAR(20)  DEFAULT 'FIXED',
+    discount_value DOUBLE PRECISION,
+    starts_at      TIMESTAMP,
+    ends_at        TIMESTAMP,
+    active         BOOLEAN      DEFAULT TRUE,
+    created_at     TIMESTAMP    DEFAULT NOW(),
+    updated_at     TIMESTAMP    DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_shop_promotions_shop_id ON shop_promotions (shop_id);
+CREATE INDEX IF NOT EXISTS idx_shop_promotions_active  ON shop_promotions (active);
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aviqr;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aviqr;

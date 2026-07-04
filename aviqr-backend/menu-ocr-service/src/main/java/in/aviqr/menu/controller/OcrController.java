@@ -5,6 +5,9 @@ import in.aviqr.menu.ocr.OcrJobRepository;
 import in.aviqr.menu.ocr.OcrService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,6 +25,18 @@ public class OcrController {
             @RequestHeader("X-User-Id") String uid) {
         OcrJob job = ocrService.startJob(shopId, uid, file);
         return ResponseEntity.ok(ApiResponse.ok("OCR job started", job));
+    }
+
+    // Admin/Support — all OCR jobs platform-wide (troubleshooting stuck/failed uploads)
+    @GetMapping("/jobs/admin/all")
+    public ResponseEntity<ApiResponse<Page<OcrJob>>> adminAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return ResponseEntity.ok(ApiResponse.ok(
+            repo.findAll(PageRequest.of(page, size, Sort.by("createdAt").descending()))));
     }
 
     @GetMapping("/jobs/{id}")

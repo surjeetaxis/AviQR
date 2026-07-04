@@ -349,6 +349,7 @@ export default function CustomerMenu() {
   const groupFilter  = searchParams.get('cat') || '';
   const focusSearchParam = searchParams.get('focusSearch') === '1';
   const openCartParam    = searchParams.get('openCart') === '1';
+  const itemFromQR       = searchParams.get('item') || '';
 
   // State
   const [lang, setLang]                 = useState('en');
@@ -389,6 +390,8 @@ export default function CustomerMenu() {
     name: '', phone: '', table: tableFromQR, type: tableFromQR ? 'dine-in' : 'dine-in', payment: 'online',
   });
   const catRefs = useRef({});
+  const itemRefs = useRef({});
+  const [highlightedItem, setHighlightedItem] = useState('');
 
   // Derived
   const allItems = shop.categories.flatMap(c => c.items);
@@ -418,6 +421,19 @@ export default function CustomerMenu() {
     if (openCartParam) setShowCart(true);
     if (focusSearchParam) setTimeout(() => document.querySelector('.cm-search-input')?.focus(), 300);
   }, [openCartParam, focusSearchParam]);
+
+  // Deep link from a "Product Page" QR/poster: /menu/:id?item={itemId} —
+  // scroll to that item and briefly highlight it once the menu has loaded.
+  useEffect(() => {
+    if (!itemFromQR || menuLoading) return;
+    const el = itemRefs.current[itemFromQR];
+    if (!el) return;
+    setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedItem(itemFromQR);
+      setTimeout(() => setHighlightedItem(''), 2500);
+    }, 300);
+  }, [itemFromQR, menuLoading]);
 
   const [isFavorited, setIsFavorited] = useState(false);
   useEffect(() => {
@@ -706,7 +722,11 @@ export default function CustomerMenu() {
               const hasImage  = !!item.imageUrl;
               const hasMedia  = hasVideo || hasModel;
               return (
-                <div key={item.id} className={`cm-item ${!item.veg ? 'cm-item-nonveg' : ''}`}>
+                <div
+                  key={item.id}
+                  ref={el => { itemRefs.current[item.id] = el; }}
+                  className={`cm-item ${!item.veg ? 'cm-item-nonveg' : ''} ${highlightedItem === item.id ? 'cm-item-highlighted' : ''}`}
+                >
                   {/* veg / non-veg dot */}
                   <div className={`cm-dot ${item.veg ? 'cm-dot-veg' : 'cm-dot-nonveg'}`}>
                     <div className="cm-dot-inner" />

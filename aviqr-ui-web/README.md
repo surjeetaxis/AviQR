@@ -27,7 +27,11 @@ aviqr-owner-react/
     │   ├── Topbar.jsx / .css   ← Search, notifications, profile
     │   ├── StatCard.jsx / .css ← KPI tile with trend
     │   ├── OrderRow.jsx / .css ← Live order list row
-    │   └── PageStub.jsx / .css ← Placeholder for unbuilt routes
+    │   ├── PageStub.jsx / .css ← Placeholder for unbuilt routes
+    │   └── landing/            ← Shared chrome for every public marketing page
+    │       ├── SiteHeader.jsx  ← Nav bar (logo, section links, sign in/get started)
+    │       ├── SiteFooter.jsx  ← 4-column footer (Product/Company/Accounts/Legal)
+    │       └── LogoMark.jsx    ← AviQR mark SVG, shared by header + footer
     └── pages/
         ├── Dashboard.jsx / .css ← Main home screen (fully built)
         ├── Orders.jsx
@@ -35,7 +39,20 @@ aviqr-owner-react/
         ├── QRCodes.jsx
         ├── Staff.jsx
         ├── Reports.jsx
-        └── Settings.jsx
+        ├── Settings.jsx
+        ├── landing/
+        │   └── Landing.jsx / .css  ← Public homepage: hero, features, how-it-works,
+        │                              real product screenshots, pricing, trust section
+        ├── company/                ← Public marketing pages (share SiteHeader/SiteFooter)
+        │   ├── AboutPage.jsx
+        │   ├── ContactPage.jsx     ← Real support channels + mailto-based contact form
+        │   ├── FAQPage.jsx         ← Accordion FAQ grouped by topic
+        │   └── Company.css
+        └── legal/                  ← Also share SiteHeader/SiteFooter (not a bare topbar)
+            ├── PrivacyPage.jsx
+            ├── TermsPage.jsx
+            ├── RefundPage.jsx      ← Refund & cancellation policy (routed at /refund)
+            └── Legal.css
 ```
 
 ---
@@ -61,6 +78,19 @@ npm run preview
 ---
 
 ## What's built
+
+### ✅ Public marketing site (`/`, `/about`, `/contact`, `/faq`, `/privacy`, `/terms`, `/refund`)
+- **Landing page** — hero, 15-item feature grid (spans restaurant/hotel/mall/multi-outlet
+  capabilities), an icon-based "how it works" flow, a real-screenshot product showcase
+  (`public/demo/*.png`, captured live from the running app, not mockups), live-loaded
+  pricing (`planApi.listPublic`, Enterprise tier excluded — it's a "contact sales" plan and
+  showing its ₹0 price as "Free" reads as a bug), testimonials, and a trust/security section
+- **About / Contact / FAQ** — real company/product content; Contact's form is a genuine
+  `mailto:` composer (no fake backend); FAQ is a working accordion grouped by topic
+- **Privacy / Terms / Refund policies** — all under `pages/legal/`
+- All seven pages share `SiteHeader` + `SiteFooter` (`components/landing/`) so the header/
+  footer are defined once — don't duplicate nav/footer markup in a new public page, import
+  these instead
 
 ### ✅ Dashboard home screen (`/dashboard`)
 The fully designed and interactive home screen with:

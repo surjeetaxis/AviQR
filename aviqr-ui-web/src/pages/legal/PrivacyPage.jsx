@@ -1,14 +1,14 @@
-import { useNavigate } from 'react-router-dom';
+import SEO from '../../components/shared/SEO.jsx';
+import SiteHeader from '../../components/landing/SiteHeader.jsx';
+import SiteFooter from '../../components/landing/SiteFooter.jsx';
+import '../landing/Landing.css';
 import './Legal.css';
 
 export default function PrivacyPage() {
-  const nav = useNavigate();
   return (
     <div className="legal-page">
-      <div className="legal-topbar">
-        <div className="legal-logo" onClick={() => nav('/')}>🍽️ <strong>AviQR</strong></div>
-        <button className="legal-back" onClick={() => nav(-1)}>← Back</button>
-      </div>
+      <SEO title="Privacy Policy — AviQR" description="How AviQR collects, uses and protects your data." canonical="https://aviqr.in/privacy" />
+      <SiteHeader />
       <div className="legal-content">
         <h1>Privacy Policy</h1>
         <p className="legal-meta">Effective Date: 25 June 2025 · Version 1.0</p>
@@ -51,6 +51,7 @@ export default function PrivacyPage() {
 
         <p className="legal-updated">Last updated: 25 June 2025</p>
       </div>
+      <SiteFooter />
     </div>
   );
 }

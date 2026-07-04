@@ -309,7 +309,10 @@ public class ReportController {
 
     // ── Platform stats (admin only) ───────────────────────────────────────────
     @GetMapping("/admin/platform")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> platformStats() {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> platformStats(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         String sql = """
             SELECT
               COUNT(DISTINCT shop_id)                                                        AS "activeShops",

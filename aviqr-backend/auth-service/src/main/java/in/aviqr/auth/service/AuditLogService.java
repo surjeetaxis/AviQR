@@ -1,11 +1,11 @@
 package in.aviqr.auth.service;
 
-import lombok.*;
+import in.aviqr.auth.entity.AuditLog;
+import in.aviqr.auth.repository.AuditLogRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.repository.MongoRepository;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 
@@ -27,18 +27,8 @@ public class AuditLogService {
             log.warn("Failed to write audit log: {}", e.getMessage());
         }
     }
-}
 
-@Document(collection = "audit_logs")
-@Getter @Setter @Builder
-class AuditLog {
-    @Id String id;
-    String action;
-    String actorId;
-    String description;
-    String service;
-    LocalDateTime timestamp;
+    public Page<AuditLog> list(Pageable pageable) {
+        return repo.findAllByOrderByTimestampDesc(pageable);
+    }
 }
-
-@Repository
-interface AuditLogRepository extends MongoRepository<AuditLog, String> {}

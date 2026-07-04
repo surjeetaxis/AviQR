@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SEO from '../../components/shared/SEO.jsx';
+import SiteHeader from '../../components/landing/SiteHeader.jsx';
+import SiteFooter from '../../components/landing/SiteFooter.jsx';
 import { planApi, offerApi } from '../../api/index.js';
 import {
   QrCode, Zap, BarChart2, Users, ShoppingBag, Star,
   ChevronRight, Globe, Shield, Clock, Smartphone,
   ArrowRight, CheckCircle, Building2, Hotel, Store,
   Coffee, UtensilsCrossed, ShoppingCart, Wifi, ScanLine,
-  UploadCloud, PackageCheck
+  UploadCloud, PackageCheck, ChefHat, Receipt, Package,
+  Landmark, CreditCard, Video, Sparkles, UserCog, Lock,
+  BadgeCheck
 } from 'lucide-react';
 import './Landing.css';
 
@@ -22,9 +26,18 @@ const FEATURES = [
   { icon: QrCode,        title: 'Permanent QR Code',      desc: 'One QR. Print once. Update menu forever — no reprinting needed when prices change.' },
   { icon: Zap,           title: 'Dynamic Pricing',         desc: 'Weekend, festival, happy hour pricing that switches automatically by time and date.' },
   { icon: Globe,         title: 'OCR Menu Upload',         desc: 'Photograph your printed menu. AI reads it, builds your digital menu in under 5 minutes.' },
+  { icon: Video,         title: 'Video & 3D Dish Previews',desc: 'Show a short video or a rotatable 3D model for any dish — customers see exactly what they’re ordering.' },
   { icon: Star,          title: 'Loyalty & Wallet',        desc: 'Silver → Diamond tiers. Cashback wallet. Reward regulars, retain customers.' },
   { icon: BarChart2,     title: 'Analytics & CRM',         desc: 'Revenue trends, peak hours, top items, customer spend analysis in real time.' },
   { icon: Smartphone,    title: 'No App for Customers',    desc: 'Customers scan with phone camera. Menu opens instantly in browser. No download required.' },
+  { icon: ChefHat,       title: 'Kitchen Display (KOT)',   desc: 'Orders hit the kitchen screen the instant they’re placed — no paper tickets, no shouting.' },
+  { icon: Receipt,       title: 'POS & Billing',           desc: 'Take counter orders, print bills, and settle payments without leaving the dashboard.' },
+  { icon: Package,       title: 'Inventory & Recipes',     desc: 'Track raw material stock and real ingredient cost per dish, down to the last gram.' },
+  { icon: CreditCard,    title: 'Real Payments',           desc: 'Razorpay-powered online payments plus cash — orders and settlements, not a mockup.' },
+  { icon: UserCog,       title: 'Staff Roles',             desc: 'Owner, manager, kitchen and cashier logins — everyone sees only what their role needs.' },
+  { icon: Hotel,         title: 'Hotel Operations',        desc: 'Room service, housekeeping, laundry and spa booking — all from the QR in the room.' },
+  { icon: Building2,     title: 'Mall & Food-Court Mode',  desc: 'Onboard vendors, track revenue share, and run one QR for the whole food court.' },
+  { icon: Landmark,      title: 'Multi-Outlet Brands',     desc: 'Suppliers and franchises manage every outlet’s menu and orders from one login.' },
 ];
 
 const HOW_IT_WORKS = [
@@ -83,6 +96,18 @@ const PLAN_META = {
   ENTERPRISE: { desc: 'Custom contracts for large chains & franchises.',   cta: 'Contact sales',      tag: null,           primary: false },
 };
 
+// Honest trust signals only — no invented customer counts or logos. These mirror
+// what's actually documented in /privacy and /terms, so the landing page never
+// claims more than the platform really does.
+const TRUST = [
+  { icon: CreditCard, title: 'Real payment processing',  desc: 'Online payments run through Razorpay — the same gateway used by thousands of Indian businesses.' },
+  { icon: Lock,        title: 'Encrypted end to end',     desc: 'TLS 1.2/1.3 in transit, bcrypt-hashed passwords, and databases that are never publicly reachable.' },
+  { icon: Shield,      title: 'Short-lived, rotating tokens', desc: 'Every login issues a short-lived JWT that rotates — no long-lived session to steal.' },
+  { icon: BadgeCheck,  title: 'GST-ready billing',        desc: 'Subscription invoices are GST-compliant from day one, in INR.' },
+  { icon: Clock,       title: '99.9% uptime SLA',         desc: 'The platform is built on the same infrastructure whether you have one table or one hundred outlets.' },
+  { icon: Globe,       title: 'Built for every scale',    desc: 'The same platform runs single food stalls, hotel chains, mall food courts and multi-outlet brands.' },
+];
+
 const TESTIMONIALS = [
   { name: 'Ankit Joshi', shop: 'Chai & Chaat, Pune', avatar: 'AJ', text: 'Our weekend orders jumped 40% after switching to dynamic pricing. Customers love the instant menu — no waiting for a waiter.' },
   { name: 'Meena Pillai', shop: 'The Coconut Grove, Kochi', avatar: 'MP', text: 'Uploaded a photo of our old printed menu and got a fully digital version in 8 minutes. Absolutely magic.' },
@@ -133,25 +158,7 @@ export default function Landing() {
         description="Scan to order. Pay online. 9 Indian languages. Manage restaurants, hotels and malls with AviQR's QR-powered platform."
         canonical="https://aviqr.in/"
       />
-      {/* ── Nav ── */}
-      <nav className="land-nav">
-        <div className="land-nav-inner">
-          <div className="land-logo">
-            <LogoMark />
-            <span className="land-wordmark">Avi<em>QR</em></span>
-          </div>
-          <div className="land-nav-links">
-            <a href="#features">Features</a>
-            <a href="#showcase">See it in action</a>
-            <a href="#verticals">Who it's for</a>
-            <a href="#pricing">Pricing</a>
-          </div>
-          <div className="land-nav-cta">
-            <button className="btn-ghost-nav" onClick={() => navigate('/login')}>Sign in</button>
-            <button className="btn-primary-nav" onClick={() => navigate('/register')}>Get started free →</button>
-          </div>
-        </div>
-      </nav>
+      <SiteHeader isHome />
 
       {/* ── Hero ── */}
       <section className="hero">
@@ -209,8 +216,8 @@ export default function Landing() {
       <section className="features-section" id="features">
         <div className="section-header">
           <div className="section-eyebrow">Platform</div>
-          <h2 className="section-title">Everything a restaurant needs</h2>
-          <p className="section-sub">AviQR isn't a menu app. It's the operating system for your kitchen, counter, and customers.</p>
+          <h2 className="section-title">Everything your business needs</h2>
+          <p className="section-sub">AviQR isn't a menu app. It's the operating system for restaurants, hotels, malls and multi-outlet brands.</p>
         </div>
         <div className="features-grid">
           {FEATURES.map(f => (
@@ -355,6 +362,25 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Trust & security ── */}
+      <section className="trust-section">
+        <div className="section-header">
+          <div className="section-eyebrow">Trusted &amp; secure</div>
+          <h2 className="section-title">Built to be trusted with real orders and real payments</h2>
+        </div>
+        <div className="trust-grid">
+          {TRUST.map(t => (
+            <div key={t.title} className="trust-card">
+              <div className="trust-icon"><t.icon size={20} /></div>
+              <div>
+                <div className="trust-title">{t.title}</div>
+                <div className="trust-desc">{t.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ── CTA Banner ── */}
       <section className="cta-banner">
         <div className="cta-banner-inner">
@@ -372,58 +398,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── Footer ── */}
-      <footer className="land-footer">
-        <div className="footer-inner">
-          <div className="footer-brand">
-            <div className="land-logo" style={{ marginBottom: 10 }}>
-              <LogoMark />
-              <span className="land-wordmark">Avi<em>QR</em></span>
-            </div>
-            <p className="footer-tagline">Scan. Order. Engage. Grow.</p>
-            <p className="footer-copy">© 2025 AviQR Technologies Pvt Ltd</p>
-          </div>
-          <div className="footer-links">
-            <div className="footer-col">
-              <div className="footer-col-title">Product</div>
-              <a href="#features">Features</a>
-              <a href="#pricing">Pricing</a>
-              <a href="#verticals">Verticals</a>
-            </div>
-            <div className="footer-col">
-              <div className="footer-col-title">Accounts</div>
-              <a href="#" onClick={e => { e.preventDefault(); navigate('/login'); }}>Sign in</a>
-              <a href="#" onClick={e => { e.preventDefault(); navigate('/register'); }}>Register</a>
-              <a href="#" onClick={e => { e.preventDefault(); navigate('/login?role=admin'); }}>Admin login</a>
-            </div>
-            <div className="footer-col">
-              <div className="footer-col-title">Legal</div>
-              <a href="/privacy">Privacy policy</a>
-              <a href="/terms">Terms of service</a>
-              <a href="/refund">Refund policy</a>
-            </div>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
-}
-
-function LogoMark() {
-  return (
-    <div className="land-logo-mark">
-      <svg viewBox="0 0 28 28" fill="none" width="28" height="28">
-        <rect x="3" y="3" width="9" height="9" rx="2" fill="#1D9E75"/>
-        <rect x="16" y="3" width="9" height="9" rx="2" fill="#0A0A0A" opacity=".9"/>
-        <rect x="3" y="16" width="9" height="9" rx="2" fill="#0A0A0A" opacity=".9"/>
-        <rect x="5.5" y="5.5" width="4" height="4" rx="1" fill="#fff"/>
-        <rect x="18.5" y="5.5" width="4" height="4" rx="1" fill="#fff"/>
-        <rect x="5.5" y="18.5" width="4" height="4" rx="1" fill="#fff"/>
-        <rect x="16" y="16" width="4" height="4" rx="1" fill="#1D9E75"/>
-        <rect x="21" y="16" width="4" height="4" rx="1" fill="#1D9E75"/>
-        <rect x="16" y="21" width="4" height="4" rx="1" fill="#1D9E75"/>
-        <rect x="21" y="21" width="4" height="4" rx="1" fill="#5DCAA5"/>
-      </svg>
+      <SiteFooter isHome />
     </div>
   );
 }

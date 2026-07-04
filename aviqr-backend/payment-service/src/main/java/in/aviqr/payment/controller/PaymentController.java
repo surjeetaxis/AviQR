@@ -211,6 +211,21 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.ok(payments));
     }
 
+    // Support/Admin — look up a specific customer's payment history (e.g. to
+    // investigate a support ticket), rather than the full platform-wide ledger.
+    @GetMapping("/customer/{customerId}")
+    public ResponseEntity<ApiResponse<Page<Payment>>> customerPayments(
+            @PathVariable String customerId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role) && !customerId.equals(uid))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        Pageable pg = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return ResponseEntity.ok(ApiResponse.ok(repo.findByCustomerIdOrderByCreatedAtDesc(customerId, pg)));
+    }
+
     @GetMapping("/{paymentId}")
     public ResponseEntity<ApiResponse<Payment>> getByPaymentId(@PathVariable String paymentId) {
         return repo.findByPaymentId(paymentId)

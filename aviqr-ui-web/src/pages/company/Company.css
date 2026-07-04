@@ -1,0 +1,67 @@
+/* ─── Shared chrome for About / Contact / FAQ ──────────────────────────── */
+.company-page { background: var(--white); min-height: 100vh; }
+.company-hero { max-width: 800px; margin: 0 auto; padding: 72px 32px 48px; text-align: center; }
+.company-eyebrow { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--green); margin-bottom: 14px; }
+.company-title { font-size: 42px; font-weight: 800; letter-spacing: -.02em; color: var(--gray-900); margin-bottom: 16px; line-height: 1.1; }
+.company-sub { font-size: 17px; color: var(--gray-500); line-height: 1.65; }
+
+.company-section { max-width: 1000px; margin: 0 auto; padding: 48px 32px; }
+.company-section + .company-section { border-top: 1px solid var(--gray-100); }
+
+/* About — story */
+.about-story p { font-size: 15.5px; color: var(--gray-600); line-height: 1.8; margin-bottom: 16px; max-width: 720px; }
+
+/* About — value cards */
+.value-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 18px; margin-top: 32px; }
+.value-card { background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: var(--radius-lg); padding: 22px; }
+.value-icon { width: 40px; height: 40px; border-radius: 11px; background: var(--green-light); color: var(--green-dark); display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+.value-title { font-size: 14.5px; font-weight: 700; color: var(--gray-900); margin-bottom: 6px; }
+.value-desc { font-size: 13px; color: var(--gray-500); line-height: 1.55; }
+
+/* Contact */
+.contact-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+.contact-card { background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: var(--radius-lg); padding: 24px; text-align: center; }
+.contact-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--green-light); color: var(--green-dark); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+.contact-title { font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 6px; }
+.contact-desc { font-size: 12.5px; color: var(--gray-500); margin-bottom: 10px; line-height: 1.5; }
+.contact-value { font-size: 13.5px; font-weight: 600; color: var(--green-dark); }
+.contact-value:hover { text-decoration: underline; }
+
+.contact-form-wrap { max-width: 640px; margin: 0 auto; padding: 0 32px 72px; }
+.contact-form { display: flex; flex-direction: column; gap: 16px; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: var(--radius-lg); padding: 28px; }
+.contact-field { display: flex; flex-direction: column; gap: 6px; }
+.contact-field label { font-size: 13px; font-weight: 600; color: var(--gray-700); }
+.contact-field input, .contact-field textarea {
+  border: 1.5px solid var(--gray-200); border-radius: var(--radius-md); padding: 10px 14px;
+  font-size: 14px; font-family: inherit; color: var(--gray-900); background: var(--white);
+  transition: border-color .15s;
+}
+.contact-field input:focus, .contact-field textarea:focus { outline: none; border-color: var(--green); }
+.contact-field textarea { resize: vertical; min-height: 110px; }
+.contact-submit {
+  height: 46px; border-radius: var(--radius-md); font-size: 14.5px; font-weight: 700;
+  background: var(--green); color: var(--white); transition: background .15s;
+}
+.contact-submit:hover { background: var(--green-dark); }
+.contact-form-note { font-size: 12px; color: var(--gray-400); text-align: center; }
+
+/* FAQ */
+.faq-groups { display: flex; flex-direction: column; gap: 40px; }
+.faq-group-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--green-dark); margin-bottom: 16px; }
+.faq-item { border-bottom: 1px solid var(--gray-100); }
+.faq-question {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 18px 0; text-align: left; font-size: 15px; font-weight: 600; color: var(--gray-900);
+  font-family: inherit; background: none;
+}
+.faq-question svg { flex-shrink: 0; color: var(--gray-400); transition: transform .2s; }
+.faq-item.open .faq-question svg { transform: rotate(180deg); color: var(--green); }
+.faq-answer { max-height: 0; overflow: hidden; transition: max-height .25s ease, padding .25s ease; }
+.faq-item.open .faq-answer { max-height: 300px; padding-bottom: 18px; }
+.faq-answer p { font-size: 14px; color: var(--gray-600); line-height: 1.7; }
+
+@media (max-width: 720px) {
+  .company-title { font-size: 30px; }
+  .value-grid { grid-template-columns: repeat(2,1fr); }
+  .contact-grid { grid-template-columns: 1fr; }
+}

@@ -26,10 +26,10 @@ public class OfferController {
         return ResponseEntity.ok(ApiResponse.ok(live));
     }
 
-    // Admin — every offer: drafts, released, and expired
+    // Admin — every offer: drafts, released, and expired. SUPPORT gets read-only visibility (billing tab)
     @GetMapping
     public ResponseEntity<ApiResponse<List<Offer>>> adminList(@RequestHeader(value="X-User-Role", defaultValue="") String role) {
-        if (!"ADMIN".equals(role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok(repo.findAll(Sort.by("createdAt").descending())));
     }
 

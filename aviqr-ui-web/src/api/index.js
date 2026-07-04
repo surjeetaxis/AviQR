@@ -127,6 +127,7 @@ export const menuApi = {
   updateCategory: (id, d)        => api.put(`/api/v1/categories/${id}`, d),
   deleteCategory: (id)           => api.delete(`/api/v1/categories/${id}`),
   getItems:       (shopId)       => api.get(`/api/v1/items/shop/${shopId}`),
+  getAllItems:    (shopId)       => api.get(`/api/v1/items/shop/${shopId}/all`),
   createItem:     (d)            => api.post('/api/v1/items', d),
   updateItem:     (id, d)        => api.put(`/api/v1/items/${id}`, d),
   toggleAvail:    (id, a)        => api.put(`/api/v1/items/${id}/availability?available=${a}`),
@@ -155,8 +156,20 @@ export const paymentApi = {
   createOrder:    (d, config={}) => api.post('/api/v1/payments/create-order', d, config),
   verify:         (d, config={}) => api.post('/api/v1/payments/verify', d, config),
   getByShop:      (sId, p)   => api.get(`/api/v1/payments/shop/${sId}`, { params: p }),
+  getByCustomer:  (cId, p)   => api.get(`/api/v1/payments/customer/${cId}`, { params: p }),
   refund:         (payId)    => api.post(`/api/v1/payments/${payId}/refund`),
   listAll:        (p)        => api.get('/api/v1/payments', { params: p }),
+};
+
+// ── OCR jobs (admin/support visibility) ───────────────────────────────────────
+export const ocrApi = {
+  listAllJobs:  (p)          => api.get('/api/v1/ocr/jobs/admin/all', { params: p }),
+  getByShop:    (shopId)     => api.get(`/api/v1/ocr/jobs/shop/${shopId}`),
+};
+
+// ── Audit logs (admin/support visibility) ─────────────────────────────────────
+export const auditApi = {
+  list:         (p)          => api.get('/api/v1/auth/admin/audit-logs', { params: p }),
 };
 
 // ── QR Codes ──────────────────────────────────────────────────────────────────
@@ -188,6 +201,16 @@ export const offerApi = {
   update:       (id, body)     => api.put(`/api/v1/offers/${id}`, body),
   toggleActive: (id, active)   => api.put(`/api/v1/offers/${id}/active?active=${active}`),
   remove:       (id)           => api.delete(`/api/v1/offers/${id}`),
+};
+
+// ── Shop Promotions (per-shop customer-facing discounts, e.g. for QR posters) ──
+export const shopPromotionApi = {
+  listByShop:   (shopId)         => api.get(`/api/v1/shop-promotions/shop/${shopId}`),
+  listPublic:   (shopId)         => api.get(`/api/v1/shop-promotions/public/${shopId}`),
+  create:       (shopId, body)   => api.post(`/api/v1/shop-promotions/shop/${shopId}`, body),
+  update:       (id, body)       => api.put(`/api/v1/shop-promotions/${id}`, body),
+  toggleActive: (id, active)     => api.put(`/api/v1/shop-promotions/${id}/active?active=${active}`),
+  remove:       (id)             => api.delete(`/api/v1/shop-promotions/${id}`),
 };
 
 // ── Reports ───────────────────────────────────────────────────────────────────
@@ -299,6 +322,8 @@ export const supportApi = {
   updateTicket: (id, s, r)   => api.put(`/api/v1/tickets/${id}/status?status=${s}&resolution=${r || ''}`),
   createTicket: (d)          => api.post('/api/v1/tickets', d),
   getStats:     ()           => api.get('/api/v1/tickets/stats'),
+  assignTicket: (id, agentId)=> api.put(`/api/v1/tickets/${id}/assign?agentId=${agentId}`),
+  impersonate:  (body)       => api.post('/api/v1/support/impersonate', body),
 };
 
 // ── Notifications ─────────────────────────────────────────────────────────────

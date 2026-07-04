@@ -1,14 +1,14 @@
-import { useNavigate } from 'react-router-dom';
+import SEO from '../../components/shared/SEO.jsx';
+import SiteHeader from '../../components/landing/SiteHeader.jsx';
+import SiteFooter from '../../components/landing/SiteFooter.jsx';
+import '../landing/Landing.css';
 import './Legal.css';
 
 export default function TermsPage() {
-  const nav = useNavigate();
   return (
     <div className="legal-page">
-      <div className="legal-topbar">
-        <div className="legal-logo" onClick={() => nav('/')}>🍽️ <strong>AviQR</strong></div>
-        <button className="legal-back" onClick={() => nav(-1)}>← Back</button>
-      </div>
+      <SEO title="Terms of Service — AviQR" description="The terms governing use of the AviQR platform." canonical="https://aviqr.in/terms" />
+      <SiteHeader />
       <div className="legal-content">
         <h1>Terms of Service</h1>
         <p className="legal-meta">Effective Date: 25 June 2025 · Version 1.0</p>
@@ -51,6 +51,7 @@ export default function TermsPage() {
 
         <p className="legal-updated">Last updated: 25 June 2025</p>
       </div>
+      <SiteFooter />
     </div>
   );
 }

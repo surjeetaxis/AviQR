@@ -12,9 +12,10 @@ import {
   Download, RefreshCw, ToggleLeft, ToggleRight,
   Lock, Unlock, Star, Send, AlertTriangle, ChevronLeft, ChevronRight,
   BadgeCheck, Clock, Zap, Crown, ScanLine, ExternalLink, Copy, Link2, Tag, Calendar,
-  Percent, Gift, Layers
+  Percent, Gift, Layers, BedDouble, UserCog, ClipboardList, UtensilsCrossed, Sparkles
 } from 'lucide-react';
 import { authApi, reportApi, shopApi, hotelApi, mallApi, orderApi, paymentApi, qrApi, planApi, offerApi } from '../../api/index.js';
+import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
 import '../admin/Admin.css';
 import './AdminExtra.css';
 
@@ -208,6 +209,34 @@ function LiveUsersPage() {
   const [loading, setLoad]  = useState(true);
   const [error, setErr]     = useState('');
   const [editUser, setEdit] = useState(null);
+  const [viewStats, setViewStats] = useState(null);
+  const [viewLoad, setViewLoad]   = useState(false);
+  const shopNames = useShopNameMap();
+
+  const openView = async (u) => {
+    setEdit(u); setViewStats(null);
+    if (!u.shopId) return;
+    setViewLoad(true);
+    try {
+      const [rev, daily, staff] = await Promise.allSettled([
+        reportApi.getRevenue(u.shopId, 7),
+        reportApi.getDaily(u.shopId),
+        shopApi.getStaff(u.shopId),
+      ]);
+      const revDays = rev.status === 'fulfilled' ? (rev.value.data?.data || []) : [];
+      const rev7d = revDays.reduce((sum, d) => sum + Number(d.revenue || d.total || 0), 0);
+      const dailyData = daily.status === 'fulfilled' ? (daily.value.data?.data || {}) : {};
+      const staffList = staff.status === 'fulfilled' ? (staff.value.data?.data || []) : [];
+      setViewStats({
+        todayOrders: dailyData.totalOrders ?? 0,
+        todayRevenue: dailyData.totalRevenue ?? 0,
+        rev7d,
+        staffCount: Array.isArray(staffList) ? staffList.length : 0,
+      });
+    } catch {
+      setViewStats({ todayOrders: 0, todayRevenue: 0, rev7d: 0, staffCount: 0 });
+    } finally { setViewLoad(false); }
+  };
 
   const load = useCallback(async () => {
     setLoad(true); setErr('');
@@ -308,7 +337,7 @@ function LiveUsersPage() {
                     </div>
                   </td>
                   <td><span className={`role-badge-sm role-${ROLE_CLR[u.role?.toLowerCase()] || 'gray'}`}>{u.role?.toLowerCase()}</span></td>
-                  <td style={{ fontSize:11, color:'var(--gray-400)', fontFamily:'monospace' }}>{u.shopId ? u.shopId.slice(0,8)+'…' : '—'}</td>
+                  <td style={{ fontSize:12, color:'var(--gray-700)' }}>{u.shopId ? (shopNames[u.shopId] || `${u.shopId.slice(0,8)}…`) : '—'}</td>
                   <td>
                     <button className={`toggle-status-btn ${u.status==='ACTIVE'?'tog-active':'tog-suspended'}`} onClick={() => toggleStatus(u)}>
                       {u.status==='ACTIVE' ? <ToggleRight size={18}/> : <ToggleLeft size={18}/>} {u.status}
@@ -317,7 +346,7 @@ function LiveUsersPage() {
                   <td>
                     <div style={{ display:'flex', gap:5 }}>
                       <button className="admin-row-btn" title="Edit" onClick={() => setEdit(u)}><Edit2 size={12}/></button>
-                      <button className="admin-row-btn" title="View"><Eye size={12}/></button>
+                      <button className="admin-row-btn" title="View" onClick={() => openView(u)}><Eye size={12}/></button>
                       <button className="admin-row-btn admin-row-btn-danger" title="Delete" onClick={() => deleteUser(u.id)}><Trash2 size={12}/></button>
                     </div>
                   </td>
@@ -331,10 +360,30 @@ function LiveUsersPage() {
         <div className="modal-backdrop" onClick={() => setEdit(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Edit — {editUser.name}</h2>
+              <h2 className="modal-title">{editUser.name}</h2>
               <button className="modal-close" onClick={() => setEdit(null)}>✕</button>
             </div>
             <div className="modal-body">
+              {editUser.shopId && (
+                <>
+                  <div className="modal-section-title">Linked shop activity</div>
+                  <ModalStatGrid loading={viewLoad} items={viewStats ? [
+                    { label: "Today's orders",  value: viewStats.todayOrders, icon: ShoppingBag, color:'#7C3AED', bg:'#EDE9FE' },
+                    { label: "Today's revenue", value: `₹${Number(viewStats.todayRevenue||0).toLocaleString('en-IN')}`, icon: CreditCard, color:'#D97706', bg:'#FEF3C7' },
+                    { label: '7-day revenue',   value: `₹${Number(viewStats.rev7d||0).toLocaleString('en-IN')}`, icon: TrendingUp, color:'#059669', bg:'#DCFCE7' },
+                    { label: 'Staff',           value: viewStats.staffCount, icon: UserCog, color:'#2563EB', bg:'#DBEAFE' },
+                  ] : []} />
+                </>
+              )}
+              <div className="modal-section-title">Profile</div>
+              <ModalFieldList fields={[
+                ['User ID', editUser.id],
+                ['Email', editUser.email],
+                ['Phone', editUser.phone],
+                ['Shop ID', editUser.shopId],
+                ['Created', editUser.createdAt ? new Date(editUser.createdAt).toLocaleString('en-IN') : '—'],
+              ]} />
+              <div className="modal-section-title">Edit</div>
               <div className="form-row-2">
                 <div className="form-field">
                   <label className="form-label">Status</label>
@@ -363,6 +412,37 @@ function LiveUsersPage() {
   );
 }
 
+// ── Shared: compact stat tiles + field list for entity detail modals ──────────
+function ModalStatGrid({ loading, items }) {
+  if (loading) return <div style={{ padding:'8px 0', fontSize:12.5, color:'var(--gray-400)' }}>Loading activity…</div>;
+  return (
+    <div className="modal-stat-grid">
+      {items.map(it => (
+        <div key={it.label} className="modal-stat-card">
+          <div className="modal-stat-icon" style={{ background:it.bg || '#F3F4F6', color:it.color || '#6B7280' }}>
+            <it.icon size={14}/>
+          </div>
+          <div className="modal-stat-value">{it.value}</div>
+          <div className="modal-stat-label">{it.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ModalFieldList({ fields }) {
+  return (
+    <>
+      {fields.map(([label, val]) => (
+        <div key={label} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--gray-100)', fontSize:13 }}>
+          <span style={{ color:'var(--gray-500)', fontWeight:600 }}>{label}</span>
+          <span style={{ color:'var(--gray-800)', fontFamily:'monospace', fontSize:12 }}>{val || '—'}</span>
+        </div>
+      ))}
+    </>
+  );
+}
+
 // ── Admin Shops Page ──────────────────────────────────────────────────────────
 function AdminShopsPage() {
   const [shops, setShops]   = useState([]);
@@ -372,8 +452,36 @@ function AdminShopsPage() {
   const [loading, setLoad]  = useState(true);
   const [error, setErr]     = useState('');
   const [viewShop, setView] = useState(null);
+  const [viewStats, setViewStats] = useState(null);
+  const [viewLoad, setViewLoad]   = useState(false);
   const [page, setPage]     = useState(0);
   const PAGE_SIZE = 20;
+
+  const openView = async (s) => {
+    setView(s); setViewStats(null); setViewLoad(true);
+    try {
+      const [rev, daily, staff, codes] = await Promise.allSettled([
+        reportApi.getRevenue(s.id, 7),
+        reportApi.getDaily(s.id),
+        shopApi.getStaff(s.id),
+        qrApi.getByShop(s.id),
+      ]);
+      const revDays = rev.status === 'fulfilled' ? (rev.value.data?.data || []) : [];
+      const rev7d = revDays.reduce((sum, d) => sum + Number(d.revenue || d.total || 0), 0);
+      const dailyData = daily.status === 'fulfilled' ? (daily.value.data?.data || {}) : {};
+      const staffList = staff.status === 'fulfilled' ? (staff.value.data?.data || []) : [];
+      const codesList = codes.status === 'fulfilled' ? (codes.value.data?.data || []) : [];
+      setViewStats({
+        todayOrders: dailyData.orders ?? dailyData.totalOrders ?? '—',
+        todayRevenue: dailyData.revenue ?? dailyData.totalRevenue ?? 0,
+        rev7d,
+        staffCount: Array.isArray(staffList) ? staffList.length : 0,
+        qrCount: Array.isArray(codesList) ? codesList.length : 0,
+      });
+    } catch {
+      setViewStats({ todayOrders: '—', todayRevenue: 0, rev7d: 0, staffCount: 0, qrCount: 0 });
+    } finally { setViewLoad(false); }
+  };
 
   const load = useCallback(async (pg = 0) => {
     setLoad(true); setErr('');
@@ -469,7 +577,7 @@ function AdminShopsPage() {
                     </td>
                     <td>
                       <div style={{ display:'flex', gap:5 }}>
-                        <button className="admin-row-btn" title="View details" onClick={() => setView(s)}><Eye size={12}/></button>
+                        <button className="admin-row-btn" title="View details" onClick={() => openView(s)}><Eye size={12}/></button>
                       </div>
                     </td>
                   </tr>
@@ -489,7 +597,16 @@ function AdminShopsPage() {
               <button className="modal-close" onClick={() => setView(null)}>✕</button>
             </div>
             <div className="modal-body">
-              {[
+              <div className="modal-section-title">Activity</div>
+              <ModalStatGrid loading={viewLoad} items={viewStats ? [
+                { label: "Today's orders",  value: viewStats.todayOrders, icon: ShoppingBag, color:'#7C3AED', bg:'#EDE9FE' },
+                { label: "Today's revenue", value: `₹${Number(viewStats.todayRevenue||0).toLocaleString('en-IN')}`, icon: CreditCard, color:'#D97706', bg:'#FEF3C7' },
+                { label: '7-day revenue',   value: `₹${Number(viewStats.rev7d||0).toLocaleString('en-IN')}`, icon: TrendingUp, color:'#059669', bg:'#DCFCE7' },
+                { label: 'Staff',           value: viewStats.staffCount, icon: UserCog, color:'#2563EB', bg:'#DBEAFE' },
+                { label: 'QR codes',        value: viewStats.qrCount, icon: QrCode, color:'#7C3AED', bg:'#EDE9FE' },
+              ] : []} />
+              <div className="modal-section-title">Registration</div>
+              <ModalFieldList fields={[
                 ['Shop ID', viewShop.id],
                 ['Owner ID', viewShop.ownerId],
                 ['Phone', viewShop.phone],
@@ -501,12 +618,7 @@ function AdminShopsPage() {
                 ['Min Order', viewShop.minOrderAmount ? `₹${viewShop.minOrderAmount}` : '—'],
                 ['Status', viewShop.status],
                 ['Created', viewShop.createdAt ? new Date(viewShop.createdAt).toLocaleString('en-IN') : '—'],
-              ].map(([label, val]) => (
-                <div key={label} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--gray-100)', fontSize:13 }}>
-                  <span style={{ color:'var(--gray-500)', fontWeight:600 }}>{label}</span>
-                  <span style={{ color:'var(--gray-800)', fontFamily:'monospace', fontSize:12 }}>{val || '—'}</span>
-                </div>
-              ))}
+              ]} />
             </div>
           </div>
         </div>
@@ -520,6 +632,9 @@ function AdminHotelsPage() {
   const [hotels, setHotels] = useState([]);
   const [loading, setLoad]  = useState(true);
   const [error, setErr]     = useState('');
+  const [viewHotel, setView] = useState(null);
+  const [viewStats, setViewStats] = useState(null);
+  const [viewLoad, setViewLoad]   = useState(false);
 
   const load = useCallback(async () => {
     setLoad(true); setErr('');
@@ -534,6 +649,23 @@ function AdminHotelsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const openView = async (h) => {
+    setView(h); setViewStats(null); setViewLoad(true);
+    try {
+      const [roomsRes, reqRes] = await Promise.allSettled([
+        hotelApi.getRooms(h.id),
+        hotelApi.getRequests(h.id),
+      ]);
+      const rooms = roomsRes.status === 'fulfilled' ? (roomsRes.value.data?.data || []) : [];
+      const requests = reqRes.status === 'fulfilled' ? (reqRes.value.data?.data || []) : [];
+      const occupied = rooms.filter(r => (r.status || '').toUpperCase() === 'OCCUPIED').length;
+      const pending = requests.filter(r => (r.status || '').toUpperCase() === 'NEW' || (r.status || '').toUpperCase() === 'PENDING').length;
+      setViewStats({ roomCount: rooms.length, occupied, requestCount: requests.length, pending });
+    } catch {
+      setViewStats({ roomCount: 0, occupied: 0, requestCount: 0, pending: 0 });
+    } finally { setViewLoad(false); }
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -547,11 +679,11 @@ function AdminHotelsPage() {
         <div className="admin-table-card">
           <table className="admin-table">
             <thead>
-              <tr><th>Hotel</th><th>Location</th><th>Phone</th><th>Services</th><th>Check-in / out</th><th>Owner ID</th></tr>
+              <tr><th>Hotel</th><th>Location</th><th>Phone</th><th>Services</th><th>Check-in / out</th><th>Owner ID</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {hotels.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No hotels registered</td></tr>
+                <tr><td colSpan={7} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No hotels registered</td></tr>
               )}
               {hotels.map(h => (
                 <tr key={h.id}>
@@ -565,10 +697,48 @@ function AdminHotelsPage() {
                   </td>
                   <td style={{ fontSize:12, color:'var(--gray-500)' }}>{h.checkInTime || '—'} / {h.checkOutTime || '—'}</td>
                   <td style={{ fontSize:11, fontFamily:'monospace', color:'var(--gray-400)' }}>{h.ownerId?.slice(0,8)}…</td>
+                  <td>
+                    <button className="admin-row-btn" title="View details" onClick={() => openView(h)}><Eye size={12}/></button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {viewHotel && (
+        <div className="modal-backdrop" onClick={() => setView(null)}>
+          <div className="modal" style={{ maxWidth:520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{viewHotel.name}</h2>
+              <button className="modal-close" onClick={() => setView(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-section-title">Activity</div>
+              <ModalStatGrid loading={viewLoad} items={viewStats ? [
+                { label: 'Total rooms',       value: viewStats.roomCount, icon: BedDouble, color:'#2563EB', bg:'#DBEAFE' },
+                { label: 'Occupied',          value: viewStats.occupied,  icon: BedDouble, color:'#7C3AED', bg:'#EDE9FE' },
+                { label: 'Guest requests',    value: viewStats.requestCount, icon: ClipboardList, color:'#D97706', bg:'#FEF3C7' },
+                { label: 'Pending requests',  value: viewStats.pending,   icon: AlertTriangle, color:'#DC2626', bg:'#FEE2E2' },
+              ] : []} />
+              <div className="modal-section-title">Registration</div>
+              <ModalFieldList fields={[
+                ['Hotel ID', viewHotel.id],
+                ['Owner ID', viewHotel.ownerId],
+                ['Phone', viewHotel.phone],
+                ['Email', viewHotel.email],
+                ['City', viewHotel.city],
+                ['Address', viewHotel.address],
+                ['Total rooms (registered)', viewHotel.totalRooms],
+                ['Check-in / out', `${viewHotel.checkInTime || '—'} / ${viewHotel.checkOutTime || '—'}`],
+                ['Plan', planInfo(viewHotel.subscriptionPlan).label],
+                ['Enabled services', (viewHotel.enabledServices || []).join(', ') || '—'],
+                ['Status', viewHotel.active === false ? 'Inactive' : 'Active'],
+                ['Created', viewHotel.createdAt ? new Date(viewHotel.createdAt).toLocaleString('en-IN') : '—'],
+              ]} />
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -580,6 +750,9 @@ function AdminMallsPage() {
   const [malls, setMalls]   = useState([]);
   const [loading, setLoad]  = useState(true);
   const [error, setErr]     = useState('');
+  const [viewMall, setView] = useState(null);
+  const [viewVendors, setViewVendors] = useState(null);
+  const [viewLoad, setViewLoad]       = useState(false);
 
   const load = useCallback(async () => {
     setLoad(true); setErr('');
@@ -594,6 +767,16 @@ function AdminMallsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const openView = async (m) => {
+    setView(m); setViewVendors(null); setViewLoad(true);
+    try {
+      const res = await mallApi.getVendors(m.id);
+      setViewVendors(res.data?.data || []);
+    } catch {
+      setViewVendors([]);
+    } finally { setViewLoad(false); }
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -607,11 +790,11 @@ function AdminMallsPage() {
         <div className="admin-table-card">
           <table className="admin-table">
             <thead>
-              <tr><th>Mall</th><th>City</th><th>Phone</th><th>Commission</th><th>Admin ID</th><th>Created</th></tr>
+              <tr><th>Mall</th><th>City</th><th>Phone</th><th>Commission</th><th>Admin ID</th><th>Created</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {malls.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No malls registered</td></tr>
+                <tr><td colSpan={7} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No malls registered</td></tr>
               )}
               {malls.map(m => (
                 <tr key={m.id}>
@@ -621,10 +804,55 @@ function AdminMallsPage() {
                   <td style={{ fontSize:13 }}>{m.commissionPercent != null ? `${m.commissionPercent}%` : '—'}</td>
                   <td style={{ fontSize:11, fontFamily:'monospace', color:'var(--gray-400)' }}>{m.adminId?.slice(0,8)}…</td>
                   <td style={{ fontSize:12, color:'var(--gray-400)' }}>{m.createdAt ? new Date(m.createdAt).toLocaleDateString('en-IN') : '—'}</td>
+                  <td>
+                    <button className="admin-row-btn" title="View details" onClick={() => openView(m)}><Eye size={12}/></button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {viewMall && (
+        <div className="modal-backdrop" onClick={() => setView(null)}>
+          <div className="modal" style={{ maxWidth:520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{viewMall.name}</h2>
+              <button className="modal-close" onClick={() => setView(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="modal-section-title">Activity</div>
+              <ModalStatGrid loading={viewLoad} items={viewVendors ? [
+                { label: 'Total vendors',  value: viewVendors.length, icon: Store, color:'#2563EB', bg:'#DBEAFE' },
+                { label: 'Active',         value: viewVendors.filter(v => (v.status||'').toUpperCase()==='ACTIVE').length, icon: CheckCircle2, color:'#059669', bg:'#DCFCE7' },
+                { label: 'Pending',        value: viewVendors.filter(v => (v.status||'').toUpperCase()==='PENDING').length, icon: Clock, color:'#D97706', bg:'#FEF3C7' },
+              ] : []} />
+              {viewVendors && viewVendors.length > 0 && (
+                <>
+                  <div className="modal-section-title">Vendors</div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:160, overflowY:'auto' }}>
+                    {viewVendors.map(v => (
+                      <div key={v.id} className="modal-list-row">
+                        <span style={{ fontWeight:600 }}>{v.name || v.shopName || v.id?.slice(0,8)}</span>
+                        <span style={{ color: (v.status||'').toUpperCase()==='ACTIVE' ? 'var(--green-dark)' : 'var(--gray-500)', fontWeight:600, fontSize:11 }}>{v.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              <div className="modal-section-title">Registration</div>
+              <ModalFieldList fields={[
+                ['Mall ID', viewMall.id],
+                ['Admin ID', viewMall.adminId],
+                ['Phone', viewMall.phone],
+                ['City', viewMall.city],
+                ['Address', viewMall.address],
+                ['Commission', viewMall.commissionPercent != null ? `${viewMall.commissionPercent}%` : '—'],
+                ['Created', viewMall.createdAt ? new Date(viewMall.createdAt).toLocaleString('en-IN') : '—'],
+              ]} />
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -636,6 +864,10 @@ function AdminSuppliersPage() {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoad]        = useState(true);
   const [error, setErr]           = useState('');
+  const [viewUser, setView]       = useState(null);
+  const [viewStats, setViewStats] = useState(null);
+  const [viewLoad, setViewLoad]   = useState(false);
+  const shopNames = useShopNameMap();
 
   const load = useCallback(async () => {
     setLoad(true); setErr('');
@@ -657,6 +889,31 @@ function AdminSuppliersPage() {
       await authApi.updateStatus(u.id, next);
       setSuppliers(prev => prev.map(x => x.id !== u.id ? x : { ...x, status: next }));
     } catch { load(); }
+  };
+
+  const openView = async (u) => {
+    setView(u); setViewStats(null);
+    if (!u.shopId) return;
+    setViewLoad(true);
+    try {
+      const [rev, daily, staff] = await Promise.allSettled([
+        reportApi.getRevenue(u.shopId, 7),
+        reportApi.getDaily(u.shopId),
+        shopApi.getStaff(u.shopId),
+      ]);
+      const revDays = rev.status === 'fulfilled' ? (rev.value.data?.data || []) : [];
+      const rev7d = revDays.reduce((sum, d) => sum + Number(d.revenue || d.total || 0), 0);
+      const dailyData = daily.status === 'fulfilled' ? (daily.value.data?.data || {}) : {};
+      const staffList = staff.status === 'fulfilled' ? (staff.value.data?.data || []) : [];
+      setViewStats({
+        todayOrders: dailyData.totalOrders ?? 0,
+        todayRevenue: dailyData.totalRevenue ?? 0,
+        rev7d,
+        staffCount: Array.isArray(staffList) ? staffList.length : 0,
+      });
+    } catch {
+      setViewStats({ todayOrders: 0, todayRevenue: 0, rev7d: 0, staffCount: 0 });
+    } finally { setViewLoad(false); }
   };
 
   return (
@@ -685,7 +942,7 @@ function AdminSuppliersPage() {
                     <div style={{ fontSize:11.5, color:'var(--gray-400)' }}>{u.email}</div>
                   </td>
                   <td style={{ fontSize:13 }}>{u.phone || '—'}</td>
-                  <td style={{ fontSize:11, fontFamily:'monospace', color:'var(--gray-400)' }}>{u.shopId?.slice(0,8) || '—'}</td>
+                  <td style={{ fontSize:12, color:'var(--gray-700)' }}>{u.shopId ? (shopNames[u.shopId] || `${u.shopId.slice(0,8)}…`) : '—'}</td>
                   <td>
                     <button className={`toggle-status-btn ${u.status==='ACTIVE'?'tog-active':'tog-suspended'}`} onClick={() => toggleStatus(u)}>
                       {u.status==='ACTIVE' ? <ToggleRight size={17}/> : <ToggleLeft size={17}/>} {u.status}
@@ -693,7 +950,7 @@ function AdminSuppliersPage() {
                   </td>
                   <td>
                     <div style={{ display:'flex', gap:5 }}>
-                      <button className="admin-row-btn" title="View"><Eye size={12}/></button>
+                      <button className="admin-row-btn" title="View" onClick={() => openView(u)}><Eye size={12}/></button>
                       <button className="admin-row-btn admin-row-btn-danger" title="Delete"
                         onClick={() => authApi.deleteUser(u.id).then(() => setSuppliers(p => p.filter(x => x.id !== u.id))).catch(() => {})}>
                         <Trash2 size={12}/>
@@ -706,11 +963,61 @@ function AdminSuppliersPage() {
           </table>
         </div>
       )}
+
+      {viewUser && (
+        <div className="modal-backdrop" onClick={() => setView(null)}>
+          <div className="modal" style={{ maxWidth:520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{viewUser.name}</h2>
+              <button className="modal-close" onClick={() => setView(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              {viewUser.shopId ? (
+                <>
+                  <div className="modal-section-title">Linked shop activity</div>
+                  <ModalStatGrid loading={viewLoad} items={viewStats ? [
+                    { label: "Today's orders",  value: viewStats.todayOrders, icon: ShoppingBag, color:'#7C3AED', bg:'#EDE9FE' },
+                    { label: "Today's revenue", value: `₹${Number(viewStats.todayRevenue||0).toLocaleString('en-IN')}`, icon: CreditCard, color:'#D97706', bg:'#FEF3C7' },
+                    { label: '7-day revenue',   value: `₹${Number(viewStats.rev7d||0).toLocaleString('en-IN')}`, icon: TrendingUp, color:'#059669', bg:'#DCFCE7' },
+                    { label: 'Staff',           value: viewStats.staffCount, icon: UserCog, color:'#2563EB', bg:'#DBEAFE' },
+                  ] : []} />
+                </>
+              ) : (
+                <div style={{ fontSize:12.5, color:'var(--gray-400)' }}>No shop linked to this supplier account yet.</div>
+              )}
+              <div className="modal-section-title">Profile</div>
+              <ModalFieldList fields={[
+                ['User ID', viewUser.id],
+                ['Name', viewUser.name],
+                ['Email', viewUser.email],
+                ['Phone', viewUser.phone],
+                ['Shop ID', viewUser.shopId],
+                ['Status', viewUser.status],
+                ['Created', viewUser.createdAt ? new Date(viewUser.createdAt).toLocaleString('en-IN') : '—'],
+              ]} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Admin Orders Page ─────────────────────────────────────────────────────────
+// Resolves shopId → shop name once per mount, so Orders/Payments tables can
+// show "Spice Route" instead of a meaningless truncated UUID.
+function useShopNameMap() {
+  const [names, setNames] = useState({});
+  useEffect(() => {
+    shopApi.list({ page: 0, size: 500 }).then(res => {
+      const d = res.data?.data;
+      const list = Array.isArray(d) ? d : d?.content || [];
+      setNames(Object.fromEntries(list.map(s => [s.id, s.name])));
+    }).catch(() => {});
+  }, []);
+  return names;
+}
+
 function AdminOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState('');
@@ -718,6 +1025,7 @@ function AdminOrdersPage() {
   const [loading, setLoad]  = useState(true);
   const [error, setErr]     = useState('');
   const [page, setPage]     = useState(0);
+  const shopNames = useShopNameMap();
   const PAGE_SIZE = 30;
 
   const load = useCallback(async (pg = 0) => {
@@ -787,7 +1095,10 @@ function AdminOrdersPage() {
               {filtered.map(o => (
                 <tr key={o.id}>
                   <td style={{ fontFamily:'monospace', fontSize:12, fontWeight:700 }}>#{o.orderNumber}</td>
-                  <td style={{ fontSize:11, color:'var(--gray-500)', fontFamily:'monospace' }}>{o.shopId?.slice(0,8)}…</td>
+                  <td style={{ fontSize:12.5 }}>
+                    <div style={{ fontWeight:600, color:'var(--gray-800)' }}>{shopNames[o.shopId] || '—'}</div>
+                    <div style={{ fontSize:10.5, color:'var(--gray-400)', fontFamily:'monospace' }}>{o.shopId?.slice(0,8)}…</div>
+                  </td>
                   <td>
                     <div style={{ fontSize:13, fontWeight:600 }}>{o.customerName || '—'}</div>
                     <div style={{ fontSize:11, color:'var(--gray-400)' }}>{o.customerPhone || ''}</div>
@@ -819,6 +1130,7 @@ function AdminPaymentsPage() {
   const [loading, setLoad]      = useState(true);
   const [error, setErr]         = useState('');
   const [page, setPage]         = useState(0);
+  const shopNames = useShopNameMap();
   const PAGE_SIZE = 30;
 
   const load = useCallback(async (pg = 0) => {
@@ -875,7 +1187,10 @@ function AdminPaymentsPage() {
               {filtered.map(p => (
                 <tr key={p.id}>
                   <td style={{ fontFamily:'monospace', fontSize:11, color:'var(--gray-600)' }}>{p.paymentId || p.id?.slice(0,12)}</td>
-                  <td style={{ fontSize:11, fontFamily:'monospace', color:'var(--gray-400)' }}>{p.shopId?.slice(0,8)}…</td>
+                  <td style={{ fontSize:12.5 }}>
+                    <div style={{ fontWeight:600, color:'var(--gray-800)' }}>{shopNames[p.shopId] || '—'}</div>
+                    <div style={{ fontSize:10.5, color:'var(--gray-400)', fontFamily:'monospace' }}>{p.shopId?.slice(0,8)}…</div>
+                  </td>
                   <td style={{ fontWeight:700, fontSize:14 }}>₹{Number(p.amount||0).toLocaleString('en-IN')}</td>
                   <td style={{ fontSize:12, color:'var(--gray-500)' }}>{p.gateway || 'RAZORPAY'}</td>
                   <td>
@@ -1538,7 +1853,7 @@ function AdminOffersManager({ plans }) {
 }
 
 // ── Admin Reports ─────────────────────────────────────────────────────────────
-function AdminReports() {
+export function AdminReports() {
   const [stats, setStats]  = useState(null);
   const [loading, setLoad] = useState(true);
 
@@ -1614,7 +1929,7 @@ function AdminSettings() {
 }
 
 // ── Admin QR Codes Page ───────────────────────────────────────────────────────
-function AdminQRCodesPage() {
+export function AdminQRCodesPage() {
   const [codes, setCodes]     = useState([]);
   const [typeF, setTypeF]     = useState('all');
   const [activeF, setActiveF] = useState('all');
@@ -1624,6 +1939,8 @@ function AdminQRCodesPage() {
   const [toggling, setToggling] = useState({});
   const [toast, setToast]     = useState('');
   const [editQr, setEditQr]   = useState(null);
+  const [shopPickerOpen, setShopPickerOpen] = useState(false);
+  const [posterShop, setPosterShop]         = useState(null); // { id, name } once picked
   const PAGE_SIZE = 30;
 
   const load = useCallback(async (pg = 0) => {
@@ -1675,6 +1992,9 @@ function AdminQRCodesPage() {
           <p className="page-subtitle">Platform-wide · {codes.length} total · {totalScans.toLocaleString('en-IN')} scans</p>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          <button className="btn-refresh" onClick={() => setShopPickerOpen(true)}>
+            <Sparkles size={13}/> Poster Studio
+          </button>
           <AdminMarketingQRGenerator
             onCreated={() => load(0)}
             editTarget={editQr}
@@ -1683,6 +2003,18 @@ function AdminQRCodesPage() {
           <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
         </div>
       </div>
+
+      <AdminShopPicker
+        open={shopPickerOpen}
+        onClose={() => setShopPickerOpen(false)}
+        onPick={(shop) => { setPosterShop(shop); setShopPickerOpen(false); }}
+      />
+      <QrPosterStudio
+        open={!!posterShop}
+        onClose={() => setPosterShop(null)}
+        shopId={posterShop?.id}
+        shopName={posterShop?.name}
+      />
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:18 }}>
         {[
@@ -1799,6 +2131,64 @@ function AdminQRCodesPage() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// Shop-picker used by Admin's "Poster Studio" entry — the studio needs one
+// specific shop's data (address/offers/products), so admin picks it first,
+// mirroring the search/filter list pattern from AdminSubscriptionManagement
+// rather than a plain <select> (shops can number in the hundreds).
+function AdminShopPicker({ open, onClose, onPick }) {
+  const [shops, setShops]   = useState([]);
+  const [loading, setLoad]  = useState(true);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setLoad(true);
+    shopApi.list({ size: 200 })
+      .then(res => {
+        const d = res.data?.data;
+        setShops(Array.isArray(d) ? d : d?.content || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoad(false));
+  }, [open]);
+
+  if (!open) return null;
+
+  const filtered = shops.filter(s => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return [s.name, s.city, s.email, s.phone].some(f => f?.toLowerCase().includes(q));
+  });
+
+  return (
+    <div className="qps-overlay" onClick={onClose}>
+      <div className="qps-modal" style={{ maxWidth: 480, maxHeight: '70vh' }} onClick={e => e.stopPropagation()}>
+        <div className="qps-header">
+          <h2>Pick a shop</h2>
+          <button className="qps-close" onClick={onClose}>×</button>
+        </div>
+        <div className="qps-body">
+          <div className="qps-field">
+            <input placeholder="Search name, city, email…" value={search} onChange={e => setSearch(e.target.value)} autoFocus />
+          </div>
+          <div className="qps-item-picker">
+            {loading && <div style={{ padding: 14, fontSize: 13, color: 'var(--gray-500)' }}>Loading…</div>}
+            {!loading && filtered.map(s => (
+              <div key={s.id} className="qps-item-row" onClick={() => onPick(s)}>
+                <span>{s.name}</span>
+                <span style={{ color: 'var(--gray-500)' }}>{s.city}</span>
+              </div>
+            ))}
+            {!loading && filtered.length === 0 && (
+              <div style={{ padding: 14, fontSize: 13, color: 'var(--gray-500)' }}>No shops found.</div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

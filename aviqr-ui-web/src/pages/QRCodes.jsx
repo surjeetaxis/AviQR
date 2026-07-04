@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
-import { Plus, Printer, Download, Eye, Link, Check, Palette, LayoutGrid, Layout, Megaphone } from 'lucide-react';
+import { Plus, Printer, Download, Eye, Link, Check, Palette, LayoutGrid, Layout, Megaphone, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { qrApi, shopApi } from '../api/index.js';
 import { THEMES, TEMPLATES, TentTemplate, TemplateRenderer, Section, Field, Toggle } from '../components/shared/QrTemplates.jsx';
+import QrPosterStudio from '../components/shared/QrPosterStudio.jsx';
 import './QRCodes.css';
 
 // ── Design system ──────────────────────────────────────────────────────────────
@@ -115,6 +116,7 @@ export default function QRCodes() {
   // The "no shop yet" empty state is rendered further down instead of an early
   // return here, so hook count never changes between renders.
   const [tab, setTab]             = useState('list');
+  const [posterStudioOpen, setPosterStudioOpen] = useState(false);
   const [codes, setCodes]         = useState([]);
   const [creating, setCreating]   = useState(false);
   const [copied, setCopied]       = useState(null);
@@ -286,7 +288,18 @@ export default function QRCodes() {
             <span>{t.label}</span>
           </button>
         ))}
+        <button className="qrd-tab" onClick={() => setPosterStudioOpen(true)} disabled={!shopId}>
+          <Sparkles size={14}/>
+          <span>Poster Studio</span>
+        </button>
       </div>
+
+      <QrPosterStudio
+        open={posterStudioOpen}
+        onClose={() => setPosterStudioOpen(false)}
+        shopId={shopId}
+        shopName={design.shopName}
+      />
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* Tab: My QR Codes                                                      */}
