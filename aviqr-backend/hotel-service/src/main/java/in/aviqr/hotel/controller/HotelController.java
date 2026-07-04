@@ -122,23 +122,21 @@ public class HotelController {
 
         String syntheticShopId = "hotel-" + room.getHotelId();
         try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> listResp = restTemplate.getForObject(
-                qrServiceUrl + "/api/v1/qr-codes/shop/" + syntheticShopId, Map.class);
-            List<Map<String, Object>> existing = listResp != null
-                ? (List<Map<String, Object>>) listResp.get("data") : List.of();
-            Optional<Map<String, Object>> found = existing.stream()
-                .filter(q -> "HOTEL_ROOM".equals(q.get("type")) && room.getRoomNumber().equals(q.get("groupParam")))
-                .findFirst();
-            Map<String, Object> qr;
-            if (found.isPresent()) {
-                qr = found.get();
-            } else {
-                String url = qrServiceUrl + "/api/v1/qr-codes/internal/shop/" + syntheticShopId
-                    + "?label=Room " + room.getRoomNumber() + "&type=HOTEL_ROOM&group=" + room.getRoomNumber();
-                @SuppressWarnings("unchecked")
-                Map<String, Object> createResp = restTemplate.postForObject(url, null, Map.class);
-                qr = createResp != null ? (Map<String, Object>) createResp.get("data") : null;
+            Map<String, Object> qr = findRoomQr(syntheticShopId, room.getRoomNumber());
+            if (qr == null) {
+                try {
+                    String url = qrServiceUrl + "/api/v1/qr-codes/internal/shop/" + syntheticShopId
+                        + "?label=Room " + room.getRoomNumber() + "&type=HOTEL_ROOM&group=" + room.getRoomNumber();
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> createResp = restTemplate.postForObject(url, null, Map.class);
+                    qr = createResp != null ? (Map<String, Object>) createResp.get("data") : null;
+                } catch (Exception createEx) {
+                    // Another concurrent request (e.g. React StrictMode's double-effect in dev, or
+                    // a genuine simultaneous double-click) may have just inserted the same
+                    // deterministic slug — re-check before giving up.
+                    qr = findRoomQr(syntheticShopId, room.getRoomNumber());
+                    if (qr == null) throw createEx;
+                }
             }
             room.setQrActive(true); roomRepo.save(room);
             return ResponseEntity.ok(ApiResponse.ok("QR ready", qr));
@@ -146,6 +144,18 @@ public class HotelController {
             log.warn("Failed to create QR for room {}: {}", id, e.getMessage());
             return ResponseEntity.status(502).body(ApiResponse.error("Could not reach qr-service"));
         }
+    }
+
+    private Map<String, Object> findRoomQr(String syntheticShopId, String roomNumber) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> listResp = restTemplate.getForObject(
+            qrServiceUrl + "/api/v1/qr-codes/shop/" + syntheticShopId, Map.class);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> existing = listResp != null
+            ? (List<Map<String, Object>>) listResp.get("data") : List.of();
+        return existing.stream()
+            .filter(q -> "HOTEL_ROOM".equals(q.get("type")) && roomNumber.equals(q.get("groupParam")))
+            .findFirst().orElse(null);
     }
 
     // ── Room Requests ─────────────────────────────────────────────────────────

@@ -163,29 +163,37 @@ public class MallController {
 
         String shopId = id.toString();
         try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> listResp = restTemplate.getForObject(
-                qrServiceUrl + "/api/v1/qr-codes/shop/" + shopId, Map.class);
-            List<Map<String, Object>> existing = listResp != null
-                ? (List<Map<String, Object>>) listResp.get("data") : List.of();
-            Optional<Map<String, Object>> found = existing.stream()
-                .filter(q -> "MALL".equals(q.get("type")))
-                .findFirst();
-            Map<String, Object> qr;
-            if (found.isPresent()) {
-                qr = found.get();
-            } else {
-                String url = qrServiceUrl + "/api/v1/qr-codes/internal/shop/" + shopId
-                    + "?label=" + mall.getName() + "&type=MALL";
-                @SuppressWarnings("unchecked")
-                Map<String, Object> createResp = restTemplate.postForObject(url, null, Map.class);
-                qr = createResp != null ? (Map<String, Object>) createResp.get("data") : null;
+            Map<String, Object> qr = findMallQr(shopId);
+            if (qr == null) {
+                try {
+                    String url = qrServiceUrl + "/api/v1/qr-codes/internal/shop/" + shopId
+                        + "?label=" + mall.getName() + "&type=MALL";
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> createResp = restTemplate.postForObject(url, null, Map.class);
+                    qr = createResp != null ? (Map<String, Object>) createResp.get("data") : null;
+                } catch (Exception createEx) {
+                    // Another concurrent request (e.g. React StrictMode's double-effect in dev, or
+                    // a genuine simultaneous double-click) may have just inserted the same
+                    // deterministic slug — re-check before giving up.
+                    qr = findMallQr(shopId);
+                    if (qr == null) throw createEx;
+                }
             }
             return ResponseEntity.ok(ApiResponse.ok("QR ready", qr));
         } catch (Exception e) {
             log.warn("Failed to create QR for mall {}: {}", id, e.getMessage());
             return ResponseEntity.status(502).body(ApiResponse.error("Could not reach qr-service"));
         }
+    }
+
+    private Map<String, Object> findMallQr(String shopId) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> listResp = restTemplate.getForObject(
+            qrServiceUrl + "/api/v1/qr-codes/shop/" + shopId, Map.class);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> existing = listResp != null
+            ? (List<Map<String, Object>>) listResp.get("data") : List.of();
+        return existing.stream().filter(q -> "MALL".equals(q.get("type"))).findFirst().orElse(null);
     }
 
     // Looks up a shop in shop-service by id. Returns null if it doesn't exist or the

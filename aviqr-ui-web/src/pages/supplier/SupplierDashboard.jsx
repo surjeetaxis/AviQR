@@ -640,12 +640,20 @@ function QRCodesTab({ outlets, brand, onBrandSaved }) {
 // Food Court QR (MallQRPage) one level up.
 function BrandQR({ brand }) {
   const [qrImg, setQrImg] = useState('');
-  const brandUrl = `${window.location.origin}/brand/${brand.id}`;
+  const [targetUrl, setTargetUrl] = useState('');
 
   useEffect(() => {
-    QRCode.toDataURL(brandUrl, { width: 512, margin: 2, color: { dark: '#0F172A', light: '#ffffff' } })
+    if (!brand?.id) return;
+    brandApi.createQr(brand.id)
+      .then(res => setTargetUrl(res.data.data?.targetUrl || `${window.location.origin}/brand/${brand.id}`))
+      .catch(() => setTargetUrl(`${window.location.origin}/brand/${brand.id}`));
+  }, [brand?.id]);
+
+  useEffect(() => {
+    if (!targetUrl) return;
+    QRCode.toDataURL(targetUrl, { width: 512, margin: 2, color: { dark: '#0F172A', light: '#ffffff' } })
       .then(setQrImg).catch(() => {});
-  }, [brandUrl]);
+  }, [targetUrl]);
 
   const download = () => {
     if (!qrImg) return;
@@ -659,7 +667,7 @@ function BrandQR({ brand }) {
     <div className="admin-chart-card" style={{ maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', textAlign: 'center', marginBottom: 20 }}>
       <div style={{ fontWeight: 700, fontSize: 14 }}>Main Brand QR</div>
       {qrImg ? <img src={qrImg} alt="Brand QR" style={{ width: 200, height: 200, borderRadius: 8 }} /> : <div style={{ width: 200, height: 200, background: 'var(--gray-100)', borderRadius: 8 }} />}
-      <div style={{ fontSize: 11.5, color: 'var(--gray-400)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{brandUrl}</div>
+      <div style={{ fontSize: 11.5, color: 'var(--gray-400)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{targetUrl}</div>
       <button className="btn-primary" style={{ width: '100%' }} onClick={download}>Download PNG</button>
     </div>
   );

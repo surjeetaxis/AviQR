@@ -129,6 +129,24 @@ CREATE INDEX idx_refresh_user_id   ON refresh_tokens (user_id);
 CREATE INDEX idx_refresh_expires   ON refresh_tokens (expires_at);
 CREATE INDEX idx_refresh_revoked   ON refresh_tokens (revoked);
 
+-- ── Customer Portal: saved delivery/billing addresses (account-keyed,
+--    tied to users.id — requires a logged-in customer) ──
+CREATE TABLE customer_addresses (
+    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID         NOT NULL,
+    label       VARCHAR(50)  NOT NULL,
+    line1       VARCHAR(255) NOT NULL,
+    line2       VARCHAR(255),
+    city        VARCHAR(100),
+    state       VARCHAR(100),
+    pincode     VARCHAR(10),
+    phone       VARCHAR(15),
+    is_default  BOOLEAN      NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMP    DEFAULT NOW(),
+    updated_at  TIMESTAMP    DEFAULT NOW()
+);
+CREATE INDEX idx_customer_addresses_user_id ON customer_addresses (user_id);
+
 -- ── Sequence for order_number style references ────────────────
 CREATE SEQUENCE seq_user_ref START 1001 INCREMENT 1;
 
@@ -200,6 +218,18 @@ CREATE INDEX idx_shops_owner_id ON shops (owner_id);
 CREATE INDEX idx_shops_city     ON shops (city);
 CREATE INDEX idx_shops_status   ON shops (status);
 CREATE INDEX idx_shops_tier     ON shops (tier);
+
+-- ── brands (a Supplier's public brand identity, grouping all shops owned by
+--    the same supplier under one shareable QR/customer-facing page) ──
+CREATE TABLE brands (
+    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id   VARCHAR(255) NOT NULL UNIQUE,
+    name       VARCHAR(255) NOT NULL,
+    logo_url   VARCHAR(500),
+    city       VARCHAR(100),
+    created_at TIMESTAMP    DEFAULT NOW(),
+    updated_at TIMESTAMP    DEFAULT NOW()
+);
 
 -- ── shop_opening_hours ────────────────────────────────────────
 CREATE TABLE shop_opening_hours (
@@ -288,24 +318,6 @@ CREATE TABLE customer_favorites (
     UNIQUE (customer_phone, shop_id)
 );
 CREATE INDEX idx_favorite_phone ON customer_favorites (customer_phone);
-
--- ── Customer Portal: saved delivery/billing addresses (account-keyed,
---    tied to users.id — unlike favorites this requires a logged-in customer) ──
-CREATE TABLE customer_addresses (
-    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id     UUID         NOT NULL,
-    label       VARCHAR(50)  NOT NULL,
-    line1       VARCHAR(255) NOT NULL,
-    line2       VARCHAR(255),
-    city        VARCHAR(100),
-    state       VARCHAR(100),
-    pincode     VARCHAR(10),
-    phone       VARCHAR(15),
-    is_default  BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_at  TIMESTAMP    DEFAULT NOW(),
-    updated_at  TIMESTAMP    DEFAULT NOW()
-);
-CREATE INDEX idx_customer_addresses_user_id ON customer_addresses (user_id);
 
 CREATE TABLE loyalty_transactions (
     id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1723,6 +1735,49 @@ UPDATE orders SET delivery_address = '12 Indiranagar, 100 Feet Road, Bangalore 5
   WHERE order_number = 'ORD-K010';
 UPDATE orders SET delivery_address = '45 Koramangala, 5th Block, Bangalore 560095'
   WHERE order_number = 'ORD-K011';
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aviqr;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aviqr;
+
+-- ============================================================
+--  SECTION 18 — aviqr_shop: Subscription Plans & Discount Offers
+--  Schema only — rows are seeded on first boot by shop-service's
+--  PlanSeeder (in.aviqr.shop.config.PlanSeeder) when the table is empty.
+-- ============================================================
+
+\c aviqr_shop;
+
+CREATE TABLE IF NOT EXISTS plans (
+    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    plan_key    VARCHAR(50)  NOT NULL UNIQUE,
+    label       VARCHAR(255) NOT NULL,
+    vertical    VARCHAR(20)  NOT NULL DEFAULT 'SHOP',
+    price       INTEGER      NOT NULL,
+    features    VARCHAR(2000),
+    sort_order  INTEGER      DEFAULT 0,
+    active      BOOLEAN      DEFAULT TRUE,
+    created_at  TIMESTAMP    DEFAULT NOW(),
+    updated_at  TIMESTAMP    DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_plans_vertical ON plans (vertical);
+CREATE INDEX IF NOT EXISTS idx_plans_active   ON plans (active);
+
+CREATE TABLE IF NOT EXISTS offers (
+    id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    title             VARCHAR(255) NOT NULL,
+    description       VARCHAR(1000),
+    code              VARCHAR(50),
+    discount_percent  INTEGER      NOT NULL,
+    applicable_plans  VARCHAR(500) DEFAULT 'ALL',
+    starts_at         TIMESTAMP,
+    ends_at           TIMESTAMP,
+    active            BOOLEAN      DEFAULT FALSE,
+    created_at        TIMESTAMP    DEFAULT NOW(),
+    updated_at        TIMESTAMP    DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_offers_active ON offers (active);
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aviqr;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aviqr;

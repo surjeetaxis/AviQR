@@ -286,6 +286,7 @@ export const mallApi = {
 export const brandApi = {
   save:              (d)             => api.post('/api/v1/brands', d),
   getMine:           ()              => api.get('/api/v1/brands/my'),
+  createQr:          (id)            => api.post(`/api/v1/brands/${id}/qr-code`),
   // ── Brand QR Flow (public, no auth) ──────────────────────────────────────
   getPublicBrand:    (id)            => api.get(`/api/v1/brands/public/${id}`),
   getPublicShops:    (id)            => api.get(`/api/v1/brands/public/${id}/shops`),

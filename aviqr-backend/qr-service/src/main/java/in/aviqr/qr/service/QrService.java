@@ -129,6 +129,8 @@ public class QrService {
             case TABLE        -> base + "?table=" + group;
             case GROUP        -> base + "?cat=" + group;
             case MALL         -> baseUrl + "/food-court/" + shopId;
+            // shopId here is the Brand's own id (brands have no shop-service Shop of their own)
+            case BRAND        -> baseUrl + "/brand/" + shopId;
             // shopId is a synthetic "hotel-{hotelId}" id (rooms have no shop-service Shop); group = room number.
             // Target is /hotel-services/:hotelId?room=..., the real GuestServices.jsx route (GuestServices.jsx:28-30).
             case HOTEL_ROOM   -> baseUrl + "/hotel-services/" + shopId.replaceFirst("^hotel-", "") + "?room=" + group;
