@@ -7,7 +7,7 @@ import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
-import QrDesignerModal from '../../components/shared/QrDesignerModal.jsx';
+import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
 import {
   Building2, Store, ShoppingBag, CreditCard, BarChart2, Settings,
   LogOut, Menu as MenuIcon, TrendingUp, QrCode, CheckCircle2,
@@ -465,19 +465,12 @@ function MallQRPage({mall}) {
         <button className="btn btn-secondary" style={{width:'100%',justifyContent:'center'}} onClick={()=>setDesigning(true)}>🎨 Design Banner & Print</button>
       </div>
       {designing && (
-        <QrDesignerModal
+        <QrPosterStudio
           open={designing}
           onClose={()=>setDesigning(false)}
-          targetUrl={targetUrl}
-          title={`Design QR — ${mall.name}`}
-          nameLabel="Mall Name"
+          targetUrlOverride={targetUrl}
           nameDefault={mall.name}
-          taglineDefault="Scan for the full food court menu"
-          subLabel={null}
-          discountDefault=""
-          footerDefault="Happy dining!"
-          contactDefault={{ phone: mall.phone, address: mall.address, website: '' }}
-          downloadFilename={`${(mall.name||'food-court').replace(/\s+/g,'-')}-qr-banner`}
+          taglineDefault="Scan for the full food court menu · Happy dining!"
         />
       )}
     </div>

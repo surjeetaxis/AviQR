@@ -5,7 +5,7 @@ import { shopApi, menuApi, orderApi, qrApi, reportApi, authApi, brandApi } from 
 import QRCode from 'qrcode';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
-import QrDesignerModal from '../../components/shared/QrDesignerModal.jsx';
+import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
 import {
   Store, BarChart2, ShoppingBag, Tag, QrCode, Settings, LogOut,
   Menu as MenuIcon, TrendingUp, CreditCard, ArrowLeft, ChevronRight,
@@ -579,7 +579,7 @@ function AllOrdersTab({ outlets }) {
 function QRCodesTab({ outlets, brand, onBrandSaved }) {
   const [qrByOutlet, setQrByOutlet] = useState({});
   const [loading, setLoading] = useState(true);
-  const [designingCode, setDesigningCode] = useState(null);
+  const [posterOutlet, setPosterOutlet] = useState(null); // { id, name } once picked
 
   useEffect(() => {
     if (!outlets.length) { setLoading(false); return; }
@@ -600,7 +600,7 @@ function QRCodesTab({ outlets, brand, onBrandSaved }) {
 
   if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading QR codes…</div>;
 
-  const allCodes = Object.values(qrByOutlet).flatMap(o => o.codes.map(c => ({ ...c, outletName: o.name })));
+  const allCodes = Object.values(qrByOutlet).flatMap(o => o.codes.map(c => ({ ...c, outletName: o.name, outletId: o.id })));
 
   return (
     <div>
@@ -630,27 +630,18 @@ function QRCodesTab({ outlets, brand, onBrandSaved }) {
               </span>
             </div>
             <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--gray-400)', wordBreak: 'break-all' }}>{q.code || q.qrCode}</div>
-            <button className="btn btn-secondary" style={{ justifyContent: 'center', fontSize: 12 }} onClick={() => setDesigningCode(q)}>
-              🎨 Design Banner & Print
+            <button className="btn btn-secondary" style={{ justifyContent: 'center', fontSize: 12 }} onClick={() => setPosterOutlet({ id: q.outletId, name: q.outletName })}>
+              ✨ Poster Studio
             </button>
           </div>
         ))}
       </div>
-      {designingCode && (
-        <QrDesignerModal
-          open={!!designingCode}
-          onClose={() => setDesigningCode(null)}
-          targetUrl={designingCode.targetUrl}
-          title={`Design QR — ${designingCode.outletName}`}
-          nameLabel="Brand / Outlet Name"
-          nameDefault={brand?.name || designingCode.outletName}
-          taglineDefault="Scan to Order"
-          subLabel={null}
-          discountDefault=""
-          footerDefault="Thank you for dining with us!"
-          downloadFilename={`${(designingCode.outletName || 'outlet').replace(/\s+/g, '-')}-qr-banner`}
-        />
-      )}
+      <QrPosterStudio
+        open={!!posterOutlet}
+        onClose={() => setPosterOutlet(null)}
+        shopId={posterOutlet?.id}
+        shopName={posterOutlet?.name}
+      />
     </div>
   );
 }
@@ -694,18 +685,12 @@ function BrandQR({ brand }) {
         🎨 Design Banner & Print
       </button>
       {designing && (
-        <QrDesignerModal
+        <QrPosterStudio
           open={designing}
           onClose={() => setDesigning(false)}
-          targetUrl={targetUrl}
-          title={`Design QR — ${brand.name}`}
-          nameLabel="Brand Name"
+          targetUrlOverride={targetUrl}
           nameDefault={brand.name}
-          taglineDefault="Scan to browse all our outlets"
-          subLabel={null}
-          discountDefault=""
-          footerDefault="Thank you for choosing us!"
-          downloadFilename={`${(brand.name || 'brand').replace(/\s+/g, '-')}-qr-banner`}
+          taglineDefault="Scan to browse all our outlets · Thank you for choosing us!"
         />
       )}
     </div>
@@ -1129,7 +1114,7 @@ function OutletOrdersTab({ shopId }) {
 function OutletQRTab({ shopId }) {
   const [codes, setCodes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [designingCode, setDesigningCode] = useState(null);
+  const [posterOpen, setPosterOpen] = useState(false);
 
   useEffect(() => {
     qrApi.getByShop(shopId)
@@ -1166,27 +1151,19 @@ function OutletQRTab({ shopId }) {
               </span>
             </div>
             <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--gray-400)', wordBreak: 'break-all' }}>{q.code || q.qrCode}</div>
-            <button className="btn btn-secondary" style={{ justifyContent: 'center', fontSize: 12 }} onClick={() => setDesigningCode(q)}>
-              🎨 Design Banner & Print
-            </button>
           </div>
         ))}
       </div>
-      {designingCode && (
-        <QrDesignerModal
-          open={!!designingCode}
-          onClose={() => setDesigningCode(null)}
-          targetUrl={designingCode.targetUrl}
-          title="Design QR"
-          nameLabel="Outlet Name"
-          nameDefault={designingCode.label || 'Our Outlet'}
-          taglineDefault="Scan to Order"
-          subLabel={null}
-          discountDefault=""
-          footerDefault="Thank you for dining with us!"
-          downloadFilename="outlet-qr-banner"
-        />
+      {codes.length > 0 && (
+        <button className="btn btn-secondary" style={{ marginTop: 14, justifyContent: 'center' }} onClick={() => setPosterOpen(true)}>
+          ✨ Poster Studio
+        </button>
       )}
+      <QrPosterStudio
+        open={posterOpen}
+        onClose={() => setPosterOpen(false)}
+        shopId={shopId}
+      />
     </div>
   );
 }

@@ -113,6 +113,7 @@ public class QrService {
             case GROUP -> "-g" + group;
             case HOTEL_ROOM -> "-r" + group;
             case HOTEL_OUTLET -> "-o" + group;
+            case MALL_OUTLET -> "-mo" + group;
             default -> "";
         };
         String code = base + suffix;
@@ -140,6 +141,8 @@ public class QrService {
             case HOTEL_ROOM   -> baseUrl + "/hotel-services/" + shopId.replaceFirst("^hotel-", "") + "?room=" + group;
             // shopId is the outlet's real shop-service Shop id; group = hotelId, enables "bill to room" on the menu
             case HOTEL_OUTLET -> base + "?hotel=" + group;
+            // shopId is the vendor's real shop-service Shop id; group = mallId, mirrors HOTEL_OUTLET
+            case MALL_OUTLET  -> base + "?mall=" + group;
             default           -> base;
         };
     }

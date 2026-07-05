@@ -6,7 +6,7 @@ import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
-import QrDesignerModal from '../../components/shared/QrDesignerModal.jsx';
+import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
 import QRCode from 'qrcode';
 import {
   Hotel, BedDouble, UtensilsCrossed, Shirt, Sparkles, Wrench,
@@ -847,19 +847,12 @@ function RoomQrModal({room,onClose}) {
         )}
       </div>
       {designing && (
-        <QrDesignerModal
+        <QrPosterStudio
           open={designing}
           onClose={()=>setDesigning(false)}
-          targetUrl={targetUrl}
-          title={`Design QR — Room ${room.number}`}
-          nameLabel="Hotel Name"
-          nameDefault={user?.hotelName || 'Our Hotel'}
-          taglineDefault="Scan for Room Service"
-          subLabel="Room"
-          subDefault={room.number}
-          discountDefault=""
-          footerDefault="Enjoy your stay!"
-          downloadFilename={`room-${room.number}-qr-banner`}
+          targetUrlOverride={targetUrl}
+          nameDefault={`${user?.hotelName || 'Our Hotel'} — Room ${room.number}`}
+          taglineDefault="Scan for Room Service · Enjoy your stay!"
         />
       )}
     </div>
@@ -1161,18 +1154,12 @@ function HotelQR({ hotelId, hotelName }) {
         🎨 Design Banner & Print
       </button>
       {designing && (
-        <QrDesignerModal
+        <QrPosterStudio
           open={designing}
           onClose={() => setDesigning(false)}
-          targetUrl={targetUrl}
-          title={`Design QR — ${hotelName || 'Hotel'}`}
-          nameLabel="Hotel Name"
+          targetUrlOverride={targetUrl}
           nameDefault={hotelName || 'Our Hotel'}
-          taglineDefault="Scan to explore our services"
-          subLabel={null}
-          discountDefault=""
-          footerDefault="Enjoy your stay!"
-          downloadFilename={`${(hotelName || 'hotel').replace(/\s+/g, '-')}-qr-banner`}
+          taglineDefault="Scan to explore our services · Enjoy your stay!"
         />
       )}
     </div>

@@ -147,6 +147,9 @@ export default function SupportDashboard() {
               avatar={user?.avatar || 'SA'}
               avatarColor="#D97706"
               onLogout={() => { logout(); navigate('/'); }}
+              items={[
+                { label:'Preview customer app', icon:Eye, onClick:() => navigate('/customer') },
+              ]}
             />
           </div>
         </header>

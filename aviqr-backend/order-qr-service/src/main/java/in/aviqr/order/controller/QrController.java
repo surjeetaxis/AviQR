@@ -32,7 +32,7 @@ public class QrController {
     public ResponseEntity<ApiResponse<QrCode>> createMarketing(
             @RequestHeader(value="X-User-Role", defaultValue="") String role,
             @RequestBody Map<String, String> body) {
-        if (!"ADMIN".equals(role))
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         String label     = body.getOrDefault("label", "Marketing QR");
         String targetUrl = body.get("targetUrl");
@@ -49,7 +49,7 @@ public class QrController {
             @PathVariable java.util.UUID id,
             @RequestHeader(value="X-User-Role", defaultValue="") String role,
             @RequestBody Map<String, String> body) {
-        if (!"ADMIN".equals(role))
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         try {
             return ResponseEntity.ok(ApiResponse.ok("Marketing QR updated",
@@ -65,7 +65,7 @@ public class QrController {
             @PathVariable java.util.UUID id,
             @RequestParam boolean active,
             @RequestHeader(value="X-User-Role", defaultValue="") String role) {
-        if (!"ADMIN".equals(role))
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         qrRepo.findById(id).ifPresent(q -> { q.setActive(active); qrRepo.save(q); });
         return ResponseEntity.ok(ApiResponse.ok("Updated", null));

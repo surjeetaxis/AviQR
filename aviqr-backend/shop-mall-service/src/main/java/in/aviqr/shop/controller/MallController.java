@@ -137,7 +137,7 @@ public class MallController {
             return ResponseEntity.badRequest().body(ApiResponse.error("Vendor has no linked shop"));
         try {
             String url = qrServiceUrl + "/api/v1/qr-codes/internal/shop/" + v.getShopId()
-                + "?label=" + v.getName() + "&type=SHOP&group=" + v.getMallId();
+                + "?label=" + v.getName() + "&type=MALL_OUTLET&group=" + v.getMallId();
             @SuppressWarnings("unchecked")
             Map<String, Object> resp = restTemplate.postForObject(url, null, Map.class);
             return ResponseEntity.ok(ApiResponse.ok("QR created", resp));

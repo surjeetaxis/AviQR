@@ -387,7 +387,7 @@
   box-shadow: var(--shadow-lg);
 }
 
-/* Wide variant — reused by QrDesignerModal (Hotel/Mall/Supplier QR banners) */
+/* Wide variant — used by this page's own inline Print Designer/Batch Print/Advertise tabs */
 .qrd-designer-modal {
   background: var(--white);
   border-radius: 20px;

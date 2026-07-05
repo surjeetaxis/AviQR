@@ -11,7 +11,7 @@ import {
   XCircle, Edit2, Menu as MenuIcon, Plus,
   Download, RefreshCw, ToggleLeft, ToggleRight,
   Lock, Unlock, Star, Send, AlertTriangle, ChevronLeft, ChevronRight,
-  BadgeCheck, Clock, Zap, Crown, ScanLine, ExternalLink, Copy, Link2, Tag, Calendar,
+  BadgeCheck, Clock, Zap, Crown, ScanLine, ExternalLink,
   Percent, Gift, Layers, BedDouble, UserCog, ClipboardList, UtensilsCrossed, Sparkles
 } from 'lucide-react';
 import { authApi, reportApi, shopApi, hotelApi, mallApi, orderApi, paymentApi, qrApi, planApi, offerApi } from '../../api/index.js';
@@ -123,6 +123,7 @@ export default function AdminDashboard() {
               onLogout={() => { logout(); navigate('/'); }}
               items={[
                 { label:'Profile & Settings', icon:Settings, onClick:() => setTab('settings') },
+                { label:'Preview customer app', icon:Eye, onClick:() => navigate('/customer') },
               ]}
             />
           </div>
@@ -1941,6 +1942,8 @@ export function AdminQRCodesPage() {
   const [editQr, setEditQr]   = useState(null);
   const [shopPickerOpen, setShopPickerOpen] = useState(false);
   const [posterShop, setPosterShop]         = useState(null); // { id, name } once picked
+  const [posterMarketing, setPosterMarketing] = useState(false); // Poster Studio in "landing page" mode (no shop)
+  const [previewQr, setPreviewQr] = useState(null);
   const PAGE_SIZE = 30;
 
   const load = useCallback(async (pg = 0) => {
@@ -1995,11 +1998,6 @@ export function AdminQRCodesPage() {
           <button className="btn-refresh" onClick={() => setShopPickerOpen(true)}>
             <Sparkles size={13}/> Poster Studio
           </button>
-          <AdminMarketingQRGenerator
-            onCreated={() => load(0)}
-            editTarget={editQr}
-            onEditDone={() => { setEditQr(null); load(page); }}
-          />
           <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
         </div>
       </div>
@@ -2008,13 +2006,46 @@ export function AdminQRCodesPage() {
         open={shopPickerOpen}
         onClose={() => setShopPickerOpen(false)}
         onPick={(shop) => { setPosterShop(shop); setShopPickerOpen(false); }}
+        onPickMarketing={() => { setPosterMarketing(true); setShopPickerOpen(false); }}
       />
       <QrPosterStudio
-        open={!!posterShop}
-        onClose={() => setPosterShop(null)}
+        open={!!posterShop || posterMarketing}
+        onClose={() => { setPosterShop(null); setPosterMarketing(false); setEditQr(null); }}
         shopId={posterShop?.id}
-        shopName={posterShop?.name}
+        shopName={posterShop?.name || 'AviQR'}
+        marketing={posterMarketing}
+        editTarget={posterMarketing ? editQr : null}
+        onSaved={() => load(page)}
       />
+
+      {previewQr && (
+        <div className="qps-overlay" onClick={() => setPreviewQr(null)}>
+          <div className="qps-modal" style={{ maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div className="qps-header">
+              <div>
+                <h2>{previewQr.label || 'QR Code'}</h2>
+                <p className="qps-header-sub">{previewQr.type || 'SHOP'} · {(previewQr.scanCount || 0).toLocaleString('en-IN')} scans</p>
+              </div>
+              <button className="qps-close" onClick={() => setPreviewQr(null)}>×</button>
+            </div>
+            <div className="qps-body" style={{ padding: '24px', textAlign: 'center' }}>
+              <img src={qrApi.imageUrl(previewQr.qrCode)} alt="QR Code"
+                style={{ width: 200, height: 200, borderRadius: 12, border: '1px solid var(--gray-200, #e5e7eb)' }}/>
+              <p style={{ marginTop: 14, fontSize: 11, fontFamily: 'monospace', color: 'var(--gray-400, #9ca3af)', wordBreak: 'break-all' }}>
+                {previewQr.targetUrl}
+              </p>
+            </div>
+            <div className="qps-footer qps-footer-actions">
+              <a className="btn btn-secondary" href={qrApi.imageUrl(previewQr.qrCode)} target="_blank" rel="noreferrer">
+                <Download size={14}/> Download
+              </a>
+              <a className="btn btn-primary" href={previewQr.targetUrl} target="_blank" rel="noreferrer">
+                <ExternalLink size={14}/> Preview as Customer
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:18 }}>
         {[
@@ -2092,11 +2123,17 @@ export function AdminQRCodesPage() {
                   </td>
                   <td>
                     <div style={{ display:'flex', gap:6 }}>
+                      <button
+                        className="admin-row-btn"
+                        title="Preview"
+                        onClick={() => setPreviewQr(qr)}>
+                        <Eye size={13}/>
+                      </button>
                       {qr.type === 'CAMPAIGN' && (
                         <button
                           className="admin-row-btn"
                           title="Edit marketing QR"
-                          onClick={() => setEditQr(qr)}
+                          onClick={() => { setEditQr(qr); setPosterMarketing(true); }}
                           style={{ color: '#7C3AED' }}>
                           <Edit2 size={13}/>
                         </button>
@@ -2139,7 +2176,7 @@ export function AdminQRCodesPage() {
 // specific shop's data (address/offers/products), so admin picks it first,
 // mirroring the search/filter list pattern from AdminSubscriptionManagement
 // rather than a plain <select> (shops can number in the hundreds).
-function AdminShopPicker({ open, onClose, onPick }) {
+function AdminShopPicker({ open, onClose, onPick, onPickMarketing }) {
   const [shops, setShops]   = useState([]);
   const [loading, setLoad]  = useState(true);
   const [search, setSearch] = useState('');
@@ -2172,6 +2209,16 @@ function AdminShopPicker({ open, onClose, onPick }) {
           <button className="qps-close" onClick={onClose}>×</button>
         </div>
         <div className="qps-body">
+          <button
+            className="qps-dest-card"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}
+            onClick={onPickMarketing}>
+            <Sparkles size={16} style={{ flexShrink: 0, color: '#0F6E56' }}/>
+            <span>
+              <div className="qps-dest-title">🌐 Marketing / Landing Page</div>
+              <div className="qps-dest-desc">Not tied to a shop — website, pricing, demo, custom URL…</div>
+            </span>
+          </button>
           <div className="qps-field">
             <input placeholder="Search name, city, email…" value={search} onChange={e => setSearch(e.target.value)} autoFocus />
           </div>
@@ -2190,394 +2237,6 @@ function AdminShopPicker({ open, onClose, onPick }) {
         </div>
       </div>
     </div>
-  );
-}
-
-// ── Admin Marketing QR Generator ─────────────────────────────────────────────
-const MARKETING_PRESETS = [
-  { label: 'AviQR Website',      url: 'https://aviqr.in',                    campaign: 'website',  emoji: '🌐' },
-  { label: 'Pricing Page',       url: 'https://aviqr.in/pricing',            campaign: 'pricing',  emoji: '💰' },
-  { label: 'Demo / Free Trial',  url: 'https://aviqr.in/demo',               campaign: 'demo',     emoji: '🎯' },
-  { label: 'Contact Sales',      url: 'https://aviqr.in/contact',            campaign: 'sales',    emoji: '📞' },
-  { label: 'Play Store App',     url: 'https://play.google.com/store/apps/details?id=in.aviqr.app', campaign: 'playstore', emoji: '📱' },
-  { label: 'Partner Program',    url: 'https://aviqr.in/partners',           campaign: 'partners', emoji: '🤝' },
-  { label: 'Blog / Guides',      url: 'https://aviqr.in/blog',               campaign: 'blog',     emoji: '📖' },
-  { label: 'Custom URL',         url: '',                                    campaign: 'custom',   emoji: '✏️' },
-];
-
-const QR_COLORS = [
-  { fg: '#0F6E56', bg: '#FFFFFF', name: 'AviQR Green' },
-  { fg: '#1E293B', bg: '#FFFFFF', name: 'Midnight' },
-  { fg: '#7C3AED', bg: '#FFFFFF', name: 'Purple' },
-  { fg: '#D97706', bg: '#FFFBEB', name: 'Gold' },
-  { fg: '#DC2626', bg: '#FFFFFF', name: 'Red' },
-  { fg: '#FFFFFF', bg: '#0F6E56', name: 'Inverted' },
-];
-
-function AdminMarketingQRGenerator({ onCreated, editTarget, onEditDone }) {
-  const [open, setOpen]         = useState(false);
-  const [preset, setPreset]     = useState(MARKETING_PRESETS[0]);
-  const [customUrl, setCustom]  = useState('');
-  const [label, setLabel]       = useState('');
-  const [colorIdx, setColorIdx] = useState(0);
-  const [saving, setSaving]     = useState(false);
-  const [saved, setSaved]       = useState(null);
-  const [err, setErr]           = useState('');
-  const [copied, setCopied]     = useState('');
-  const [editId, setEditId]     = useState(null);
-  const canvasRef               = React.useRef(null);
-
-  const isEditing = !!editId;
-  const targetUrl = preset.campaign === 'custom' ? customUrl : preset.url;
-  const color     = QR_COLORS[colorIdx];
-
-  // Open in edit mode when a row's "Edit" action is clicked from the table
-  React.useEffect(() => {
-    if (!editTarget) return;
-    const match = MARKETING_PRESETS.find(p => p.url && p.url === editTarget.targetUrl);
-    setPreset(match || { ...MARKETING_PRESETS[MARKETING_PRESETS.length - 1], campaign: editTarget.groupParam || 'custom' });
-    setCustom(match ? '' : (editTarget.targetUrl || ''));
-    setLabel(editTarget.label || '');
-    setColorIdx(0);
-    setEditId(editTarget.id);
-    setSaved(null);
-    setErr('');
-    setOpen(true);
-  }, [editTarget]);
-
-  React.useEffect(() => {
-    if (!open || !targetUrl) return;
-    import('qrcode').then(QRCode => {
-      QRCode.toCanvas(canvasRef.current, targetUrl, {
-        width: 200,
-        margin: 2,
-        color: { dark: color.fg, light: color.bg },
-        errorCorrectionLevel: 'M',
-      }).catch(() => {});
-    });
-  }, [open, targetUrl, colorIdx, saved]);
-
-  const handleSave = async () => {
-    if (!targetUrl) { setErr('Target URL is required'); return; }
-    setSaving(true); setErr('');
-    try {
-      const payload = { label: label || preset.label, targetUrl, campaign: preset.campaign };
-      const res = isEditing
-        ? await qrApi.updateMarketing(editId, payload)
-        : await qrApi.createMarketing(payload);
-      setSaved(res.data?.data);
-      onCreated?.();
-    } catch (e) {
-      setErr(e.response?.data?.message || `Failed to ${isEditing ? 'update' : 'create'} QR`);
-    } finally { setSaving(false); }
-  };
-
-  const handleDownload = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
-    a.download = `aviqr-marketing-${preset.campaign}.png`;
-    a.click();
-  };
-
-  const handleCopy = (text, key) => {
-    navigator.clipboard?.writeText(text).then(() => {
-      setCopied(key);
-      setTimeout(() => setCopied(''), 1600);
-    });
-  };
-
-  const reset = () => {
-    setSaved(null); setLabel(''); setCustom(''); setPreset(MARKETING_PRESETS[0]);
-    setColorIdx(0); setErr(''); setEditId(null);
-  };
-
-  const closeModal = () => {
-    setOpen(false);
-    if (isEditing) onEditDone?.();
-    reset();
-  };
-
-  return (
-    <>
-      <button
-        onClick={() => { reset(); setOpen(true); }}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 7,
-          background: 'linear-gradient(135deg,#0F6E56,#1D9E75)',
-          color: '#fff', border: 'none', borderRadius: 8,
-          padding: '9px 18px', fontSize: 13, fontWeight: 600,
-          cursor: 'pointer', boxShadow: '0 2px 8px rgba(15,110,86,.25)',
-        }}>
-        <Plus size={15}/> Create Marketing QR
-      </button>
-
-      {open && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)',
-          zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 16,
-        }} onClick={e => e.target === e.currentTarget && closeModal()}>
-          <div style={{
-            background: '#fff', borderRadius: 16, width: '100%', maxWidth: 820,
-            maxHeight: '92vh', overflowY: 'auto',
-            boxShadow: '0 24px 64px rgba(0,0,0,.22)',
-          }}>
-            {/* Header */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '20px 24px 16px', borderBottom: '1px solid #F1F5F9',
-              background: isEditing ? 'linear-gradient(135deg,#F5F3FF,#FFFFFF)' : 'transparent',
-            }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#0F172A' }}>
-                  {isEditing ? 'Edit Marketing QR' : 'Marketing QR Generator'}
-                </h2>
-                <p style={{ margin: '3px 0 0', fontSize: 13, color: '#64748B' }}>
-                  {isEditing
-                    ? 'Update the destination, label or campaign — the printed QR code keeps working.'
-                    : 'Create branded QR codes for ads, banners, events & sales collateral'}
-                </p>
-              </div>
-              <button onClick={closeModal}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', fontSize: 22, lineHeight: 1 }}>×</button>
-            </div>
-
-            {saved ? (
-              /* ── Success / detail state ── */
-              <div style={{ padding: '28px 24px' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
-                  <div style={{ fontSize: 30 }}>{isEditing ? '✏️' : '✅'}</div>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize:16, color: '#0F172A' }}>
-                      {isEditing ? 'Marketing QR updated' : 'Marketing QR created'}
-                    </h3>
-                    <p style={{ margin:'2px 0 0', color: '#64748B', fontSize: 12 }}>
-                      {isEditing ? 'Changes are live immediately — no reprint needed.' : 'Ready to publish on ads, banners & collateral.'}
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ display:'grid', gridTemplateColumns:'220px 1fr', gap:24 }}>
-                  {/* QR image */}
-                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
-                    <div style={{ background: color.bg, borderRadius: 12, padding: 12,
-                      boxShadow: '0 4px 16px rgba(0,0,0,.10)', border: '1px solid #E2E8F0' }}>
-                      <canvas ref={canvasRef} style={{ display:'block', borderRadius:6 }}/>
-                    </div>
-                    <div style={{ display:'flex', gap:8, marginTop:12, width:'100%' }}>
-                      <button onClick={handleDownload}
-                        style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#0F6E56', color:'#fff',
-                          border:'none', borderRadius:8, padding:'8px 10px', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                        <Download size={13}/> PNG
-                      </button>
-                      <a href={qrApi.imageUrl(saved.qrCode)} target="_blank" rel="noreferrer"
-                        style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'#7C3AED', color:'#fff',
-                          border:'none', borderRadius:8, padding:'8px 10px', fontSize:12, fontWeight:600,
-                          cursor:'pointer', textDecoration:'none' }}>
-                        <ExternalLink size={13}/> Hi-res
-                      </a>
-                    </div>
-                  </div>
-
-                  {/* Detail panel */}
-                  <div>
-                    <div style={{ border:'1px solid #E2E8F0', borderRadius:10, overflow:'hidden' }}>
-                      {[
-                        { icon: QrCode,  label: 'Code',        value: saved.qrCode, mono: true },
-                        { icon: Tag,     label: 'Label',       value: saved.label || '—' },
-                        { icon: Tag,     label: 'Campaign',    value: saved.groupParam || '—' },
-                        { icon: Link2,   label: 'Target URL',  value: saved.targetUrl, copyKey: 'target', breakAll: true },
-                        { icon: Link2,   label: 'Scan link',   value: qrApi.redirectUrl(saved.qrCode), copyKey: 'scan', breakAll: true },
-                        { icon: ScanLine,label: 'Scans so far',value: (saved.scanCount ?? 0).toLocaleString('en-IN') },
-                        { icon: saved.active === false ? XCircle : CheckCircle2, label: 'Status', value: saved.active === false ? 'Inactive' : 'Active' },
-                        { icon: Calendar,label: 'Created',     value: saved.createdAt ? new Date(saved.createdAt).toLocaleString('en-IN') : '—' },
-                      ].map((row, i) => (
-                        <div key={row.label} style={{
-                          display:'flex', alignItems:'flex-start', gap:10, padding:'10px 14px',
-                          background: i % 2 ? '#FAFAFA' : '#fff',
-                          borderTop: i ? '1px solid #F1F5F9' : 'none',
-                        }}>
-                          <row.icon size={14} style={{ marginTop:2, color:'#94A3B8', flexShrink:0 }}/>
-                          <div style={{ minWidth:90, fontSize:11, color:'#94A3B8', fontWeight:600, textTransform:'uppercase', letterSpacing:'.03em' }}>
-                            {row.label}
-                          </div>
-                          <div style={{ flex:1, fontSize:13, color:'#1E293B', fontFamily: row.mono ? 'monospace' : 'inherit',
-                            fontWeight: row.mono ? 700 : 500, wordBreak: row.breakAll ? 'break-all' : 'normal' }}>
-                            {row.value}
-                          </div>
-                          {row.copyKey && (
-                            <button onClick={() => handleCopy(row.value, row.copyKey)}
-                              title="Copy to clipboard"
-                              style={{ background:'none', border:'none', cursor:'pointer', color: copied === row.copyKey ? '#059669' : '#94A3B8', flexShrink:0 }}>
-                              <Copy size={14}/>
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {copied && <p style={{ margin:'8px 0 0', fontSize:11, color:'#059669', fontWeight:600 }}>Copied to clipboard ✓</p>}
-
-                    <div style={{ display:'flex', gap:10, marginTop:20, flexWrap:'wrap' }}>
-                      <button onClick={() => { setSaved(null); setErr(''); }}
-                        style={{ display:'flex', alignItems:'center', gap:6, background:'#EDE9FE', color:'#7C3AED', border:'none',
-                          borderRadius:8, padding:'9px 16px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                        <Edit2 size={14}/> Edit details
-                      </button>
-                      {!isEditing && (
-                        <button onClick={reset}
-                          style={{ background:'#F1F5F9', color:'#374151', border:'none', borderRadius:8,
-                            padding:'9px 16px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                          Create another
-                        </button>
-                      )}
-                      <button onClick={closeModal}
-                        style={{ marginLeft:'auto', background:'#0F172A', color:'#fff', border:'none', borderRadius:8,
-                          padding:'9px 18px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                        Done
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* ── Builder state ── */
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: 0 }}>
-                {/* Left: controls */}
-                <div style={{ padding: '20px 24px' }}>
-
-                  {/* Destination */}
-                  <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:8, textTransform:'uppercase', letterSpacing:'.05em' }}>
-                    Destination
-                  </label>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16 }}>
-                    {MARKETING_PRESETS.map(p => (
-                      <button key={p.campaign}
-                        onClick={() => setPreset(p)}
-                        style={{
-                          display:'flex', alignItems:'center', gap:8,
-                          padding:'10px 12px', borderRadius:8, fontSize:13, fontWeight:500,
-                          cursor:'pointer', textAlign:'left',
-                          border: preset.campaign === p.campaign ? '2px solid #0F6E56' : '1.5px solid #E2E8F0',
-                          background: preset.campaign === p.campaign ? '#F0FDF4' : '#FAFAFA',
-                          color: preset.campaign === p.campaign ? '#0F6E56' : '#374151',
-                        }}>
-                        <span style={{ fontSize:16 }}>{p.emoji}</span>
-                        <span style={{ fontSize:12, lineHeight:1.3 }}>{p.label}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Custom URL */}
-                  {preset.campaign === 'custom' && (
-                    <div style={{ marginBottom:16 }}>
-                      <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:6 }}>Target URL</label>
-                      <input value={customUrl} onChange={e => setCustom(e.target.value)}
-                        placeholder="https://aviqr.in/your-page"
-                        style={{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #E2E8F0',
-                          fontSize:13, color:'#0F172A', boxSizing:'border-box', outline:'none' }}/>
-                    </div>
-                  )}
-
-                  {/* Label */}
-                  <div style={{ marginBottom:16 }}>
-                    <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:6 }}>
-                      Label <span style={{ color:'#94A3B8', fontWeight:400 }}>(optional — for your reference)</span>
-                    </label>
-                    <input value={label} onChange={e => setLabel(e.target.value)}
-                      placeholder={preset.label}
-                      style={{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #E2E8F0',
-                        fontSize:13, color:'#0F172A', boxSizing:'border-box', outline:'none' }}/>
-                  </div>
-
-                  {/* Color scheme */}
-                  <div style={{ marginBottom:20 }}>
-                    <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:8, textTransform:'uppercase', letterSpacing:'.05em' }}>
-                      Color Scheme
-                    </label>
-                    <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                      {QR_COLORS.map((c, i) => (
-                        <button key={i} onClick={() => setColorIdx(i)} title={c.name}
-                          style={{
-                            width:36, height:36, borderRadius:8, cursor:'pointer',
-                            background: c.bg, border: colorIdx === i ? '2.5px solid #0F6E56' : '1.5px solid #E2E8F0',
-                            position:'relative', overflow:'hidden',
-                            boxShadow: colorIdx === i ? '0 0 0 2px rgba(15,110,86,.2)' : 'none',
-                          }}>
-                          <div style={{ position:'absolute', inset:6, borderRadius:3, background: c.fg }}/>
-                        </button>
-                      ))}
-                    </div>
-                    <p style={{ margin:'6px 0 0', fontSize:11, color:'#94A3B8' }}>{QR_COLORS[colorIdx].name}</p>
-                  </div>
-
-                  {/* Target URL preview */}
-                  {targetUrl && (
-                    <div style={{ background:'#F8FAFC', borderRadius:8, padding:'10px 12px', marginBottom:16,
-                      border:'1px solid #E2E8F0', wordBreak:'break-all' }}>
-                      <span style={{ fontSize:11, color:'#94A3B8', display:'block', marginBottom:2 }}>Target URL</span>
-                      <span style={{ fontSize:12, color:'#0F6E56', fontWeight:500 }}>{targetUrl}</span>
-                    </div>
-                  )}
-
-                  {err && <p style={{ color:'#DC2626', fontSize:13, margin:'0 0 12px' }}>{err}</p>}
-
-                  <button onClick={handleSave} disabled={saving || !targetUrl}
-                    style={{
-                      width:'100%', padding:'11px', borderRadius:8, fontSize:14, fontWeight:600,
-                      cursor: saving || !targetUrl ? 'not-allowed' : 'pointer',
-                      background: saving || !targetUrl ? '#E2E8F0' : 'linear-gradient(135deg,#0F6E56,#1D9E75)',
-                      color: saving || !targetUrl ? '#94A3B8' : '#fff', border:'none',
-                    }}>
-                    {saving ? (isEditing ? 'Saving…' : 'Generating…') : (isEditing ? '💾 Save Changes' : '✨ Generate & Save QR')}
-                  </button>
-                </div>
-
-                {/* Right: live preview */}
-                <div style={{
-                  borderLeft: '1px solid #F1F5F9', padding: '20px 20px',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  background: '#FAFAFA', borderRadius: '0 0 16px 0',
-                }}>
-                  <p style={{ margin:'0 0 14px', fontSize:12, fontWeight:600, color:'#374151',
-                    textTransform:'uppercase', letterSpacing:'.05em' }}>Live Preview</p>
-                  <div style={{
-                    background: color.bg, borderRadius: 12, padding: 12,
-                    boxShadow: '0 4px 16px rgba(0,0,0,.10)', border: '1px solid #E2E8F0',
-                  }}>
-                    {targetUrl
-                      ? <canvas ref={canvasRef} style={{ display:'block', borderRadius:6 }}/>
-                      : (
-                        <div style={{ width:200, height:200, display:'flex', alignItems:'center',
-                          justifyContent:'center', color:'#CBD5E1', fontSize:13, textAlign:'center',
-                          flexDirection:'column', gap:8 }}>
-                          <QrCode size={40} strokeWidth={1}/>
-                          <span>Pick a destination<br/>to preview</span>
-                        </div>
-                      )
-                    }
-                  </div>
-                  {targetUrl && (
-                    <>
-                      <button onClick={handleDownload}
-                        style={{ marginTop:14, display:'flex', alignItems:'center', gap:6,
-                          background:'#F1F5F9', color:'#374151', border:'none',
-                          borderRadius:8, padding:'8px 14px', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                        <Download size={13}/> Save Preview
-                      </button>
-                      <p style={{ margin:'8px 0 0', fontSize:10, color:'#94A3B8', textAlign:'center' }}>
-                        Final QR (high-res PNG)<br/>downloads after saving
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </>
   );
 }
 
