@@ -4,7 +4,7 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, USERS } from './helpers.js';
 
-test.use({ video: 'on' });
+test.use({ viewport: { width: 3840, height: 2160 }, video: { mode: 'on', size: { width: 3840, height: 2160 } } });
 
 const pause = (page, ms = 600) => page.waitForTimeout(ms);
 const nav = async (page, label) => {
@@ -14,6 +14,7 @@ const nav = async (page, label) => {
 };
 
 test('Restaurant Owner — full walkthrough of every sidebar item and major action', async ({ page }) => {
+  test.slow(); // 4K screenshots/video encoding take longer; triples the 45s default timeout
   const consoleErrors = [];
   page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   page.on('pageerror', e => consoleErrors.push(`[pageerror] ${e.message}`));
@@ -35,6 +36,31 @@ test('Restaurant Owner — full walkthrough of every sidebar item and major acti
   await page.screenshot({ path: 'screenshots/rw-02-orders.png', fullPage: true });
   body = await page.locator('body').innerText();
   expect(body).not.toContain('undefined');
+
+  // ── Full order lifecycle: New → Accepted → Preparing → Ready → Completed ─
+  // Each filter chip's first card gets advanced with its real action button
+  // (ADVANCE_LABEL in Orders.jsx: "Accept order" / "Start cooking" /
+  // "Mark ready" / "Mark delivered"), demonstrating the whole Kanban flow.
+  const advanceFirst = async (chipLabel, buttonText, shot) => {
+    await page.click(`.filter-chips button:has-text("${chipLabel}")`);
+    await pause(page, 500);
+    await page.screenshot({ path: `screenshots/${shot}-before.png`, fullPage: true });
+    const advanceBtn = page.locator(`button.action-btn--primary:has-text("${buttonText}")`).first();
+    if (await advanceBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await advanceBtn.click();
+      await pause(page, 900);
+      await page.screenshot({ path: `screenshots/${shot}-after.png`, fullPage: true });
+      return true;
+    }
+    return false;
+  };
+  await advanceFirst('New',       'Accept order',    'rw-02b-lifecycle-new-to-accepted');
+  await advanceFirst('Active',    'Start cooking',   'rw-02c-lifecycle-accepted-to-preparing');
+  await advanceFirst('Preparing', 'Mark ready',       'rw-02d-lifecycle-preparing-to-ready');
+  await advanceFirst('Ready',     'Mark delivered',   'rw-02e-lifecycle-ready-to-completed');
+  await page.click('.filter-chips button:has-text("Completed")');
+  await pause(page, 500);
+  await page.screenshot({ path: 'screenshots/rw-02f-lifecycle-completed.png', fullPage: true });
 
   // ── POS / Billing (opens an immersive fullscreen view; exit via Minimize) ─
   await nav(page, 'POS / Billing');

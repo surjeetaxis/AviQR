@@ -6,7 +6,7 @@
 import { test, expect, request as playwrightRequest } from '@playwright/test';
 import { USERS, DEMO_SHOP_ID } from './helpers.js';
 
-test.use({ video: 'on' });
+test.use({ viewport: { width: 3840, height: 2160 }, video: { mode: 'on', size: { width: 3840, height: 2160 } } });
 
 const pause = (page, ms = 600) => page.waitForTimeout(ms);
 
@@ -35,6 +35,7 @@ async function ensureSupplierBrand() {
 }
 
 test('Customer — full walkthrough of public pages, menu, food court, brand QR, and a real order', async ({ page }) => {
+  test.slow(); // 4K screenshots/video encoding take longer; triples the 45s default timeout
   const consoleErrors = [];
   page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   page.on('pageerror', e => consoleErrors.push(`[pageerror] ${e.message}`));

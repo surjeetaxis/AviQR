@@ -5,11 +5,12 @@
 import { test, expect } from '@playwright/test';
 import { loginAs, goToTab, USERS } from './helpers.js';
 
-test.use({ video: 'on' });
+test.use({ viewport: { width: 3840, height: 2160 }, video: { mode: 'on', size: { width: 3840, height: 2160 } } });
 
 const pause = (page, ms = 600) => page.waitForTimeout(ms);
 
 test('Support Agent — full walkthrough of every tab and major action', async ({ page }) => {
+  test.slow(); // 4K screenshots/video encoding take longer; triples the 45s default timeout
   const consoleErrors = [];
   page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   page.on('pageerror', e => consoleErrors.push(`[pageerror] ${e.message}`));
