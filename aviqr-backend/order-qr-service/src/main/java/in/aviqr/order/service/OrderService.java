@@ -19,6 +19,7 @@ import java.util.*;
 public class OrderService {
     private final OrderRepository repo;
     private final RabbitTemplate rabbit;
+    private final RestTemplate restTemplate;
 
     /** Default GST slab — used when shop-service cannot be reached */
     private static final BigDecimal DEFAULT_GST = BigDecimal.valueOf(5.0);
@@ -99,13 +100,30 @@ public class OrderService {
         return toDto(saved);
     }
 
+    /** Does this uid own shopId? Used for roles like SUPPLIER that manage multiple
+     *  outlet shops and so have no single shopId of their own to compare against
+     *  (their JWT/X-Shop-Id is empty) — falls back to false on any error, so a
+     *  down shop-service fails closed rather than granting access. */
+    public boolean isShopOwnedBy(String shopId, String uid) {
+        if (uid == null || uid.isBlank()) return false;
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String,Object> resp = restTemplate.getForObject(shopServiceUrl + "/api/v1/shops/" + shopId, Map.class);
+            if (resp != null && resp.get("data") instanceof Map<?,?> data) {
+                return uid.equals(data.get("ownerId"));
+            }
+        } catch (Exception e) {
+            log.debug("Could not verify shop ownership for shop {}: {}", shopId, e.getMessage());
+        }
+        return false;
+    }
+
     /** Fetch taxPercent from shop-service settings endpoint.
      *  Falls back to DEFAULT_GST (5%) on any error. */
     private BigDecimal fetchShopTaxPercent(String shopId) {
         try {
-            RestTemplate rt = new RestTemplate();
             @SuppressWarnings("unchecked")
-            Map<String,Object> resp = rt.getForObject(
+            Map<String,Object> resp = restTemplate.getForObject(
                 shopServiceUrl + "/api/v1/settings/shop/" + shopId, Map.class);
             if (resp != null && resp.get("data") instanceof Map<?,?> data) {
                 Object taxPct = data.get("taxPercent");

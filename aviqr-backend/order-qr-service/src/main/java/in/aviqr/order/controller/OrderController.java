@@ -32,19 +32,24 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.ok("POS order placed", service.create(shopId, uid, req)));
     }
 
-    private boolean isShopStaff(String role, String shopId, String callerShopId) {
+    // Suppliers (and any multi-outlet owner) have no single shopId in their JWT —
+    // X-Shop-Id is empty for them — so a real ownership check against shop-mall-service
+    // is the fallback once the plain single-shop equality check fails.
+    private boolean isShopStaff(String role, String shopId, String callerShopId, String uid) {
         if ("ADMIN".equals(role) || "SUPPORT".equals(role)) return true;
         if ("CUSTOMER".equals(role)) return false;
-        return shopId.equals(callerShopId);
+        if (shopId.equals(callerShopId)) return true;
+        return service.isShopOwnedBy(shopId, uid);
     }
 
     // Shop owner/staff — live orders (Kanban)
     @GetMapping("/shop/{shopId}/live")
     public ResponseEntity<ApiResponse<List<OrderResponse>>> live(
             @PathVariable String shopId,
+            @RequestHeader(value="X-User-Id", defaultValue="") String uid,
             @RequestHeader(value="X-User-Role", defaultValue="") String role,
             @RequestHeader(value="X-Shop-Id", defaultValue="") String callerShopId) {
-        if (!isShopStaff(role, shopId, callerShopId))
+        if (!isShopStaff(role, shopId, callerShopId, uid))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok(service.getLiveOrders(shopId)));
     }
@@ -52,9 +57,10 @@ public class OrderController {
     @GetMapping("/shop/{shopId}/stats")
     public ResponseEntity<ApiResponse<Map<String,Object>>> shopStats(
             @PathVariable String shopId,
+            @RequestHeader(value="X-User-Id", defaultValue="") String uid,
             @RequestHeader(value="X-User-Role", defaultValue="") String role,
             @RequestHeader(value="X-Shop-Id", defaultValue="") String callerShopId) {
-        if (!isShopStaff(role, shopId, callerShopId))
+        if (!isShopStaff(role, shopId, callerShopId, uid))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         Map<String,Object> stats = new LinkedHashMap<>();
         stats.put("shopId", shopId);
@@ -82,9 +88,10 @@ public class OrderController {
             @RequestParam(required=false) String status,
             @RequestParam(defaultValue="0") int page,
             @RequestParam(defaultValue="20") int size,
+            @RequestHeader(value="X-User-Id", defaultValue="") String uid,
             @RequestHeader(value="X-User-Role", defaultValue="") String role,
             @RequestHeader(value="X-Shop-Id", defaultValue="") String callerShopId) {
-        if (!isShopStaff(role, shopId, callerShopId))
+        if (!isShopStaff(role, shopId, callerShopId, uid))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         OrderStatus s = status != null ? OrderStatus.valueOf(status.toUpperCase()) : null;
         return ResponseEntity.ok(ApiResponse.ok(service.getShopOrders(shopId, s, page, size)));

@@ -163,16 +163,12 @@ services:
     environment:
       <<: [*common-env, *postgres-env]
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/aviqr_auth
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PASSWORD: aviqr_redis_secret
     depends_on:
       service-registry:
         condition: service_healthy
       postgres:
         condition: service_healthy
       mongo:
-        condition: service_healthy
-      redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
