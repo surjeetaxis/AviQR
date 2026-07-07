@@ -59,27 +59,16 @@ Check what's installed and what's missing:
 
 ## Installation
 
-### Option A — Docker (fastest)
-
-```bash
-make up           # postgres, mongo, redis, rabbitmq + all services
-make up-infra      # just the infra containers, if you want to run services natively
-```
-
-See `docker-compose.yml` and `Makefile` for all targets.
-
-### Option B — Native install (no Docker)
-
-For Ubuntu/Debian, the script can print the exact `apt` commands, or run them
-for you:
+For Ubuntu/Debian or macOS, the script can print the exact install commands,
+or run them for you:
 
 ```bash
 ./aviqr.sh install            # print the commands
 ./aviqr.sh install --yes      # actually install Java/Postgres/Mongo/Redis/RabbitMQ/Node
-                               # (uses sudo, asks for confirmation first)
+                               # (macOS: Homebrew via install-mac.sh; Linux: apt, uses sudo)
 ```
 
-For macOS or Windows, or a fully manual Ubuntu walkthrough, follow
+For Windows, or a fully manual walkthrough, follow
 [`DEPLOYMENT_NO_DOCKER.md`](./DEPLOYMENT_NO_DOCKER.md) step by step — it has
 exact commands per OS, including creating the `aviqr` Postgres role, Mongo
 user, and RabbitMQ user/permissions.

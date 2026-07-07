@@ -8,8 +8,8 @@ import java.util.UUID;
 @Entity @Table(name="aggregator_shop_mapping") @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class AggregatorShopMapping {
     @Id @GeneratedValue(strategy=GenerationType.UUID) private UUID id;
-    @Column(nullable=false) private String shopId;
-    @Column(nullable=false) private String platform;         // ZOMATO, SWIGGY
-    @Column(nullable=false) private String aggregatorShopId;  // Zomato restaurant id / Swiggy outlet id
+    @Column(nullable=false, length=100) private String shopId;
+    @Column(nullable=false, length=20) private String platform;         // ZOMATO, SWIGGY
+    @Column(nullable=false, length=100) private String aggregatorShopId;  // Zomato restaurant id / Swiggy outlet id
     @CreationTimestamp private LocalDateTime createdAt;
 }
