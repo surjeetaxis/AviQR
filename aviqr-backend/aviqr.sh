@@ -119,7 +119,7 @@ Examples:
   ./aviqr.sh stop all
 
 See also: README.md (full setup guide), DEPLOYMENT_NO_DOCKER.md (manual native
-install per OS), docker-compose.yml + Makefile (Docker-based alternative).
+install per OS), Makefile (Gradle/db shortcuts).
 EOF
 }
 
@@ -200,17 +200,24 @@ cmd_install() {
   local AUTO=false
   [ "${1:-}" = "--yes" ] && AUTO=true
 
+  if [ "$(uname -s)" = "Darwin" ]; then
+    if [ -x "$BASE/install-mac.sh" ]; then
+      if [ "$AUTO" = true ]; then
+        "$BASE/install-mac.sh" --yes
+      else
+        "$BASE/install-mac.sh"
+      fi
+    else
+      err "install-mac.sh not found in $BASE"
+    fi
+    return 0
+  fi
+
   if [ "$(uname -s)" != "Linux" ] || ! command -v apt >/dev/null 2>&1; then
     cat <<'EOF'
-This helper only automates Ubuntu/Debian (apt). For Mac/Windows, or a manual
-walkthrough, follow DEPLOYMENT_NO_DOCKER.md step by step:
-
-  Mac:     brew install openjdk@21 postgresql@17 mongodb-community@8.0 redis rabbitmq node@20
-  Windows: see DEPLOYMENT_NO_DOCKER.md (PART 1) for installer links per tool.
-
-Alternatively, skip native installs entirely and use Docker:
-  make up           # postgres, mongo, redis, rabbitmq, + all services
-  make up-infra      # just the infra containers
+This helper only automates Ubuntu/Debian (apt) and macOS (Homebrew, via
+install-mac.sh). For Windows, or a manual walkthrough, follow
+DEPLOYMENT_NO_DOCKER.md step by step.
 EOF
     return 0
   fi
@@ -299,7 +306,14 @@ cmd_db_setup() {
   warn "This creates the 'aviqr' role, 10 databases, schema, and demo/bulk data."
   read -r -p "Run aviqr_setup.sql as the postgres superuser now? [y/N] " reply
   [[ "$reply" =~ ^[Yy]$ ]] || { echo "Aborted."; return 1; }
-  sudo -u postgres psql -f - < "$BASE/aviqr_setup.sql"
+
+  if [ "$(uname -s)" = "Darwin" ]; then
+    # Homebrew Postgres has no 'postgres' system user — the OS user that
+    # installed it is the superuser, so run psql directly (no sudo).
+    psql postgres -f "$BASE/aviqr_setup.sql"
+  else
+    sudo -u postgres psql -f - < "$BASE/aviqr_setup.sql"
+  fi
 }
 
 # ==============================================================================

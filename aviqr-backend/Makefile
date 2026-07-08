@@ -1,32 +1,4 @@
-.PHONY: up down build logs ps clean restart
-
-# ── Docker Compose ─────────────────────────────────────────────────────────────
-up:
-	docker compose up -d
-
-up-infra:
-	docker compose up -d postgres mongo redis rabbitmq
-
-up-registry:
-	docker compose up -d service-registry
-
-down:
-	docker compose down
-
-logs:
-	docker compose logs -f --tail=100
-
-logs-svc:
-	docker compose logs -f $(SVC)
-
-ps:
-	docker compose ps
-
-restart:
-	docker compose restart $(SVC)
-
-clean:
-	docker compose down -v --remove-orphans
+.PHONY: build-all build run-auth run-shop run-gateway run-registry db-shell mongo-shell redis-cli rabbitmq-ui eureka-ui test test-svc wrapper
 
 # ── Build all services ─────────────────────────────────────────────────────────
 build-all:
@@ -35,14 +7,7 @@ build-all:
 build:
 	./gradlew $(SVC):build -x test
 
-# ── Build Docker images ────────────────────────────────────────────────────────
-docker-build:
-	docker compose build
-
-docker-build-svc:
-	docker compose build $(SVC)
-
-# ── Run specific service locally (requires infra up) ──────────────────────────
+# ── Run specific service locally (requires infra up — see ./aviqr.sh check) ───
 run-auth:
 	./gradlew auth-service:bootRun
 
@@ -57,13 +22,13 @@ run-registry:
 
 # ── Database ───────────────────────────────────────────────────────────────────
 db-shell:
-	docker exec -it aviqr-postgres psql -U aviqr -d aviqr_auth
+	psql -U aviqr -d aviqr_auth
 
 mongo-shell:
-	docker exec -it aviqr-mongo mongosh -u aviqr -p aviqr_secret
+	mongosh -u aviqr -p aviqr_secret --authenticationDatabase admin
 
 redis-cli:
-	docker exec -it aviqr-redis redis-cli -a aviqr_redis_secret
+	redis-cli -a aviqr_redis_secret
 
 rabbitmq-ui:
 	@echo "RabbitMQ Management UI: http://localhost:15672 (aviqr/aviqr_secret)"
@@ -82,4 +47,4 @@ test-svc:
 
 # ── Generate Gradle wrapper ────────────────────────────────────────────────────
 wrapper:
-	gradle wrapper --gradle-version 8.8
+	gradle wrapper --gradle-version 8.10.2
