@@ -5,6 +5,8 @@ import { useCart } from '../../context/CartContext.jsx';
 import { useCustomerAuth } from '../../context/CustomerAuthContext.jsx';
 import { setCustomerContext } from '../../context/customerContext.js';
 import CustomerLoginSheet from '../../components/customer/CustomerLoginSheet.jsx';
+import OrderCodePanel from '../../components/shared/OrderCodePanel.jsx';
+import OrderProgressTrack, { STATUSES } from '../../components/shared/OrderProgressTrack.jsx';
 import {
   ShoppingCart, Plus, Minus, Search, Star, Clock, MapPin,
   X, ChevronRight, CheckCircle, QrCode, Globe, ChevronDown,
@@ -233,6 +235,8 @@ const T = {
 
 const t = (key, lang) => T[key]?.[lang] || T[key]?.['en'] || key;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ─── Shop data — keyed by shopId ──────────────────────────────────────────────
 const SHOPS = {
   spiceroute: {
@@ -321,7 +325,11 @@ function normalizeApiShop(data) {
     })),
   }));
   return {
-    id: shop.id,
+    // /api/v1/menu/public/{shopId} returns the id at the top level (data.shopId),
+    // not nested inside data.shop — shop.id was always undefined here, which sent
+    // every order to /api/v1/orders/shop/undefined (shop_id stored as the literal
+    // string "undefined").
+    id: data.shopId || shop.id,
     name: shop.name || 'Restaurant',
     nameHi: shop.nameHi || shop.name,
     tagline: shop.tagline || '',
@@ -510,6 +518,14 @@ export default function CustomerMenu() {
   // path is exercisable end-to-end without a production Razorpay account).
   const placeRealOrder = async () => {
     if (!isLoggedIn) { setShowLogin(true); return; }
+    // The bundled offline preview menu (SHOPS.spiceroute/demo) ships fake item
+    // ids like "i1" for browsing only — it was never wired to real menu rows,
+    // so sending these as menuItemId 500s the backend (expects a UUID). Catch
+    // it here with a clear message instead of letting that request fire.
+    if (cartItems.some(i => !UUID_RE.test(i.id))) {
+      setOrderError("This is a preview menu and can't take real orders — scan the restaurant's actual QR code to order.");
+      return;
+    }
     setOrderError('');
     setPlacingOrder(true);
     try {
@@ -1005,30 +1021,26 @@ function BottomSheet({ children, onClose, tall }) {
 }
 
 // ─── Order Confirmed — real order tracking, polls the actual order status ────
-const STATUSES = [
-  { key:'NEW',       en:'Confirmed',  hi:'कन्फर्म हुआ',    ta:'உறுதி செய்யப்பட்டது',  icon:'✅' },
-  { key:'ACCEPTED',  en:'Confirmed',  hi:'कन्फर्म हुआ',    ta:'உறுதி செய்யப்பட்டது',  icon:'✅' },
-  { key:'PREPARING', en:'Preparing',  hi:'बन रहा है',       ta:'தயாரிக்கப்படுகிறது',   icon:'👨‍🍳' },
-  { key:'READY',     en:'Ready',      hi:'तैयार है',        ta:'தயார்',                 icon:'🔔' },
-  { key:'COMPLETED', en:'Served',     hi:'सर्व किया गया',  ta:'பரிமாறப்பட்டது',        icon:'🎉' },
-];
-const TRACK_STEPS = [STATUSES[1], STATUSES[2], STATUSES[3], STATUSES[4]]; // Confirmed/Preparing/Ready/Served
-
 function OrderConfirmed({ lang, shop, order: initialOrder, onBack }) {
   const [order, setOrder] = useState(initialOrder);
+  const [refreshing, setRefreshing] = useState(false);
   const { authHeader } = useCustomerAuth();
 
-  // Poll the real order every 5s so status reflects what the kitchen actually does —
-  // no more "Simulate next status" button, this is the genuine order-tracking flow.
-  useEffect(() => {
-    const poll = () => orderApi.getById(initialOrder.id, authHeader)
+  const refresh = () => {
+    setRefreshing(true);
+    return orderApi.getById(initialOrder.id, authHeader)
       .then(res => setOrder(res.data.data))
-      .catch(() => {});
-    const iv = setInterval(poll, 5000);
+      .catch(() => {})
+      .finally(() => setRefreshing(false));
+  };
+
+  // Poll the real order every 5s so status reflects what the kitchen actually does,
+  // plus a manual refresh button below for an on-demand check.
+  useEffect(() => {
+    const iv = setInterval(refresh, 5000);
     return () => clearInterval(iv);
   }, [initialOrder.id]);
 
-  const statusIdx = Math.max(0, TRACK_STEPS.findIndex(s => s.key === order.status));
   const currentStatus = STATUSES.find(s => s.key === order.status) || STATUSES[0];
   const statusLabel = lang === 'hi' ? currentStatus.hi : lang === 'ta' ? currentStatus.ta : currentStatus.en;
   const cancelled = order.status === 'CANCELLED' || order.status === 'REJECTED';
@@ -1045,26 +1057,25 @@ function OrderConfirmed({ lang, shop, order: initialOrder, onBack }) {
         </p>
         <div className="cm-order-id-chip">#{order.orderNumber || order.id?.slice(0,8)} · ₹{order.totalAmount}</div>
 
+        {/* Order code + QR — shown at the counter to pay (if pay-at-counter) and,
+            later, reused to collect the order once it's ready. Same panel is
+            reused on the order-history detail page (PortalOrderDetail). */}
+        <OrderCodePanel order={order} lang={lang} />
+
         {/* Status bar */}
         <div className="cm-status-current">
           <div className="cm-status-dot-live" />
           {lang === 'hi' ? 'स्थिति:' : lang === 'ta' ? 'நிலை:' : 'Status:'} <strong>{cancelled ? order.status : statusLabel}</strong>
+          <button
+            onClick={refresh}
+            disabled={refreshing}
+            style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', fontSize:12, fontWeight:700, color:'inherit', textDecoration:'underline', opacity: refreshing ? .5 : 1 }}>
+            {refreshing ? '…' : (lang === 'hi' ? 'रीफ़्रेश करें' : lang === 'ta' ? 'புதுப்பிக்க' : 'Refresh')}
+          </button>
         </div>
 
-        {/* Progress track */}
-        {!cancelled && (
-          <div className="cm-track">
-            {TRACK_STEPS.map((s, i) => (
-              <div key={s.key} className={`cm-track-step ${i <= statusIdx ? 'done' : ''} ${i === statusIdx ? 'active' : ''}`}>
-                <div className="cm-track-dot">{i < statusIdx ? '✓' : s.icon}</div>
-                <span className="cm-track-label">
-                  {lang === 'hi' ? s.hi : lang === 'ta' ? s.ta : s.en}
-                </span>
-                {i < TRACK_STEPS.length - 1 && <div className={`cm-track-line ${i < statusIdx ? 'done' : ''}`} />}
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Progress track — same component reused on the order-history detail page */}
+        <OrderProgressTrack status={order.status} lang={lang} />
 
         {/* Order summary — from the real placed order, not the (now-cleared) cart */}
         <div className="cm-confirmed-items">

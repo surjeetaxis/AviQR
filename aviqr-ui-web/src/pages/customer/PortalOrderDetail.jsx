@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { orderApi } from '../../api/index.js';
 import { useCustomerAuth } from '../../context/CustomerAuthContext.jsx';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import OrderCodePanel from '../../components/shared/OrderCodePanel.jsx';
+import OrderProgressTrack from '../../components/shared/OrderProgressTrack.jsx';
 
-const STATUS_COLOR = { NEW:'#f59e0b', ACCEPTED:'#3b82f6', PREPARING:'#3b82f6', READY:'#10b981', COMPLETED:'#6b7280', CANCELLED:'#ef4444', REJECTED:'#ef4444' };
+const STATUS_COLOR = { PENDING_PAYMENT:'#d97706', NEW:'#f59e0b', ACCEPTED:'#3b82f6', PREPARING:'#3b82f6', READY:'#10b981', COMPLETED:'#6b7280', CANCELLED:'#ef4444', REJECTED:'#ef4444' };
 
 export default function PortalOrderDetail() {
   const { orderId } = useParams();
@@ -12,14 +14,24 @@ export default function PortalOrderDetail() {
   const { authHeader } = useCustomerAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    orderApi.getById(orderId, authHeader)
+  const load = useCallback((showRefreshing) => {
+    if (showRefreshing) setRefreshing(true);
+    return orderApi.getById(orderId, authHeader)
       .then(res => setOrder(res.data.data))
       .catch(() => setError('Could not load this order.'))
-      .finally(() => setLoading(false));
+      .finally(() => { setLoading(false); setRefreshing(false); });
   }, [orderId]);
+
+  // Same tracking behavior as the just-placed-order screen: auto-refresh every
+  // 5s, plus a manual refresh button for an on-demand check.
+  useEffect(() => {
+    load();
+    const iv = setInterval(load, 5000);
+    return () => clearInterval(iv);
+  }, [load]);
 
   if (loading) return <div style={sx.center}><p style={{fontSize:13,color:'#9CA3AF'}}>Loading order…</p></div>;
   if (error || !order) return <div style={sx.center}><p style={{fontSize:13,color:'#DC2626'}}>{error || 'Order not found.'}</p></div>;
@@ -36,10 +48,27 @@ export default function PortalOrderDetail() {
             {order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : ''}
           </div>
         </div>
+        <button style={sx.refreshBtn} onClick={() => load(true)} disabled={refreshing} title="Refresh status">
+          <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+        </button>
         <span style={{ ...sx.statusBadge, color: statusColor, background: statusColor+'22' }}>{order.status}</span>
       </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       <div style={{ padding: '0 16px' }}>
+        {/* Order code + QR — same panel shown right after checkout, so a customer
+            revisiting from order history can still pull up the code to pay at
+            the counter or collect their order */}
+        <div style={sx.section}>
+          <OrderCodePanel order={order} />
+        </div>
+
+        {/* Confirmed → Preparing → Ready → Served — same track shown right
+            after checkout */}
+        <div style={sx.section}>
+          <OrderProgressTrack status={order.status} />
+        </div>
+
         <div style={sx.section}>
           <div style={sx.sectionTitle}>Items</div>
           <div style={sx.card}>
@@ -79,8 +108,9 @@ const sx = {
   center: { display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'60vh', textAlign:'center', padding:'0 30px' },
   header: { display:'flex', alignItems:'center', gap:10, padding:'0 16px', marginBottom:16 },
   backBtn: { background:'#F9FAFB', border:'1px solid #F0F0F0', borderRadius:10, width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 },
+  refreshBtn: { marginLeft:'auto', background:'#F9FAFB', border:'1px solid #F0F0F0', borderRadius:10, width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, color:'#374151' },
   title: { fontSize:16, fontWeight:800, margin:0 },
-  statusBadge: { marginLeft:'auto', fontSize:11, fontWeight:700, padding:'4px 10px', borderRadius:99, flexShrink:0 },
+  statusBadge: { fontSize:11, fontWeight:700, padding:'4px 10px', borderRadius:99, flexShrink:0 },
   section: { marginBottom:16 },
   sectionTitle: { fontSize:13, fontWeight:700, color:'#374151', marginBottom:8, textTransform:'uppercase', letterSpacing:.3 },
   card: { background:'#fff', border:'1px solid #F0F0F0', borderRadius:14, padding:'12px 14px' },

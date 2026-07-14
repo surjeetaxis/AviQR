@@ -14,6 +14,7 @@ public class OrderResponse {
     PaymentStatus paymentStatus; String paymentId;
     BigDecimal subtotal; BigDecimal tax; BigDecimal totalAmount;
     String notes; List<ItemDto> items;
+    String confirmationCode; LocalDateTime paymentConfirmedAt;
     LocalDateTime createdAt; LocalDateTime updatedAt;
     LocalDateTime acceptedAt; LocalDateTime completedAt;
 

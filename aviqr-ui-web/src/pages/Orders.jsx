@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   RefreshCw, Printer, FileText, Bell, XCircle, Search,
   Clock, Bike, ShoppingBag, UtensilsCrossed, AlertTriangle,
-  CheckCircle2, ChefHat, Truck, Package, Plus
+  CheckCircle2, ChefHat, Truck, Package, Plus, QrCode as QrCodeIcon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { orderApi, invoiceApi } from '../api/index.js';
+import ConfirmCodeModal from '../components/shared/ConfirmCodeModal.jsx';
 import './Orders.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -17,7 +18,7 @@ const ORDER_TYPES = {
   DELIVERY: { label:'Delivery', icon:Bike,            color:'#D97706', bg:'#FFFBEB' },
 };
 const STATUS_NEXT  = { NEW:'ACCEPTED', ACCEPTED:'PREPARING', PREPARING:'READY', READY:'COMPLETED' };
-const STATUS_LABEL = { NEW:'New', ACCEPTED:'Accepted', PREPARING:'Preparing', READY:'Ready!', COMPLETED:'Done', CANCELLED:'Cancelled', REJECTED:'Rejected' };
+const STATUS_LABEL = { PENDING_PAYMENT:'Awaiting confirmation', NEW:'New', ACCEPTED:'Accepted', PREPARING:'Preparing', READY:'Ready!', COMPLETED:'Done', CANCELLED:'Cancelled', REJECTED:'Rejected' };
 const STATUS_COLOR = { NEW:'#2563EB', ACCEPTED:'#D97706', PREPARING:'#7C3AED', READY:'#1D9E75', COMPLETED:'#6B7280', CANCELLED:'#DC2626', REJECTED:'#DC2626' };
 const STATUS_ICON  = { NEW:'🆕', ACCEPTED:'✓', PREPARING:'👨‍🍳', READY:'🔔', COMPLETED:'✅', CANCELLED:'✗', REJECTED:'✗' };
 const ADVANCE_LABEL= { NEW:'Accept order', ACCEPTED:'Start cooking', PREPARING:'Mark ready', READY:'Mark delivered' };
@@ -110,6 +111,7 @@ export default function Orders() {
   const [refreshing, setRef]      = useState(false);
   const [error,      setError]    = useState(null);
   const [kotOrder,   setKot]      = useState(null);  // order shown in KOT preview
+  const [showCodeModal, setShowCodeModal] = useState(false);
   const prevNew = useRef(0);
 
   const load = useCallback(async (showRef = false) => {
@@ -206,11 +208,23 @@ export default function Orders() {
           <button className="btn btn-secondary" onClick={() => load(true)}>
             <RefreshCw size={14} style={{ animation:refreshing?'spin 1s linear infinite':'none' }} /> Refresh
           </button>
+          <button className="btn btn-secondary" onClick={() => setShowCodeModal(true)}>
+            <QrCodeIcon size={14} /> Confirm code
+          </button>
           <button className="btn btn-primary" onClick={() => nav('/billing')}>
             <Plus size={14} /> New order
           </button>
         </div>
       </div>
+
+      {showCodeModal && (
+        <ConfirmCodeModal
+          shopId={shopId}
+          role={(user?.role || '').toUpperCase()}
+          onClose={() => setShowCodeModal(false)}
+          onActed={() => load(true)}
+        />
+      )}
 
       {error && (
         <div className="alert alert-error" style={{ marginBottom:12 }}>

@@ -27,6 +27,8 @@ public class Order {
     @Column(precision=10, scale=2) @Builder.Default private BigDecimal tax = BigDecimal.ZERO;
     @Column(nullable=false, precision=10, scale=2) private BigDecimal totalAmount;
     private String notes;
+    @Column(length=6) private String confirmationCode;
+    private LocalDateTime paymentConfirmedAt;
     @OneToMany(mappedBy="order", cascade=CascadeType.ALL, orphanRemoval=true, fetch=FetchType.EAGER)
     @Builder.Default private List<OrderItem> items = new ArrayList<>();
     @CreationTimestamp private LocalDateTime createdAt;

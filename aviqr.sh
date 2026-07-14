@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-#  aviqr.sh  —  AviQR master script
-#
-#  Works with OR without Docker. Auto-detects what's installed.
+#  aviqr.sh  —  AviQR master script (native, no Docker)
 #
 #  COMMANDS
 #  ────────
@@ -13,12 +11,6 @@
 #  ./aviqr.sh stop           → Stop everything
 #  ./aviqr.sh status         → Show running services
 #  ./aviqr.sh logs [service] → Tail service log
-#
-#  DOCKER USERS (optional)
-#  ──────────────────────
-#  ./aviqr.sh docker up      → docker compose up -d (all infra + services)
-#  ./aviqr.sh docker build   → build all Docker images (no local Java needed)
-#  ./aviqr.sh docker down    → docker compose down
 # ═══════════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -39,13 +31,12 @@ banner(){ echo ""; echo "  ┌────────────────�
 
 # ── Tool detection ─────────────────────────────────────────────────────────────
 has()        { command -v "$1" >/dev/null 2>&1; }
-has_docker() { has docker && docker info >/dev/null 2>&1; }
 has_java()   { has java && java -version 2>&1 | grep -q '2[1-9]\|[3-9][0-9]'; }
 has_gradle() {
   # gradlew (wrapper) preferred; fall back to system gradle ≥7
   if [ -f "$BACKEND/gradlew" ] && [ -f "$BACKEND/gradle/wrapper/gradle-wrapper.jar" ]; then
     echo "wrapper"
-  elif has gradle && gradle --version 2>/dev/null | grep -qP 'Gradle [7-9]\d*\.'; then
+  elif has gradle && gradle --version 2>/dev/null | grep -qE 'Gradle [7-9][0-9]*\.'; then
     echo "system"
   else
     echo "none"
@@ -64,8 +55,7 @@ run_gradle() {
       echo "    source ~/.sdkman/bin/sdkman-init.sh"
       echo "    sdk install gradle 8.10.2"
       echo ""
-      echo "  OR use Docker (no local Gradle needed):"
-      echo "    ./aviqr.sh docker build"
+      echo "  OR on macOS: brew install gradle"
       exit 1 ;;
   esac
 }
@@ -74,7 +64,7 @@ run_gradle() {
 cmd_check() {
   banner "AviQR — Environment Check"
 
-  echo "  Required for backend (local mode):"
+  echo "  Required for backend:"
   has_java  && ok "Java 21+" || warn "Java 21+ not found  →  https://adoptium.net/temurin/releases/?version=21"
   [ "$(has_gradle)" != "none" ] && ok "Gradle ($(has_gradle))" || warn "Gradle 8+ not found  →  sdk install gradle 8.10.2"
   has pg_isready   && ok "PostgreSQL" || warn "PostgreSQL not found  →  ./aviqr.sh setup"
@@ -86,10 +76,6 @@ cmd_check() {
   echo "  Required for web:"
   has node && ok "Node.js $(node --version)" || warn "Node.js not found  →  https://nodejs.org"
   has npm  && ok "npm $(npm --version)"       || warn "npm not found"
-
-  echo ""
-  echo "  Optional (Docker):"
-  has_docker && ok "Docker (running)" || warn "Docker not found — local mode will be used"
 
   echo ""
   echo "  Connectivity (localhost):"
@@ -108,32 +94,6 @@ cmd_check() {
 cmd_setup() {
   banner "AviQR — First-Time Setup"
 
-  if has_docker; then
-    info "Docker detected — using Docker for infrastructure (easiest)"
-    echo ""
-    echo "  This will start PostgreSQL, MongoDB, Redis and RabbitMQ in Docker containers"
-    echo "  and create all AviQR databases automatically."
-    echo ""
-    read -rp "  Continue? [Y/n] " reply
-    [[ "${reply:-y}" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
-
-    info "Starting infrastructure containers…"
-    (cd "$BACKEND" && docker compose up -d postgres mongo redis rabbitmq)
-    info "Waiting 30s for containers to initialise…"
-    sleep 30
-    ok "Infrastructure ready"
-    echo ""
-    echo "  PostgreSQL : localhost:5432  (aviqr / aviqr_secret)"
-    echo "  MongoDB    : localhost:27017 (aviqr / aviqr_secret)"
-    echo "  Redis      : localhost:6379  (password: aviqr_redis_secret)"
-    echo "  RabbitMQ   : localhost:5672  (aviqr / aviqr_secret)"
-    echo "  RabbitMQ UI: http://localhost:15672"
-    echo ""
-    echo "  Next: ./aviqr.sh build"
-    return
-  fi
-
-  # No Docker — install natively
   if [[ "$(uname -s)" == "Darwin" ]]; then
     _setup_mac
   elif command -v apt-get >/dev/null 2>&1; then
@@ -142,27 +102,33 @@ cmd_setup() {
     echo ""
     echo "  Automatic setup is supported on macOS (brew) and Ubuntu/Debian (apt)."
     echo "  For other systems, see INSTALL.md for manual steps."
-    echo ""
-    echo "  OR install Docker and re-run: ./aviqr.sh setup"
-    echo "  Docker: https://docs.docker.com/get-docker/"
   fi
 }
 
 _setup_mac() {
   banner "macOS Setup (Homebrew)"
-  has brew || { err "Homebrew not found. Install: https://brew.sh"; exit 1; }
-  echo "  Installing Java 21, PostgreSQL, MongoDB, Redis, RabbitMQ, Node.js, Gradle…"
-  brew install openjdk@21 postgresql@17 mongodb-community redis rabbitmq node@20 gradle
-  brew services start postgresql@17
-  brew services start mongodb-community
-  brew services start redis
-  brew services start rabbitmq
-  _create_dbs
-  ok "macOS setup complete"
+  if [ -x "$BACKEND/install-mac.sh" ]; then
+    "$BACKEND/install-mac.sh" --yes
+  else
+    has brew || { err "Homebrew not found. Install: https://brew.sh"; exit 1; }
+    echo "  Installing Java 21, PostgreSQL, MongoDB, Redis, RabbitMQ, Node.js, Gradle…"
+    brew install openjdk@21 postgresql@17 mongodb-community redis rabbitmq node@20 gradle
+    brew services start postgresql@17
+    brew services start mongodb-community
+    brew services start redis
+    brew services start rabbitmq
+    _create_dbs
+    ok "macOS setup complete"
+  fi
 }
 
 _setup_ubuntu() {
   banner "Ubuntu / Debian Setup (apt)"
+  if [ -x "$BACKEND/aviqr.sh" ]; then
+    (cd "$BACKEND" && ./aviqr.sh install --yes)
+    return
+  fi
+
   echo "  This will install Java 21, PostgreSQL, MongoDB, Redis, RabbitMQ, Node.js"
   read -rp "  Proceed with sudo apt install? [Y/n] " reply
   [[ "${reply:-y}" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
@@ -206,25 +172,16 @@ _setup_ubuntu() {
 _create_dbs() {
   info "Creating PostgreSQL databases and aviqr user…"
 
-  # PostgreSQL
   if has psql; then
-    local SQL_CONTENT="DO \$\$ BEGIN
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'aviqr') THEN
-    CREATE ROLE aviqr WITH LOGIN PASSWORD 'aviqr_secret' CREATEDB;
-  END IF;
-END \$\$;
-CREATE DATABASE IF NOT EXISTS aviqr_auth    WITH OWNER aviqr;
-CREATE DATABASE IF NOT EXISTS aviqr_shop    WITH OWNER aviqr;
-CREATE DATABASE IF NOT EXISTS aviqr_menu    WITH OWNER aviqr;
-CREATE DATABASE IF NOT EXISTS aviqr_order   WITH OWNER aviqr;
-CREATE DATABASE IF NOT EXISTS aviqr_payment WITH OWNER aviqr;
-CREATE DATABASE IF NOT EXISTS aviqr_qr      WITH OWNER aviqr;
-CREATE DATABASE IF NOT EXISTS aviqr_hotel   WITH OWNER aviqr;
-CREATE DATABASE IF NOT EXISTS aviqr_mall    WITH OWNER aviqr;
-CREATE DATABASE IF NOT EXISTS aviqr_support WITH OWNER aviqr;"
-    echo "$SQL_CONTENT" | sudo -u postgres psql 2>/dev/null || \
-    echo "$SQL_CONTENT" | psql -U postgres 2>/dev/null || true
-    ok "PostgreSQL databases created"
+    if [ -f "$BACKEND/aviqr_setup.sql" ]; then
+      if [[ "$(uname -s)" == "Darwin" ]]; then
+        psql postgres -f "$BACKEND/aviqr_setup.sql" 2>/dev/null || true
+      else
+        sudo -u postgres psql -f "$BACKEND/aviqr_setup.sql" 2>/dev/null || \
+        psql -U postgres -f "$BACKEND/aviqr_setup.sql" 2>/dev/null || true
+      fi
+      ok "PostgreSQL databases created"
+    fi
   fi
 
   # MongoDB user
@@ -238,8 +195,11 @@ CREATE DATABASE IF NOT EXISTS aviqr_support WITH OWNER aviqr;"
 
   # RabbitMQ user
   if has rabbitmqctl; then
+    rabbitmqctl add_user aviqr aviqr_secret 2>/dev/null || \
     sudo rabbitmqctl add_user aviqr aviqr_secret 2>/dev/null || true
+    rabbitmqctl set_user_tags aviqr administrator 2>/dev/null || \
     sudo rabbitmqctl set_user_tags aviqr administrator 2>/dev/null || true
+    rabbitmqctl set_permissions -p / aviqr '.*' '.*' '.*' 2>/dev/null || \
     sudo rabbitmqctl set_permissions -p / aviqr '.*' '.*' '.*' 2>/dev/null || true
     ok "RabbitMQ user created"
   fi
@@ -250,7 +210,7 @@ cmd_build() {
   local TARGET="${1:-all}"
 
   if [[ "$TARGET" == "backend" || "$TARGET" == "all" ]]; then
-    banner "Building backend (14 Spring Boot services)"
+    banner "Building backend (10 Spring Boot services)"
     if ! has_java; then
       err "Java 21+ not found. Run: ./aviqr.sh setup"
       exit 1
@@ -277,19 +237,10 @@ cmd_start() {
 
   if [[ "$TARGET" == "backend" || "$TARGET" == "all" ]]; then
     banner "Starting backend"
-
-    if has_docker; then
-      info "Docker detected — starting via docker compose"
-      (cd "$BACKEND" && docker compose up -d)
-      info "Waiting 60s for all services to register in Eureka…"
-      sleep 60
-    else
-      info "No Docker — starting services with local Java"
-      info "Starting infrastructure first…"
-      _check_local_infra
-      info "Starting all 14 services (this takes ~2 min)…"
-      (cd "$BACKEND" && bash aviqr.sh run all)
-    fi
+    info "Checking infrastructure first…"
+    _check_local_infra
+    info "Starting all 10 services (this takes ~2 min)…"
+    (cd "$BACKEND" && bash aviqr.sh run all)
 
     # Health check
     local health; health=$(curl -sf http://localhost:8080/actuator/health 2>/dev/null | python3 -c "import sys,json;print(json.load(sys.stdin).get('status','?'))" 2>/dev/null || echo "starting")
@@ -336,10 +287,8 @@ _check_local_infra() {
     echo ""
     echo "  Start it first:"
     echo "    ./aviqr.sh setup          # first time — installs + starts"
-    echo "    sudo systemctl start postgresql mongod redis rabbitmq-server"
-    echo ""
-    echo "  OR install Docker and use:"
-    echo "    ./aviqr.sh docker up"
+    echo "    sudo systemctl start postgresql mongod redis rabbitmq-server   # Linux"
+    echo "    brew services start postgresql@17 mongodb-community redis rabbitmq  # Mac"
     exit 1
   fi
   ok "All infrastructure is reachable"
@@ -350,13 +299,8 @@ cmd_stop() {
   local TARGET="${1:-all}"
 
   if [[ "$TARGET" == "backend" || "$TARGET" == "all" ]]; then
-    if has_docker; then
-      info "Stopping backend containers…"
-      (cd "$BACKEND" && docker compose stop 2>/dev/null || true)
-    else
-      info "Stopping local backend services…"
-      (cd "$BACKEND" && bash aviqr.sh stop all 2>/dev/null || true)
-    fi
+    info "Stopping local backend services…"
+    (cd "$BACKEND" && bash aviqr.sh stop all 2>/dev/null || true)
     ok "Backend stopped"
   fi
 
@@ -376,28 +320,22 @@ cmd_stop() {
 cmd_status() {
   banner "AviQR Status"
 
-  if has_docker; then
-    echo "  Docker containers:"
-    docker ps --format "    {{.Names}}  {{.Status}}" 2>/dev/null | grep aviqr || echo "    (none running)"
-    echo ""
-  else
-    echo "  Local services (checking ports):"
-    for name_port in "service-registry:8761" "api-gateway:8080" "auth-service:dyn" "shop-service:dyn" "menu-service:dyn" "order-service:dyn"; do
-      local n="${name_port%%:*}" p="${name_port##*:}"
-      if [[ "$p" != "dyn" ]] && bash -c ">/dev/tcp/localhost/$p" 2>/dev/null; then
-        ok "$n :$p"
-      elif [[ "$p" == "dyn" ]]; then
-        pgrep -f "$n" >/dev/null 2>&1 && ok "$n (running)" || echo "    ✗ $n"
-      else
-        echo "    ✗ $n :$p"
-      fi
-    done
-    echo ""
-  fi
+  echo "  Local services (checking ports):"
+  for name_port in "service-registry:8761" "api-gateway:8080" "auth-service:dyn" "shop-mall-service:dyn" "menu-ocr-service:dyn" "order-qr-service:dyn" "payment-service:dyn" "hotel-service:dyn" "support-service:dyn" "notification-report-review-service:dyn"; do
+    local n="${name_port%%:*}" p="${name_port##*:}"
+    if [[ "$p" != "dyn" ]] && bash -c ">/dev/tcp/localhost/$p" 2>/dev/null; then
+      ok "$n :$p"
+    elif [[ "$p" == "dyn" ]]; then
+      pgrep -f "$n" >/dev/null 2>&1 && ok "$n (running)" || echo "    ✗ $n"
+    else
+      echo "    ✗ $n :$p"
+    fi
+  done
+  echo ""
 
   echo "  Endpoint health:"
-  for url_name in "http://localhost:8761/actuator/health:Eureka" "http://localhost:8080/actuator/health:API Gateway"; do
-    local url="${url_name%%:*}" name="${url_name##*:}"
+  for url_name in "http://localhost:8761/actuator/health|Eureka" "http://localhost:8080/actuator/health|API Gateway"; do
+    local url="${url_name%%|*}" name="${url_name##*|}"
     local s; s=$(curl -sf "$url" 2>/dev/null | python3 -c "import sys,json;print(json.load(sys.stdin).get('status','?'))" 2>/dev/null || echo "unreachable")
     [[ "$s" == "UP" ]] && ok "$name ($s)" || echo "    $name — $s"
   done
@@ -433,69 +371,12 @@ cmd_logs() {
       echo "  ./aviqr.sh logs order                  order-service"
       echo "  ./aviqr.sh logs gateway                api-gateway"
       echo ""
-      echo "  (service logs via docker or local log files)"
       ;;
     *)
-      # Try docker logs first, then local log file
       local svc="$TARGET"
       [[ "$svc" != *-service && "$svc" != "api-gateway" && "$svc" != "service-registry" ]] && svc="${TARGET}-service"
-      if has_docker; then
-        docker logs -f "aviqr-${TARGET}" 2>/dev/null || \
-        docker logs -f "$svc" 2>/dev/null || \
-        (cd "$BACKEND" && bash aviqr.sh logs "$svc" -f 2>/dev/null) || \
-        warn "Service '$TARGET' not found"
-      else
-        (cd "$BACKEND" && bash aviqr.sh logs "$svc" -f 2>/dev/null) || \
-        warn "Service '$TARGET' not found"
-      fi
-      ;;
-  esac
-}
-
-# ── docker commands ─────────────────────────────────────────────────────────────
-cmd_docker() {
-  local ACTION="${1:-help}"
-  if ! has docker; then
-    err "Docker not found."
-    echo ""
-    echo "  Install Docker Desktop: https://docs.docker.com/get-docker/"
-    echo ""
-    echo "  While Docker is not installed, use local mode:"
-    echo "    ./aviqr.sh setup     # install PostgreSQL/MongoDB/Redis/RabbitMQ"
-    echo "    ./aviqr.sh build"
-    echo "    ./aviqr.sh start"
-    exit 1
-  fi
-  case "$ACTION" in
-    up|start)
-      banner "Docker — starting all services"
-      (cd "$BACKEND" && docker compose up -d)
-      info "Waiting 60s for services to register…"
-      sleep 60
-      cmd_status
-      ;;
-    build)
-      banner "Docker — building all 14 images"
-      info "This runs Gradle inside Docker — no local Java needed"
-      info "First build takes 10–15 min (downloads dependencies)"
-      (cd "$BACKEND" && docker compose build --parallel)
-      ok "All images built"
-      ;;
-    down|stop)
-      (cd "$BACKEND" && docker compose down)
-      ok "All containers stopped"
-      ;;
-    infra)
-      info "Starting infrastructure only (postgres/mongo/redis/rabbitmq)…"
-      (cd "$BACKEND" && docker compose up -d postgres mongo redis rabbitmq)
-      sleep 15
-      ok "Infrastructure up"
-      ;;
-    help|*)
-      echo "  ./aviqr.sh docker up      Start all services"
-      echo "  ./aviqr.sh docker build   Build images (no local Gradle)"
-      echo "  ./aviqr.sh docker infra   Start infra only"
-      echo "  ./aviqr.sh docker down    Stop all"
+      (cd "$BACKEND" && bash aviqr.sh logs "$svc" -f 2>/dev/null) || \
+      warn "Service '$TARGET' not found"
       ;;
   esac
 }
@@ -504,43 +385,20 @@ cmd_docker() {
 cmd_quickstart() {
   banner "AviQR — Quick Start"
 
-  if has_docker; then
-    echo "  Docker detected ✓ — using Docker path (easiest)"
-    echo ""
-    echo "  Step 1: Start infrastructure"
-    echo "    ./aviqr.sh docker infra"
-    echo ""
-    echo "  Step 2: Build all 14 microservices"
-    echo "    ./aviqr.sh build backend           (needs Java 21 + Gradle)"
-    echo "    # OR (no Java needed):"
-    echo "    ./aviqr.sh docker build"
-    echo ""
-    echo "  Step 3: Start backend"
-    echo "    ./aviqr.sh docker up"
-    echo ""
-    echo "  Step 4: Start web"
-    echo "    ./aviqr.sh start web"
-    echo ""
-    echo "  Step 5: Open browser"
-    echo "    http://localhost:5173"
-  else
-    echo "  Docker not found — using local mode"
-    echo ""
-    echo "  Step 1: Install prerequisites"
-    echo "    ./aviqr.sh setup          (installs Java, PG, Mongo, Redis, RabbitMQ)"
-    echo ""
-    echo "  Step 2: Build"
-    echo "    ./aviqr.sh build"
-    echo ""
-    echo "  Step 3: Start"
-    echo "    ./aviqr.sh start"
-    echo ""
-    echo "  Step 4: Open browser"
-    echo "    http://localhost:5173"
-    echo ""
-    echo "  TIP: Install Docker for much easier dependency management:"
-    echo "    https://docs.docker.com/get-docker/"
-  fi
+  echo "  Step 1: Install prerequisites"
+  echo "    ./aviqr.sh setup          (installs Java, PG, Mongo, Redis, RabbitMQ)"
+  echo ""
+  echo "  Step 2: Build"
+  echo "    ./aviqr.sh build"
+  echo ""
+  echo "  Step 3: Start (backend + web together)"
+  echo "    ./aviqr.sh start"
+  echo ""
+  echo "  Step 4: Open browser"
+  echo "    http://localhost:5173"
+  echo ""
+  echo "  Prefer to run backend/web separately, or one backend service at a time?"
+  echo "  See BACKEND ADVANCED and WEB ADVANCED sections in: ./aviqr.sh help"
   echo ""
 }
 
@@ -558,28 +416,29 @@ cmd_usage() {
   ./aviqr.sh setup               Install all prerequisites (first time)
 
   ./aviqr.sh build [backend|web] Build JARs and/or web bundle
-  ./aviqr.sh start [backend|web] Start services
+  ./aviqr.sh start [backend|web] Start services (default: both)
   ./aviqr.sh stop  [backend|web] Stop services
   ./aviqr.sh status              Show running services + health
   ./aviqr.sh logs  <service>     Tail logs (e.g. logs auth, logs web)
 
-  DOCKER (if Docker is installed)
-  ════════════════════════════════
-  ./aviqr.sh docker build        Build all Docker images (no local Java needed)
-  ./aviqr.sh docker up           Start all services in Docker
-  ./aviqr.sh docker infra        Start infra only (postgres/mongo/redis/rabbitmq)
-  ./aviqr.sh docker down         Stop all containers
-
-  BACKEND ADVANCED (from aviqr-backend/)
-  ═══════════════════════════════════════
+  BACKEND ADVANCED — run one service at a time (from aviqr-backend/)
+  ════════════════════════════════════════════════════════════════
   cd aviqr-backend
-  ./aviqr.sh check               Check all backend prerequisites
-  ./aviqr.sh install --yes       Auto-install system packages (Ubuntu/Debian)
-  ./aviqr.sh build               Build all 14 JARs
-  ./aviqr.sh run all             Start all services locally (no Docker)
-  ./aviqr.sh run auth-service    Run one service in foreground
-  ./aviqr.sh status              Per-service running status
-  ./aviqr.sh logs auth-service -f  Follow log
+  ./aviqr.sh check                 Check all backend prerequisites
+  ./aviqr.sh install --yes         Auto-install system packages (Mac/Ubuntu)
+  ./aviqr.sh db-setup               Seed the database
+  ./aviqr.sh build                 Build all 10 JARs
+  ./aviqr.sh run all                Start all services locally
+  ./aviqr.sh run auth-service       Run one service in foreground
+  ./aviqr.sh run auth-service --bg  Run one service in background
+  ./aviqr.sh status                 Per-service running status
+  ./aviqr.sh logs auth-service -f   Follow log
+
+  WEB ADVANCED — run just the UI (from aviqr-ui-web/)
+  ════════════════════════════════════════════════════
+  cd aviqr-ui-web
+  ./run.sh          Install deps (if needed) + start the Vite dev server
+  ./run.sh build    Production build → dist/
 
 EOF
 }
@@ -599,7 +458,6 @@ case "$CMD" in
   restart)           cmd_stop "${1:-all}"; cmd_start "${1:-all}" ;;
   status)            cmd_status ;;
   logs)              cmd_logs "${1:-help}" ;;
-  docker)            cmd_docker "${1:-help}" ;;
   *)
     err "Unknown command: $CMD"
     cmd_usage

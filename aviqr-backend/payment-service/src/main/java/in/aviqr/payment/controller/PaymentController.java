@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
@@ -22,6 +23,7 @@ import java.util.*;
 public class PaymentController {
 
     private final PaymentRepository repo;
+    private final RestTemplate restTemplate;
 
     @Value("${razorpay.key.id:rzp_test_placeholder}")
     private String razorpayKeyId;
@@ -31,6 +33,25 @@ public class PaymentController {
 
     @Value("${razorpay.webhook.secret:placeholder_secret}")
     private String razorpayWebhookSecret;
+
+    @Value("${internal.sync.secret:}")
+    private String internalSyncSecret;
+
+    /** Notifies order-qr-service once a payment is captured so a pay-at-counter-gated
+     *  order is released straight to the kitchen without a manual cashier step. Never
+     *  allowed to block or fail the payment response — sync issues are logged only. */
+    private void syncOrderPaymentCaptured(String orderId) {
+        if (orderId == null || orderId.isBlank()) return;
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            if (!internalSyncSecret.isBlank()) headers.set("X-Internal-Secret", internalSyncSecret);
+            restTemplate.exchange(
+                "http://order-qr-service/api/v1/orders/" + orderId + "/payment-sync",
+                HttpMethod.POST, new HttpEntity<>(headers), Void.class);
+        } catch (Exception e) {
+            log.warn("Failed to sync payment capture to order-qr-service for orderId={}: {}", orderId, e.getMessage());
+        }
+    }
 
     /** Create a real Razorpay order — called before Razorpay checkout */
     @PostMapping("/create-order")
@@ -105,6 +126,7 @@ public class PaymentController {
                 p.setPaidAt(valid ? LocalDateTime.now() : null);
                 repo.save(p);
             });
+            if (valid) syncOrderPaymentCaptured(req.getOrderId());
 
             Map<String,Object> res = new HashMap<>();
             res.put("verified",  valid);
@@ -169,6 +191,7 @@ public class PaymentController {
                         p.setPaidAt(LocalDateTime.now());
                         repo.save(p);
                         log.info("Webhook: payment.captured for orderId={}", rzpOrderId);
+                        syncOrderPaymentCaptured(p.getOrderId());
                     });
                     case "payment.failed" -> repo.findByRazorpayOrderId(rzpOrderId).ifPresent(p -> {
                         p.setStatus(PaymentStatus.FAILED);

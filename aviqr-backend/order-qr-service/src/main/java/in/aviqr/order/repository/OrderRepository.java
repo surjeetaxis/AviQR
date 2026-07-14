@@ -12,6 +12,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByShopIdAndStatusIn(String shopId, List<OrderStatus> statuses);
     Optional<Order> findByOrderNumber(String orderNumber);
     Page<Order> findByCustomerIdOrderByCreatedAtDesc(String customerId, Pageable pageable);
+    Optional<Order> findByShopIdAndConfirmationCode(String shopId, String confirmationCode);
+    Optional<Order> findByShopIdAndConfirmationCodeAndStatusNotIn(String shopId, String confirmationCode, List<OrderStatus> excludedStatuses);
 
     @Query("SELECT o FROM Order o WHERE o.shopId=:shopId AND o.createdAt BETWEEN :from AND :to")
     List<Order> findByShopIdAndDateRange(@Param("shopId") String shopId,
