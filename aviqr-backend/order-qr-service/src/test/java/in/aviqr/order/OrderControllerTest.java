@@ -9,6 +9,7 @@ import in.aviqr.order.entity.OrderType;
 import in.aviqr.order.entity.PaymentMethod;
 import in.aviqr.order.entity.PaymentStatus;
 import in.aviqr.order.service.OrderService;
+import in.aviqr.order.service.QrService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -39,6 +40,7 @@ class OrderControllerTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
     @MockBean  OrderService orderService;
+    @MockBean  QrService qrService;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -79,7 +81,7 @@ class OrderControllerTest {
     @Test
     @DisplayName("POST /shop/{shopId} — 200 and order returned in response body")
     void placeOrder_validRequest_returns200() throws Exception {
-        when(orderService.create(eq("shop-101"), any(), any())).thenReturn(sampleResponse());
+        when(orderService.create(eq("shop-101"), any(), any(), anyBoolean())).thenReturn(sampleResponse());
 
         mvc.perform(post("/api/v1/orders/shop/shop-101")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -93,7 +95,7 @@ class OrderControllerTest {
     @Test
     @DisplayName("POST /shop/{shopId}/pos — POS endpoint returns 200")
     void posPlaceOrder_validRequest_returns200() throws Exception {
-        when(orderService.create(eq("shop-101"), any(), any())).thenReturn(sampleResponse());
+        when(orderService.create(eq("shop-101"), any(), any(), anyBoolean())).thenReturn(sampleResponse());
 
         mvc.perform(post("/api/v1/orders/shop/shop-101/pos")
                 .contentType(MediaType.APPLICATION_JSON)

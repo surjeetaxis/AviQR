@@ -514,31 +514,6 @@
 }
 @keyframes ticker-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(29,158,117,.5)} 70%{box-shadow:0 0 0 8px rgba(29,158,117,0)} }
 
-/* Progress track */
-.cm-track { display: flex; align-items: flex-start; gap: 0; width: 100%; justify-content: center; }
-.cm-track-step {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  flex: 1; position: relative;
-}
-.cm-track-dot {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: #F3F4F6; color: #9CA3AF;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
-  border: 2px solid #E5E7EB;
-  transition: all .3s; z-index: 1;
-}
-.cm-track-step.done .cm-track-dot { background: var(--green-light); border-color: var(--green); }
-.cm-track-step.active .cm-track-dot { background: var(--green); border-color: var(--green); color: #fff; box-shadow: 0 0 0 6px rgba(29,158,117,.15); }
-.cm-track-label { font-size: 10.5px; color: #9CA3AF; text-align: center; font-family: inherit; }
-.cm-track-step.done .cm-track-label, .cm-track-step.active .cm-track-label { color: var(--green-darker); font-weight: 600; }
-.cm-track-line {
-  position: absolute; top: 17px; left: calc(50% + 18px);
-  width: calc(100% - 36px); height: 2px;
-  background: #E5E7EB; z-index: 0;
-}
-.cm-track-line.done { background: var(--green); }
-
 .cm-confirmed-items {
   width: 100%;
   background: #F8F8F8; border-radius: 12px; padding: 12px;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { RefreshCw, ChefHat, Bell, Clock, UtensilsCrossed, ShoppingBag, Bike, Maximize2, Minimize2, Volume2, VolumeX, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
@@ -150,15 +150,18 @@ export default function KOT() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [expanded, setExpanded] = useState(true);   // hides sidebar/topbar
+  const [expanded, setExpanded] = useState(false);  // sidebar/topbar visible until the user clicks Maximize
   const [fullscreen, setFullscreen] = useState(false); // browser native fullscreen
   const [muted, setMuted] = useState(false);
   const [tick, setTick] = useState(0);
   const prevNewCount = useRef(0);
   const audioCtx = useRef(null);
 
-  // Manage sidebar/topbar visibility via body class
-  useEffect(() => {
+  // Manage sidebar/topbar visibility via body class. useLayoutEffect (not
+  // useEffect) — this must apply before the browser paints, otherwise the
+  // sidebar/topbar flash visible for a frame on load before snapping to
+  // full screen.
+  useLayoutEffect(() => {
     if (expanded) {
       document.body.classList.add('kot-expanded');
     } else {

@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Minus, Printer, CreditCard, Wallet, Banknote, X, Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, PanelLeftClose, PanelLeftOpen, Maximize2, Minimize2 } from 'lucide-react';
+import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
+import { Plus, Minus, Printer, CreditCard, Wallet, Banknote, X, Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, PanelLeftClose, PanelLeftOpen, Maximize2, Minimize2, QrCode as QrCodeIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { menuApi, posApi, paymentApi, addonApi, variantApi, invoiceApi, shopApi } from '../api/index.js';
+import ConfirmCodeModal from '../components/shared/ConfirmCodeModal.jsx';
 
 const PAY_METHODS = [
   { key:'CASH',   label:'Cash',    icon:Banknote,    color:'#1D9E75' },
@@ -30,18 +31,22 @@ export default function Billing() {
   const [addonModal, setAddonMod]= useState(null); // item being customised
   const [variants,   setVariants]= useState({});   // itemId → [variants]
   const [orderType,  setOrderType]= useState('DINE_IN');
-  const [expanded,   setExpanded]= useState(true);
+  const [expanded,   setExpanded]= useState(false); // sidebar visible until the user clicks Maximize
   const [fullscreen, setFullscreen]= useState(false);
   const [upiId,      setUpiId]   = useState('');
   const [shopName,   setShopName]= useState('');
   const [upiQrUrl,   setUpiQrUrl]= useState('');
+  const [showCodeModal, setShowCodeModal] = useState(false);
 
   // Computed before the effects below since the UPI QR effect depends on `total`.
   const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
   const taxAmt   = +(subtotal * taxPct / 100).toFixed(2);
   const total    = +(subtotal + taxAmt).toFixed(2);
 
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) — this must apply before the browser paints,
+  // otherwise the sidebar/topbar flash visible for a frame on load before
+  // snapping to full screen.
+  useLayoutEffect(() => {
     if (expanded) {
       document.body.classList.add('pos-expanded');
     } else {
@@ -195,6 +200,16 @@ export default function Billing() {
       <div style={{ flex:1, overflowY:'auto', padding:'16px 12px', borderRight:'1px solid var(--gray-100)', background:'#FAFAFA' }}>
         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
           <h2 style={{ fontSize:16, fontWeight:700, flex:1, margin:0 }}>🧾 POS — Select Items</h2>
+          {/* Confirm a customer's pay-at-counter order code: check payment status,
+              take cash or acknowledge an already-paid order, and send it to the kitchen */}
+          <button
+            onClick={() => setShowCodeModal(true)}
+            style={{ background:'#1D9E75', border:'none', borderRadius:8,
+                     padding:'6px 10px', cursor:'pointer', color:'white',
+                     display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:700 }}
+            title="Confirm a customer's order code">
+            <QrCodeIcon size={14}/> <span>Confirm code</span>
+          </button>
           {/* Sidebar minimize/maximize */}
           <button
             onClick={() => setExpanded(e => !e)}
@@ -420,6 +435,15 @@ export default function Billing() {
             onClose={() => setAddonMod(null)}
           />
         </div>
+      )}
+
+      {/* ── Confirm order code (pay-at-counter gate + pickup handover) ─────── */}
+      {showCodeModal && (
+        <ConfirmCodeModal
+          shopId={shopId}
+          role={(user?.role || '').toUpperCase()}
+          onClose={() => setShowCodeModal(false)}
+        />
       )}
     </div>
   );

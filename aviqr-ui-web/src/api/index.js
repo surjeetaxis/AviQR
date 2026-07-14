@@ -151,6 +151,17 @@ export const orderApi = {
   listAll:      (p)         => api.get('/api/v1/orders/admin/all', { params: p }),
 };
 
+// ── Order confirmation code / QR — pay-at-counter gate & pickup handover ───────
+// getCodeImage returns a blob, not a URL: the endpoint sits behind the gateway's
+// AuthenticationFilter (like every other /api/v1/orders/** route), and a plain
+// <img src> can't attach a Bearer token the way this shared axios instance does.
+export const orderQrApi = {
+  lookupCode:     (shopId, code)   => api.get(`/api/v1/orders/shop/${shopId}/lookup-code`, { params: { code } }),
+  confirmPayment: (shopId, code)   => api.post(`/api/v1/orders/shop/${shopId}/confirm-payment`, { code }),
+  confirmPickup:  (shopId, code)   => api.post(`/api/v1/orders/shop/${shopId}/confirm-pickup`, { code }),
+  getCodeImage:   (orderId, config={}) => api.get(`/api/v1/orders/${orderId}/code-image`, { ...config, responseType: 'blob' }),
+};
+
 // ── Payments ──────────────────────────────────────────────────────────────────
 export const paymentApi = {
   createOrder:    (d, config={}) => api.post('/api/v1/payments/create-order', d, config),

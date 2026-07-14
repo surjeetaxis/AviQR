@@ -92,6 +92,17 @@ public class QrService {
         return out.toByteArray();
     }
 
+    /** QR for an order's confirmation code — encodes the raw code text (not a URL/lookup
+     *  row) so any generic camera scanner on the counter/kitchen screen can decode it and
+     *  feed it straight into the same manual code-entry field. */
+    public byte[] generateOrderCodeImage(String code) throws Exception {
+        QrCode qr = QrCode.encodeText(code, QrCode.Ecc.MEDIUM);
+        BufferedImage img = toImage(qr, 10, 4, Color.BLACK, Color.WHITE);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(img, "PNG", out);
+        return out.toByteArray();
+    }
+
     private BufferedImage toImage(QrCode qr, int scale, int border, Color dark, Color light) {
         int size = qr.size + border * 2;
         BufferedImage img = new BufferedImage(size * scale, size * scale, BufferedImage.TYPE_INT_RGB);

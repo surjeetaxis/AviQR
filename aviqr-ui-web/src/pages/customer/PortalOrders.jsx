@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { orderApi } from '../../api/index.js';
 import { useCustomerAuth } from '../../context/CustomerAuthContext.jsx';
-import { Package, ChevronRight, LogIn } from 'lucide-react';
+import { Package, ChevronRight, LogIn, RefreshCw } from 'lucide-react';
 
-const STATUS_COLOR = { NEW:'#f59e0b', ACCEPTED:'#3b82f6', PREPARING:'#3b82f6', READY:'#10b981', COMPLETED:'#6b7280', CANCELLED:'#ef4444', REJECTED:'#ef4444' };
+const STATUS_COLOR = { PENDING_PAYMENT:'#d97706', NEW:'#f59e0b', ACCEPTED:'#3b82f6', PREPARING:'#3b82f6', READY:'#10b981', COMPLETED:'#6b7280', CANCELLED:'#ef4444', REJECTED:'#ef4444' };
 
 // Real order history — wires the backend's already-built (but previously
 // orphaned) GET /api/v1/orders/customer/history, keyed by the customer's own
@@ -15,15 +15,26 @@ export default function PortalOrders() {
   const { isLoggedIn, authHeader } = useCustomerAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (!isLoggedIn) { setLoading(false); return; }
-    orderApi.getHistory({ page: 0, size: 20 }, authHeader)
+  const load = useCallback((showRefreshing) => {
+    if (!isLoggedIn) { setLoading(false); return Promise.resolve(); }
+    if (showRefreshing) setRefreshing(true);
+    return orderApi.getHistory({ page: 0, size: 20 }, authHeader)
       .then(res => setOrders(res.data.data?.content || res.data.data || []))
       .catch(() => setError('Could not load your orders.'))
-      .finally(() => setLoading(false));
+      .finally(() => { setLoading(false); setRefreshing(false); });
   }, [isLoggedIn]);
+
+  // Auto-refresh every 5s so a status change made by the shop (accepted,
+  // preparing, ready…) shows up here without the customer having to leave
+  // and re-enter the page, plus a manual refresh button for an on-demand check.
+  useEffect(() => {
+    load();
+    const iv = setInterval(load, 5000);
+    return () => clearInterval(iv);
+  }, [load]);
 
   if (!isLoggedIn) {
     return (
@@ -41,6 +52,10 @@ export default function PortalOrders() {
     <div style={sx.page}>
       <div style={sx.header}>
         <h1 style={{ fontSize:18, fontWeight:800, margin:0 }}>My Orders</h1>
+        <button style={sx.refreshBtn} onClick={() => load(true)} disabled={refreshing} title="Refresh">
+          <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+        </button>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
       {orders.length === 0 ? (
         <div style={sx.center}>
@@ -72,7 +87,8 @@ export default function PortalOrders() {
 
 const sx = {
   page: { paddingTop: 8 },
-  header: { padding: '10px 16px 14px' },
+  header: { display:'flex', alignItems:'center', padding: '10px 16px 14px' },
+  refreshBtn: { marginLeft:'auto', background:'#F9FAFB', border:'1px solid #F0F0F0', borderRadius:10, width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#374151' },
   center: { display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'60vh', textAlign:'center', padding:'0 30px' },
   card: { display:'flex', alignItems:'center', gap:10, background:'#fff', border:'1px solid #F0F0F0', borderRadius:14, padding:'12px 14px', boxShadow:'0 1px 3px rgba(0,0,0,.04)', cursor:'pointer', width:'100%', fontFamily:'inherit' },
 };

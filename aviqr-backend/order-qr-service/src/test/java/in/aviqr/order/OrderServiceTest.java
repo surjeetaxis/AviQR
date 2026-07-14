@@ -81,7 +81,7 @@ class OrderServiceTest {
         var tax      = new BigDecimal("19.00");
         savedOrder(r, expected, tax);
 
-        OrderResponse resp = service.create("shop-101", null, r);
+        OrderResponse resp = service.create("shop-101", null, r, true);
 
         assertThat(resp.getSubtotal()).isEqualByComparingTo("380.00");
         assertThat(resp.getTax()).isEqualByComparingTo("19.00");
@@ -97,7 +97,7 @@ class OrderServiceTest {
         var tax      = new BigDecimal("36.25");
         savedOrder(r, subtotal, tax);
 
-        OrderResponse resp = service.create("shop-101", null, r);
+        OrderResponse resp = service.create("shop-101", null, r, true);
 
         assertThat(resp.getSubtotal()).isEqualByComparingTo("725.00");
     }
@@ -111,7 +111,7 @@ class OrderServiceTest {
                 .convertAndSend(anyString(), anyString(), any(Object.class));
 
         // Must not throw — rabbit failure is swallowed
-        assertThatCode(() -> service.create("shop-101", null, r)).doesNotThrowAnyException();
+        assertThatCode(() -> service.create("shop-101", null, r, true)).doesNotThrowAnyException();
         verify(repo).save(any(Order.class));
     }
 
@@ -126,7 +126,7 @@ class OrderServiceTest {
                 .totalAmount(new BigDecimal("94.50")).items(new ArrayList<>()).build();
         when(repo.save(any(Order.class))).thenReturn(o);
 
-        OrderResponse resp = service.create("shop-101", "cust-42", r);
+        OrderResponse resp = service.create("shop-101", "cust-42", r, true);
         assertThat(resp.getCustomerId()).isEqualTo("cust-42");
     }
 

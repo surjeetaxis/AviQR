@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service @RequiredArgsConstructor @Slf4j
 public class OrderService {
@@ -28,7 +29,7 @@ public class OrderService {
     private String shopServiceUrl;
 
     @Transactional
-    public OrderResponse create(String shopId, String customerId, CreateOrderRequest req) {
+    public OrderResponse create(String shopId, String customerId, CreateOrderRequest req, boolean selfService) {
         BigDecimal subtotal = req.getItems().stream()
             .map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
             .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -45,6 +46,14 @@ public class OrderService {
             throw new IllegalArgumentException("hotelId and roomNumber are required for ROOM_CHARGE orders");
         }
 
+        // Self-service orders (customer QR ordering) are held back from the kitchen until a
+        // cashier/owner confirms payment at the counter (or online payment is captured) —
+        // ROOM_CHARGE is pre-authorized (billed to the room) so it skips the gate like ONLINE
+        // does once paid. Staff-created POS orders (selfService=false) skip the gate entirely
+        // since the cashier is collecting payment in the same motion as creating the order.
+        OrderStatus initialStatus = (selfService && paymentMethod != PaymentMethod.ROOM_CHARGE)
+            ? OrderStatus.PENDING_PAYMENT : OrderStatus.NEW;
+
         Order order = Order.builder()
             .orderNumber("ORD-" + System.currentTimeMillis())
             .shopId(shopId)
@@ -55,9 +64,11 @@ public class OrderService {
             .hotelId(paymentMethod == PaymentMethod.ROOM_CHARGE ? req.getHotelId() : null)
             .roomNumber(paymentMethod == PaymentMethod.ROOM_CHARGE ? req.getRoomNumber() : null)
             .type(req.getType() != null ? OrderType.valueOf(req.getType().toUpperCase()) : OrderType.DINE_IN)
+            .status(initialStatus)
             .paymentMethod(paymentMethod)
             .subtotal(subtotal).tax(tax).totalAmount(total)
             .notes(req.getNotes())
+            .confirmationCode(generateConfirmationCode(shopId))
             .build();
 
         List<OrderItem> items = req.getItems().stream().map(i -> OrderItem.builder()
@@ -137,6 +148,22 @@ public class OrderService {
         return DEFAULT_GST;
     }
 
+    /** 6-digit code shown to the customer (as text + QR) and re-entered by counter/kitchen
+     *  staff to confirm payment and, later, pickup/handover. Retries on collision against
+     *  other still-active orders in the same shop. */
+    private static final List<OrderStatus> TERMINAL_STATUSES =
+        List.of(OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.REJECTED);
+
+    private String generateConfirmationCode(String shopId) {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String code = String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
+            if (repo.findByShopIdAndConfirmationCodeAndStatusNotIn(shopId, code, TERMINAL_STATUSES).isEmpty()) {
+                return code;
+            }
+        }
+        return String.format("%06d", ThreadLocalRandom.current().nextInt(1_000_000));
+    }
+
     public Page<OrderResponse> getShopOrders(String shopId, OrderStatus status, int page, int size) {
         Pageable pg = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return (status != null
@@ -157,21 +184,80 @@ public class OrderService {
         if (status.equalsIgnoreCase("ACCEPTED"))   order.setAcceptedAt(LocalDateTime.now());
         if (status.equalsIgnoreCase("COMPLETED"))  order.setCompletedAt(LocalDateTime.now());
         Order saved = repo.save(order);
+        publishStatusEvent(saved, status.toUpperCase());
+        return toDto(saved);
+    }
 
-        // Publish status change event for READY notification
+    /** Read-only lookup by the code shown on the customer's confirmation screen —
+     *  used by the counter/kitchen "enter or scan code" screen to preview the order
+     *  before acting. Returns regardless of status so the UI can explain why a code
+     *  can't be actioned (e.g. already completed). */
+    public Optional<OrderResponse> lookupByCode(String shopId, String code) {
+        return repo.findByShopIdAndConfirmationCode(shopId, code).map(this::toDto);
+    }
+
+    /** Counter/owner confirms a pay-at-counter order: collects payment if still pending
+     *  (or simply acknowledges it if already paid some other way) and releases it to the
+     *  kitchen. Only valid while the order is still awaiting this step. */
+    @Transactional
+    public OrderResponse confirmPayment(String shopId, String code, String staffUid) {
+        Order order = repo.findByShopIdAndConfirmationCode(shopId, code)
+            .orElseThrow(() -> new RuntimeException("No order found for this code"));
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            throw new IllegalStateException("This order is not awaiting payment confirmation (status: " + order.getStatus() + ")");
+        }
+        if (order.getPaymentStatus() == PaymentStatus.PENDING) {
+            order.setPaymentStatus(PaymentStatus.PAID);
+        }
+        order.setPaymentConfirmedAt(LocalDateTime.now());
+        order.setStatus(OrderStatus.NEW);
+        Order saved = repo.save(order);
+        publishStatusEvent(saved, "NEW");
+        return toDto(saved);
+    }
+
+    /** Same code, reused at handover: confirms the prepared order was picked up /
+     *  handed to the delivery rider. Only valid once the order is READY. */
+    @Transactional
+    public OrderResponse confirmPickup(String shopId, String code, String staffUid) {
+        Order order = repo.findByShopIdAndConfirmationCode(shopId, code)
+            .orElseThrow(() -> new RuntimeException("No order found for this code"));
+        if (order.getStatus() != OrderStatus.READY) {
+            throw new IllegalStateException("This order is not ready for pickup (status: " + order.getStatus() + ")");
+        }
+        order.setStatus(OrderStatus.COMPLETED);
+        order.setCompletedAt(LocalDateTime.now());
+        Order saved = repo.save(order);
+        publishStatusEvent(saved, "COMPLETED");
+        return toDto(saved);
+    }
+
+    /** Called by payment-service once Razorpay confirms capture — releases the order to
+     *  the kitchen automatically, without any counter step, for online-paid orders. */
+    @Transactional
+    public void syncPaymentCaptured(UUID orderId) {
+        Order order = repo.findById(orderId).orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
+        order.setPaymentStatus(PaymentStatus.CAPTURED);
+        order.setPaymentConfirmedAt(LocalDateTime.now());
+        if (order.getStatus() == OrderStatus.PENDING_PAYMENT) {
+            order.setStatus(OrderStatus.NEW);
+        }
+        Order saved = repo.save(order);
+        publishStatusEvent(saved, saved.getStatus().name());
+    }
+
+    private void publishStatusEvent(Order saved, String status) {
         try {
             rabbit.convertAndSend("aviqr.orders", "order.status", Map.of(
                 "orderId",       saved.getId().toString(),
                 "orderNumber",   saved.getOrderNumber(),
                 "shopId",        saved.getShopId(),
-                "status",        status.toUpperCase(),
+                "status",        status,
                 "customerPhone", saved.getCustomerPhone() != null ? saved.getCustomerPhone() : "",
                 "customerName",  saved.getCustomerName() != null ? saved.getCustomerName() : "",
                 "tableNumber",   saved.getTableNumber() != null ? saved.getTableNumber() : ""
             ));
         } catch (Exception e) { log.warn("Failed to publish status event: {}", e.getMessage()); }
-
-        return toDto(saved);
     }
 
     public Page<OrderResponse> getCustomerOrders(String customerId, int page, int size) {
@@ -197,6 +283,7 @@ public class OrderService {
             .type(o.getType()).status(o.getStatus()).paymentMethod(o.getPaymentMethod())
             .paymentStatus(o.getPaymentStatus()).subtotal(o.getSubtotal())
             .tax(o.getTax()).totalAmount(o.getTotalAmount()).notes(o.getNotes())
+            .confirmationCode(o.getConfirmationCode()).paymentConfirmedAt(o.getPaymentConfirmedAt())
             .items(o.getItems() != null ? o.getItems().stream().map(i ->
                 OrderResponse.ItemDto.builder().id(i.getId()).menuItemId(i.getMenuItemId())
                     .itemName(i.getItemName()).quantity(i.getQuantity())

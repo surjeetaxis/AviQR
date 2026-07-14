@@ -8,8 +8,8 @@
 ## Quick start (5 minutes, local dev)
 
 ### Prerequisites
-- Docker + Docker Compose v2
 - Java 21 (JDK)
+- PostgreSQL, MongoDB, Redis, RabbitMQ (installed for you by `./aviqr.sh setup`)
 - Node.js 20+
 - Git
 
@@ -17,33 +17,25 @@
 ```bash
 git clone <your-repo-url> aviqr
 cd aviqr
+./aviqr.sh setup     # installs Java/Postgres/Mongo/Redis/RabbitMQ/Node (Mac via Homebrew, Ubuntu via apt)
 ```
 
-### 2. Start infrastructure
+### 2. Build
 ```bash
-cd aviqr-backend
-docker compose up -d postgres mongo redis rabbitmq
-# Wait 30 seconds
-docker compose ps   # all should show "healthy"
+./aviqr.sh build     # builds all 10 backend JARs + the web bundle
 ```
 
-### 3. Start all backend services
+### 3. Start backend + web together
 ```bash
-# .env is pre-filled with dev defaults — no changes needed for local run
-chmod +x ./gradlew
-./gradlew build -x test          # builds all 14 JARs (5–8 min first time)
-docker compose up -d             # starts all 14 microservices
-# Wait 60 seconds then verify:
+./aviqr.sh start
+# Wait ~2 minutes then verify:
 curl http://localhost:8761        # Eureka dashboard
 curl http://localhost:8080/actuator/health   # Should show {"status":"UP"}
 ```
 
-### 4. Start web frontend
-```bash
-cd ../aviqr-ui-web
-npm install
-npm run dev    # opens http://localhost:5173
-```
+Prefer to run backend and web separately, or a single backend service on its
+own? See `./aviqr.sh help` — `aviqr-backend/aviqr.sh run <service>` and
+`aviqr-ui-web/run.sh` let you run each piece individually.
 
 ### 5. Login
 - URL: http://localhost:5173
@@ -144,8 +136,8 @@ See `AVIQR_DEPLOYMENT_GUIDE.md` for full production deployment guide.
 **Quick summary:**
 1. Provision server (Ubuntu 22.04, 8 vCPU / 16 GB RAM)
 2. Configure DNS: `aviqr.in` + `api.aviqr.in` → server IP
-3. Install Docker, Nginx, Certbot
-4. `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`
+3. Install Nginx, Certbot
+4. `cd aviqr-backend && ./aviqr.sh install --yes && ./aviqr.sh db-setup && ./aviqr.sh build && ./aviqr.sh run all`
 5. Build frontend: `cd aviqr-ui-web && VITE_API_URL=https://api.aviqr.in npm run build`
 6. Configure Nginx to serve `dist/` + proxy to port 8080
 7. `certbot --nginx -d aviqr.in -d api.aviqr.in`
