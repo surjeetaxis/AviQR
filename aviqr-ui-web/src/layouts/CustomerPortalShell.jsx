@@ -43,23 +43,42 @@ export default function CustomerPortalShell() {
     return 'home';
   })();
 
+  const activeIndex = Math.max(0, TABS.findIndex(t => t.key === activeTab));
+  const ActiveIcon = TABS[activeIndex].icon;
+
   return (
     <div className="cps-shell">
       <div className="cps-content">
         <Outlet />
       </div>
       <nav className="cps-nav" aria-label="Customer Portal navigation">
+        {/* Single floating indicator (notch + raised circle) that SLIDES between
+            tabs via one transform — this is what actually animates on tab change,
+            instead of each button popping its own copy in/out with no motion. */}
+        <div
+          className="cps-nav-indicator"
+          style={{ '--index': activeIndex, '--count': TABS.length }}
+          aria-hidden="true"
+        >
+          <span className="cps-nav-indicator-notch" />
+          <span className="cps-nav-indicator-circle">
+            <ActiveIcon size={20} />
+          </span>
+        </div>
+
         {TABS.map(tab => (
           <button
             key={tab.key}
             className={`cps-nav-item ${activeTab === tab.key ? 'active' : ''}`}
             onClick={() => goTab(tab.key)}
+            aria-label={tab.label}
+            aria-current={activeTab === tab.key ? 'page' : undefined}
           >
             <div className="cps-nav-icon-wrap">
               <tab.icon size={20} />
               {tab.key === 'cart' && cartCount > 0 && <span className="cps-nav-badge">{cartCount}</span>}
             </div>
-            <span className="cps-nav-label">{tab.label}</span>
+            <span className="sr-only">{tab.label}</span>
           </button>
         ))}
       </nav>

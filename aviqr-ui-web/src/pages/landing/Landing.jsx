@@ -11,7 +11,7 @@ import {
   Coffee, UtensilsCrossed, ShoppingCart, Wifi, ScanLine,
   UploadCloud, PackageCheck, ChefHat, Receipt, Package,
   Landmark, CreditCard, Video, Sparkles, UserCog, Lock,
-  BadgeCheck
+  BadgeCheck, MessageSquare, Layers, Share2, Command, LayoutGrid
 } from 'lucide-react';
 import './Landing.css';
 
@@ -26,9 +26,14 @@ const FEATURES = [
   { icon: QrCode,        title: 'Permanent QR Code',      desc: 'One QR. Print once. Update menu forever — no reprinting needed when prices change.' },
   { icon: Zap,           title: 'Dynamic Pricing',         desc: 'Weekend, festival, happy hour pricing that switches automatically by time and date.' },
   { icon: Globe,         title: 'OCR Menu Upload',         desc: 'Photograph your printed menu. AI reads it, builds your digital menu in under 5 minutes.' },
+  { icon: Layers,        title: 'Item-wise Customisation', desc: 'Create variations and add-ons with separate pricing for every menu item — sizes, portions, extras, your call.' },
+  { icon: Share2,        title: 'Aggregator Integration',  desc: 'Sync your menu to Zomato, Swiggy and other delivery apps, and flip any item ON/OFF from the POS the moment stock runs low.' },
+  { icon: Command,       title: 'Quick-Bill Shortcodes',   desc: 'Assign item-wise shortcodes for lightning-fast billing — faster checkout for staff and customers alike.' },
+  { icon: LayoutGrid,    title: 'Multiple Menus',          desc: 'Create separate dine-in areas, each with its own menu and full pricing control — physical or online.' },
   { icon: Video,         title: 'Video & 3D Dish Previews',desc: 'Show a short video or a rotatable 3D model for any dish — customers see exactly what they’re ordering.' },
   { icon: Star,          title: 'Loyalty & Wallet',        desc: 'Silver → Diamond tiers. Cashback wallet. Reward regulars, retain customers.' },
   { icon: BarChart2,     title: 'Analytics & CRM',         desc: 'Revenue trends, peak hours, top items, customer spend analysis in real time.' },
+  { icon: MessageSquare, title: 'SMS Campaigns',           desc: 'Birthday & anniversary wishes, segment broadcasts — sent automatically, no manual follow-up.' },
   { icon: Smartphone,    title: 'No App for Customers',    desc: 'Customers scan with phone camera. Menu opens instantly in browser. No download required.' },
   { icon: ChefHat,       title: 'Kitchen Display (KOT)',   desc: 'Orders hit the kitchen screen the instant they’re placed — no paper tickets, no shouting.' },
   { icon: Receipt,       title: 'POS & Billing',           desc: 'Take counter orders, print bills, and settle payments without leaving the dashboard.' },
@@ -77,7 +82,7 @@ const FALLBACK_PLANS = [
   {
     planKey: 'GROWTH', name: 'Growth', price: 999, tag: 'Most popular',
     desc: 'For growing restaurants that need more.',
-    features: ['Unlimited items & orders', 'Dynamic pricing', 'OCR menu upload', 'Staff roles (10)', 'Loyalty & wallet', 'WhatsApp campaigns'],
+    features: ['Unlimited items & orders', 'Dynamic pricing', 'OCR menu upload', 'Staff roles (10)', 'Loyalty & wallet', 'SMS campaigns', 'WhatsApp campaigns'],
     cta: 'Start 14-day trial', primary: true,
   },
   {
@@ -173,7 +178,7 @@ export default function Landing() {
             <span className="hero-accent">restaurant OS.</span>
           </h1>
           <p className="hero-sub">
-            Menu. Orders. Payments. Loyalty. CRM. Staff. Reports.
+            Menu. Orders. Payments. Loyalty. CRM. Campaigns. Staff. Reports.
             All running through a single permanent QR code your customers scan with any phone camera.
           </p>
           <div className="hero-actions">

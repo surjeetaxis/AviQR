@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { mallApi, reportApi } from '../../api/index.js';
+import { mallApi, reportApi, orderApi } from '../../api/index.js';
 import QRCode from 'qrcode';
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
@@ -170,6 +170,7 @@ export default function MallDashboard() {
         <main className="admin-content">
           {tab==='overview'    && <MallOverview vendors={vendors} onNav={setTab}/>}
           {tab==='vendors'     && <VendorsFull vendors={vendors} onToggle={toggleVendor} onAdd={addVendor} onRemove={removeVendor} onInvite={inviteRestaurant}/>}
+          {tab==='orders'      && <MallOrdersTab vendors={vendors}/>}
           {tab==='revenue'     && <RevenueShare vendors={vendors}/>}
           {tab==='qr'          && <MallQRPage mall={mall}/>}
           {tab==='reports'     && <MallReportsTab vendors={vendors}/>}
@@ -284,9 +285,11 @@ function VendorsFull({vendors,onToggle,onAdd,onRemove,onInvite,compact}) {
       )}
       {!compact&&(
         <div style={{display:'flex',gap:8,marginBottom:14}}>
-          {['all','active','pending','rejected'].map(f=>(
+          {/* Filters on linkStatus (onboarding approval state) — labeled distinctly
+              from the separate open/closed "Status" column to avoid confusion. */}
+          {[['all','All'],['active','Approved'],['pending','Pending'],['rejected','Rejected']].map(([f,label])=>(
             <button key={f} className={`support-filter-tab ${filter===f?'active':''}`} onClick={()=>setFilter(f)}>
-              {f.charAt(0).toUpperCase()+f.slice(1)} <span className="support-filter-count">{f==='all'?vendors.length:vendors.filter(v=>(v.linkStatus||'ACTIVE').toLowerCase()===f).length}</span>
+              {label} <span className="support-filter-count">{f==='all'?vendors.length:vendors.filter(v=>(v.linkStatus||'ACTIVE').toLowerCase()===f).length}</span>
             </button>
           ))}
         </div>
@@ -354,27 +357,109 @@ function RevenueShare({vendors}) {
   );
 }
 
+/* ─── All Orders tab — mirrors SupplierDashboard.jsx's AllOrdersTab pattern ──── */
+function MallOrdersTab({vendors}) {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const withShop = vendors.filter(v => v.shopId);
+    if (!withShop.length) { setLoading(false); return; }
+    setLoading(true);
+    Promise.all(
+      withShop.map(v =>
+        // The mall admin's own login token has no shopId, so order-service's
+        // same-shop check 403s a direct call — mint a vendor-scoped token first.
+        mallApi.enterVendor(v.id)
+          .then(res => orderApi.getOrders(v.shopId, { page: 0, size: 20 }, { headers: { Authorization: `Bearer ${res.data.data.accessToken}` } }))
+          .then(res => (res.data.data?.content || res.data.data || []).map(ord => ({ ...ord, vendorName: v.name })))
+          .catch(() => [])
+      )
+    )
+      .then(results => setOrders(results.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))))
+      .finally(() => setLoading(false));
+  }, [vendors]);
+
+  const statusColor = s => ({ NEW: '#3b82f6', PREPARING: '#f59e0b', READY: '#10b981', COMPLETED: '#6b7280', CANCELLED: '#ef4444' }[s] || '#6b7280');
+
+  if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading orders…</div>;
+
+  return (
+    <div>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">All Orders</h1>
+          <p className="page-subtitle">{orders.length} orders across {vendors.filter(v=>v.shopId).length} linked vendors</p>
+        </div>
+      </div>
+      {orders.length === 0 ? (
+        <div className="admin-stub">
+          <div className="admin-stub-icon"><ShoppingBag size={28} /></div>
+          <h2>No orders yet</h2>
+          <p>Orders from your vendors' shops will appear here.</p>
+        </div>
+      ) : (
+        <div className="admin-table-card">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Vendor</th>
+                <th>Table</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map(o => (
+                <tr key={o.id}>
+                  <td style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 12 }}>#{String(o.id).slice(-6)}</td>
+                  <td style={{ color: 'var(--gray-500)', fontSize: 12 }}>{o.vendorName}</td>
+                  <td>{o.tableNumber || '—'}</td>
+                  <td style={{ fontWeight: 700 }}>₹{(o.totalAmount || 0).toLocaleString('en-IN')}</td>
+                  <td>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: statusColor(o.status), background: statusColor(o.status) + '22', padding: '3px 9px', borderRadius: 99 }}>
+                      {o.status}
+                    </span>
+                  </td>
+                  <td style={{ fontSize: 11.5, color: 'var(--gray-500)' }}>
+                    {o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MallReportsTab({vendors}) {
   const [revenueData,setRevenueData] = useState([]);
   const [loading,setLoading] = useState(true);
 
   useEffect(() => {
-    const withShop = vendors.filter(v=>v.shopId);
-    if (!withShop.length) { setLoading(false); return; }
+    if (!vendors.length) { setLoading(false); return; }
     setLoading(true);
+    // Every mall vendor is tracked, not just ones with a linked shop — a vendor
+    // added via "Add vendor" (no shopId yet) still counts, just with ₹0 revenue
+    // since there's no shop-service order data to query for it.
     Promise.all(
-      withShop.map(v =>
+      vendors.map(v => {
+        if (!v.shopId) return Promise.resolve({ name: v.name, total: 0 });
         // The mall admin's own login token has no shopId, so report-service's
         // same-shop check 403s a direct call — mint a vendor-scoped token first.
-        mallApi.enterVendor(v.id)
+        return mallApi.enterVendor(v.id)
           .then(res => reportApi.getRevenue(v.shopId, 7, res.data.data.accessToken))
           .then(res => {
             const data = res.data.data || [];
             const total = Array.isArray(data) ? data.reduce((a,d)=>a+(d.revenue||d.totalRevenue||0),0) : 0;
             return { name: v.name, total };
           })
-          .catch(() => ({ name: v.name, total: 0 }))
-      )
+          .catch(() => ({ name: v.name, total: 0 }));
+      })
     ).then(setRevenueData).finally(()=>setLoading(false));
   }, [vendors]);
 
@@ -390,7 +475,7 @@ function MallReportsTab({vendors}) {
         <div className="admin-kpi-card"><div className="admin-kpi-icon icon-blue"><Store size={18}/></div><div className="admin-kpi-value">{revenueData.length}</div><div className="admin-kpi-label">Vendors tracked</div></div>
       </div>
       {revenueData.length===0 ? (
-        <div style={{textAlign:'center',padding:32,color:'var(--gray-400)',fontSize:13}}>No vendors with a linked shop yet.</div>
+        <div style={{textAlign:'center',padding:32,color:'var(--gray-400)',fontSize:13}}>No vendors yet.</div>
       ) : (
         <div className="admin-table-card">
           <table className="admin-table">

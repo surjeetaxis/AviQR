@@ -8,7 +8,6 @@
     "scheme": "aviqr",
     "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
-    "privacy": "https://aviqr.in/privacy",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -31,8 +30,6 @@
       },
       "package": "in.aviqr.app",
       "versionCode": 1,
-      "targetSdkVersion": 34,
-      "compileSdkVersion": 34,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.INTERNET",

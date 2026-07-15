@@ -12,9 +12,12 @@ describe('StatusBadge', () => {
   });
 
   it('renders different statuses without crashing', () => {
-    ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'].forEach((s) => {
-      const { getByText } = render(<StatusBadge status={s} />);
-      expect(getByText(new RegExp(s, 'i'))).toBeTruthy();
+    // StatusBadge intentionally shows a friendly label, not the raw enum
+    // (e.g. COMPLETED -> "Done") — assert against that mapping, not the enum itself.
+    const LABELS = { NEW: 'New', ACCEPTED: 'Accepted', PREPARING: 'Preparing', READY: 'Ready', COMPLETED: 'Done', CANCELLED: 'Cancelled' };
+    Object.entries(LABELS).forEach(([status, label]) => {
+      const { getByText } = render(<StatusBadge status={status} />);
+      expect(getByText(label)).toBeTruthy();
     });
   });
 });

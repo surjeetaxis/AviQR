@@ -135,6 +135,7 @@ export const menuApi = {
   getPricingRules:(shopId)       => api.get(`/api/v1/pricing-rules/shop/${shopId}`),
   createRule:     (d)            => api.post('/api/v1/pricing-rules', d),
   deleteRule:     (id)           => api.delete(`/api/v1/pricing-rules/${id}`),
+  copyToShops:    (fromShopId, toShopIds) => api.post('/api/v1/menu/copy', { fromShopId, toShopIds }),
 };
 
 // ── Orders ────────────────────────────────────────────────────────────────────
@@ -144,7 +145,7 @@ export const menuApi = {
 export const orderApi = {
   placeOrder:   (shopId, d, config={}) => api.post(`/api/v1/orders/shop/${shopId}`, d, config),
   getLiveOrders:(shopId)    => api.get(`/api/v1/orders/shop/${shopId}/live`),
-  getOrders:    (shopId, p) => api.get(`/api/v1/orders/shop/${shopId}`, { params: p }),
+  getOrders:    (shopId, p, config={}) => api.get(`/api/v1/orders/shop/${shopId}`, { ...config, params: p }),
   updateStatus: (id, s)     => api.put(`/api/v1/orders/${id}/status?status=${s}`),
   getById:      (id, config={}) => api.get(`/api/v1/orders/${id}`, config),
   getHistory:   (p, config={})  => api.get('/api/v1/orders/customer/history', { ...config, params: p }),
@@ -235,6 +236,17 @@ export const reportApi = {
   getTopItems:  (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/top-items`),
   getPeakHours: (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/peak-hours`),
   getPlatform:  ()           => api.get('/api/v1/reports/admin/platform'),
+  getTaxReport: (shopId, startDate, endDate) => api.get(`/api/v1/reports/shop/${shopId}/tax`, { params: { startDate, endDate } }),
+  // Server-generated CSV — authenticated blob download (mirrors invoiceApi's openPrintable
+  // pattern below, adapted for a file download instead of an in-place HTML render).
+  exportTaxReport: async (shopId, startDate, endDate) => {
+    const res = await api.get(`/api/v1/reports/shop/${shopId}/tax/export`, { params: { startDate, endDate }, responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement('a');
+    a.href = url; a.download = `tax-report-${shopId}-${startDate || 'last30d'}_${endDate || 'today'}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
 };
 
 // ── Hotel ─────────────────────────────────────────────────────────────────────
@@ -325,6 +337,8 @@ export const brandApi = {
   // ── Brand QR Flow (public, no auth) ──────────────────────────────────────
   getPublicBrand:    (id)            => api.get(`/api/v1/brands/public/${id}`),
   getPublicShops:    (id)            => api.get(`/api/v1/brands/public/${id}/shops`),
+  // Head-office rollup — revenue/orders across every outlet the caller owns, by city/zone.
+  getOverview:       (days=7)        => api.get('/api/v1/brands/overview', { params: { days } }),
 };
 
 // ── Support ───────────────────────────────────────────────────────────────────
@@ -367,6 +381,28 @@ export const loyaltyApi = {
   getHistory:  (sId, phone, config={})  => api.get(`/api/v1/loyalty/${sId}/history`, { ...config, params: { phone } }),
 };
 
+// ── SMS CRM campaigns (birthday/anniversary wishes, segment broadcasts) ────────
+export const campaignApi = {
+  list:    (sId, config={})        => api.get(`/api/v1/campaigns/${sId}`, config),
+  create:  (sId, d, config={})     => api.post(`/api/v1/campaigns/${sId}`, d, config),
+  get:     (sId, id, config={})    => api.get(`/api/v1/campaigns/${sId}/${id}`, config),
+  logs:    (sId, id, config={})    => api.get(`/api/v1/campaigns/${sId}/${id}/logs`, config),
+  sendNow: (sId, id, config={})    => api.post(`/api/v1/campaigns/${sId}/${id}/send`, {}, config),
+  pause:   (sId, id, config={})    => api.put(`/api/v1/campaigns/${sId}/${id}/pause`, {}, config),
+  resume:  (sId, id, config={})    => api.put(`/api/v1/campaigns/${sId}/${id}/resume`, {}, config),
+  remove:  (sId, id, config={})    => api.delete(`/api/v1/campaigns/${sId}/${id}`, config),
+};
+
+// ── Unified customer profile (birthday/anniversary/notes/labels) — CRM foundation ──
+export const customerApi = {
+  list:         (sId, config={})               => api.get(`/api/v1/customers/${sId}`, config),
+  getProfile:   (sId, phone, config={})         => api.get(`/api/v1/customers/${sId}/profile`, { ...config, params: { phone } }),
+  updateProfile:(sId, d, config={})             => api.put(`/api/v1/customers/${sId}/profile`, d, config),
+  updateNotes:  (sId, d, config={})             => api.put(`/api/v1/customers/${sId}/profile/notes`, d, config),
+  addLabel:     (sId, d, config={})             => api.post(`/api/v1/customers/${sId}/profile/labels`, d, config),
+  removeLabel:  (sId, phone, label, config={})  => api.delete(`/api/v1/customers/${sId}/profile/labels/${encodeURIComponent(label)}`, { ...config, params: { phone } }),
+};
+
 // ── Customer Portal: favorites (phone-keyed, no account required) ─────────────
 export const favoritesApi = {
   toggle: (phone, shopId, config={}) => api.post('/api/v1/favorites', { phone, shopId }, config),
@@ -382,12 +418,29 @@ export const addressApi = {
 };
 
 // ── Invoice & KOT ─────────────────────────────────────────────────────────────
+// Shop name/address/GSTIN/logo are looked up server-side from the order's
+// shopId — no need to pass shop details from the frontend.
+//
+// open() fetches through the authenticated axios instance (a plain
+// window.open(url) never attaches the staff's Bearer token, so the gateway's
+// AuthenticationFilter 401s it) and writes the HTML into a window opened
+// synchronously up front, so popup blockers still see it as a direct
+// response to the click.
+async function openPrintable(path, target, features) {
+  const win = window.open('', target, features);
+  try {
+    const res = await api.get(path, { responseType: 'text' });
+    win.document.write(res.data);
+    win.document.close();
+  } catch (e) {
+    win?.close();
+    throw e;
+  }
+}
+
 export const invoiceApi = {
-  downloadUrl: (orderId, shop) => {
-    const p = new URLSearchParams({ ...shop });
-    return `${api.defaults.baseURL}/api/v1/orders/${orderId}/invoice?${p}`;
-  },
-  kotUrl: (orderId) => `${api.defaults.baseURL}/api/v1/orders/${orderId}/kot`,
+  openInvoice: (orderId) => openPrintable(`/api/v1/orders/${orderId}/invoice`, '_blank'),
+  openKot:     (orderId) => openPrintable(`/api/v1/orders/${orderId}/kot`, 'kot', 'width=440,height=640'),
 };
 
 // ── Aggregator (Zomato/Swiggy mapping) ───────────────────────────────────────
@@ -420,6 +473,7 @@ export const rawMaterialApi = {
   update:       (id, data)        => api.put(`/api/v1/raw-materials/${id}`, data),
   delete:       (id)              => api.delete(`/api/v1/raw-materials/${id}`),
   adjustStock:  (id, delta, reason) => api.post(`/api/v1/raw-materials/${id}/adjust`, null, { params: { delta, reason } }),
+  copyToShops:  (fromShopId, toShopIds) => api.post('/api/v1/raw-materials/copy', { fromShopId, toShopIds }),
 };
 
 // ── Recipe ────────────────────────────────────────────────────────────────────
@@ -444,4 +498,23 @@ export const aggregatorConfigApi = {
   // Save Zomato/Swiggy restaurant ID mapping for a shop
   saveMapping: (data)     => api.post('/api/v1/aggregator/mapping', data),
   getMapping:  (shopId)   => api.get(`/api/v1/aggregator/mapping/${shopId}`),
+};
+
+// ── Shortcodes (quick billing) ────────────────────────────────────────────────
+export const shortcodeApi = {
+  getByShop: (shopId)       => api.get(`/api/v1/shortcodes/shop/${shopId}`),
+  lookup:    (shopId, code) => api.get(`/api/v1/shortcodes/shop/${shopId}/lookup`, { params: { code } }),
+  create:    (data)         => api.post('/api/v1/shortcodes', data),
+  update:    (id, data)     => api.put(`/api/v1/shortcodes/${id}`, data),
+  delete:    (id)           => api.delete(`/api/v1/shortcodes/${id}`),
+};
+
+// ── Dine-in Areas (multiple menus / per-area pricing) ─────────────────────────
+export const diningAreaApi = {
+  getByShop:  (shopId)       => api.get(`/api/v1/dining-areas/shop/${shopId}`),
+  create:     (data)         => api.post('/api/v1/dining-areas', data),
+  update:     (id, data)     => api.put(`/api/v1/dining-areas/${id}`, data),
+  delete:     (id)           => api.delete(`/api/v1/dining-areas/${id}`),
+  getPrices:  (areaId)       => api.get(`/api/v1/dining-areas/${areaId}/prices`),
+  savePrices: (areaId, data) => api.put(`/api/v1/dining-areas/${areaId}/prices`, data),
 };

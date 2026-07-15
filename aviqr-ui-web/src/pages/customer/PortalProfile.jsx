@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loyaltyApi, favoritesApi, authApi } from '../../api/index.js';
+import { loyaltyApi, favoritesApi, authApi, customerApi } from '../../api/index.js';
 import { useCustomerAuth } from '../../context/CustomerAuthContext.jsx';
 import { getCustomerContext } from '../../context/customerContext.js';
 import CustomerLoginSheet from '../../components/customer/CustomerLoginSheet.jsx';
@@ -25,7 +25,7 @@ export default function PortalProfile() {
   const [favorites, setFavorites] = useState([]);
   const [loadingFav, setLoadingFav] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', preferredLanguage: 'en' });
+  const [editForm, setEditForm] = useState({ name: '', preferredLanguage: 'en', birthday: '', anniversary: '' });
   const [savingProfile, setSavingProfile] = useState(false);
   const [editError, setEditError] = useState('');
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
@@ -56,9 +56,17 @@ export default function PortalProfile() {
   };
 
   const openEdit = () => {
-    setEditForm({ name: customer.name || '', preferredLanguage: customer.preferredLanguage || 'en' });
+    setEditForm({ name: customer.name || '', preferredLanguage: customer.preferredLanguage || 'en', birthday: '', anniversary: '' });
     setEditError('');
     setShowEdit(true);
+    if (currentShopId) {
+      customerApi.getProfile(currentShopId, customer.phone, authHeader)
+        .then(res => {
+          const p = res.data.data;
+          setEditForm(f => ({ ...f, birthday: p.birthday || '', anniversary: p.anniversary || '' }));
+        })
+        .catch(() => {});
+    }
   };
 
   const submitEdit = async (e) => {
@@ -66,6 +74,14 @@ export default function PortalProfile() {
     setEditError(''); setSavingProfile(true);
     try {
       await updateProfile({ name: editForm.name, preferredLanguage: editForm.preferredLanguage });
+      if (currentShopId) {
+        await customerApi.updateProfile(currentShopId, {
+          phone: customer.phone,
+          name: editForm.name,
+          birthday: editForm.birthday || null,
+          anniversary: editForm.anniversary || null,
+        }, authHeader).catch(() => {});
+      }
       setShowEdit(false);
     } catch (err) {
       setEditError(err?.response?.data?.message || 'Could not save changes');
@@ -203,6 +219,21 @@ export default function PortalProfile() {
                   {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
                 </select>
               </div>
+              {currentShopId && (
+                <>
+                  <div className="cm-field">
+                    <label>Birthday</label>
+                    <input type="date" value={editForm.birthday}
+                      onChange={e => setEditForm(f => ({ ...f, birthday: e.target.value }))} />
+                  </div>
+                  <div className="cm-field">
+                    <label>Anniversary</label>
+                    <input type="date" value={editForm.anniversary}
+                      onChange={e => setEditForm(f => ({ ...f, anniversary: e.target.value }))} />
+                  </div>
+                  <p style={{ fontSize:11, color:'#9CA3AF', margin:'-6px 0 10px' }}>Saved for this restaurant — we'll remember it for birthday offers here.</p>
+                </>
+              )}
               {editError && <div style={{color:'#DC2626',fontSize:12.5,marginBottom:8}}>{editError}</div>}
               <button className="cm-proceed-btn" type="submit" disabled={savingProfile || !editForm.name.trim()}>
                 {savingProfile ? 'Saving…' : 'Save changes'}

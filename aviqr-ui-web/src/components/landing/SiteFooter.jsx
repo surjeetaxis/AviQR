@@ -20,6 +20,7 @@ export default function SiteFooter({ isHome = false }) {
           <div className="footer-col">
             <div className="footer-col-title">Product</div>
             <a href={`${base}#features`}>Features</a>
+            <a href="#" onClick={e => { e.preventDefault(); navigate('/features'); }}>What's new</a>
             <a href={`${base}#pricing`}>Pricing</a>
             <a href={`${base}#verticals`}>Verticals</a>
           </div>

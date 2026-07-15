@@ -158,7 +158,7 @@ export default function Orders() {
   };
 
   const openInvoice = (order) => {
-    window.open(invoiceApi.downloadUrl(order.id, {}), '_blank');
+    invoiceApi.openInvoice(order.id);
   };
 
   // Filtering

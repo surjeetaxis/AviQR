@@ -2,7 +2,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingBag, BookOpen, QrCode, Users, BarChart3,
   Settings, LogOut, X, Sparkles, Package, Gift, ShieldCheck,
-  TrendingUp, Utensils, PlusCircle, Receipt, FlaskConical, Clock, ChefHat
+  TrendingUp, Utensils, PlusCircle, Receipt, FlaskConical, Clock, ChefHat,
+  MessageSquare, Zap, LayoutGrid
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS, ROLE_PERMISSIONS } from '../context/AuthContext.jsx';
 import './Sidebar.css';
@@ -20,8 +21,10 @@ const NAV_GROUPS = [
   {
     label: 'Menu',
     items: [
-      { to:'/menu',       label:'Menu Items',    icon:BookOpen },
-      { to:'/variations', label:'Variants & Add-ons', icon:PlusCircle },
+      { to:'/menu',         label:'Menu Items',    icon:BookOpen },
+      { to:'/variations',   label:'Variants & Add-ons', icon:PlusCircle },
+      { to:'/dining-areas', label:'Dine-in Areas', icon:LayoutGrid },
+      { to:'/shortcodes',   label:'Quick-Bill Shortcodes', icon:Zap },
     ],
   },
   {
@@ -41,6 +44,7 @@ const NAV_GROUPS = [
     label: 'Customers',
     items: [
       { to:'/loyalty', label:'Loyalty Program', icon:Gift },
+      { to:'/campaigns', label:'SMS Campaigns', icon:MessageSquare },
     ],
   },
   {

@@ -69,7 +69,13 @@ export default function Settings() {
       </Section>
 
       <Section title="⭐ Loyalty Program">
-        <Row label="Enable Loyalty" right={<Switch value={!!settings.loyaltyEnabled} onValueChange={()=>toggle('loyaltyEnabled')} trackColor={{true:Colors.primary}}/>} border={false}/>
+        <Row label="Enable Loyalty" right={<Switch value={!!settings.loyaltyEnabled} onValueChange={()=>toggle('loyaltyEnabled')} trackColor={{true:Colors.primary}}/>}/>
+        <TouchableOpacity onPress={()=>router.push('/(owner)/customers')}>
+          <Row label="Manage Customers" right={<Text style={ss.chevron}>›</Text>}/>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={()=>router.push('/(owner)/campaigns')}>
+          <Row label="SMS Campaigns" right={<Text style={ss.chevron}>›</Text>} border={false}/>
+        </TouchableOpacity>
       </Section>
 
       <View style={ss.section}>

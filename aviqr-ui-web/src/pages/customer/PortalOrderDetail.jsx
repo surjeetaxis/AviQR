@@ -11,19 +11,26 @@ const STATUS_COLOR = { PENDING_PAYMENT:'#d97706', NEW:'#f59e0b', ACCEPTED:'#3b82
 export default function PortalOrderDetail() {
   const { orderId } = useParams();
   const navigate = useNavigate();
-  const { authHeader } = useCustomerAuth();
+  const { authHeader, customerToken } = useCustomerAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
+  // customerToken (not authHeader) is the dependency here on purpose: authHeader
+  // is a fresh object literal every render, so using it directly would recreate
+  // this callback constantly. On the very first mount, CustomerAuthProvider's own
+  // effect (reading localStorage) hasn't necessarily run yet — its child's effects
+  // fire first in React's commit order — so without customerToken in the deps,
+  // this closes over an empty authHeader forever and every direct/refreshed visit
+  // to an order link 404s even when the customer is logged in.
   const load = useCallback((showRefreshing) => {
     if (showRefreshing) setRefreshing(true);
     return orderApi.getById(orderId, authHeader)
-      .then(res => setOrder(res.data.data))
+      .then(res => { setOrder(res.data.data); setError(''); })
       .catch(() => setError('Could not load this order.'))
       .finally(() => { setLoading(false); setRefreshing(false); });
-  }, [orderId]);
+  }, [orderId, customerToken]);
 
   // Same tracking behavior as the just-placed-order screen: auto-refresh every
   // 5s, plus a manual refresh button for an on-demand check.

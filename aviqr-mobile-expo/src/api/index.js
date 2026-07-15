@@ -144,6 +144,27 @@ export const reportApi = {
   getCustomers:     (sId)   => api.get(`/api/v1/reports/shop/${sId}/customers`),
 };
 
+// ── Unified customer profile (birthday/anniversary/notes/labels) — CRM ────────
+export const customerApi = {
+  list:         (sId)             => api.get(`/api/v1/customers/${sId}`),
+  getProfile:   (sId, phone)      => api.get(`/api/v1/customers/${sId}/profile`, { params: { phone } }),
+  updateProfile:(sId, d)          => api.put(`/api/v1/customers/${sId}/profile`, d),
+  updateNotes:  (sId, d)          => api.put(`/api/v1/customers/${sId}/profile/notes`, d),
+  addLabel:     (sId, d)          => api.post(`/api/v1/customers/${sId}/profile/labels`, d),
+  removeLabel:  (sId, phone, label) => api.delete(`/api/v1/customers/${sId}/profile/labels/${encodeURIComponent(label)}`, { params: { phone } }),
+};
+
+// ── SMS CRM campaigns (birthday/anniversary wishes, segment broadcasts) ───────
+export const campaignApi = {
+  list:    (sId)     => api.get(`/api/v1/campaigns/${sId}`),
+  create:  (sId, d)  => api.post(`/api/v1/campaigns/${sId}`, d),
+  logs:    (sId, id) => api.get(`/api/v1/campaigns/${sId}/${id}/logs`),
+  sendNow: (sId, id) => api.post(`/api/v1/campaigns/${sId}/${id}/send`, {}),
+  pause:   (sId, id) => api.put(`/api/v1/campaigns/${sId}/${id}/pause`),
+  resume:  (sId, id) => api.put(`/api/v1/campaigns/${sId}/${id}/resume`),
+  remove:  (sId, id) => api.delete(`/api/v1/campaigns/${sId}/${id}`),
+};
+
 // ── Hotel ───────────────────────────────────────────────────────────────────
 export const hotelApi = {
   getMyHotels:   ()       => api.get('/api/v1/hotels/my'),

@@ -262,12 +262,12 @@ export default function HotelDashboard() {
           {tab==='hotelstaff'   && <HotelStaffPage hotelId={hotelId}/>}
           {tab==='rooms'        && <RoomsPage rooms={rooms} setRooms={setRooms} hotelId={hotelId} onNav={setTab} onRequestsFilter={setRoomFilter}/>}
           {tab==='roomservice'  && <RoomServiceMenu menu={ROOM_MENU}/>}
-          {tab==='housekeeping' && <HousekeepingPage requests={requests.filter(r=>r.service==='Housekeeping')}/>}
+          {tab==='housekeeping' && <HousekeepingPage requests={requests.filter(r=>r.service==='Housekeeping')} rooms={rooms}/>}
           {tab==='laundry'      && <ServicePage title="Laundry" requests={requests.filter(r=>r.service==='Laundry')} onAdvance={advanceRequest}/>}
-          {tab==='spa'          && <SpaPage bookings={bookings} outlets={outlets} onUpdate={updateBooking}/>}
+          {tab==='spa'          && <SpaPage bookings={bookings} outlets={outlets} hotelId={hotelId} onUpdate={updateBooking}/>}
           {tab==='maintenance'  && <ServicePage title="Maintenance" requests={requests.filter(r=>r.service==='Maintenance')} onAdvance={advanceRequest}/>}
           {tab==='qrmanagement' && <QRManagementPage rooms={rooms} setRooms={setRooms} outlets={outlets} hotelId={hotelId} hotelName={user?.hotelName}/>}
-          {tab==='reports'      && <HotelReportsTab outlets={outlets}/>}
+          {tab==='reports'      && <HotelReportsTab outlets={outlets} hotelId={hotelId}/>}
           {tab==='subscription' && <SubscriptionPage userRole="hotel" currentPlan="HOTEL_PRO"/>}
           {tab==='settings'     && <HotelSettings user={user} lang={lang} hotelId={hotelId}/>}
         </main>
@@ -1008,16 +1008,27 @@ function RoomServiceMenu({menu:initialMenu}) {
   );
 }
 
-function HousekeepingPage({requests}) {
+function HousekeepingPage({requests,rooms}) {
+  // Was previously 4 hardcoded literal numbers unconnected to any real data
+  // (always summed to 30 regardless of the hotel's actual room count). Rooms
+  // already carry a real status — including CLEANING — that was never plumbed
+  // in here; use it instead of inventing state that doesn't exist in the model.
+  const STATUS_META = {
+    vacant:      { icon:'✅', label:'Vacant' },
+    occupied:    { icon:'🛏️', label:'Occupied' },
+    cleaning:    { icon:'🔄', label:'Cleaning' },
+    maintenance: { icon:'🔧', label:'Maintenance' },
+  };
+  const counts = (rooms||[]).reduce((acc,r) => { acc[r.status] = (acc[r.status]||0)+1; return acc; }, {});
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Housekeeping</h1></div>
+      <div className="page-header"><h1 className="page-title">Housekeeping</h1><p className="page-subtitle">{(rooms||[]).length} rooms</p></div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:12,marginBottom:20}}>
-        {['Clean','Dirty','In Progress','Inspected'].map(s=>(
-          <div key={s} className="admin-kpi-card" style={{textAlign:'center'}}>
-            <div style={{fontSize:28,marginBottom:8}}>{s==='Clean'?'✅':s==='Dirty'?'🔴':s==='In Progress'?'🔄':'🔍'}</div>
-            <div className="admin-kpi-value">{s==='Clean'?'18':s==='Dirty'?'8':s==='In Progress'?'4':'6'}</div>
-            <div className="admin-kpi-label">Rooms {s}</div>
+        {Object.entries(STATUS_META).map(([key,m])=>(
+          <div key={key} className="admin-kpi-card" style={{textAlign:'center'}}>
+            <div style={{fontSize:28,marginBottom:8}}>{m.icon}</div>
+            <div className="admin-kpi-value">{counts[key]||0}</div>
+            <div className="admin-kpi-label">Rooms {m.label}</div>
           </div>
         ))}
       </div>
@@ -1035,8 +1046,19 @@ function ServicePage({title,requests,onAdvance}) {
   );
 }
 
-function SpaPage({bookings,outlets,onUpdate}) {
-  const spaOutletIds = new Set(outlets.filter(o=>o.outletType==='SPA').map(o=>o.id));
+function SpaPage({bookings,outlets,hotelId,onUpdate}) {
+  // Don't rely solely on the parent's one-shot outlets fetch (loaded once on
+  // dashboard mount, no retry) — refetch independently, same pattern as
+  // OutletsPage, so a transient failure there doesn't permanently hide a real
+  // spa outlet.
+  const [ownOutlets,setOwnOutlets] = useState(outlets||[]);
+  useEffect(() => {
+    if (!hotelId) return;
+    hotelOutletApi.list(hotelId).then(res => setOwnOutlets(res.data.data || [])).catch(() => {});
+  }, [hotelId]);
+  useEffect(() => { if (outlets?.length) setOwnOutlets(outlets); }, [outlets]);
+
+  const spaOutletIds = new Set(ownOutlets.filter(o=>o.outletType==='SPA').map(o=>o.id));
   const spaBookings = (bookings||[]).filter(b=>spaOutletIds.has(b.outletId));
   return (
     <div>
@@ -1061,8 +1083,14 @@ function QRManagementPage({rooms,setRooms,outlets,hotelId,hotelName}) {
     });
   };
 
+  // Same independent-refetch fix as SpaPage/HotelReportsTab — don't rely solely
+  // on the parent's one-shot outlets fetch.
   const [outletList,setOutletList] = useState(outlets);
-  useEffect(()=>setOutletList(outlets), [outlets]);
+  useEffect(()=>{ if (outlets?.length) setOutletList(outlets); }, [outlets]);
+  useEffect(() => {
+    if (!hotelId) return;
+    hotelOutletApi.list(hotelId).then(res => setOutletList(res.data.data || [])).catch(() => {});
+  }, [hotelId]);
   const toggleOutletQr = (o) => hotelOutletApi.toggleQr(o.id, !o.qrActive)
     .then(()=>setOutletList(prev=>prev.map(x=>x.id!==o.id?x:{...x,qrActive:!o.qrActive})))
     .catch(() => alert('Could not update QR status'));
@@ -1134,7 +1162,7 @@ function HotelQR({ hotelId, hotelName }) {
   useEffect(() => {
     if (!targetUrl) return;
     QRCode.toDataURL(targetUrl, { width: 512, margin: 2, color: { dark: '#0F172A', light: '#ffffff' } })
-      .then(setQrImg).catch(() => {});
+      .then(setQrImg).catch(err => console.error('Hotel QR generation failed:', err));
   }, [targetUrl]);
 
   const download = () => {
@@ -1166,30 +1194,40 @@ function HotelQR({ hotelId, hotelName }) {
   );
 }
 
-function HotelReportsTab({outlets}) {
+function HotelReportsTab({outlets,hotelId}) {
   const [revenueData,setRevenueData] = useState([]);
   const [loading,setLoading] = useState(true);
+  // Same independent-refetch fix as SpaPage/QRManagementPage.
+  const [ownOutlets,setOwnOutlets] = useState(outlets||[]);
+  useEffect(() => { if (outlets?.length) setOwnOutlets(outlets); }, [outlets]);
+  useEffect(() => {
+    if (!hotelId) return;
+    hotelOutletApi.list(hotelId).then(res => setOwnOutlets(res.data.data || [])).catch(() => {});
+  }, [hotelId]);
 
   useEffect(() => {
-    const withShop = (outlets||[]).filter(o=>o.shopId);
-    if (!withShop.length) { setLoading(false); return; }
+    if (!ownOutlets.length) { setLoading(false); return; }
     setLoading(true);
+    // Every outlet is tracked, not just ones with a linked shop — an outlet with
+    // no shopId still counts, just with ₹0 revenue since there's no shop-service
+    // order data to query for it (was previously silently excluded, undercounting).
     Promise.all(
-      withShop.map(o =>
+      ownOutlets.map(o => {
+        if (!o.shopId) return Promise.resolve({ outletName: o.name, total: 0 });
         // The hotel owner's own login token has no shopId, so report-service's
         // same-shop check 403s a direct call — mint an outlet-scoped token first,
         // same mechanism used when "managing" an outlet from the Outlets tab.
-        hotelOutletApi.enter(o.id)
+        return hotelOutletApi.enter(o.id)
           .then(res => reportApi.getRevenue(o.shopId, 7, res.data.data.accessToken))
           .then(res => {
             const data = res.data.data || [];
             const total = Array.isArray(data) ? data.reduce((a,d)=>a+(d.revenue||d.totalRevenue||0),0) : 0;
             return { outletName: o.name, total };
           })
-          .catch(() => ({ outletName: o.name, total: 0 }))
-      )
+          .catch(() => ({ outletName: o.name, total: 0 }));
+      })
     ).then(setRevenueData).finally(()=>setLoading(false));
-  }, [outlets]);
+  }, [ownOutlets]);
 
   if (loading) return <div style={{textAlign:'center',padding:40,color:'var(--gray-400)'}}>Loading reports…</div>;
 
@@ -1211,7 +1249,7 @@ function HotelReportsTab({outlets}) {
         </div>
       </div>
       {revenueData.length===0 ? (
-        <div style={{textAlign:'center',padding:32,color:'var(--gray-400)',fontSize:13}}>No outlets with a linked shop yet.</div>
+        <div style={{textAlign:'center',padding:32,color:'var(--gray-400)',fontSize:13}}>No outlets yet.</div>
       ) : (
         <div className="admin-table-card">
           <table className="admin-table">
@@ -1271,7 +1309,7 @@ function HotelSettings({user,lang,hotelId}) {
     setSaving(true);
     try {
       await hotelApi.update(hotelId, {
-        name: form.hotelName, phone: form.phone, address: form.address,
+        name: form.hotelName, phone: form.phone, email: form.email, address: form.address,
         checkInTime: form.checkinTime, checkOutTime: form.checkoutTime,
         enabledServices,
       });

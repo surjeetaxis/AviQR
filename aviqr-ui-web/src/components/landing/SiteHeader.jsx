@@ -20,6 +20,7 @@ export default function SiteHeader({ isHome = false }) {
           <a href={`${base}#showcase`}>See it in action</a>
           <a href={`${base}#verticals`}>Who it's for</a>
           <a href={`${base}#pricing`}>Pricing</a>
+          <a href="/features">What's new</a>
           <a href="/faq">FAQ</a>
           <a href="/about">About</a>
         </div>

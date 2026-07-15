@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { shopApi, menuApi, orderApi, qrApi, reportApi, authApi, brandApi } from '../../api/index.js';
+import { shopApi, menuApi, orderApi, qrApi, reportApi, authApi, brandApi, rawMaterialApi } from '../../api/index.js';
 import QRCode from 'qrcode';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
@@ -55,6 +55,7 @@ export default function SupplierDashboard() {
           name: s.name,
           phone: s.phone,
           city: s.city,
+          zone: s.zone,
           shopStatus: s.status || 'ACTIVE',
           orders: 0,
           revenue: 0,
@@ -226,7 +227,7 @@ const SUPPLIER_ROOM_STATUS = { ACTIVE: 'rs-occupied', INACTIVE: 'rs-vacant', SUS
 function OutletsList({ outlets, loading, onManage, onReload }) {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', phone: '', city: '' });
+  const [form, setForm] = useState({ name: '', phone: '', city: '', zone: '' });
   const [saving, setSaving] = useState(false);
 
   if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading outlets…</div>;
@@ -239,8 +240,8 @@ function OutletsList({ outlets, loading, onManage, onReload }) {
     if (!form.name.trim() || !form.phone.trim()) return;
     setSaving(true);
     try {
-      await shopApi.create({ name: form.name, phone: form.phone, city: form.city });
-      setForm({ name: '', phone: '', city: '' });
+      await shopApi.create({ name: form.name, phone: form.phone, city: form.city, zone: form.zone });
+      setForm({ name: '', phone: '', city: '', zone: '' });
       setShowForm(false);
       onReload?.();
     } catch { alert('Could not create outlet'); }
@@ -263,7 +264,7 @@ function OutletsList({ outlets, loading, onManage, onReload }) {
       </div>
 
       {showForm && (
-        <form onSubmit={create} className="admin-chart-card" style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+        <form onSubmit={create} className="admin-chart-card" style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
           <div className="form-field">
             <label className="form-label">Name</label>
             <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Domino's — Indiranagar" required />
@@ -275,6 +276,10 @@ function OutletsList({ outlets, loading, onManage, onReload }) {
           <div className="form-field">
             <label className="form-label">City</label>
             <input className="form-input" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} placeholder="e.g. Bengaluru" />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Zone</label>
+            <input className="form-input" value={form.zone} onChange={e => setForm(f => ({ ...f, zone: e.target.value }))} placeholder="e.g. South Zone" />
           </div>
           <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? 'Creating…' : 'Create'}</button>
         </form>
@@ -315,7 +320,7 @@ function OutletsList({ outlets, loading, onManage, onReload }) {
                 {o.shopStatus === 'ACTIVE' ? 'Active' : o.shopStatus === 'SUSPENDED' ? 'Suspended' : 'Inactive'}
               </span>
             </div>
-            <div className="room-type">{o.city || 'No city set'}</div>
+            <div className="room-type">{o.city || 'No city set'}{o.zone ? ` · ${o.zone}` : ''}</div>
             <div className="outlet-stats" style={{ marginBottom: 10 }}>
               <div>
                 <div className="outlet-stat-val">{o.orders}</div>
@@ -343,6 +348,9 @@ function OutletsList({ outlets, loading, onManage, onReload }) {
 function MenuSyncTab({ outlets }) {
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [copyFrom, setCopyFrom] = useState(null); // outlet being copied FROM, or null
+  const [copyTargets, setCopyTargets] = useState([]);
+  const [copying, setCopying] = useState(false);
 
   useEffect(() => {
     if (!outlets.length) { setLoading(false); return; }
@@ -368,12 +376,29 @@ function MenuSyncTab({ outlets }) {
 
   if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading menus…</div>;
 
+  const otherOutlets = copyFrom ? outlets.filter(o => o.id !== copyFrom.id) : [];
+  const toggleTarget = (id) => setCopyTargets(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const runCopy = async () => {
+    if (!copyFrom || copyTargets.length === 0) return;
+    setCopying(true);
+    try {
+      await Promise.all([
+        menuApi.copyToShops(copyFrom.id, copyTargets),
+        rawMaterialApi.copyToShops(copyFrom.id, copyTargets),
+      ]);
+      setCopyFrom(null); setCopyTargets([]);
+      alert('Menu and raw materials copied to the selected outlets.');
+    } catch { alert('Could not copy to all selected outlets'); }
+    finally { setCopying(false); }
+  };
+
   return (
     <div>
       <div className="page-header">
         <div>
           <h1 className="page-title">Menu Sync</h1>
-          <p className="page-subtitle">View and manage menu per outlet</p>
+          <p className="page-subtitle">View and manage menu per outlet · centrally push a menu &amp; raw-material master to other outlets</p>
         </div>
       </div>
       {outlets.length === 0 && (
@@ -407,8 +432,13 @@ function MenuSyncTab({ outlets }) {
                   </td>
                   <td>{md.categories}</td>
                   <td>{md.items}</td>
-                  <td>
+                  <td style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     <OutletMenuManager shopId={o.id} outletName={o.name} />
+                    {outlets.length > 1 && (
+                      <button className="btn-room-action" onClick={() => { setCopyFrom(o); setCopyTargets([]); }}>
+                        Copy to other outlets
+                      </button>
+                    )}
                   </td>
                 </tr>
               );
@@ -416,6 +446,34 @@ function MenuSyncTab({ outlets }) {
           </tbody>
         </table>
       </div>
+
+      {copyFrom && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => !copying && setCopyFrom(null)}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 24, width: '90%', maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginBottom: 4 }}>Copy menu &amp; raw materials</h3>
+            <p style={{ fontSize: 12.5, color: 'var(--gray-500)', marginBottom: 14 }}>
+              From <strong>{copyFrom.name}</strong> — select outlets to copy the menu (categories &amp; items) and raw-material master to.
+              Existing items at the target outlets are not removed; this adds a fresh copy.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260, overflowY: 'auto', marginBottom: 16 }}>
+              {otherOutlets.map(o => (
+                <label key={o.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={copyTargets.includes(o.id)} onChange={() => toggleTarget(o.id)} />
+                  {o.name}
+                </label>
+              ))}
+              {otherOutlets.length === 0 && <p style={{ fontSize: 13, color: 'var(--gray-400)' }}>No other outlets to copy to.</p>}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} disabled={copying} onClick={() => setCopyFrom(null)}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} disabled={copying || copyTargets.length === 0} onClick={runCopy}>
+                {copying ? 'Copying…' : `Copy to ${copyTargets.length || ''} outlet${copyTargets.length === 1 ? '' : 's'}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -730,41 +788,35 @@ function BrandSetup({ onSaved }) {
   );
 }
 
-/* ─── Reports tab ─────────────────────────────────────────────────────────────── */
+/* ─── Reports tab — head-office rollup, one aggregate call instead of N per-outlet ── */
 function ReportsTab({ outlets }) {
-  const [revenueData, setRevenueData] = useState([]);
+  const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [groupBy, setGroupBy] = useState('outlet'); // outlet | city | zone
 
   useEffect(() => {
-    if (!outlets.length) { setLoading(false); return; }
-    Promise.all(
-      outlets.map(o =>
-        // The supplier's own login token has no shopId, so report-service's
-        // same-shop check 403s a direct call — mint a shop-scoped token first.
-        shopApi.enter(o.id)
-          .then(res => reportApi.getRevenue(o.id, 7, res.data.data.accessToken))
-          .then(res => {
-            const data = res.data.data || [];
-            const total = Array.isArray(data) ? data.reduce((a, d) => a + (d.revenue || d.totalRevenue || 0), 0) : 0;
-            return { outletName: o.name, total, daily: data };
-          })
-          .catch(() => ({ outletName: o.name, total: 0, daily: [] }))
-      )
-    )
-      .then(setRevenueData)
+    setLoading(true);
+    brandApi.getOverview(7)
+      .then(res => setOverview(res.data.data))
+      .catch(() => setOverview(null))
       .finally(() => setLoading(false));
   }, [outlets]);
 
   if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading reports…</div>;
+  if (!overview) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Could not load the head-office overview.</div>;
 
-  const grandTotal = revenueData.reduce((a, r) => a + r.total, 0);
+  const grandTotal = overview.totalRevenue || 0;
+  const rows = groupBy === 'outlet' ? overview.byOutlet
+    : groupBy === 'city' ? overview.byCity
+    : overview.byZone;
+  const rowLabel = (r) => groupBy === 'outlet' ? r.name : (r[groupBy] || 'Unassigned');
 
   return (
     <div>
       <div className="page-header">
         <div>
           <h1 className="page-title">Reports</h1>
-          <p className="page-subtitle">Last 7 days · all outlets</p>
+          <p className="page-subtitle">Last 7 days · all outlets · one head-office rollup</p>
         </div>
       </div>
       <div className="admin-kpi-grid" style={{ marginBottom: 20 }}>
@@ -775,36 +827,60 @@ function ReportsTab({ outlets }) {
         </div>
         <div className="admin-kpi-card">
           <div className="admin-kpi-icon icon-blue"><Store size={18} /></div>
-          <div className="admin-kpi-value">{outlets.length}</div>
+          <div className="admin-kpi-value">{overview.outletCount ?? outlets.length}</div>
           <div className="admin-kpi-label">Outlets tracked</div>
         </div>
+        <div className="admin-kpi-card">
+          <div className="admin-kpi-icon icon-green"><ShoppingBag size={18} /></div>
+          <div className="admin-kpi-value">{overview.totalOrders || 0}</div>
+          <div className="admin-kpi-label">Orders (7 days)</div>
+        </div>
       </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[['outlet', 'By outlet'], ['city', 'By city'], ['zone', 'By zone']].map(([key, label]) => (
+          <button key={key} className={groupBy === key ? 'btn btn-primary' : 'btn btn-secondary'} onClick={() => setGroupBy(key)}>
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="admin-table-card">
         <table className="admin-table">
           <thead>
             <tr>
-              <th>Outlet</th>
+              <th>{groupBy === 'outlet' ? 'Outlet' : groupBy === 'city' ? 'City' : 'Zone'}</th>
+              {groupBy !== 'outlet' && <th>Outlets</th>}
               <th>Revenue (7 days)</th>
+              <th>Orders</th>
               <th>Share</th>
             </tr>
           </thead>
           <tbody>
-            {revenueData.map(r => (
-              <tr key={r.outletName}>
-                <td style={{ fontWeight: 700 }}>{r.outletName}</td>
-                <td style={{ fontWeight: 700 }}>₹{r.total.toLocaleString('en-IN')}</td>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ flex: 1, height: 6, background: 'var(--gray-100)', borderRadius: 99, overflow: 'hidden' }}>
-                      <div style={{ width: `${grandTotal ? (r.total / grandTotal) * 100 : 0}%`, height: '100%', background: 'var(--green)', borderRadius: 99 }} />
+            {(rows || []).map((r, i) => {
+              const revenue = r.revenue || 0;
+              return (
+                <tr key={i}>
+                  <td style={{ fontWeight: 700 }}>{rowLabel(r)}</td>
+                  {groupBy !== 'outlet' && <td>{r.outletCount}</td>}
+                  <td style={{ fontWeight: 700 }}>₹{revenue.toLocaleString('en-IN')}</td>
+                  <td>{r.orders || 0}</td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ flex: 1, height: 6, background: 'var(--gray-100)', borderRadius: 99, overflow: 'hidden' }}>
+                        <div style={{ width: `${grandTotal ? (revenue / grandTotal) * 100 : 0}%`, height: '100%', background: 'var(--green)', borderRadius: 99 }} />
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 700, minWidth: 36 }}>
+                        {grandTotal ? ((revenue / grandTotal) * 100).toFixed(1) : 0}%
+                      </span>
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, minWidth: 36 }}>
-                      {grandTotal ? ((r.total / grandTotal) * 100).toFixed(1) : 0}%
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
+            {(!rows || rows.length === 0) && (
+              <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 20 }}>No data yet</td></tr>
+            )}
           </tbody>
         </table>
       </div>

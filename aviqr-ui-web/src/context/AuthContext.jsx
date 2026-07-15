@@ -20,11 +20,11 @@ export const ROLE_PERMISSIONS = {
   OWNER:        null,   // main user — full access including settings
   ADMIN:        null,   // platform super admin
   SUPPORT:      null,
-  MANAGER:      ['dashboard','orders','billing','kot','menu','variations','qr-codes',
-                 'inventory','raw-materials','loyalty','reports','analytics','order-history','ai'],
+  MANAGER:      ['dashboard','orders','billing','kot','menu','variations','shortcodes','dining-areas','qr-codes',
+                 'inventory','raw-materials','loyalty','campaigns','reports','analytics','order-history','ai'],
   CASHIER:      ['dashboard','orders','billing','reports','order-history'],
   KITCHEN:      ['dashboard','orders','kot'],
-  MENU_EDITOR:  ['dashboard','menu','variations'],
+  MENU_EDITOR:  ['dashboard','menu','variations','shortcodes','dining-areas'],
   ORDER_VIEWER: ['dashboard','orders','order-history'],
 };
 
