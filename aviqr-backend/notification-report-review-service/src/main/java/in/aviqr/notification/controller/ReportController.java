@@ -4,10 +4,15 @@ import in.aviqr.notification.dto.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.*;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -217,24 +222,27 @@ public class ReportController {
         String dateFrom = startDate != null ? startDate : LocalDate.now().minusDays(30).toString();
         String dateTo   = endDate   != null ? endDate   : LocalDate.now().toString();
 
-        String sql = "SELECT id, order_number, customer_name, customer_phone, table_number,"
+        // Built with ? placeholders throughout — type/status were previously concatenated
+        // directly into the query string, which was a SQL injection hole.
+        StringBuilder sql = new StringBuilder(
+            "SELECT id, order_number, customer_name, customer_phone, table_number,"
             + " type, status, payment_method, payment_status,"
             + " subtotal, tax, total_amount, notes, created_at, completed_at"
             + " FROM orders"
-            + " WHERE shop_id = ? AND DATE(created_at) BETWEEN ?::date AND ?::date"
-            + (type   != null ? " AND type = '" + type + "'"     : "")
-            + (status != null ? " AND status = '" + status + "'" : "")
-            + " ORDER BY created_at DESC LIMIT ? OFFSET ?";
-
-        String countSql = "SELECT COUNT(*) FROM orders WHERE shop_id = ?"
-            + " AND DATE(created_at) BETWEEN ?::date AND ?::date"
-            + (type   != null ? " AND type = '" + type + "'"     : "")
-            + (status != null ? " AND status = '" + status + "'" : "");
+            + " WHERE shop_id = ? AND DATE(created_at) BETWEEN ?::date AND ?::date");
+        StringBuilder countSql = new StringBuilder(
+            "SELECT COUNT(*) FROM orders WHERE shop_id = ? AND DATE(created_at) BETWEEN ?::date AND ?::date");
+        List<Object> params = new ArrayList<>(List.of(shopId, dateFrom, dateTo));
+        if (type != null)   { sql.append(" AND type = ?");   countSql.append(" AND type = ?");   params.add(type); }
+        if (status != null) { sql.append(" AND status = ?"); countSql.append(" AND status = ?"); params.add(status); }
+        Object[] countParams = params.toArray();
+        sql.append(" ORDER BY created_at DESC LIMIT ? OFFSET ?");
+        params.add(size); params.add(page * size);
 
         try {
-            Integer total  = jdbc.queryForObject(countSql, Integer.class, shopId, dateFrom, dateTo);
+            Integer total  = jdbc.queryForObject(countSql.toString(), Integer.class, countParams);
             if (total == null) total = 0;
-            List<Map<String, Object>> rows = jdbc.queryForList(sql, shopId, dateFrom, dateTo, size, page * size);
+            List<Map<String, Object>> rows = jdbc.queryForList(sql.toString(), params.toArray());
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("content", rows);
             result.put("totalElements", total);
@@ -305,6 +313,137 @@ public class ReportController {
                 Map.of("source", "DIRECT", "orders", 0, "revenue", 0)
             )));
         }
+    }
+
+    // ── Tax report ────────────────────────────────────────────────────────────
+    // CGST/SGST split follows the same convention InvoiceService already uses for
+    // per-order invoices: tax/2 each (5% + 5% = the combined `tax` amount already
+    // stored on the order — no separate rate columns exist to derive this from).
+    @GetMapping("/shop/{shopId}/tax")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> taxReport(
+            @PathVariable String shopId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId) {
+        if (!canAccessShop(role, shopId, callerShopId))
+            return ResponseEntity.status(403).body(new ApiResponse<>(false, "Forbidden", null));
+        return ResponseEntity.ok(ApiResponse.ok(buildTaxReport(shopId, startDate, endDate)));
+    }
+
+    @GetMapping("/shop/{shopId}/tax/export")
+    public ResponseEntity<byte[]> exportTaxReport(
+            @PathVariable String shopId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId) {
+        if (!canAccessShop(role, shopId, callerShopId)) return ResponseEntity.status(403).build();
+        Map<String, Object> report = buildTaxReport(shopId, startDate, endDate);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) report.get("rows");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> totals = (Map<String, Object>) report.get("totals");
+
+        StringBuilder csv = new StringBuilder("Date,Orders,Subtotal,CGST,SGST,Total Tax,Total Amount\n");
+        for (Map<String, Object> row : rows) {
+            csv.append(row.get("date")).append(',')
+               .append(row.get("orders")).append(',')
+               .append(row.get("subtotal")).append(',')
+               .append(row.get("cgst")).append(',')
+               .append(row.get("sgst")).append(',')
+               .append(row.get("tax")).append(',')
+               .append(row.get("totalAmount")).append('\n');
+        }
+        csv.append("TOTAL,").append(totals.get("orders")).append(',')
+           .append(totals.get("subtotal")).append(',')
+           .append(totals.get("cgst")).append(',')
+           .append(totals.get("sgst")).append(',')
+           .append(totals.get("tax")).append(',')
+           .append(totals.get("totalAmount")).append('\n');
+
+        byte[] body = csv.toString().getBytes(StandardCharsets.UTF_8);
+        String from = startDate != null ? startDate : LocalDate.now().minusDays(30).toString();
+        String to   = endDate   != null ? endDate   : LocalDate.now().toString();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv"));
+        headers.setContentDisposition(org.springframework.http.ContentDisposition
+            .attachment().filename("tax-report-" + shopId + "-" + from + "_" + to + ".csv").build());
+        return ResponseEntity.ok().headers(headers).body(body);
+    }
+
+    private Map<String, Object> buildTaxReport(String shopId, String startDate, String endDate) {
+        String dateFrom = startDate != null ? startDate : LocalDate.now().minusDays(30).toString();
+        String dateTo   = endDate   != null ? endDate   : LocalDate.now().toString();
+        String sql = """
+            SELECT
+              DATE(created_at)                  AS date,
+              COUNT(*)                          AS orders,
+              COALESCE(SUM(subtotal), 0)        AS subtotal,
+              COALESCE(SUM(tax), 0)             AS tax,
+              COALESCE(SUM(total_amount), 0)    AS total_amount
+            FROM orders
+            WHERE shop_id = ? AND DATE(created_at) BETWEEN ?::date AND ?::date
+              AND status NOT IN ('CANCELLED','REJECTED')
+            GROUP BY DATE(created_at)
+            ORDER BY DATE(created_at)
+            """;
+        List<Map<String, Object>> rawRows;
+        try {
+            rawRows = jdbc.queryForList(sql, shopId, dateFrom, dateTo);
+        } catch (Exception e) {
+            log.warn("Tax report error for shop {}: {}", shopId, e.getMessage());
+            rawRows = List.of();
+        }
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        BigDecimal totalSubtotal = BigDecimal.ZERO, totalTax = BigDecimal.ZERO, totalAmount = BigDecimal.ZERO;
+        long totalOrders = 0;
+        for (Map<String, Object> raw : rawRows) {
+            BigDecimal subtotal = toBigDecimal(raw.get("subtotal"));
+            BigDecimal tax      = toBigDecimal(raw.get("tax"));
+            BigDecimal amount   = toBigDecimal(raw.get("total_amount"));
+            BigDecimal cgst = tax.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+            BigDecimal sgst = tax.subtract(cgst);
+            long orders = ((Number) raw.get("orders")).longValue();
+
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("date", raw.get("date"));
+            row.put("orders", orders);
+            row.put("subtotal", subtotal);
+            row.put("cgst", cgst);
+            row.put("sgst", sgst);
+            row.put("tax", tax);
+            row.put("totalAmount", amount);
+            rows.add(row);
+
+            totalSubtotal = totalSubtotal.add(subtotal);
+            totalTax = totalTax.add(tax);
+            totalAmount = totalAmount.add(amount);
+            totalOrders += orders;
+        }
+        BigDecimal totalCgst = totalTax.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+        BigDecimal totalSgst = totalTax.subtract(totalCgst);
+
+        Map<String, Object> totals = new LinkedHashMap<>();
+        totals.put("orders", totalOrders);
+        totals.put("subtotal", totalSubtotal);
+        totals.put("cgst", totalCgst);
+        totals.put("sgst", totalSgst);
+        totals.put("tax", totalTax);
+        totals.put("totalAmount", totalAmount);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("rows", rows);
+        result.put("totals", totals);
+        return result;
+    }
+
+    private BigDecimal toBigDecimal(Object v) {
+        if (v == null) return BigDecimal.ZERO;
+        if (v instanceof BigDecimal bd) return bd;
+        if (v instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
+        try { return new BigDecimal(v.toString()); } catch (Exception e) { return BigDecimal.ZERO; }
     }
 
     // ── Platform stats (admin only) ───────────────────────────────────────────

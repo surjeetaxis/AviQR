@@ -163,6 +163,33 @@ public class RecipeVariantController {
         return ResponseEntity.ok(ApiResponse.<Void>ok(null));
     }
 
+    // ── Head-office: copy a shop's raw-material master to other outlets ────────
+    @PostMapping("/raw-materials/copy")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> copyRawMaterials(
+            @RequestBody RawMaterialCopyRequest req,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!isStaff(role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        List<RawMaterial> source = recipeSvc.getMaterials(req.fromShopId());
+        int copied = 0;
+        for (String toShopId : req.toShopIds()) {
+            if (toShopId.equals(req.fromShopId())) continue;
+            for (RawMaterial m : source) {
+                RawMaterial copy = RawMaterial.builder()
+                    .shopId(toShopId).name(m.getName()).unit(m.getUnit())
+                    .currentStock(BigDecimal.ZERO) // stock is per-outlet — only the master (name/unit/cost) copies
+                    .minStockLevel(m.getMinStockLevel()).costPerUnit(m.getCostPerUnit())
+                    .supplier(m.getSupplier()).active(true)
+                    .build();
+                recipeSvc.createMaterial(copy);
+                copied++;
+            }
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Raw materials copied",
+            Map.of("materialsCopied", copied, "outletsUpdated", req.toShopIds().size())));
+    }
+
+    record RawMaterialCopyRequest(String fromShopId, List<String> toShopIds) {}
+
     // ── Recipe ────────────────────────────────────────────────────────────────
 
     @GetMapping("/items/{itemId}/recipe")

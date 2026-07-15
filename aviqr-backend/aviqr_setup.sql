@@ -206,6 +206,7 @@ CREATE TABLE IF NOT EXISTS shops (
     address           TEXT,
     city              VARCHAR(100),
     state             VARCHAR(100),
+    zone              VARCHAR(100),
     pincode           VARCHAR(10),
     logo_url          VARCHAR(1000),
     latitude          DECIMAL(10,8),
@@ -896,7 +897,7 @@ INSERT INTO orders (id, order_number, shop_id, customer_id, customer_name, custo
   ('c80edcef-ed35-49a2-ada2-481ab31b4002', 'ORD-1002', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '223f40ff-4020-4baf-8d8e-44e347263bd1', 'Ravi Kumar',     '9123456789', '7',  'DINE_IN',  'COMPLETED', 'CASH',   'CASH',    NULL,               760.00,  38.00, 798.00,  NULL,             NOW() - INTERVAL '3 hours', NOW() - INTERVAL '175 min', NOW() - INTERVAL '150 min'),
   ('60183b05-bb9a-41f7-81b6-536a88b933ca', 'ORD-1003', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                  'Deepak Joshi',   '9988001122', '2',  'DINE_IN',  'PREPARING', 'ONLINE', 'PAID',    'pay_Def456ghi002', 600.00,  30.00, 630.00,  'Less spicy',     NOW() - INTERVAL '20 min', NOW() - INTERVAL '15 min', NULL),
   ('d2ca1722-356d-41d3-9d9b-a31edbdf04fe', 'ORD-1004', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                  'Sneha Reddy',    '9900445566', '9',  'DINE_IN',  'NEW',       'ONLINE', 'PAID',    'pay_Ghi789jkl003', 440.00,  22.00, 462.00,  NULL,             NOW() - INTERVAL '5 min',  NULL,                       NULL),
-  ('fb91ae26-dbcc-4339-8320-fecef5d8e04c', 'ORD-1005', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',   '9876543210', '4',  'DINE_IN',  'READY',     'ONLINE', 'PAID',    'pay_Jkl012mno004', 320.00,  16.00, 336.00,  NULL,             NOW() - INTERVAL '35 min', NOW() - INTERVAL '30 min', NULL),
+  ('fb91ae26-dbcc-4339-8320-fecef5d8e04c', 'ORD-1005', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',   '9876543210', '4',  'DINE_IN',  'READY',     'ONLINE', 'PAID',    'pay_Jkl012mno004', 380.00,  19.00, 399.00,  NULL,             NOW() - INTERVAL '35 min', NOW() - INTERVAL '30 min', NULL),
   ('19223584-6e9a-4b0c-86a3-459845066ee3', 'ORD-1006', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                  'Mohan Verma',    '9900887766', NULL, 'TAKEAWAY', 'COMPLETED', 'ONLINE', 'PAID',    'pay_Mno345pqr005', 380.00,  19.00, 399.00,  NULL,             NOW() - INTERVAL '4 hours', NOW() - INTERVAL '235 min', NOW() - INTERVAL '220 min'),
   ('cbef9f2c-44b0-4e03-8c46-476beb6bee0a', 'ORD-1007', '44aeca17-767e-410b-868f-9fdd593fa091', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',   '9876543210', '3',  'DINE_IN',  'COMPLETED', 'ONLINE', 'PAID',    'pay_Pqr678stu006', 500.00,  25.00, 525.00,  NULL,             NOW() - INTERVAL '1 day',  NOW() - INTERVAL '1 day',  NOW() - INTERVAL '23 hours'),
   ('e5aa1100-0924-452e-abb2-4ca6aa1fce5e', 'ORD-1008', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                  'Karan Malhotra', '9811223344', '1',  'DINE_IN',  'ACCEPTED',  'CASH',   'PENDING', NULL,               840.00,  42.00, 882.00,  'Extra chapati',  NOW() - INTERVAL '25 min', NOW() - INTERVAL '20 min', NULL)
@@ -921,6 +922,8 @@ INSERT INTO order_items (id, order_id, menu_item_id, item_name, quantity, unit_p
   (gen_random_uuid(), 'd2ca1722-356d-41d3-9d9b-a31edbdf04fe', '21d56a25-8a99-4f72-ae5c-5fbd4818adc8', 'Garlic Naan',          2,  65.00, 130.00),
   -- Order 5
   (gen_random_uuid(), 'fb91ae26-dbcc-4339-8320-fecef5d8e04c', '692fca3e-4f99-4a16-98d4-96affdfaa29a', 'Butter Chicken',       1, 380.00, 380.00),
+  -- Order 6 (ORD-1006) — previously had no items seeded despite a non-zero total
+  (gen_random_uuid(), '19223584-6e9a-4b0c-86a3-459845066ee3', '692fca3e-4f99-4a16-98d4-96affdfaa29a', 'Butter Chicken',       1, 380.00, 380.00),
   -- Order 8
   (gen_random_uuid(), 'e5aa1100-0924-452e-abb2-4ca6aa1fce5e', 'bbcba77a-d3dc-4497-a151-cc04e6bec540', 'Chicken Kadai',        1, 360.00, 360.00),
   (gen_random_uuid(), 'e5aa1100-0924-452e-abb2-4ca6aa1fce5e', '40b195f0-633a-42ac-86ef-f06b87d62934', 'Dal Makhani',          1, 280.00, 280.00),
@@ -937,6 +940,10 @@ ON CONFLICT DO NOTHING;
 INSERT INTO order_items (id, order_id, menu_item_id, item_name, quantity, unit_price, total_price)
 SELECT gen_random_uuid(), o.id, v.menu_item_id, v.item_name, v.qty, v.price, v.price * v.qty
 FROM (VALUES
+  -- ORD-1007 previously had no items seeded despite a non-zero total — Kerala Fish
+  -- Curry + Tender Coconut sums to exactly the existing subtotal (500.00).
+  ('ORD-1007', '3012baf3-b6bd-426c-997a-4147afc47dd1'::uuid, 'Kerala Fish Curry',  1, 420.00),
+  ('ORD-1007', 'fcf73d5b-5ee5-432d-8bc1-860a88ee1f1d'::uuid, 'Tender Coconut',     1,  80.00),
   ('ORD-1009', '3012baf3-b6bd-426c-997a-4147afc47dd1'::uuid, 'Kerala Fish Curry',  2, 420.00),
   ('ORD-1010', 'f2d406f1-6dd9-4a5c-940b-40b87921983a'::uuid, 'Prawn Koliwada',     1, 360.00),
   ('ORD-1010', 'fcf73d5b-5ee5-432d-8bc1-860a88ee1f1d'::uuid, 'Tender Coconut',     1,  80.00),
@@ -1029,7 +1036,7 @@ INSERT INTO payments (id, payment_id, order_id, razorpay_order_id, shop_id, cust
   (gen_random_uuid(), 'pay_Abc123xyz001', 'ORD-1001', 'order_RpAbc001', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '24e349fe-42b8-4ac1-b202-99261aac3165', 719.25, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '2 hours',  NOW() - INTERVAL '115 min'),
   (gen_random_uuid(), 'pay_Def456ghi002', 'ORD-1003', 'order_RpDef002', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                   630.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '22 min',   NOW() - INTERVAL '20 min'),
   (gen_random_uuid(), 'pay_Ghi789jkl003', 'ORD-1004', 'order_RpGhi003', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                   462.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '6 min',    NOW() - INTERVAL '5 min'),
-  (gen_random_uuid(), 'pay_Jkl012mno004', 'ORD-1005', 'order_RpJkl004', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '24e349fe-42b8-4ac1-b202-99261aac3165', 336.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '36 min',   NOW() - INTERVAL '34 min'),
+  (gen_random_uuid(), 'pay_Jkl012mno004', 'ORD-1005', 'order_RpJkl004', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '24e349fe-42b8-4ac1-b202-99261aac3165', 399.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '36 min',   NOW() - INTERVAL '34 min'),
   (gen_random_uuid(), 'pay_Mno345pqr005', 'ORD-1006', 'order_RpMno005', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                   399.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '4 hours',  NOW() - INTERVAL '235 min'),
   (gen_random_uuid(), 'pay_Pqr678stu006', 'ORD-1007', 'order_RpPqr006', '44aeca17-767e-410b-868f-9fdd593fa091', '24e349fe-42b8-4ac1-b202-99261aac3165', 525.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '1 day',    NOW() - INTERVAL '1 day'),
   (gen_random_uuid(), 'pay_FAIL_001',     'ORD-FAIL1', 'order_RpFail01', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                   280.00, 'INR', 'FAILED',   'RAZORPAY', NOW() - INTERVAL '6 hours',  NULL),
@@ -1703,6 +1710,41 @@ CREATE TABLE IF NOT EXISTS menu_addons (
     sort_order  INTEGER DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_menu_addons_shop ON menu_addons(shop_id);
+
+-- Menu Shortcodes (fast POS billing — short code maps to an item + optional variant)
+CREATE TABLE IF NOT EXISTS menu_shortcodes (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id         VARCHAR(100) NOT NULL,
+    code            VARCHAR(10) NOT NULL,
+    menu_item_id    UUID NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+    variant_id      UUID,
+    active          BOOLEAN DEFAULT TRUE,
+    sort_order      INTEGER DEFAULT 0,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_menu_shortcodes_shop_code ON menu_shortcodes(shop_id, UPPER(code));
+CREATE INDEX IF NOT EXISTS idx_menu_shortcodes_shop_id ON menu_shortcodes(shop_id);
+
+-- Dine-in Areas (Indoor, Rooftop, Garden, etc. — separate menu pricing per area)
+CREATE TABLE IF NOT EXISTS dining_areas (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id     VARCHAR(100) NOT NULL,
+    name        VARCHAR(100) NOT NULL,
+    sort_order  INTEGER DEFAULT 0,
+    active      BOOLEAN DEFAULT TRUE,
+    created_at  TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_dining_areas_shop_id ON dining_areas(shop_id);
+
+-- Per-area menu item price overrides (absence of a row = use menu_items.price)
+CREATE TABLE IF NOT EXISTS area_menu_prices (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    area_id         UUID NOT NULL REFERENCES dining_areas(id) ON DELETE CASCADE,
+    menu_item_id    UUID NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+    price           NUMERIC(10,2) NOT NULL,
+    UNIQUE(area_id, menu_item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_area_menu_prices_area_id ON area_menu_prices(area_id);
 
 -- Raw Materials / Ingredients
 CREATE TABLE IF NOT EXISTS raw_materials (

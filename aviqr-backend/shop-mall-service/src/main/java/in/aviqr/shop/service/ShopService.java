@@ -17,7 +17,7 @@ public class ShopService {
         Shop shop = Shop.builder()
             .name(req.getName()).tagline(req.getTagline())
             .ownerId(ownerId).phone(req.getPhone()).email(req.getEmail())
-            .address(req.getAddress()).city(req.getCity()).state(req.getState())
+            .address(req.getAddress()).city(req.getCity()).state(req.getState()).zone(req.getZone())
             .pincode(req.getPincode()).logoUrl(req.getLogoUrl()).gstin(req.getGstin())
             .minOrderAmount(req.getMinOrderAmount()).tableCount(req.getTableCount())
             .subscriptionPlan("STARTER").build();
@@ -39,6 +39,7 @@ public class ShopService {
         if(req.getAddress()!=null)        shop.setAddress(req.getAddress());
         if(req.getCity()!=null)           shop.setCity(req.getCity());
         if(req.getState()!=null)          shop.setState(req.getState());
+        if(req.getZone()!=null)           shop.setZone(req.getZone());
         if(req.getPincode()!=null)        shop.setPincode(req.getPincode());
         if(req.getLogoUrl()!=null)        shop.setLogoUrl(req.getLogoUrl());
         if(req.getGstin()!=null)          shop.setGstin(req.getGstin());
@@ -67,7 +68,7 @@ public class ShopService {
         r.setId(s.getId()); r.setName(s.getName()); r.setTagline(s.getTagline());
         r.setOwnerId(s.getOwnerId()); r.setPhone(s.getPhone()); r.setEmail(s.getEmail());
         r.setAddress(s.getAddress()); r.setCity(s.getCity()); r.setLogoUrl(s.getLogoUrl());
-        r.setState(s.getState()); r.setPincode(s.getPincode()); r.setGstin(s.getGstin());
+        r.setState(s.getState()); r.setZone(s.getZone()); r.setPincode(s.getPincode()); r.setGstin(s.getGstin());
         r.setLatitude(s.getLatitude()); r.setLongitude(s.getLongitude());
         r.setStatus(s.getStatus()); r.setMinOrderAmount(s.getMinOrderAmount());
         r.setTableCount(s.getTableCount()); r.setSubscriptionPlan(s.getSubscriptionPlan());

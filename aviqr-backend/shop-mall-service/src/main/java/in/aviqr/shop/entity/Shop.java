@@ -23,6 +23,7 @@ public class Shop {
     private String address;
     private String city;
     private String state;
+    private String zone; // free-text, owner-assigned grouping for multi-outlet head-office rollups
     private String pincode;
     private String logoUrl;
     private Double latitude;

@@ -6,12 +6,21 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.ResolvableType;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController @RequestMapping("/api/v1/brands") @RequiredArgsConstructor @Slf4j
 public class BrandController {
@@ -113,5 +122,102 @@ public class BrandController {
                 return r;
             }).toList();
         return ResponseEntity.ok(ApiResponse.ok(shops));
+    }
+
+    // MARKET FEATURE: head-office rollup — revenue/orders across every outlet the
+    // caller owns, grouped by city and by zone. Self-scoped (no shopId param): resolves
+    // the caller's own shops via X-User-Id, same as /my. Fans out to
+    // notification-report-review-service's existing per-shop revenue endpoint via a
+    // trusted internal RestTemplate call (X-User-Role: SUPPORT bypasses that service's
+    // per-request X-Shop-Id check — same pattern SellerTierService already uses).
+    @GetMapping("/overview")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> overview(
+            @RequestHeader("X-User-Id") String uid,
+            @RequestParam(defaultValue = "7") int days) {
+        List<Shop> shops = shopRepo.findByOwnerId(uid);
+        List<Map<String, Object>> byOutlet = new ArrayList<>();
+        for (Shop shop : shops) {
+            List<Map<String, Object>> revenueRows = fetchShopRevenue(shop.getId().toString(), days);
+            BigDecimal revenue = BigDecimal.ZERO;
+            long orders = 0;
+            for (Map<String, Object> row : revenueRows) {
+                revenue = revenue.add(toBigDecimal(row.get("revenue")));
+                orders += toLong(row.get("orders"));
+            }
+            Map<String, Object> outlet = new LinkedHashMap<>();
+            outlet.put("shopId", shop.getId());
+            outlet.put("name", shop.getName());
+            outlet.put("city", shop.getCity());
+            outlet.put("zone", shop.getZone());
+            outlet.put("revenue", revenue);
+            outlet.put("orders", orders);
+            byOutlet.add(outlet);
+        }
+
+        BigDecimal totalRevenue = byOutlet.stream()
+            .map(o -> (BigDecimal) o.get("revenue")).reduce(BigDecimal.ZERO, BigDecimal::add);
+        long totalOrders = byOutlet.stream().mapToLong(o -> (Long) o.get("orders")).sum();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("totalRevenue", totalRevenue);
+        result.put("totalOrders", totalOrders);
+        result.put("outletCount", shops.size());
+        result.put("byCity", groupBy(byOutlet, "city"));
+        result.put("byZone", groupBy(byOutlet, "zone"));
+        result.put("byOutlet", byOutlet);
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    private List<Map<String, Object>> fetchShopRevenue(String shopId, int days) {
+        try {
+            String url = "http://notification-report-review-service/api/v1/reports/shop/" + shopId + "/revenue?days=" + days;
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-User-Role", "SUPPORT");
+            ParameterizedTypeReference<ApiResponse<List<Map<String, Object>>>> ref = ParameterizedTypeReference.forType(
+                ResolvableType.forClassWithGenerics(ApiResponse.class,
+                    ResolvableType.forClassWithGenerics(List.class, Map.class)).getType());
+            ResponseEntity<ApiResponse<List<Map<String, Object>>>> resp = restTemplate.exchange(
+                url, HttpMethod.GET, new HttpEntity<>(headers), ref);
+            return resp.getBody() != null && resp.getBody().getData() != null ? resp.getBody().getData() : List.of();
+        } catch (Exception e) {
+            log.warn("Revenue fetch failed for shop {}: {}", shopId, e.getMessage());
+            return List.of();
+        }
+    }
+
+    // Groups outlets by a string key (city or zone), summing revenue/orders per group.
+    // Outlets with a null/blank value for that key are grouped under "Unassigned".
+    private List<Map<String, Object>> groupBy(List<Map<String, Object>> byOutlet, String key) {
+        Map<String, List<Map<String, Object>>> grouped = byOutlet.stream()
+            .collect(Collectors.groupingBy(o -> {
+                Object v = o.get(key);
+                return v == null || v.toString().isBlank() ? "Unassigned" : v.toString();
+            }, LinkedHashMap::new, Collectors.toList()));
+        List<Map<String, Object>> result = new ArrayList<>();
+        grouped.forEach((groupKey, outlets) -> {
+            BigDecimal revenue = outlets.stream().map(o -> (BigDecimal) o.get("revenue")).reduce(BigDecimal.ZERO, BigDecimal::add);
+            long orders = outlets.stream().mapToLong(o -> (Long) o.get("orders")).sum();
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put(key, groupKey);
+            row.put("revenue", revenue);
+            row.put("orders", orders);
+            row.put("outletCount", outlets.size());
+            result.add(row);
+        });
+        result.sort((a, b) -> ((BigDecimal) b.get("revenue")).compareTo((BigDecimal) a.get("revenue")));
+        return result;
+    }
+
+    private BigDecimal toBigDecimal(Object v) {
+        if (v == null) return BigDecimal.ZERO;
+        if (v instanceof BigDecimal bd) return bd;
+        if (v instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
+        try { return new BigDecimal(v.toString()); } catch (Exception e) { return BigDecimal.ZERO; }
+    }
+
+    private long toLong(Object v) {
+        if (v == null) return 0;
+        if (v instanceof Number n) return n.longValue();
+        try { return Long.parseLong(v.toString()); } catch (Exception e) { return 0; }
     }
 }
