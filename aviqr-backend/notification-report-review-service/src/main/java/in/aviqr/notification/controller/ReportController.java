@@ -55,7 +55,7 @@ public class ReportController {
             SELECT
               COALESCE(SUM(total_amount), 0)                                  AS "totalRevenue",
               COUNT(*)                                                          AS "totalOrders",
-              COALESCE(AVG(total_amount), 0)                                  AS "avgOrderValue",
+              ROUND(COALESCE(AVG(total_amount), 0), 2)                        AS "avgOrderValue",
               COUNT(DISTINCT customer_phone)
                 FILTER (WHERE DATE(created_at) = CURRENT_DATE)                AS "newCustomers",
               COUNT(*) FILTER (WHERE status = 'COMPLETED')                    AS "completedOrders",
@@ -112,7 +112,7 @@ public class ReportController {
               d.date::date                      AS date,
               COALESCE(SUM(o.total_amount), 0)  AS revenue,
               COUNT(o.id)                        AS orders,
-              COALESCE(AVG(o.total_amount), 0)  AS avg_order,
+              ROUND(COALESCE(AVG(o.total_amount), 0), 2) AS avg_order,
               COUNT(o.id) FILTER (WHERE o.type = 'DELIVERY') AS delivery_count,
               COUNT(o.id) FILTER (WHERE o.type = 'TAKEAWAY') AS takeaway_count,
               COUNT(o.id) FILTER (WHERE o.type = 'DINE_IN')  AS dine_in_count
@@ -459,7 +459,7 @@ public class ReportController {
               COALESCE(SUM(total_amount), 0)                                                 AS "totalRevenue",
               COUNT(*) FILTER (WHERE DATE(created_at) = CURRENT_DATE)                       AS "todayOrders",
               COALESCE(SUM(total_amount) FILTER (WHERE DATE(created_at) = CURRENT_DATE), 0) AS "todayRevenue",
-              COALESCE(AVG(total_amount), 0)                                                 AS "avgOrderValue"
+              ROUND(COALESCE(AVG(total_amount), 0), 2)                                       AS "avgOrderValue"
             FROM orders
             WHERE status NOT IN ('CANCELLED','REJECTED')
             """;
