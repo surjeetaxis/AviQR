@@ -1,111 +1,93 @@
 package in.aviqr.shop.controller;
 
 import in.aviqr.shop.dto.*;
-import in.aviqr.shop.entity.PromotionDiscountType;
 import in.aviqr.shop.entity.Shop;
-import in.aviqr.shop.entity.ShopPromotion;
-import in.aviqr.shop.repository.ShopPromotionRepository;
+import in.aviqr.shop.entity.TaxRule;
+import in.aviqr.shop.repository.TaxRuleRepository;
 import in.aviqr.shop.service.ShopService;
+import in.aviqr.shop.service.TaxRuleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-@RestController @RequestMapping("/api/v1/shop-promotions") @RequiredArgsConstructor
-public class ShopPromotionController {
-    private final ShopPromotionRepository repo;
+@RestController @RequestMapping("/api/v1/tax-rules") @RequiredArgsConstructor
+public class TaxRuleController {
+    private final TaxRuleRepository repo;
     private final ShopService shopService;
+    private final TaxRuleService taxRuleService;
 
-    // Public — active, in-window promotions for a shop (customer-facing / poster auto-fill).
-    // outletType/category/state/city are optional filters: a promotion scoped to one of
-    // them only shows up when the request matches (unscoped promotions always show).
-    @GetMapping("/public/{shopId}")
-    public ResponseEntity<ApiResponse<List<ShopPromotion>>> publicActive(
+    // Internal/public — resolves the applicable tax rate for a shop, optionally
+    // scoped by outlet/service type, menu category, and region override.
+    @GetMapping("/resolve/{shopId}")
+    public ResponseEntity<ApiResponse<TaxResolution>> resolve(
             @PathVariable String shopId,
             @RequestParam(required = false) String outletType,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String city) {
-        LocalDateTime now = LocalDateTime.now();
-        List<ShopPromotion> live = repo.findByShopIdAndActiveTrue(shopId).stream()
-            .filter(p -> (p.getStartsAt() == null || !p.getStartsAt().isAfter(now))
-                      && (p.getEndsAt() == null || !p.getEndsAt().isBefore(now)))
-            .filter(p -> matchesOrUnscoped(p.getOutletType(), outletType)
-                      && matchesOrUnscoped(p.getCategory(), category)
-                      && matchesOrUnscoped(p.getState(), state)
-                      && matchesOrUnscoped(p.getCity(), city))
-            .toList();
-        return ResponseEntity.ok(ApiResponse.ok(live));
+        return ResponseEntity.ok(ApiResponse.ok(taxRuleService.resolve(shopId, outletType, category, state, city)));
     }
 
-    private boolean matchesOrUnscoped(String promotionValue, String requestValue) {
-        return promotionValue == null || (requestValue != null && promotionValue.equalsIgnoreCase(requestValue));
-    }
-
-    // Owner/manager (own shop) or ADMIN/SUPPORT — every promotion for a shop, incl. inactive
+    // Owner/manager (own shop) or ADMIN/SUPPORT — every tax rule for a shop, incl. inactive
     @GetMapping("/shop/{shopId}")
-    public ResponseEntity<ApiResponse<List<ShopPromotion>>> listByShop(
+    public ResponseEntity<ApiResponse<List<TaxRule>>> listByShop(
             @PathVariable String shopId,
             @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
             @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId,
             @RequestHeader("X-User-Id") String uid) {
         if (!canView(shopId, role, callerShopId, uid))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
-        return ResponseEntity.ok(ApiResponse.ok(repo.findByShopId(shopId, Sort.by("createdAt").descending())));
+        return ResponseEntity.ok(ApiResponse.ok(repo.findByShopId(shopId, Sort.by("priority"))));
     }
 
     @PostMapping("/shop/{shopId}")
-    public ResponseEntity<ApiResponse<ShopPromotion>> create(
+    public ResponseEntity<ApiResponse<TaxRule>> create(
             @PathVariable String shopId,
-            @Valid @RequestBody ShopPromotionRequest req,
+            @Valid @RequestBody TaxRuleRequest req,
             @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
             @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId,
             @RequestHeader("X-User-Id") String uid) {
         if (!canManage(shopId, role, callerShopId, uid))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
-        ShopPromotion promo = ShopPromotion.builder()
+        TaxRule rule = TaxRule.builder()
             .shopId(shopId)
-            .code(req.getCode())
-            .label(req.getLabel())
-            .discountType(req.getDiscountType() != null ? req.getDiscountType() : PromotionDiscountType.FIXED)
-            .discountValue(req.getDiscountValue())
-            .outletType(req.getOutletType())
-            .category(req.getCategory())
+            .name(req.getName())
+            .type(req.getType())
             .state(req.getState())
             .city(req.getCity())
-            .startsAt(req.getStartsAt())
-            .endsAt(req.getEndsAt())
+            .outletType(req.getOutletType())
+            .category(req.getCategory())
+            .taxPercent(req.getTaxPercent())
+            .priority(req.getPriority() != null ? req.getPriority() : 100)
             .active(true)
             .build();
-        return ResponseEntity.ok(ApiResponse.ok("Promotion created", repo.save(promo)));
+        return ResponseEntity.ok(ApiResponse.ok("Tax rule created", repo.save(rule)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<ShopPromotion>> update(
+    public ResponseEntity<ApiResponse<TaxRule>> update(
             @PathVariable UUID id,
-            @Valid @RequestBody ShopPromotionRequest req,
+            @Valid @RequestBody TaxRuleRequest req,
             @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
             @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId,
             @RequestHeader("X-User-Id") String uid) {
-        ShopPromotion promo = repo.findById(id).orElse(null);
-        if (promo == null) return ResponseEntity.notFound().build();
-        if (!canManage(promo.getShopId(), role, callerShopId, uid))
+        TaxRule rule = repo.findById(id).orElse(null);
+        if (rule == null) return ResponseEntity.notFound().build();
+        if (!canManage(rule.getShopId(), role, callerShopId, uid))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
-        promo.setCode(req.getCode());
-        promo.setLabel(req.getLabel());
-        if (req.getDiscountType() != null) promo.setDiscountType(req.getDiscountType());
-        promo.setDiscountValue(req.getDiscountValue());
-        promo.setOutletType(req.getOutletType());
-        promo.setCategory(req.getCategory());
-        promo.setState(req.getState());
-        promo.setCity(req.getCity());
-        promo.setStartsAt(req.getStartsAt());
-        promo.setEndsAt(req.getEndsAt());
-        return ResponseEntity.ok(ApiResponse.ok("Promotion updated", repo.save(promo)));
+        rule.setName(req.getName());
+        rule.setType(req.getType());
+        rule.setState(req.getState());
+        rule.setCity(req.getCity());
+        rule.setOutletType(req.getOutletType());
+        rule.setCategory(req.getCategory());
+        rule.setTaxPercent(req.getTaxPercent());
+        if (req.getPriority() != null) rule.setPriority(req.getPriority());
+        return ResponseEntity.ok(ApiResponse.ok("Tax rule updated", repo.save(rule)));
     }
 
     @PutMapping("/{id}/active")
@@ -114,12 +96,12 @@ public class ShopPromotionController {
             @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
             @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId,
             @RequestHeader("X-User-Id") String uid) {
-        ShopPromotion promo = repo.findById(id).orElse(null);
-        if (promo == null) return ResponseEntity.notFound().build();
-        if (!canManage(promo.getShopId(), role, callerShopId, uid))
+        TaxRule rule = repo.findById(id).orElse(null);
+        if (rule == null) return ResponseEntity.notFound().build();
+        if (!canManage(rule.getShopId(), role, callerShopId, uid))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
-        promo.setActive(active);
-        repo.save(promo);
+        rule.setActive(active);
+        repo.save(rule);
         return ResponseEntity.ok(ApiResponse.ok("Updated", null));
     }
 
@@ -129,9 +111,9 @@ public class ShopPromotionController {
             @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
             @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId,
             @RequestHeader("X-User-Id") String uid) {
-        ShopPromotion promo = repo.findById(id).orElse(null);
-        if (promo == null) return ResponseEntity.notFound().build();
-        if (!canManage(promo.getShopId(), role, callerShopId, uid))
+        TaxRule rule = repo.findById(id).orElse(null);
+        if (rule == null) return ResponseEntity.notFound().build();
+        if (!canManage(rule.getShopId(), role, callerShopId, uid))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         repo.deleteById(id);
         return ResponseEntity.ok(ApiResponse.ok("Deleted", null));

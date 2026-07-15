@@ -35,9 +35,13 @@ public class ShopService {
         Shop shop = repo.findById(id).orElseThrow(() -> new RuntimeException("Shop not found"));
         shop.setName(req.getName()); shop.setPhone(req.getPhone());
         if(req.getTagline()!=null)        shop.setTagline(req.getTagline());
+        if(req.getEmail()!=null)          shop.setEmail(req.getEmail());
         if(req.getAddress()!=null)        shop.setAddress(req.getAddress());
         if(req.getCity()!=null)           shop.setCity(req.getCity());
+        if(req.getState()!=null)          shop.setState(req.getState());
+        if(req.getPincode()!=null)        shop.setPincode(req.getPincode());
         if(req.getLogoUrl()!=null)        shop.setLogoUrl(req.getLogoUrl());
+        if(req.getGstin()!=null)          shop.setGstin(req.getGstin());
         if(req.getMinOrderAmount()!=null) shop.setMinOrderAmount(req.getMinOrderAmount());
         if(req.getTableCount()!=null)     shop.setTableCount(req.getTableCount());
         return toDto(repo.save(shop));
@@ -63,7 +67,7 @@ public class ShopService {
         r.setId(s.getId()); r.setName(s.getName()); r.setTagline(s.getTagline());
         r.setOwnerId(s.getOwnerId()); r.setPhone(s.getPhone()); r.setEmail(s.getEmail());
         r.setAddress(s.getAddress()); r.setCity(s.getCity()); r.setLogoUrl(s.getLogoUrl());
-        r.setState(s.getState()); r.setPincode(s.getPincode());
+        r.setState(s.getState()); r.setPincode(s.getPincode()); r.setGstin(s.getGstin());
         r.setLatitude(s.getLatitude()); r.setLongitude(s.getLongitude());
         r.setStatus(s.getStatus()); r.setMinOrderAmount(s.getMinOrderAmount());
         r.setTableCount(s.getTableCount()); r.setSubscriptionPlan(s.getSubscriptionPlan());

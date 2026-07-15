@@ -21,6 +21,8 @@ public class MenuController {
     private final CategoryRepository catRepo;
     private final MenuItemRepository itemRepo;
     private final PricingRuleRepository ruleRepo;
+    private final MenuVariantRepository variantRepo;
+    private final MenuAddonRepository addonRepo;
     private final DynamicPricingService pricingService;
     private final RestTemplate restTemplate;
 
@@ -52,6 +54,14 @@ public class MenuController {
                 dto.setVeg(item.getVeg()); dto.setSpicy(item.getSpicy());
                 dto.setPopular(item.getPopular()); dto.setAvailable(item.getAvailable());
                 dto.setTag(item.getTag());
+                dto.setVariants(variantRepo.findByMenuItemIdOrderBySortOrderAsc(item.getId()).stream()
+                    .filter(MenuVariant::getActive)
+                    .map(v -> {
+                        MenuResponse.VariantDto vd = new MenuResponse.VariantDto();
+                        vd.setId(v.getId()); vd.setVariantName(v.getVariantName());
+                        vd.setPrice(v.getPrice()); vd.setIsDefault(v.getIsDefault());
+                        return vd;
+                    }).toList());
                 return dto;
             }).toList();
 
@@ -66,6 +76,11 @@ public class MenuController {
         MenuResponse resp = new MenuResponse();
         resp.setShopId(shopId); resp.setLang(lang); resp.setCategories(catDtos);
         resp.setShop(fetchShopInfo(shopId));
+        resp.setAddons(addonRepo.findByShopIdAndActiveTrue(shopId).stream().map(a -> {
+            MenuResponse.AddonDto ad = new MenuResponse.AddonDto();
+            ad.setId(a.getId()); ad.setName(a.getName()); ad.setPrice(a.getPrice()); ad.setVeg(a.getVeg());
+            return ad;
+        }).toList());
         return ResponseEntity.ok(ApiResponse.ok(resp));
     }
 

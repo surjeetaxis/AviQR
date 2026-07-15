@@ -10,6 +10,8 @@ public class MenuResponse {
     String lang;
     ShopInfoDto shop;
     List<CategoryDto> categories;
+    // Shop-wide add-ons (e.g. Extra Cheese ₹30) any item can be customised with
+    List<AddonDto> addons;
 
     // Real shop info for the customer menu banner — name/tagline/rating/phone/
     // address, instead of the page falling back to generic placeholder text.
@@ -30,5 +32,15 @@ public class MenuResponse {
         String imageUrl; String videoUrl; String modelUrl; String mediaType;
         Boolean veg; Boolean spicy; Boolean popular;
         Boolean available; String tag;
+        // e.g. Small/Medium/Large, Half/Full — each with its own price
+        List<VariantDto> variants;
+    }
+    @Data
+    public static class VariantDto {
+        UUID id; String variantName; BigDecimal price; Boolean isDefault;
+    }
+    @Data
+    public static class AddonDto {
+        UUID id; String name; BigDecimal price; Boolean veg;
     }
 }

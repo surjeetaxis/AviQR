@@ -34,11 +34,15 @@ public class OrderService {
             .map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // ── Fetch per-shop GST rate from shop-service ────────────────────────
+        // ── Bill break-up: subtotal → discount/service charge → tax → total ──
+        BigDecimal discount      = req.getDiscount()      != null ? req.getDiscount()      : BigDecimal.ZERO;
+        BigDecimal serviceCharge = req.getServiceCharge()  != null ? req.getServiceCharge()  : BigDecimal.ZERO;
+        // Discount can't exceed subtotal+serviceCharge — clamp rather than let the bill go negative
+        BigDecimal taxableAmount = subtotal.subtract(discount).add(serviceCharge).max(BigDecimal.ZERO);
         BigDecimal gstRate = fetchShopTaxPercent(shopId);
-        BigDecimal tax   = subtotal.multiply(gstRate)
-                                   .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        BigDecimal total = subtotal.add(tax);
+        BigDecimal tax   = taxableAmount.multiply(gstRate)
+                                         .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        BigDecimal total = taxableAmount.add(tax);
         // ────────────────────────────────────────────────────────────────────
 
         PaymentMethod paymentMethod = PaymentMethod.valueOf(req.getPaymentMethod().toUpperCase());
@@ -66,7 +70,7 @@ public class OrderService {
             .type(req.getType() != null ? OrderType.valueOf(req.getType().toUpperCase()) : OrderType.DINE_IN)
             .status(initialStatus)
             .paymentMethod(paymentMethod)
-            .subtotal(subtotal).tax(tax).totalAmount(total)
+            .subtotal(subtotal).discount(discount).serviceCharge(serviceCharge).tax(tax).totalAmount(total)
             .notes(req.getNotes())
             .confirmationCode(generateConfirmationCode(shopId))
             .build();
@@ -75,10 +79,14 @@ public class OrderService {
             .order(order)
             .menuItemId(i.getMenuItemId())
             .itemName(i.getItemName())
+            .variantName(i.getVariantName())
             .quantity(i.getQuantity())
             .unitPrice(i.getUnitPrice())
             .totalPrice(i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
             .notes(i.getNotes())
+            .addons(i.getAddons() != null ? i.getAddons().stream()
+                .map(a -> OrderItemAddon.builder().name(a.getName()).price(a.getPrice()).build())
+                .toList() : new ArrayList<>())
             .build()).toList();
         order.setItems(new ArrayList<>(items));
 
@@ -129,13 +137,14 @@ public class OrderService {
         return false;
     }
 
-    /** Fetch taxPercent from shop-service settings endpoint.
-     *  Falls back to DEFAULT_GST (5%) on any error. */
+    /** Resolve the applicable tax rate from shop-service's tax-rule engine (region/service-type/
+     *  category rules, falling back to the shop's flat taxPercent). Falls back to DEFAULT_GST (5%)
+     *  on any error. */
     private BigDecimal fetchShopTaxPercent(String shopId) {
         try {
             @SuppressWarnings("unchecked")
             Map<String,Object> resp = restTemplate.getForObject(
-                shopServiceUrl + "/api/v1/settings/shop/" + shopId, Map.class);
+                shopServiceUrl + "/api/v1/tax-rules/resolve/" + shopId, Map.class);
             if (resp != null && resp.get("data") instanceof Map<?,?> data) {
                 Object taxPct = data.get("taxPercent");
                 if (taxPct instanceof Number n && n.doubleValue() > 0) {
@@ -143,7 +152,7 @@ public class OrderService {
                 }
             }
         } catch (Exception e) {
-            log.debug("Could not fetch taxPercent for shop {} — using default 5%: {}", shopId, e.getMessage());
+            log.debug("Could not resolve taxPercent for shop {} — using default 5%: {}", shopId, e.getMessage());
         }
         return DEFAULT_GST;
     }
@@ -282,12 +291,17 @@ public class OrderService {
             .hotelId(o.getHotelId()).roomNumber(o.getRoomNumber())
             .type(o.getType()).status(o.getStatus()).paymentMethod(o.getPaymentMethod())
             .paymentStatus(o.getPaymentStatus()).subtotal(o.getSubtotal())
+            .discount(o.getDiscount()).serviceCharge(o.getServiceCharge())
             .tax(o.getTax()).totalAmount(o.getTotalAmount()).notes(o.getNotes())
             .confirmationCode(o.getConfirmationCode()).paymentConfirmedAt(o.getPaymentConfirmedAt())
             .items(o.getItems() != null ? o.getItems().stream().map(i ->
                 OrderResponse.ItemDto.builder().id(i.getId()).menuItemId(i.getMenuItemId())
-                    .itemName(i.getItemName()).quantity(i.getQuantity())
-                    .unitPrice(i.getUnitPrice()).totalPrice(i.getTotalPrice()).notes(i.getNotes()).build()
+                    .itemName(i.getItemName()).variantName(i.getVariantName()).quantity(i.getQuantity())
+                    .unitPrice(i.getUnitPrice()).totalPrice(i.getTotalPrice()).notes(i.getNotes())
+                    .addons(i.getAddons() != null ? i.getAddons().stream()
+                        .map(a -> OrderResponse.AddonDto.builder().name(a.getName()).price(a.getPrice()).build())
+                        .toList() : List.of())
+                    .build()
             ).toList() : List.of())
             .createdAt(o.getCreatedAt()).updatedAt(o.getUpdatedAt())
             .acceptedAt(o.getAcceptedAt()).completedAt(o.getCompletedAt())

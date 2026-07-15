@@ -332,6 +332,60 @@ CREATE TABLE IF NOT EXISTS customer_favorites (
 );
 CREATE INDEX IF NOT EXISTS idx_favorite_phone ON customer_favorites (customer_phone);
 
+-- ── Unified customer profile: CRM identity fields not covered by
+--    loyalty_accounts (points/spend) — same phone+shop keyed identity ──
+CREATE TABLE IF NOT EXISTS customers (
+    id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_phone  VARCHAR(20)   NOT NULL,
+    shop_id         VARCHAR(100)  NOT NULL,
+    customer_name   VARCHAR(200),
+    email           VARCHAR(255),
+    birthday        DATE,
+    anniversary     DATE,
+    notes           TEXT,
+    created_at      TIMESTAMP     DEFAULT NOW(),
+    updated_at      TIMESTAMP     DEFAULT NOW(),
+    UNIQUE (customer_phone, shop_id)
+);
+CREATE INDEX IF NOT EXISTS idx_customers_phone_shop ON customers (customer_phone, shop_id);
+CREATE INDEX IF NOT EXISTS idx_customers_shop       ON customers (shop_id);
+
+CREATE TABLE IF NOT EXISTS customer_labels (
+    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    label       VARCHAR(60) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_customer_labels_customer ON customer_labels (customer_id);
+
+-- ── SMS CRM campaigns (birthday/anniversary wishes, segment broadcasts) ──
+CREATE TABLE IF NOT EXISTS campaigns (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id           VARCHAR(100) NOT NULL,
+    name              VARCHAR(200) NOT NULL,
+    message_template  TEXT NOT NULL,
+    audience_type     VARCHAR(30) NOT NULL,
+    audience_label    VARCHAR(60),
+    status            VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    scheduled_at      TIMESTAMP,
+    last_run_at       TIMESTAMP,
+    sent_count        INTEGER DEFAULT 0,
+    failed_count      INTEGER DEFAULT 0,
+    created_at        TIMESTAMP DEFAULT NOW(),
+    updated_at        TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_campaigns_shop ON campaigns (shop_id);
+
+CREATE TABLE IF NOT EXISTS campaign_logs (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    campaign_id    UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    shop_id        VARCHAR(100) NOT NULL,
+    customer_phone VARCHAR(20) NOT NULL,
+    customer_name  VARCHAR(200),
+    status         VARCHAR(20) NOT NULL,
+    error_message  TEXT,
+    sent_at        TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_campaign_logs_campaign ON campaign_logs (campaign_id);
+
 CREATE TABLE IF NOT EXISTS loyalty_transactions (
     id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     loyalty_account_id  UUID         NOT NULL,
@@ -785,6 +839,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     order_id     UUID          NOT NULL,
     menu_item_id UUID          NOT NULL,
     item_name    VARCHAR(255)  NOT NULL,
+    variant_name VARCHAR(100),
     quantity     INTEGER       NOT NULL,
     unit_price   DECIMAL(10,2) NOT NULL,
     total_price  DECIMAL(10,2) NOT NULL,
@@ -801,6 +856,23 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id    ON order_items (order_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_menu_item_id ON order_items (menu_item_id);
+
+-- Selected add-ons snapshot (name/price captured at order time — see OrderItemAddon)
+CREATE TABLE IF NOT EXISTS order_item_addons (
+    order_item_id UUID          NOT NULL,
+    name          VARCHAR(255)  NOT NULL,
+    price         DECIMAL(10,2) NOT NULL
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_constraint WHERE conname = 'fk_order_item_addons_order_item_id') THEN
+    ALTER TABLE order_item_addons ADD CONSTRAINT fk_order_item_addons_order_item_id
+      FOREIGN KEY (order_item_id) REFERENCES order_items (id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_order_item_addons_order_item_id ON order_item_addons (order_item_id);
 
 -- ── Sequence for order numbers ────────────────────────────────
 CREATE SEQUENCE IF NOT EXISTS seq_order_number START 100001 INCREMENT 1 CACHE 20;
@@ -1921,6 +1993,10 @@ CREATE TABLE IF NOT EXISTS shop_promotions (
     label          VARCHAR(255) NOT NULL,
     discount_type  VARCHAR(20)  DEFAULT 'FIXED',
     discount_value DOUBLE PRECISION,
+    outlet_type    VARCHAR(50),
+    category       VARCHAR(100),
+    state          VARCHAR(100),
+    city           VARCHAR(100),
     starts_at      TIMESTAMP,
     ends_at        TIMESTAMP,
     active         BOOLEAN      DEFAULT TRUE,
@@ -1930,6 +2006,30 @@ CREATE TABLE IF NOT EXISTS shop_promotions (
 
 CREATE INDEX IF NOT EXISTS idx_shop_promotions_shop_id ON shop_promotions (shop_id);
 CREATE INDEX IF NOT EXISTS idx_shop_promotions_active  ON shop_promotions (active);
+
+-- ── tax_rules ─────────────────────────────────────────────────
+-- Shop-scoped tax overrides checked in priority order (lowest first, first match
+-- wins) before falling back to shop_settings.tax_percent. Lets a shop levy
+-- different rates by region (state/city), service type (outlet/room/order type),
+-- or menu category instead of one flat rate for everything.
+CREATE TABLE IF NOT EXISTS tax_rules (
+    id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id      VARCHAR(100) NOT NULL,
+    name         VARCHAR(255) NOT NULL,
+    type         VARCHAR(20)  NOT NULL, -- REGION / SERVICE_TYPE / CATEGORY / DEFAULT
+    state        VARCHAR(100),
+    city         VARCHAR(100),
+    outlet_type  VARCHAR(50),
+    category     VARCHAR(100),
+    tax_percent  DECIMAL(5,2) NOT NULL,
+    priority     INTEGER      DEFAULT 100,
+    active       BOOLEAN      DEFAULT TRUE,
+    created_at   TIMESTAMP    DEFAULT NOW(),
+    updated_at   TIMESTAMP    DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tax_rules_shop_id ON tax_rules (shop_id);
+CREATE INDEX IF NOT EXISTS idx_tax_rules_active  ON tax_rules (active);
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aviqr;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aviqr;

@@ -8,7 +8,7 @@ import java.util.UUID;
 @Data
 public class ShopResponse {
     UUID id; String name; String tagline; String ownerId; String phone; String email;
-    String address; String city; String state; String pincode; String logoUrl; ShopStatus status;
+    String address; String city; String state; String pincode; String logoUrl; String gstin; ShopStatus status;
     Double latitude; Double longitude;
     Integer minOrderAmount; Integer tableCount; String subscriptionPlan;
     BigDecimal rating; Integer ratingCount;
