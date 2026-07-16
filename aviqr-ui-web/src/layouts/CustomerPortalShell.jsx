@@ -60,7 +60,6 @@ export default function CustomerPortalShell() {
           style={{ '--index': activeIndex, '--count': TABS.length }}
           aria-hidden="true"
         >
-          <span className="cps-nav-indicator-notch" />
           <span className="cps-nav-indicator-circle">
             <ActiveIcon size={20} />
           </span>

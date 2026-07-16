@@ -6,6 +6,8 @@ import QRCode from 'qrcode';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
+import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
+import { t } from '../../i18n/translations.js';
 import {
   Store, BarChart2, ShoppingBag, Tag, QrCode, Settings, LogOut,
   Menu as MenuIcon, TrendingUp, CreditCard, ArrowLeft, ChevronRight,
@@ -19,14 +21,14 @@ import '../hotel/HotelExtra.css';
 import './Supplier.css';
 
 const NAV = [
-  { key: 'overview', label: 'Overview',   icon: BarChart2 },
-  { key: 'outlets',  label: 'Outlets',    icon: Store },
-  { key: 'menu',     label: 'Menu Sync',  icon: Tag },
-  { key: 'orders',   label: 'All Orders', icon: ShoppingBag },
-  { key: 'qr',       label: 'QR Codes',  icon: QrCode },
-  { key: 'reports',  label: 'Reports',   icon: TrendingUp },
-  { key: 'subscription', label: 'Subscription', icon: Star },
-  { key: 'settings', label: 'Settings',  icon: Settings },
+  { key: 'overview', labelKey: 'overview',   icon: BarChart2 },
+  { key: 'outlets',  labelKey: 'outlets',    icon: Store },
+  { key: 'menu',     labelKey: 'navMenuSync',  icon: Tag },
+  { key: 'orders',   labelKey: 'navAllOrders', icon: ShoppingBag },
+  { key: 'qr',       labelKey: 'qrCodes',  icon: QrCode },
+  { key: 'reports',  labelKey: 'reports',   icon: TrendingUp },
+  { key: 'subscription', labelKey: 'subscription', icon: Star },
+  { key: 'settings', labelKey: 'settings',  icon: Settings },
 ];
 
 const WEEKLY_FALLBACK = [
@@ -36,6 +38,7 @@ const WEEKLY_FALLBACK = [
 
 export default function SupplierDashboard() {
   const { user, logout } = useAuth();
+  const { lang } = useLang();
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -121,13 +124,13 @@ export default function SupplierDashboard() {
               className={`admin-nav-item ${tab === n.key ? 'active' : ''}`}
               onClick={() => { setTab(n.key); setSidebarOpen(false); }}
             >
-              <n.icon size={16} /> {n.label}
+              <n.icon size={16} /> {t(n.labelKey, lang)}
             </button>
           ))}
         </nav>
         <div className="admin-sidebar-footer">
           <button className="admin-logout" onClick={() => { logout(); navigate('/'); }}>
-            <LogOut size={14} /> Sign out
+            <LogOut size={14} /> {t('logout', lang)}
           </button>
         </div>
       </aside>
@@ -138,6 +141,9 @@ export default function SupplierDashboard() {
             <MenuIcon size={20} />
           </button>
           <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--gray-900)' }}>Supplier Dashboard</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' }}>
+            <LangPicker />
+          </div>
           <ProfileMenu
             name={user?.name}
             email={user?.email}
@@ -145,10 +151,10 @@ export default function SupplierDashboard() {
             avatarColor="var(--blue)"
             onLogout={() => { logout(); navigate('/'); }}
             items={[
-              { label:'Profile & Settings', icon:Settings, onClick:() => setTab('settings') },
+              { label:t('profileAndSettings', lang), icon:Settings, onClick:() => setTab('settings') },
               ...(brand ? [{ label:'Preview all outlets', icon:Eye, onClick:() => navigate(`/brand/${brand.id}`) }]
                 : outlets.length ? [{ label:'Preview customer menu', icon:Eye, onClick:() => navigate(`/menu/${outlets[0].id}`) }] : []),
-              { label:'Onboarding guide', icon:Sparkles, onClick:() => navigate('/onboarding') },
+              { label:t('onboardingGuide', lang), icon:Sparkles, onClick:() => navigate('/onboarding') },
             ]}
           />
         </header>
@@ -179,6 +185,7 @@ export default function SupplierDashboard() {
 
 /* ─── Overview ─────────────────────────────────────────────────────────────── */
 function SupplierOverview({ outlets, weekly, loading, onManage, onReload }) {
+  const { lang } = useLang();
   if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>Loading outlets…</div>;
   const totalRevenue = outlets.reduce((a, o) => a + o.revenue, 0);
   const totalOrders  = outlets.reduce((a, o) => a + o.orders, 0);
@@ -186,7 +193,7 @@ function SupplierOverview({ outlets, weekly, loading, onManage, onReload }) {
     <div className="admin-overview">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Brand Overview</h1>
+          <h1 className="page-title">{t('brandOverview', lang)}</h1>
           <p className="page-subtitle">All outlets · today</p>
         </div>
       </div>
@@ -225,6 +232,7 @@ const SUPPLIER_ROOM_STATUS = { ACTIVE: 'rs-occupied', INACTIVE: 'rs-vacant', SUS
 
 /* ─── Outlets list — same card layout as the Hotel Outlets page ─────────────── */
 function OutletsList({ outlets, loading, onManage, onReload }) {
+  const { lang } = useLang();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', phone: '', city: '', zone: '' });
@@ -257,7 +265,7 @@ function OutletsList({ outlets, loading, onManage, onReload }) {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Outlets</h1>
+          <h1 className="page-title">{t('outlets', lang)}</h1>
           <p className="page-subtitle">{outlets.length} outlet{outlets.length !== 1 ? 's' : ''} · each gets its own menu, staff &amp; billing</p>
         </div>
         <button className="btn-refresh" onClick={() => setShowForm(f => !f)}><Plus size={13} /> Add outlet</button>
@@ -346,6 +354,7 @@ function OutletsList({ outlets, loading, onManage, onReload }) {
 
 /* ─── Menu Sync tab ─────────────────────────────────────────────────────────── */
 function MenuSyncTab({ outlets }) {
+  const { lang } = useLang();
   const [menuData, setMenuData] = useState({});
   const [loading, setLoading] = useState(true);
   const [copyFrom, setCopyFrom] = useState(null); // outlet being copied FROM, or null
@@ -397,7 +406,7 @@ function MenuSyncTab({ outlets }) {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Menu Sync</h1>
+          <h1 className="page-title">{t('navMenuSync', lang)}</h1>
           <p className="page-subtitle">View and manage menu per outlet · centrally push a menu &amp; raw-material master to other outlets</p>
         </div>
       </div>
@@ -560,6 +569,7 @@ function OutletMenuManager({ shopId, outletName }) {
 
 /* ─── All Orders tab ─────────────────────────────────────────────────────────── */
 function AllOrdersTab({ outlets }) {
+  const { lang } = useLang();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -584,7 +594,7 @@ function AllOrdersTab({ outlets }) {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">All Orders</h1>
+          <h1 className="page-title">{t('navAllOrders', lang)}</h1>
           <p className="page-subtitle">{orders.length} orders across {outlets.length} outlets</p>
         </div>
       </div>
@@ -635,6 +645,7 @@ function AllOrdersTab({ outlets }) {
 
 /* ─── QR Codes tab ───────────────────────────────────────────────────────────── */
 function QRCodesTab({ outlets, brand, onBrandSaved }) {
+  const { lang } = useLang();
   const [qrByOutlet, setQrByOutlet] = useState({});
   const [loading, setLoading] = useState(true);
   const [posterOutlet, setPosterOutlet] = useState(null); // { id, name } once picked
@@ -664,7 +675,7 @@ function QRCodesTab({ outlets, brand, onBrandSaved }) {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">QR Codes</h1>
+          <h1 className="page-title">{t('qrCodes', lang)}</h1>
           <p className="page-subtitle">{allCodes.length} QR codes across {outlets.length} outlets</p>
         </div>
       </div>
@@ -790,6 +801,7 @@ function BrandSetup({ onSaved }) {
 
 /* ─── Reports tab — head-office rollup, one aggregate call instead of N per-outlet ── */
 function ReportsTab({ outlets }) {
+  const { lang } = useLang();
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [groupBy, setGroupBy] = useState('outlet'); // outlet | city | zone
@@ -815,7 +827,7 @@ function ReportsTab({ outlets }) {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Reports</h1>
+          <h1 className="page-title">{t('reports', lang)}</h1>
           <p className="page-subtitle">Last 7 days · all outlets · one head-office rollup</p>
         </div>
       </div>
@@ -890,6 +902,7 @@ function ReportsTab({ outlets }) {
 
 /* ─── Settings tab ────────────────────────────────────────────────────────────── */
 function SettingsTab({ user, brand, onBrandSaved }) {
+  const { lang } = useLang();
   const [form, setForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -916,7 +929,7 @@ function SettingsTab({ user, brand, onBrandSaved }) {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Settings</h1>
+          <h1 className="page-title">{t('settings', lang)}</h1>
           <p className="page-subtitle">Supplier profile</p>
         </div>
       </div>
@@ -953,14 +966,15 @@ function SettingsTab({ user, brand, onBrandSaved }) {
 
 /* ─── Outlet Manager (full drill-down) ────────────────────────────────────────── */
 const OUTLET_NAV = [
-  { key: 'overview', label: 'Overview',  icon: BarChart2 },
-  { key: 'menu',     label: 'Menu',      icon: Tag },
-  { key: 'orders',   label: 'Orders',    icon: ShoppingBag },
-  { key: 'qr',       label: 'QR Codes',  icon: QrCode },
-  { key: 'settings', label: 'Settings',  icon: Settings },
+  { key: 'overview', labelKey: 'overview',  icon: BarChart2 },
+  { key: 'menu',     labelKey: 'menu',      icon: Tag },
+  { key: 'orders',   labelKey: 'orders',    icon: ShoppingBag },
+  { key: 'qr',       labelKey: 'qrCodes',  icon: QrCode },
+  { key: 'settings', labelKey: 'settings',  icon: Settings },
 ];
 
 function OutletManager({ outlet, onBack, user, logout, navigate }) {
+  const { lang } = useLang();
   const [tab, setTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -996,13 +1010,13 @@ function OutletManager({ outlet, onBack, user, logout, navigate }) {
               className={`admin-nav-item ${tab === n.key ? 'active' : ''}`}
               onClick={() => { setTab(n.key); setSidebarOpen(false); }}
             >
-              <n.icon size={16} /> {n.label}
+              <n.icon size={16} /> {t(n.labelKey, lang)}
             </button>
           ))}
         </nav>
         <div className="admin-sidebar-footer">
           <button className="admin-logout" onClick={() => { logout(); navigate('/'); }}>
-            <LogOut size={14} /> Sign out
+            <LogOut size={14} /> {t('logout', lang)}
           </button>
         </div>
       </aside>
@@ -1018,7 +1032,10 @@ function OutletManager({ outlet, onBack, user, logout, navigate }) {
             </button>
             <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--gray-900)' }}>{outlet.name}</span>
           </div>
-          <div className="admin-avatar sm" style={{ marginLeft: 'auto', background: 'var(--blue)' }}>{user?.avatar}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' }}>
+            <LangPicker />
+            <div className="admin-avatar sm" style={{ background: 'var(--blue)' }}>{user?.avatar}</div>
+          </div>
         </header>
         <main className="admin-content">
           {tab === 'overview'  && <OutletOverview outlet={outlet} />}
@@ -1059,6 +1076,7 @@ function OutletOverview({ outlet }) {
 }
 
 function OutletMenuTab({ shopId }) {
+  const { lang } = useLang();
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1087,7 +1105,7 @@ function OutletMenuTab({ shopId }) {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Menu</h1>
+          <h1 className="page-title">{t('menu', lang)}</h1>
           <p className="page-subtitle">{categories.length} categories · {items.length} items</p>
         </div>
       </div>
@@ -1134,6 +1152,7 @@ function OutletMenuTab({ shopId }) {
 }
 
 function OutletOrdersTab({ shopId }) {
+  const { lang } = useLang();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -1152,7 +1171,7 @@ function OutletOrdersTab({ shopId }) {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Orders</h1>
+          <h1 className="page-title">{t('orders', lang)}</h1>
           <p className="page-subtitle">{orders.length} orders</p>
         </div>
       </div>
@@ -1188,6 +1207,7 @@ function OutletOrdersTab({ shopId }) {
 }
 
 function OutletQRTab({ shopId }) {
+  const { lang } = useLang();
   const [codes, setCodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [posterOpen, setPosterOpen] = useState(false);
@@ -1205,7 +1225,7 @@ function OutletQRTab({ shopId }) {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">QR Codes</h1>
+          <h1 className="page-title">{t('qrCodes', lang)}</h1>
           <p className="page-subtitle">{codes.length} QR codes</p>
         </div>
       </div>
@@ -1245,6 +1265,7 @@ function OutletQRTab({ shopId }) {
 }
 
 function OutletSettingsTab({ shopId }) {
+  const { lang } = useLang();
   const [settings, setSettings] = useState({ gstNumber: '', address: '', phone: '', openTime: '', closeTime: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1274,7 +1295,7 @@ function OutletSettingsTab({ shopId }) {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Outlet Settings</h1>
+          <h1 className="page-title">{t('outletSettings', lang)}</h1>
           <p className="page-subtitle">Configure this outlet</p>
         </div>
       </div>

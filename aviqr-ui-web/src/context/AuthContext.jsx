@@ -45,9 +45,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const saved = localStorage.getItem('aviqr_user');
     const tok   = localStorage.getItem('aviqr_token');
-    if (saved && tok) { setUser(JSON.parse(saved)); setToken(tok); }
+    let savedUser = null;
+    if (saved && tok) { savedUser = JSON.parse(saved); setUser(savedUser); setToken(tok); }
     const savedLang = localStorage.getItem('aviqr_lang');
-    if (savedLang) setLang(savedLang);
+    if (savedUser?.preferredLanguage) setLang(savedUser.preferredLanguage);
+    else if (savedLang) setLang(savedLang);
     setLoading(false);
   }, []);
 
@@ -58,6 +60,10 @@ export function AuthProvider({ children }) {
     localStorage.setItem('aviqr_user',    JSON.stringify(userData));
     setToken(accessToken);
     setUser(userData);
+    if (userData.preferredLanguage) {
+      setLang(userData.preferredLanguage);
+      localStorage.setItem('aviqr_lang', userData.preferredLanguage);
+    }
     return userData;
   };
 
@@ -88,6 +94,10 @@ export function AuthProvider({ children }) {
   const changeLang = (code) => {
     setLang(code);
     localStorage.setItem('aviqr_lang', code);
+    if (user) {
+      updateUser({ preferredLanguage: code });
+      authApi.updateProfile({ preferredLanguage: code }).catch(() => {});
+    }
   };
 
   const linkShop = async (shopId) => {

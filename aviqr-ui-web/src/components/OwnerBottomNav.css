@@ -1,0 +1,114 @@
+/* Owner bottom nav — mobile-width replacement for the Sidebar drawer.
+   Same floating-pill-with-sliding-badge pattern as the customer portal's
+   nav (layouts/CustomerPortalShell.css) — a single indicator (raised
+   circle + flanking notch cuts) slides between tabs via one animated
+   transform, instead of each button drawing its own copy that just pops
+   in/out. Reuses the exact bezier/ring/notch technique validated there;
+   see that file's comments for why each piece is shaped the way it is. */
+.obn-nav {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  max-width: 420px;
+  margin: 0 auto;
+  height: 60px;
+  background: var(--green);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 12px 28px rgba(29, 158, 117, .35), 0 2px 8px rgba(0, 0, 0, .08);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 6px;
+  z-index: 60;
+}
+
+.obn-tab {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, .85);
+  font-family: inherit;
+}
+
+.obn-tab-icon { position: relative; display: flex; z-index: 2; }
+.obn-tab.is-active .obn-tab-icon svg { opacity: 0; }
+
+.obn-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  background: var(--red);
+  color: var(--white);
+  font-size: 9.5px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  box-shadow: 0 0 0 2px var(--green);
+  z-index: 3;
+}
+
+/* ── Sliding indicator ──────────────────────────────────────────────────── */
+.obn-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% / var(--count));
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateX(calc(var(--index) * 100%));
+  transition: transform .38s cubic-bezier(.34, 1.56, .64, 1);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* One continuous symmetric curve, not two independently-positioned wing
+   pieces — see CustomerPortalShell.css for why (the two-piece version had
+   a straight vertical closing edge that couldn't hug the ring's circular
+   boundary, producing "wisp" artifacts instead of a real U). */
+.obn-indicator::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: calc(50% - 60px);
+  width: 120px;
+  height: 34px;
+  z-index: 1;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 34'%3E%3Cpath d='M0,0 C30,0 50,34 60,34 C70,34 90,0 120,0 Z' fill='%23FAFAFA'/%3E%3C/svg%3E");
+}
+
+.obn-indicator-circle {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-16px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .22), 0 0 0 5px var(--green-darker);
+  z-index: 2;
+}
+
+/* Desktop keeps the full Sidebar (matches Sidebar.css's own 900px
+   breakpoint) — this bar only exists to replace it below that width. */
+@media (min-width: 901px) {
+  .obn-nav { display: none; }
+}

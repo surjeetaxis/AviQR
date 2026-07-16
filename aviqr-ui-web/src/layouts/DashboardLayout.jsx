@@ -3,13 +3,13 @@ import { Outlet, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar.jsx';
 import Topbar from '../components/Topbar.jsx';
 import GlobalSearch from '../components/GlobalSearch.jsx';
+import OwnerBottomNav from '../components/OwnerBottomNav.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { OutletProvider } from '../context/OutletContext.jsx';
 import { orderApi } from '../api/index.js';
 import './DashboardLayout.css';
 
 export default function DashboardLayout() {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [liveOrderCount, setLiveOrderCount] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
   const { user } = useAuth();
@@ -45,14 +45,14 @@ export default function DashboardLayout() {
 
   const content = (
     <div className="layout">
-      <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} liveOrderCount={liveOrderCount} basePath={basePath} />
-      {mobileOpen && <div className="layout-backdrop" onClick={() => setMobileOpen(false)} />}
+      <Sidebar liveOrderCount={liveOrderCount} basePath={basePath} />
       <div className="layout-main">
-        <Topbar onMenuClick={() => setMobileOpen(true)} onSearchOpen={() => setSearchOpen(true)} />
+        <Topbar onSearchOpen={() => setSearchOpen(true)} />
         <main className="layout-content">
           <Outlet />
         </main>
       </div>
+      <OwnerBottomNav liveOrderCount={liveOrderCount} />
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );

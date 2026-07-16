@@ -50,18 +50,18 @@ const VERTICAL_COLORS = {
 };
 
 const NAV = [
-  {key:'overview',      label:'Overview',      icon:BarChart2},
-  {key:'users',         label:'Users',         icon:Users},
-  {key:'shops',         label:'Shops',         icon:Store},
-  {key:'hotels',        label:'Hotels',        icon:Hotel},
-  {key:'malls',         label:'Malls',         icon:Building2},
-  {key:'suppliers',     label:'Suppliers',     icon:Package},
-  {key:'orders',        label:'Orders',        icon:ShoppingBag},
-  {key:'payments',      label:'Payments',      icon:CreditCard},
-  {key:'qrcodes',       label:'QR Codes',      icon:QrCode},
-  {key:'subscription',  label:'Subscriptions', icon:Star},
-  {key:'reports',       label:'Reports',       icon:TrendingUp},
-  {key:'settings',      label:'Settings',      icon:Settings},
+  {key:'overview',      labelKey:'overview',      icon:BarChart2},
+  {key:'users',         labelKey:'navUsers',         icon:Users},
+  {key:'shops',         labelKey:'navShops',         icon:Store},
+  {key:'hotels',        labelKey:'navHotels',        icon:Hotel},
+  {key:'malls',         labelKey:'navMalls',         icon:Building2},
+  {key:'suppliers',     labelKey:'navSuppliers',     icon:Package},
+  {key:'orders',        labelKey:'orders',        icon:ShoppingBag},
+  {key:'payments',      labelKey:'navPayments',      icon:CreditCard},
+  {key:'qrcodes',       labelKey:'qrCodes',      icon:QrCode},
+  {key:'subscription',  labelKey:'navSubscriptions', icon:Star},
+  {key:'reports',       labelKey:'reports',       icon:TrendingUp},
+  {key:'settings',      labelKey:'settings',      icon:Settings},
 ];
 
 export default function AdminDashboard() {
@@ -107,7 +107,7 @@ export default function AdminDashboard() {
           {NAV.map(n => (
             <button key={n.key} className={`admin-nav-item ${tab === n.key ? 'active' : ''}`}
               onClick={() => { setTab(n.key); setSidebarOpen(false); }}>
-              <n.icon size={16}/> <span>{n.label}</span>
+              <n.icon size={16}/> <span>{t(n.labelKey, lang)}</span>
             </button>
           ))}
         </nav>
@@ -134,7 +134,7 @@ export default function AdminDashboard() {
               avatar={user?.name?.[0] || 'A'}
               onLogout={() => { logout(); navigate('/'); }}
               items={[
-                { label:'Profile & Settings', icon:Settings, onClick:() => setTab('settings') },
+                { label:t('profileAndSettings', lang), icon:Settings, onClick:() => setTab('settings') },
                 { label:'Preview customer app', icon:Eye, onClick:() => navigate('/customer') },
               ]}
             />
@@ -162,6 +162,7 @@ export default function AdminDashboard() {
 
 // ── Overview ─────────────────────────────────────────────────────────────────
 function AdminOverview({ ps, us, onNav, onRefresh }) {
+  const { lang } = useLang();
   const fmt = n => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
   const KPIs = [
@@ -176,8 +177,8 @@ function AdminOverview({ ps, us, onNav, onRefresh }) {
   return (
     <div className="admin-overview">
       <div className="page-header">
-        <div><h1 className="page-title">Platform Overview</h1><p className="page-subtitle">Live data</p></div>
-        <button className="btn-refresh" onClick={onRefresh}><RefreshCw size={13}/> Refresh</button>
+        <div><h1 className="page-title">{t('platformOverview', lang)}</h1><p className="page-subtitle">{t('liveData', lang)}</p></div>
+        <button className="btn-refresh" onClick={onRefresh}><RefreshCw size={13}/> {t('refresh', lang)}</button>
       </div>
 
       {!ps && (
@@ -215,6 +216,7 @@ function AdminOverview({ ps, us, onNav, onRefresh }) {
 
 // ── Live Users Page ───────────────────────────────────────────────────────────
 function LiveUsersPage() {
+  const { lang } = useLang();
   const [users, setUsers]   = useState([]);
   const [search, setSearch] = useState('');
   const [roleF, setRoleF]   = useState('all');
@@ -300,7 +302,7 @@ function LiveUsersPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Users</h1><p className="page-subtitle">{filtered.length} shown</p></div>
+        <div><h1 className="page-title">{t('navUsers', lang)}</h1><p className="page-subtitle">{filtered.length} shown</p></div>
         <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && (
@@ -458,6 +460,7 @@ function ModalFieldList({ fields }) {
 
 // ── Admin Shops Page ──────────────────────────────────────────────────────────
 function AdminShopsPage() {
+  const { lang } = useLang();
   const [shops, setShops]   = useState([]);
   const [search, setSearch] = useState('');
   const [planF, setPlanF]   = useState('all');
@@ -529,7 +532,7 @@ function AdminShopsPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Shops</h1><p className="page-subtitle">{filtered.length} shops</p></div>
+        <div><h1 className="page-title">{t('navShops', lang)}</h1><p className="page-subtitle">{filtered.length} shops</p></div>
         <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
@@ -642,6 +645,7 @@ function AdminShopsPage() {
 
 // ── Admin Hotels Page ─────────────────────────────────────────────────────────
 function AdminHotelsPage() {
+  const { lang } = useLang();
   const [hotels, setHotels] = useState([]);
   const [loading, setLoad]  = useState(true);
   const [error, setErr]     = useState('');
@@ -682,7 +686,7 @@ function AdminHotelsPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Hotels</h1><p className="page-subtitle">{hotels.length} hotels</p></div>
+        <div><h1 className="page-title">{t('navHotels', lang)}</h1><p className="page-subtitle">{hotels.length} hotels</p></div>
         <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
@@ -760,6 +764,7 @@ function AdminHotelsPage() {
 
 // ── Admin Malls Page ──────────────────────────────────────────────────────────
 function AdminMallsPage() {
+  const { lang } = useLang();
   const [malls, setMalls]   = useState([]);
   const [loading, setLoad]  = useState(true);
   const [error, setErr]     = useState('');
@@ -793,7 +798,7 @@ function AdminMallsPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Malls</h1><p className="page-subtitle">{malls.length} malls</p></div>
+        <div><h1 className="page-title">{t('navMalls', lang)}</h1><p className="page-subtitle">{malls.length} malls</p></div>
         <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
@@ -874,6 +879,7 @@ function AdminMallsPage() {
 
 // ── Admin Suppliers Page ──────────────────────────────────────────────────────
 function AdminSuppliersPage() {
+  const { lang } = useLang();
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoad]        = useState(true);
   const [error, setErr]           = useState('');
@@ -932,7 +938,7 @@ function AdminSuppliersPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Suppliers</h1><p className="page-subtitle">{suppliers.length} suppliers</p></div>
+        <div><h1 className="page-title">{t('navSuppliers', lang)}</h1><p className="page-subtitle">{suppliers.length} suppliers</p></div>
         <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
@@ -1032,6 +1038,7 @@ function useShopNameMap() {
 }
 
 function AdminOrdersPage() {
+  const { lang } = useLang();
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState('');
   const [statF, setStatF]   = useState('all');
@@ -1081,7 +1088,7 @@ function AdminOrdersPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Orders</h1><p className="page-subtitle">Platform-wide · {filtered.length} shown</p></div>
+        <div><h1 className="page-title">{t('orders', lang)}</h1><p className="page-subtitle">Platform-wide · {filtered.length} shown</p></div>
         <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
@@ -1200,6 +1207,7 @@ function AdminOrdersPage() {
 
 // ── Admin Payments Page ───────────────────────────────────────────────────────
 function AdminPaymentsPage() {
+  const { lang } = useLang();
   const [payments, setPayments] = useState([]);
   const [statF, setStatF]       = useState('all');
   const [loading, setLoad]      = useState(true);
@@ -1230,7 +1238,7 @@ function AdminPaymentsPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Payments</h1><p className="page-subtitle">Platform-wide · {filtered.length} shown</p></div>
+        <div><h1 className="page-title">{t('navPayments', lang)}</h1><p className="page-subtitle">Platform-wide · {filtered.length} shown</p></div>
         <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
@@ -1289,6 +1297,7 @@ function AdminPaymentsPage() {
 // ── Admin Subscription Management ─────────────────────────────────────────────
 // Admin manages OTHER shops' subscriptions — admin has no personal subscription
 function AdminSubscriptionManagement() {
+  const { lang } = useLang();
   const [subTab, setSubTab]       = useState('assignments'); // assignments | plans | offers
 
   const [shops, setShops]         = useState([]);
@@ -1384,7 +1393,7 @@ function AdminSubscriptionManagement() {
 
       <div className="page-header">
         <div>
-          <h1 className="page-title">Subscription Management</h1>
+          <h1 className="page-title">{t('subscriptionManagement', lang)}</h1>
           <p className="page-subtitle">Manage plans, discount offers, billing & reminders</p>
         </div>
         <button className="btn-refresh" onClick={() => { load(); loadPlans(); }}><RefreshCw size={13}/> Refresh</button>
@@ -1929,6 +1938,7 @@ function AdminOffersManager({ plans }) {
 
 // ── Admin Reports ─────────────────────────────────────────────────────────────
 export function AdminReports() {
+  const { lang } = useLang();
   const [stats, setStats]  = useState(null);
   const [loading, setLoad] = useState(true);
 
@@ -1960,7 +1970,7 @@ export function AdminReports() {
 
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Platform Reports</h1></div>
+      <div className="page-header"><h1 className="page-title">{t('platformReports', lang)}</h1></div>
       {loading ? (
         <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading…</div>
       ) : stats ? (
@@ -2021,6 +2031,7 @@ function AdminSettings() {
 
 // ── Admin QR Codes Page ───────────────────────────────────────────────────────
 export function AdminQRCodesPage() {
+  const { lang } = useLang();
   const [codes, setCodes]     = useState([]);
   const [typeF, setTypeF]     = useState('all');
   const [activeF, setActiveF] = useState('all');
@@ -2081,7 +2092,7 @@ export function AdminQRCodesPage() {
       )}
       <div className="page-header">
         <div>
-          <h1 className="page-title">QR Codes</h1>
+          <h1 className="page-title">{t('qrCodes', lang)}</h1>
           <p className="page-subtitle">Platform-wide · {codes.length} total · {totalScans.toLocaleString('en-IN')} scans</p>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>

@@ -13,8 +13,10 @@
   padding-bottom: 104px; /* clears the floating pill nav + its raised active icon */
 }
 
-/* Floating pill nav — active tab's icon pops up into a white circle "badge"
-   that overlaps the pill, ringed in the pill's own color (AviQR green). */
+/* Floating pill nav. A single indicator (raised circle + flanking notch cuts)
+   slides between tabs via one animated transform — see .cps-nav-indicator
+   below — instead of each button drawing its own copy that just pops in/out
+   with the class toggle. */
 .cps-nav {
   position: fixed;
   bottom: 16px;
@@ -47,49 +49,12 @@
   font-family: inherit;
 }
 
-.cps-nav-icon-wrap {
-  position: relative;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background .2s ease, transform .2s ease, box-shadow .2s ease, color .2s ease;
-  z-index: 2;
-}
+.cps-nav-icon-wrap { position: relative; display: flex; z-index: 2; }
 
-.cps-nav-item.active .cps-nav-icon-wrap {
-  background: var(--white);
-  color: var(--green);
-  transform: translateY(-20px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, .2);
-}
-
-/* Scalloped notch on either side of the raised active icon — carved with a
-   radial-gradient "cut corner" so the pill's edge curves smoothly around
-   the badge instead of the circle just floating flat on top of it.
-   The fill MUST be the page's background color (not the pill's own green) —
-   filling with green here was the bug: it painted green-on-green, so the
-   cutout shape existed but was visually camouflaged against the pill itself. */
-.cps-nav-item.active::before,
-.cps-nav-item.active::after {
-  content: '';
-  position: absolute;
-  top: -1px;
-  width: 18px;
-  height: 18px;
-  z-index: 1;
-  pointer-events: none;
-}
-.cps-nav-item.active::before {
-  left: calc(50% - 39px);
-  background: radial-gradient(circle at top left, transparent 18px, #F9FAFB 18.5px);
-}
-.cps-nav-item.active::after {
-  left: calc(50% + 21px);
-  background: radial-gradient(circle at top right, transparent 18px, #F9FAFB 18.5px);
-}
+/* The active tab's own icon is hidden — the sliding indicator shows it
+   raised in its place instead. Only the icon glyph is hidden, not the badge,
+   so a cart count is still visible if the cart tab happens to be active. */
+.cps-nav-item.active .cps-nav-icon-wrap svg { opacity: 0; }
 
 .cps-nav-badge {
   position: absolute;
@@ -107,8 +72,69 @@
   justify-content: center;
   padding: 0 3px;
   box-shadow: 0 0 0 2px var(--green);
+  z-index: 3;
 }
-.cps-nav-item.active .cps-nav-badge { box-shadow: 0 0 0 2px var(--white); }
+
+/* ── Sliding indicator ──────────────────────────────────────────────────── */
+.cps-nav-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% / var(--count));
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateX(calc(var(--index) * 100%));
+  transition: transform .38s cubic-bezier(.34, 1.56, .64, 1);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Notch flanking the raised circle — ONE continuous symmetric curve (not
+   two independently-positioned wing pieces). Two separate pieces each had
+   a straight VERTICAL closing edge at a fixed distance from center, but
+   the ring is a CIRCLE — its boundary curves inward toward the top and
+   bottom, so a straight wall can't hug it everywhere; it poked through
+   wherever the circle's true edge was closer to center than that fixed
+   wall, producing thin "wisp" artifacts and a non-U silhouette. This path
+   instead dips from the pill's flat edge to a flat-bottomed trough (both
+   halves meet at the center with matching HORIZONTAL tangents, so it's
+   C1-smooth with zero kink), sized to stay SHALLOWER and NARROWER than
+   the ring's own circle at every point along the trough — the opposite of
+   the first attempt at this fix, which made the trough deeper than the
+   ring (34px vs the ring's 40px reach) assuming "deeper is safer," but a
+   deeper trough pokes a visible sliver out past the ring's bottom instead.
+   The ring, drawn on top, fully covers a trough that stays inside its
+   footprint — a real "U", by construction, not an approximation. Fill
+   MUST be the page's own background color, not the pill's green. */
+.cps-nav-indicator::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: calc(50% - 60px);
+  width: 120px;
+  height: 34px;
+  z-index: 1;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 34'%3E%3Cpath d='M0,0 C30,0 50,34 60,34 C70,34 90,0 120,0 Z' fill='%23F9FAFB'/%3E%3C/svg%3E");
+}
+
+.cps-nav-indicator-circle {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-16px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .22), 0 0 0 5px var(--green-darker);
+  z-index: 2;
+}
 
 /* The restaurant menu's own floating cart button sits above our nav bar
    instead of overlapping it, only when rendered inside the shell. */

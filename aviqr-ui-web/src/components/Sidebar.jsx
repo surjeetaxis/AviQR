@@ -6,77 +6,80 @@ import {
   MessageSquare, Zap, LayoutGrid
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS, ROLE_PERMISSIONS } from '../context/AuthContext.jsx';
+import { useLang } from './shared/LangPicker.jsx';
+import { t } from '../i18n/translations.js';
 import './Sidebar.css';
 
 const NAV_GROUPS = [
   {
-    label: 'Operations',
+    labelKey: 'groupOperations',
     items: [
-      { to:'/dashboard', label:'Dashboard',    icon:LayoutDashboard },
-      { to:'/orders',    label:'Orders',       icon:ShoppingBag,  badge:'orders' },
-      { to:'/billing',   label:'POS / Billing',icon:Receipt },
-      { to:'/kot',       label:'Kitchen Display (KOT)', icon:ChefHat, badge:'kot' },
+      { to:'/dashboard', labelKey:'navDashboard',    icon:LayoutDashboard },
+      { to:'/orders',    labelKey:'orders',       icon:ShoppingBag,  badge:'orders' },
+      { to:'/billing',   labelKey:'navPosBilling',icon:Receipt },
+      { to:'/kot',       labelKey:'navKot', icon:ChefHat, badge:'kot' },
     ],
   },
   {
-    label: 'Menu',
+    labelKey: 'menu',
     items: [
-      { to:'/menu',         label:'Menu Items',    icon:BookOpen },
-      { to:'/variations',   label:'Variants & Add-ons', icon:PlusCircle },
-      { to:'/dining-areas', label:'Dine-in Areas', icon:LayoutGrid },
-      { to:'/shortcodes',   label:'Quick-Bill Shortcodes', icon:Zap },
+      { to:'/menu',         labelKey:'navMenuItems',    icon:BookOpen },
+      { to:'/variations',   labelKey:'navVariants', icon:PlusCircle },
+      { to:'/dining-areas', labelKey:'navDineInAreas', icon:LayoutGrid },
+      { to:'/shortcodes',   labelKey:'navShortcodes', icon:Zap },
     ],
   },
   {
-    label: 'QR Management',
+    labelKey: 'groupQR',
     items: [
-      { to:'/qr-codes',   label:'QR Codes',     icon:QrCode },
+      { to:'/qr-codes',   labelKey:'qrCodes',     icon:QrCode },
     ],
   },
   {
-    label: 'Inventory',
+    labelKey: 'groupInventory',
     items: [
-      { to:'/inventory',     label:'Stock Levels',      icon:Package },
-      { to:'/raw-materials', label:'Raw Materials',     icon:FlaskConical },
+      { to:'/inventory',     labelKey:'navStockLevels',      icon:Package },
+      { to:'/raw-materials', labelKey:'navRawMaterials',     icon:FlaskConical },
     ],
   },
   {
-    label: 'Customers',
+    labelKey: 'groupCustomers',
     items: [
-      { to:'/loyalty', label:'Loyalty Program', icon:Gift },
-      { to:'/campaigns', label:'SMS Campaigns', icon:MessageSquare },
+      { to:'/loyalty', labelKey:'navLoyalty', icon:Gift },
+      { to:'/campaigns', labelKey:'navCampaigns', icon:MessageSquare },
     ],
   },
   {
-    label: 'Staff',
+    labelKey: 'staff',
     items: [
-      { to:'/staff', label:'Staff', icon:Users },
+      { to:'/staff', labelKey:'staff', icon:Users },
     ],
   },
   {
-    label: 'Reports',
+    labelKey: 'reports',
     items: [
-      { to:'/reports',   label:'Reports',           icon:BarChart3 },
-      { to:'/analytics',     label:'Advanced Analytics', icon:TrendingUp },
-      { to:'/order-history', label:'Order History',       icon:Clock },
+      { to:'/reports',   labelKey:'reports',           icon:BarChart3 },
+      { to:'/analytics',     labelKey:'navAnalytics', icon:TrendingUp },
+      { to:'/order-history', labelKey:'navOrderHistory',       icon:Clock },
     ],
   },
   {
-    label: 'AI Features',
+    labelKey: 'groupAI',
     items: [
-      { to:'/ai', label:'AI Features', icon:Sparkles },
+      { to:'/ai', labelKey:'navAiFeatures', icon:Sparkles },
     ],
   },
   {
-    label: 'Account',
+    labelKey: 'groupAccount',
     items: [
-      { to:'/settings', label:'Settings', icon:Settings },
+      { to:'/settings', labelKey:'settings', icon:Settings },
     ],
   },
 ];
 
 export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, basePath = '' }) {
   const { user, logout } = useAuth();
+  const { lang } = useLang();
   const navigate = useNavigate();
   const isAdmin = user?.role === 'ADMIN';
 
@@ -121,7 +124,7 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, baseP
           <div className="sidebar-shop-name">{user?.shopName || user?.name || 'My Shop'}</div>
           <div className="sidebar-shop-status">
             <span className="status-dot" aria-hidden="true" />
-            {liveOrderCount > 0 ? `${liveOrderCount} live orders` : 'No active orders'}
+            {liveOrderCount > 0 ? `${liveOrderCount} ${t('liveOrders', lang)}` : t('noActiveOrders', lang)}
           </div>
         </div>
       </div>
@@ -130,22 +133,22 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, baseP
       <nav className="sidebar-nav" aria-label="Primary navigation" style={{ flex:1, overflowY:'auto', padding:'8px 0' }}>
         {basePath && (
           <NavLink to="/hotel" onClick={onClose} className="sidebar-link" style={{ marginBottom:8 }}>
-            <span>&larr; Back to Outlets</span>
+            <span>&larr; {t('backToOutlets', lang)}</span>
           </NavLink>
         )}
         {NAV_GROUPS.map(group => {
           const visibleItems = group.items.filter(item => canAccess(item.to));
           if (visibleItems.length === 0) return null;
           return (
-            <div key={group.label} style={{ marginBottom:4 }}>
+            <div key={group.labelKey} style={{ marginBottom:4 }}>
               <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.4)', textTransform:'uppercase', letterSpacing:.8, padding:'10px 20px 4px' }}>
-                {group.label}
+                {t(group.labelKey, lang)}
               </div>
-              {visibleItems.map(({ to, label, icon:Icon, badge }) => (
+              {visibleItems.map(({ to, labelKey, icon:Icon, badge }) => (
                 <NavLink key={to} to={`${basePath}${to}`} onClick={onClose}
                   className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}>
                   <Icon size={16} aria-hidden="true" />
-                  <span>{label}</span>
+                  <span>{t(labelKey, lang)}</span>
                   {badge === 'orders' && liveOrderCount > 0 && (
                     <span className="sidebar-badge" style={{ background:'#DC2626', marginLeft:'auto' }}>{liveOrderCount}</span>
                   )}
@@ -162,7 +165,7 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, baseP
           <div style={{ marginBottom:4 }}>
             <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.4)', textTransform:'uppercase', letterSpacing:.8, padding:'10px 20px 4px' }}>Admin</div>
             <NavLink to="/admin" onClick={onClose} className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}>
-              <ShieldCheck size={16} /><span>Admin Panel</span>
+              <ShieldCheck size={16} /><span>{t('navAdminPanel', lang)}</span>
             </NavLink>
           </div>
         )}
@@ -173,7 +176,7 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, baseP
           {(ROLE_LABELS[user?.role] || 'Owner').toUpperCase()}
         </div>
         <button className="sidebar-logout" onClick={handleLogout}>
-          <LogOut size={16} aria-hidden="true" /> Sign out
+          <LogOut size={16} aria-hidden="true" /> {t('logout', lang)}
         </button>
         <div className="sidebar-version">AviQR v2.1</div>
       </div>

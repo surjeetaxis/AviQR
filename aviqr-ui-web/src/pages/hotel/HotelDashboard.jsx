@@ -50,22 +50,22 @@ const ROOM_MENU = [
 ];
 
 const NAV = [
-  {key:'overview',    label:'Overview',         icon:BarChart2},
-  {key:'requests',    label:'Guest Requests',   icon:Bell, badge:3},
-  {key:'bookings',    label:'Bookings',         icon:Star},
-  {key:'guests',      label:'Guests',           icon:Users},
-  {key:'outlets',     label:'Outlets',          icon:Store},
-  {key:'hotelstaff',  label:'Hotel Staff',      icon:UserCog},
-  {key:'rooms',       label:'Rooms',            icon:BedDouble},
-  {key:'roomservice', label:'Room Service Menu',icon:UtensilsCrossed},
-  {key:'housekeeping',label:'Housekeeping',     icon:Sparkles},
-  {key:'laundry',     label:'Laundry',          icon:Shirt},
-  {key:'spa',         label:'Spa',              icon:Flower2},
-  {key:'maintenance', label:'Maintenance',      icon:Wrench},
-  {key:'qrmanagement',label:'QR Management',    icon:QrCode},
-  {key:'reports',     label:'Reports',          icon:TrendingUp},
-  {key:'subscription',label:'Subscription',     icon:Star},
-  {key:'settings',    label:'Settings',         icon:Settings},
+  {key:'overview',    labelKey:'overview',         icon:BarChart2},
+  {key:'requests',    labelKey:'navGuestRequests',   icon:Bell, badge:3},
+  {key:'bookings',    labelKey:'bookings',         icon:Star},
+  {key:'guests',      labelKey:'guests',           icon:Users},
+  {key:'outlets',     labelKey:'outlets',          icon:Store},
+  {key:'hotelstaff',  labelKey:'navHotelStaff',      icon:UserCog},
+  {key:'rooms',       labelKey:'rooms',            icon:BedDouble},
+  {key:'roomservice', labelKey:'navRoomService',icon:UtensilsCrossed},
+  {key:'housekeeping',labelKey:'housekeeping',     icon:Sparkles},
+  {key:'laundry',     labelKey:'laundry',          icon:Shirt},
+  {key:'spa',         labelKey:'spa',              icon:Flower2},
+  {key:'maintenance', labelKey:'maintenance',      icon:Wrench},
+  {key:'qrmanagement',labelKey:'groupQR',    icon:QrCode},
+  {key:'reports',     labelKey:'reports',          icon:TrendingUp},
+  {key:'subscription',labelKey:'subscription',     icon:Star},
+  {key:'settings',    labelKey:'settings',         icon:Settings},
 ];
 
 const STATUS_CFG = {
@@ -223,7 +223,7 @@ export default function HotelDashboard() {
         <nav className="admin-nav">
           {NAV.map(n=>(
             <button key={n.key} className={`admin-nav-item ${tab===n.key?'active':''}`} onClick={()=>{setTab(n.key);setSidebarOpen(false);}}>
-              <n.icon size={16}/> <span>{n.label}</span>
+              <n.icon size={16}/> <span>{t(n.labelKey, lang)}</span>
               {n.badge && <span className="support-nav-badge">{n.badge}</span>}
             </button>
           ))}
@@ -246,9 +246,9 @@ export default function HotelDashboard() {
               avatarColor="var(--purple)"
               onLogout={() => { logout(); navigate('/'); }}
               items={[
-                { label:'Profile & Settings', icon:Settings, onClick:() => setTab('settings') },
+                { label:t('profileAndSettings', lang), icon:Settings, onClick:() => setTab('settings') },
                 ...(hotelId ? [{ label:'Preview guest page', icon:Eye, onClick:() => navigate(`/hotel-services/${hotelId}`) }] : []),
-                { label:'Onboarding guide', icon:Sparkles, onClick:() => navigate('/onboarding') },
+                { label:t('onboardingGuide', lang), icon:Sparkles, onClick:() => navigate('/onboarding') },
               ]}
             />
           </div>
@@ -287,6 +287,7 @@ function isToday(dateStr) {
 }
 
 function HotelOverview({rooms,requests,bookings,onAdvance,onNav}) {
+  const { lang } = useLang();
   const [billRoom, setBillRoom] = useState(null);
   const occupied = rooms.filter(r=>r.status==='occupied');
   const activeReqs = requests.filter(r=>r.status!=='done').length;
@@ -299,7 +300,7 @@ function HotelOverview({rooms,requests,bookings,onAdvance,onNav}) {
   return (
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
       <div className="page-header">
-        <div><h1 className="page-title">Hotel Overview</h1><p className="page-subtitle">{occupied.length}/{rooms.length} rooms occupied · live</p></div>
+        <div><h1 className="page-title">{t('hotelOverview', lang)}</h1><p className="page-subtitle">{occupied.length}/{rooms.length} rooms occupied · live</p></div>
         <button className="btn-refresh" onClick={()=>onNav('requests')}><Bell size={13}/> {activeReqs} active requests</button>
       </div>
       {urgentReqs>0&&<div className="support-alert-banner"><AlertCircle size={16}/><span><strong>{urgentReqs} urgent request{urgentReqs>1?'s':''}</strong> need immediate attention.</span><button className="support-alert-action" onClick={()=>onNav('requests')}>View all →</button></div>}
@@ -387,9 +388,10 @@ function HotelOverview({rooms,requests,bookings,onAdvance,onNav}) {
 }
 
 function AllRequests({requests,onAdvance,compact,roomFilter,onClearFilter}) {
+  const { lang } = useLang();
   return (
     <div>
-      {!compact&&<div className="page-header"><h1 className="page-title">Guest Requests</h1><span className="req-live-badge">● Live</span></div>}
+      {!compact&&<div className="page-header"><h1 className="page-title">{t('navGuestRequests', lang)}</h1><span className="req-live-badge">● Live</span></div>}
       {roomFilter && (
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,fontSize:13}}>
           <span style={{background:'var(--gray-100)',padding:'4px 10px',borderRadius:99,fontWeight:600}}>Room {roomFilter}</span>
@@ -420,6 +422,7 @@ function AllRequests({requests,onAdvance,compact,roomFilter,onClearFilter}) {
 }
 
 function BookingsView({bookings,onUpdate,compact}) {
+  const { lang } = useLang();
   const badge = (s) => {
     const map = {
       REQUESTED: {bg:'var(--amber-bg,#FEF3C7)', c:'var(--amber,#B45309)', label:'Requested'},
@@ -431,7 +434,7 @@ function BookingsView({bookings,onUpdate,compact}) {
   };
   return (
     <div>
-      {!compact&&<div className="page-header"><h1 className="page-title">Outlet Bookings</h1><span className="req-live-badge">● Live</span></div>}
+      {!compact&&<div className="page-header"><h1 className="page-title">{t('outletBookings', lang)}</h1><span className="req-live-badge">● Live</span></div>}
       <div className="requests-list">
         {bookings.map(b=>(
           <div key={b.id} className="request-row">
@@ -456,6 +459,7 @@ function BookingsView({bookings,onUpdate,compact}) {
 }
 
 function GuestsPage({rooms,bookings}) {
+  const { lang } = useLang();
   const occupied = rooms.filter(r=>r.status==='occupied' && r.guest);
   const checkingIn = occupied.filter(r=>isToday(r.checkIn));
   const checkingOut = occupied.filter(r=>isToday(r.checkOut));
@@ -463,7 +467,7 @@ function GuestsPage({rooms,bookings}) {
 
   return (
     <div>
-      <div className="page-header"><div><h1 className="page-title">Guests</h1><p className="page-subtitle">{occupied.length} in-house · {checkingIn.length} checking in today · {checkingOut.length} checking out today</p></div></div>
+      <div className="page-header"><div><h1 className="page-title">{t('guests', lang)}</h1><p className="page-subtitle">{occupied.length} in-house · {checkingIn.length} checking in today · {checkingOut.length} checking out today</p></div></div>
       <div className="admin-table-card">
         <table className="admin-table">
           <thead><tr><th>Guest</th><th>Room</th><th>Check-in</th><th>Check-out</th><th>Status</th></tr></thead>
@@ -504,6 +508,7 @@ function GuestsPage({rooms,bookings}) {
 const OUTLET_TYPES = ['RESTAURANT','BAR','SPA','GYM','POOL','SHOP','ACTIVITY','BANQUET','KIDS_CLUB','BUSINESS_CENTER','LAUNDRY','CONCIERGE','OTHER'];
 
 function OutletsPage({hotelId}) {
+  const { lang } = useLang();
   const navigate = useNavigate();
   const [outlets,setOutlets] = useState([]);
   const [loading,setLoading] = useState(true);
@@ -542,7 +547,7 @@ function OutletsPage({hotelId}) {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Outlets</h1><p className="page-subtitle">{outlets.length} outlet{outlets.length!==1?'s':''} · each gets its own menu, staff, billing &amp; loyalty</p></div>
+        <div><h1 className="page-title">{t('outlets', lang)}</h1><p className="page-subtitle">{outlets.length} outlet{outlets.length!==1?'s':''} · each gets its own menu, staff, billing &amp; loyalty</p></div>
         <button className="btn-refresh" onClick={()=>setShowForm(f=>!f)}><Plus size={13}/> Add outlet</button>
       </div>
 
@@ -602,6 +607,7 @@ function OutletsPage({hotelId}) {
 const HOTEL_ROLES = ['GENERAL_MANAGER','OUTLET_MANAGER','STAFF'];
 
 function HotelStaffPage({hotelId}) {
+  const { lang } = useLang();
   const [access,setAccess] = useState([]);
   const [loading,setLoading] = useState(true);
   const [form,setForm] = useState({userId:'',role:'STAFF'});
@@ -634,7 +640,7 @@ function HotelStaffPage({hotelId}) {
 
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Hotel Staff</h1><p className="page-subtitle">Hotel-wide roles — separate from an individual outlet's own staff</p></div>
+      <div className="page-header"><h1 className="page-title">{t('navHotelStaff', lang)}</h1><p className="page-subtitle">Hotel-wide roles — separate from an individual outlet's own staff</p></div>
 
       <form onSubmit={grant} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:12,alignItems:'end'}}>
         <div className="form-field">
@@ -675,6 +681,7 @@ function HotelStaffPage({hotelId}) {
 }
 
 function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
+  const { lang } = useLang();
   const [filter,setFilter] = useState('all');
   const [billRoom,setBillRoom] = useState(null);
   const [showAdd,setShowAdd] = useState(false);
@@ -715,7 +722,7 @@ function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Rooms</h1><p className="page-subtitle">{rooms.length} total · {rooms.filter(r=>r.status==='occupied').length} occupied</p></div>
+        <div><h1 className="page-title">{t('rooms', lang)}</h1><p className="page-subtitle">{rooms.length} total · {rooms.filter(r=>r.status==='occupied').length} occupied</p></div>
         <button className="btn-refresh" onClick={()=>setShowAdd(f=>!f)}><Plus size={13}/> Add room</button>
       </div>
       {showAdd && (
@@ -926,6 +933,7 @@ function RoomBillModal({room,onClose}) {
 }
 
 function RoomServiceMenu({menu:initialMenu}) {
+  const { lang } = useLang();
   const [menu,setMenu] = useState(initialMenu);
   const [showAdd,setShowAdd] = useState(false);
   const [editing,setEditing] = useState(null);
@@ -951,7 +959,7 @@ function RoomServiceMenu({menu:initialMenu}) {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Room Service Menu</h1><p className="page-subtitle">{menu.filter(m=>m.available).length} available items</p></div>
+        <div><h1 className="page-title">{t('navRoomService', lang)}</h1><p className="page-subtitle">{menu.filter(m=>m.available).length} available items</p></div>
         <button className="btn-refresh" onClick={openAdd}><Plus size={13}/> Add item</button>
       </div>
       {showAdd && (
@@ -1009,6 +1017,7 @@ function RoomServiceMenu({menu:initialMenu}) {
 }
 
 function HousekeepingPage({requests,rooms}) {
+  const { lang } = useLang();
   // Was previously 4 hardcoded literal numbers unconnected to any real data
   // (always summed to 30 regardless of the hotel's actual room count). Rooms
   // already carry a real status — including CLEANING — that was never plumbed
@@ -1022,7 +1031,7 @@ function HousekeepingPage({requests,rooms}) {
   const counts = (rooms||[]).reduce((acc,r) => { acc[r.status] = (acc[r.status]||0)+1; return acc; }, {});
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Housekeeping</h1><p className="page-subtitle">{(rooms||[]).length} rooms</p></div>
+      <div className="page-header"><h1 className="page-title">{t('housekeeping', lang)}</h1><p className="page-subtitle">{(rooms||[]).length} rooms</p></div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:12,marginBottom:20}}>
         {Object.entries(STATUS_META).map(([key,m])=>(
           <div key={key} className="admin-kpi-card" style={{textAlign:'center'}}>
@@ -1047,6 +1056,7 @@ function ServicePage({title,requests,onAdvance}) {
 }
 
 function SpaPage({bookings,outlets,hotelId,onUpdate}) {
+  const { lang } = useLang();
   // Don't rely solely on the parent's one-shot outlets fetch (loaded once on
   // dashboard mount, no retry) — refetch independently, same pattern as
   // OutletsPage, so a transient failure there doesn't permanently hide a real
@@ -1062,7 +1072,7 @@ function SpaPage({bookings,outlets,hotelId,onUpdate}) {
   const spaBookings = (bookings||[]).filter(b=>spaOutletIds.has(b.outletId));
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Spa</h1><p className="page-subtitle">{spaBookings.filter(b=>b.status!=='COMPLETED'&&b.status!=='CANCELLED').length} active booking{spaBookings.filter(b=>b.status!=='COMPLETED'&&b.status!=='CANCELLED').length===1?'':'s'}</p></div>
+      <div className="page-header"><h1 className="page-title">{t('spa', lang)}</h1><p className="page-subtitle">{spaBookings.filter(b=>b.status!=='COMPLETED'&&b.status!=='CANCELLED').length} active booking{spaBookings.filter(b=>b.status!=='COMPLETED'&&b.status!=='CANCELLED').length===1?'':'s'}</p></div>
       {spaOutletIds.size===0 ? (
         <div style={{textAlign:'center',padding:32,color:'var(--gray-400)',fontSize:13}}>No spa outlet set up yet. Add one from the Outlets tab (type "SPA").</div>
       ) : (
@@ -1073,6 +1083,7 @@ function SpaPage({bookings,outlets,hotelId,onUpdate}) {
 }
 
 function QRManagementPage({rooms,setRooms,outlets,hotelId,hotelName}) {
+  const { lang } = useLang();
   const navigate = useNavigate();
   const toggleRoomQR = (room) => {
     const next = !room.qrActive;
@@ -1097,7 +1108,7 @@ function QRManagementPage({rooms,setRooms,outlets,hotelId,hotelName}) {
 
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">QR Management</h1><p className="page-subtitle">{rooms.filter(r=>r.qrActive).length}/{rooms.length} room QRs active · {outletList.filter(o=>o.qrActive).length}/{outletList.length} outlet QRs active</p></div>
+      <div className="page-header"><h1 className="page-title">{t('groupQR', lang)}</h1><p className="page-subtitle">{rooms.filter(r=>r.qrActive).length}/{rooms.length} room QRs active · {outletList.filter(o=>o.qrActive).length}/{outletList.length} outlet QRs active</p></div>
 
       <div className="sub-section-header" style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Main Hotel QR</div>
       <HotelQR hotelId={hotelId} hotelName={hotelName}/>
@@ -1195,6 +1206,7 @@ function HotelQR({ hotelId, hotelName }) {
 }
 
 function HotelReportsTab({outlets,hotelId}) {
+  const { lang } = useLang();
   const [revenueData,setRevenueData] = useState([]);
   const [loading,setLoading] = useState(true);
   // Same independent-refetch fix as SpaPage/QRManagementPage.
@@ -1235,7 +1247,7 @@ function HotelReportsTab({outlets,hotelId}) {
 
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Reports</h1><p className="page-subtitle">Last 7 days · all outlets</p></div>
+      <div className="page-header"><h1 className="page-title">{t('reports', lang)}</h1><p className="page-subtitle">Last 7 days · all outlets</p></div>
       <div className="admin-kpi-grid" style={{marginBottom:20}}>
         <div className="admin-kpi-card">
           <div className="admin-kpi-icon icon-green"><TrendingUp size={18}/></div>

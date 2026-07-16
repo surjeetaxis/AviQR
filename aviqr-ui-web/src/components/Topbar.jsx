@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Search, Bell, LogOut, ChevronDown } from 'lucide-react';
+import { Search, Bell, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth, ROLE_LABELS } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { LangPicker } from './shared/LangPicker.jsx';
@@ -8,7 +8,7 @@ import { useLang } from './shared/LangPicker.jsx';
 import { t } from '../i18n/translations.js';
 import './Topbar.css';
 
-export default function Topbar({ onMenuClick, onSearchOpen }) {
+export default function Topbar({ onSearchOpen }) {
   const { user, logout } = useAuth();
   const shopId = useActiveShopId();
   const { lang } = useLang();
@@ -19,10 +19,6 @@ export default function Topbar({ onMenuClick, onSearchOpen }) {
 
   return (
     <header className="topbar">
-      <button className="topbar-menu" onClick={onMenuClick} aria-label="Open menu">
-        <Menu size={20} />
-      </button>
-
       <div className="topbar-search" onClick={onSearchOpen} style={{ cursor:'pointer' }}>
         <Search size={16} className="topbar-search-icon" aria-hidden="true" />
         <input type="search" placeholder={t('search', lang)} aria-label="Search"
@@ -59,10 +55,10 @@ export default function Topbar({ onMenuClick, onSearchOpen }) {
                 {t('profile', lang)} & {t('settings', lang)}
               </button>
               <button className="topbar-dropdown-item" onClick={() => { setShowDropdown(false); navigate(shopId ? `/menu/${shopId}` : '/customer'); }}>
-                Preview customer menu
+                {t('previewCustomerMenu', lang)}
               </button>
               <button className="topbar-dropdown-item" onClick={() => { setShowDropdown(false); navigate('/onboarding'); }}>
-                Onboarding guide
+                {t('onboardingGuide', lang)}
               </button>
               <div className="topbar-dropdown-divider" />
               <button className="topbar-dropdown-item topbar-dropdown-logout" onClick={handleLogout}>

@@ -9,8 +9,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { menuApi, orderApi, paymentApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { Button } from '../../src/components/common/Button.js';
-// BottomSheet replaced with Modal
+import { BottomSheet } from '../../src/components/common/BottomSheet.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
+import { CustomerBottomNav } from '../../src/components/common/CustomerBottomNav.js';
+import { SearchIcon, MinusIcon, PlusIcon, ArrowRightIcon, ShoppingBagIcon } from '../../src/components/common/NavIcons.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
 
 export default function CustomerMenuScreen({ route }) {
@@ -27,6 +29,20 @@ export default function CustomerMenuScreen({ route }) {
   const [ordering, setOrdering] = useState(false);
   const [filter, setFilter]     = useState('all'); // all, veg, nonveg, popular
   const [customerInfo, setInfo] = useState({ name: user?.name || '', phone: user?.phone || '', table: tableNumber || '', paymentMethod: 'ONLINE' });
+  const [activeTab, setActiveTab] = useState('home');
+  const searchInputRef = useRef(null);
+
+  // Search/Orders/Profile don't have dedicated mobile screens yet (only the
+  // web customer portal has /portal/orders + /portal/profile) — those tabs
+  // do the closest sensible thing today rather than being dead buttons.
+  const handleTabChange = (key) => {
+    setActiveTab(key);
+    if (key === 'search') searchInputRef.current?.focus();
+    else if (key === 'cart') setCartOpen(true);
+    else if (key === 'orders' || key === 'profile') {
+      Alert.alert('Coming soon', `${key === 'orders' ? 'Order history' : 'Profile'} isn't available in the app yet.`);
+    }
+  };
 
   useEffect(() => { loadMenu(); }, [shopId, lang]);
 
@@ -109,11 +125,11 @@ export default function CustomerMenuScreen({ route }) {
           {qty > 0 ? (
             <View style={styles.qtyRow}>
               <TouchableOpacity style={styles.qtyBtn} onPress={() => removeItem(item)}>
-                <Icon name="minus" size={14} color={Colors.primary} />
+                <MinusIcon size={14} color={Colors.primary} />
               </TouchableOpacity>
               <Text style={styles.qtyText}>{qty}</Text>
               <TouchableOpacity style={styles.qtyBtn} onPress={() => addItem(item)}>
-                <Icon name="plus" size={14} color={Colors.primary} />
+                <PlusIcon size={14} color={Colors.primary} />
               </TouchableOpacity>
             </View>
           ) : (
@@ -137,8 +153,8 @@ export default function CustomerMenuScreen({ route }) {
       {/* Search & Filters */}
       <View style={styles.searchWrap}>
         <View style={styles.searchBox}>
-          <Icon name="search" size={16} color={Colors.gray400} />
-          <TextInput style={styles.searchInput} placeholder="Search dishes…" placeholderTextColor={Colors.gray400} value={search} onChangeText={setSearch} />
+          <SearchIcon size={16} color={Colors.gray400} />
+          <TextInput ref={searchInputRef} style={styles.searchInput} placeholder="Search dishes…" placeholderTextColor={Colors.gray400} value={search} onChangeText={setSearch} />
         </View>
         <FlatList
           data={[{id:'all',label:'All'},{id:'veg',label:'🟢 Veg'},{id:'nonveg',label:'🔴 Non-Veg'},{id:'popular',label:'⭐ Popular'}]}
@@ -176,7 +192,7 @@ export default function CustomerMenuScreen({ route }) {
             <Text style={styles.sectionTitle}>{section.title}</Text>
           </View>
         )}
-        contentContainerStyle={{ paddingBottom: cartCount > 0 ? 120 : 32 }}
+        contentContainerStyle={{ paddingBottom: cartCount > 0 ? 190 : 100 }}
         showsVerticalScrollIndicator={false}
         stickySectionHeadersEnabled={false}
       />
@@ -184,10 +200,10 @@ export default function CustomerMenuScreen({ route }) {
       {/* Cart FAB */}
       {cartCount > 0 && (
         <TouchableOpacity style={styles.cartFab} onPress={() => setCartOpen(true)} activeOpacity={0.9}>
-          <Icon name="shopping-bag" size={18} color={Colors.white} />
+          <ShoppingBagIcon size={18} color={Colors.white} />
           <Text style={styles.cartFabText}>{cartCount} item{cartCount > 1 ? 's' : ''}</Text>
           <Text style={styles.cartFabTotal}>₹{cartTotal.toFixed(0)}</Text>
-          <Icon name="arrow-right" size={16} color={Colors.white} />
+          <ArrowRightIcon size={16} color={Colors.white} />
         </TouchableOpacity>
       )}
 
@@ -198,9 +214,9 @@ export default function CustomerMenuScreen({ route }) {
           {cartItems.map(item => (
             <View key={item.id} style={styles.cartRow}>
               <View style={styles.cartQtyControl}>
-                <TouchableOpacity onPress={() => removeItem(item)} style={styles.qtyBtn}><Icon name="minus" size={12} color={Colors.primary} /></TouchableOpacity>
+                <TouchableOpacity onPress={() => removeItem(item)} style={styles.qtyBtn}><MinusIcon size={12} color={Colors.primary} /></TouchableOpacity>
                 <Text style={styles.cartQtyText}>{item.qty}</Text>
-                <TouchableOpacity onPress={() => addItem(item)} style={styles.qtyBtn}><Icon name="plus" size={12} color={Colors.primary} /></TouchableOpacity>
+                <TouchableOpacity onPress={() => addItem(item)} style={styles.qtyBtn}><PlusIcon size={12} color={Colors.primary} /></TouchableOpacity>
               </View>
               <Text style={styles.cartItemName} numberOfLines={1}>{item.name}</Text>
               <Text style={styles.cartItemPrice}>₹{(item.effectivePrice * item.qty).toFixed(0)}</Text>
@@ -240,6 +256,13 @@ export default function CustomerMenuScreen({ route }) {
           </View>
         )}
       </BottomSheet>
+
+      <CustomerBottomNav
+        activeTab={activeTab}
+        onChangeTab={handleTabChange}
+        cartCount={cartCount}
+        pageBackground={Colors.background}
+      />
     </View>
   );
 }
@@ -285,7 +308,7 @@ const styles = StyleSheet.create({
   qtyText:        { fontSize: FontSize.sm, fontWeight: '800', color: Colors.primary, paddingHorizontal: 6 },
   addBtn:         { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingVertical: 6, paddingHorizontal: 16 },
   addBtnText:     { color: Colors.white, fontSize: FontSize.xs, fontWeight: '800', letterSpacing: 0.5 },
-  cartFab:        { position: 'absolute', bottom: 24, left: 16, right: 16, backgroundColor: Colors.gray900, borderRadius: Radius.xl, flexDirection: 'row', alignItems: 'center', padding: 16, gap: 10, ...Shadow.lg },
+  cartFab:        { position: 'absolute', bottom: 92, left: 16, right: 16, backgroundColor: Colors.gray900, borderRadius: Radius.xl, flexDirection: 'row', alignItems: 'center', padding: 16, gap: 10, ...Shadow.lg },
   cartFabText:    { flex: 1, color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
   cartFabTotal:   { color: Colors.white, fontWeight: '800', fontSize: FontSize.base },
   sheetTitle:     { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900, marginBottom: Spacing.base },

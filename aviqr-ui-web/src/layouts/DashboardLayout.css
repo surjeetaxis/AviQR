@@ -21,23 +21,17 @@
   margin: 0 auto;
 }
 
-.layout-backdrop {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 40;
-}
-
 @media (max-width: 900px) {
   .layout-main { margin-left: 0; }
-  .layout-content { padding: 20px 16px 40px; }
-  .layout-backdrop { display: block; }
+  /* Extra bottom clearance for the floating OwnerBottomNav (64px bar +
+     16px offset from the viewport edge + its own drop shadow). */
+  .layout-content { padding: 20px 16px 104px; }
 }
 
 /* KOT full-screen mode — hides sidebar & topbar, KOT fills viewport */
 body.kot-expanded .sidebar      { display: none !important; }
 body.kot-expanded .topbar       { display: none !important; }
+body.kot-expanded .obn-nav      { display: none !important; }
 body.kot-expanded .layout-main  { margin-left: 0 !important; }
 body.kot-expanded .layout-content {
   padding: 0 !important;
@@ -47,6 +41,7 @@ body.kot-expanded .layout-content {
 /* POS full-screen mode — same treatment */
 body.pos-expanded .sidebar      { display: none !important; }
 body.pos-expanded .topbar       { display: none !important; }
+body.pos-expanded .obn-nav      { display: none !important; }
 body.pos-expanded .layout-main  { margin-left: 0 !important; }
 body.pos-expanded .layout-content {
   padding: 0 !important;

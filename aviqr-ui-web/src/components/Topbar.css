@@ -11,13 +11,6 @@
   z-index: 30;
 }
 
-.topbar-menu {
-  display: none;
-  padding: 8px;
-  border-radius: 8px;
-  color: var(--gray-700);
-}
-.topbar-menu:hover { background: var(--gray-100); }
 
 .topbar-search {
   flex: 1;
@@ -147,7 +140,8 @@
 
 @media (max-width: 900px) {
   .topbar { padding: 0 16px; }
-  .topbar-menu { display: flex; }
+  /* .topbar-menu stays hidden — OwnerBottomNav.jsx replaces the drawer it
+     used to open, so there's nothing left for it to trigger. */
   .topbar-search { max-width: none; }
   .topbar-kbd { display: none; }
   .topbar-profile-text { display: none; }

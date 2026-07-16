@@ -25,14 +25,14 @@ const VENDORS = [
 ];
 
 const NAV = [
-  {key:'overview',   label:'Overview',      icon:BarChart2},
-  {key:'vendors',    label:'Vendors',       icon:Store,badge:VENDORS.length},
-  {key:'orders',     label:'All Orders',    icon:ShoppingBag},
-  {key:'revenue',    label:'Revenue Share', icon:CreditCard},
-  {key:'qr',         label:'Mall QR',       icon:QrCode},
-  {key:'reports',    label:'Reports',       icon:TrendingUp},
-  {key:'subscription',label:'Subscription', icon:Star},
-  {key:'settings',   label:'Settings',      icon:Settings},
+  {key:'overview',   labelKey:'overview',      icon:BarChart2},
+  {key:'vendors',    labelKey:'vendors',       icon:Store,badge:VENDORS.length},
+  {key:'orders',     labelKey:'navAllOrders',    icon:ShoppingBag},
+  {key:'revenue',    labelKey:'navRevenueShare', icon:CreditCard},
+  {key:'qr',         labelKey:'navMallQR',       icon:QrCode},
+  {key:'reports',    labelKey:'reports',       icon:TrendingUp},
+  {key:'subscription',labelKey:'subscription', icon:Star},
+  {key:'settings',   labelKey:'settings',      icon:Settings},
 ];
 
 export default function MallDashboard() {
@@ -137,7 +137,7 @@ export default function MallDashboard() {
         <nav className="admin-nav">
           {NAV.map(n=>(
             <button key={n.key} className={`admin-nav-item ${tab===n.key?'active':''}`} onClick={()=>{setTab(n.key);setSidebarOpen(false);}}>
-              <n.icon size={16}/> <span>{n.label}</span>
+              <n.icon size={16}/> <span>{t(n.labelKey, lang)}</span>
               {n.badge&&<span className="support-nav-badge">{n.badge}</span>}
             </button>
           ))}
@@ -160,9 +160,9 @@ export default function MallDashboard() {
               avatarColor="var(--blue)"
               onLogout={() => { logout(); navigate('/'); }}
               items={[
-                { label:'Profile & Settings', icon:Settings, onClick:() => setTab('settings') },
+                { label:t('profileAndSettings', lang), icon:Settings, onClick:() => setTab('settings') },
                 ...(mall?.id ? [{ label:'Preview food court', icon:Eye, onClick:() => navigate(`/food-court/${mall.id}`) }] : []),
-                { label:'Onboarding guide', icon:Sparkles, onClick:() => navigate('/onboarding') },
+                { label:t('onboardingGuide', lang), icon:Sparkles, onClick:() => navigate('/onboarding') },
               ]}
             />
           </div>
@@ -215,6 +215,7 @@ const LINK_STATUS_CFG = {
 };
 
 function VendorsFull({vendors,onToggle,onAdd,onRemove,onInvite,compact}) {
+  const { lang } = useLang();
   const navigate = useNavigate();
   const [showForm,setShowForm] = useState(false);
   const [form,setForm] = useState(VENDOR_FORM_DEFAULT);
@@ -257,7 +258,7 @@ function VendorsFull({vendors,onToggle,onAdd,onRemove,onInvite,compact}) {
     <div>
       {!compact&&(
         <div className="page-header">
-          <div><h1 className="page-title">{t('vendors','en')}</h1></div>
+          <div><h1 className="page-title">{t('vendors',lang)}</h1></div>
           <div style={{display:'flex',gap:8}}>
             <button className="btn-refresh" onClick={()=>{setShowInvite(f=>!f);setShowForm(false);}}><Bell size={13}/> Invite Restaurant</button>
             <button className="btn-refresh" onClick={()=>{setShowForm(f=>!f);setShowInvite(false);}}><Plus size={13}/> Add vendor</button>
@@ -327,11 +328,12 @@ function VendorsFull({vendors,onToggle,onAdd,onRemove,onInvite,compact}) {
 }
 
 function RevenueShare({vendors}) {
+  const { lang } = useLang();
   const total=vendors.reduce((a,v)=>a+v.revenue,0);
   const comm=vendors.reduce((a,v)=>a+v.commission,0);
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Revenue Share</h1></div>
+      <div className="page-header"><h1 className="page-title">{t('navRevenueShare', lang)}</h1></div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:20}}>
         {[{l:'Total GMV',v:`₹${total.toLocaleString('en-IN')}`,c:'green'},{l:'Commission (10%)',v:`₹${comm.toLocaleString('en-IN')}`,c:'blue'},{l:'Vendors',v:vendors.length,c:'purple'}].map(k=>(
           <div key={k.l} className="admin-kpi-card"><div className={`admin-kpi-value`} style={{fontSize:24,fontWeight:800,color:`var(--${k.c})`}}>{k.v}</div><div className="admin-kpi-label">{k.l}</div></div>
@@ -359,6 +361,7 @@ function RevenueShare({vendors}) {
 
 /* ─── All Orders tab — mirrors SupplierDashboard.jsx's AllOrdersTab pattern ──── */
 function MallOrdersTab({vendors}) {
+  const { lang } = useLang();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -388,7 +391,7 @@ function MallOrdersTab({vendors}) {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">All Orders</h1>
+          <h1 className="page-title">{t('navAllOrders', lang)}</h1>
           <p className="page-subtitle">{orders.length} orders across {vendors.filter(v=>v.shopId).length} linked vendors</p>
         </div>
       </div>
@@ -437,6 +440,7 @@ function MallOrdersTab({vendors}) {
 }
 
 function MallReportsTab({vendors}) {
+  const { lang } = useLang();
   const [revenueData,setRevenueData] = useState([]);
   const [loading,setLoading] = useState(true);
 
@@ -469,7 +473,7 @@ function MallReportsTab({vendors}) {
 
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Reports</h1><p className="page-subtitle">Outlet comparison · last 7 days</p></div>
+      <div className="page-header"><h1 className="page-title">{t('reports', lang)}</h1><p className="page-subtitle">Outlet comparison · last 7 days</p></div>
       <div className="admin-kpi-grid" style={{marginBottom:20}}>
         <div className="admin-kpi-card"><div className="admin-kpi-icon icon-green"><TrendingUp size={18}/></div><div className="admin-kpi-value">₹{grandTotal.toLocaleString('en-IN')}</div><div className="admin-kpi-label">Total revenue (7 days)</div></div>
         <div className="admin-kpi-card"><div className="admin-kpi-icon icon-blue"><Store size={18}/></div><div className="admin-kpi-value">{revenueData.length}</div><div className="admin-kpi-label">Vendors tracked</div></div>
@@ -507,6 +511,7 @@ function MallReportsTab({vendors}) {
 // (Food Court QR Flow) so scanning it takes a customer to the live restaurant list —
 // unlike the old mocked entries here, Download/Print actually work.
 function MallQRPage({mall}) {
+  const { lang } = useLang();
   const [qrImg,setQrImg] = useState('');
   const [targetUrl,setTargetUrl] = useState('');
   const [designing,setDesigning] = useState(false);
@@ -538,7 +543,7 @@ function MallQRPage({mall}) {
 
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Food Court QR</h1><p className="page-subtitle">One QR for the whole food court — scan lands on the restaurant list</p></div>
+      <div className="page-header"><h1 className="page-title">{t('foodCourtQR', lang)}</h1><p className="page-subtitle">One QR for the whole food court — scan lands on the restaurant list</p></div>
       <div className="admin-chart-card" style={{maxWidth:340,display:'flex',flexDirection:'column',gap:14,alignItems:'center',textAlign:'center'}}>
         {qrImg ? <img src={qrImg} alt="Food Court QR" style={{width:220,height:220,borderRadius:8}}/> : <div style={{width:220,height:220,background:'var(--gray-100)',borderRadius:8}}/>}
         <div style={{fontWeight:700,fontSize:14}}>{mall.name}</div>
