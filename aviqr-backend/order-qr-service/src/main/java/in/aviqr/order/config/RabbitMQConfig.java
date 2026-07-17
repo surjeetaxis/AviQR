@@ -15,7 +15,6 @@ public class RabbitMQConfig {
     public static final String OCR_EXCHANGE       = "aviqr.ocr";
     public static final String NOTIF_EXCHANGE     = "aviqr.notifications";
 
-    public static final String ORDER_NEW_QUEUE    = "order.new.queue";
     public static final String HOTEL_REQ_QUEUE    = "hotel.request.queue";
     public static final String OCR_APPROVED_QUEUE = "ocr.approved.queue";
     public static final String NOTIF_QUEUE        = "notification.queue";
@@ -30,16 +29,17 @@ public class RabbitMQConfig {
     public TopicExchange ocrExchange()    { return new TopicExchange(OCR_EXCHANGE); }
 
     @Bean
-    public Queue orderNewQueue()    { return QueueBuilder.durable(ORDER_NEW_QUEUE).build(); }
-
-    @Bean
     public Queue hotelReqQueue()    { return QueueBuilder.durable(HOTEL_REQ_QUEUE).build(); }
 
     @Bean
     public Queue ocrApprovedQueue() { return QueueBuilder.durable(OCR_APPROVED_QUEUE).build(); }
 
-    @Bean
-    public Binding orderBinding()  { return BindingBuilder.bind(orderNewQueue()).to(ordersExchange()).with("order.new"); }
+    // No order.new queue/binding here: this service only publishes order.new
+    // (see OrderService.createOrder), it never consumes it. Each real consumer
+    // (notification-report-review-service, menu-ocr-service, hotel-service)
+    // declares its own distinctly-named queue bound to ordersExchange() with
+    // routing key "order.new" — see the comment in their RabbitMQConfig for why
+    // a shared queue name would break delivery (competing consumers).
 
     @Bean
     public Binding hotelBinding()  { return BindingBuilder.bind(hotelReqQueue()).to(hotelExchange()).with("request.new"); }

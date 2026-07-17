@@ -1,6 +1,7 @@
 // ── FILE: menu-service/src/main/java/in/aviqr/menu/service/InventoryConsumer.java ──
 package in.aviqr.menu.service;
 
+import in.aviqr.menu.config.RabbitMQConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -13,11 +14,11 @@ import java.util.UUID;
 /**
  * Consumes order.new events from RabbitMQ and deducts stock.
  *
- * ADD TO menu-service/build.gradle:
- *   implementation 'org.springframework.amqp:spring-rabbit'
- *
- * The order-service already publishes to "aviqr.orders" exchange with key "order.new".
- * This consumer binds to the same queue and deducts stock for each ordered item.
+ * The order-service publishes to the "aviqr.orders" exchange with key "order.new".
+ * This consumer binds its own queue (order.new.inventory.queue — see RabbitMQConfig)
+ * to that exchange/key and deducts stock for each ordered item. It deliberately
+ * does NOT share a queue name with notification-service's or hotel-service's
+ * order.new listeners — see RabbitMQConfig for why.
  */
 @Service
 @RequiredArgsConstructor
@@ -26,7 +27,7 @@ public class InventoryConsumer {
 
     private final InventoryService inventoryService;
 
-    @RabbitListener(queues = "order.new.queue")
+    @RabbitListener(queues = RabbitMQConfig.ORDER_NEW_QUEUE)
     public void onOrderPlaced(Map<String, Object> event) {
         try {
             @SuppressWarnings("unchecked")
