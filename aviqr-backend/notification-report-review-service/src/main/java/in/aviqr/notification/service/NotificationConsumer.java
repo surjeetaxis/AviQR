@@ -6,9 +6,6 @@ import in.aviqr.notification.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -18,11 +15,8 @@ import java.util.Map;
 public class NotificationConsumer {
 
     private final NotificationRepository repo;
-    private final TwilioWhatsAppService  whatsApp;
-    private final JavaMailSender         mailSender;
-
-    @Value("${spring.mail.username:noreply@aviqr.in}")
-    private String fromEmail;
+    private final WaSenderWhatsAppService whatsApp;
+    private final ElasticEmailService     email;
 
     // ── New order placed ──────────────────────────────────────────────────────
     @SuppressWarnings("unchecked")
@@ -120,29 +114,22 @@ public class NotificationConsumer {
     // ── Welcome email (triggered by auth-service via RabbitMQ on register) ───
     @RabbitListener(queues = "user.registered.queue")
     public void onUserRegistered(Map<String, Object> event) {
-        String email = str(event, "email");
-        String name  = str(event, "name");
-        if (email == null || email.isBlank()) return;
-        try {
-            SimpleMailMessage msg = new SimpleMailMessage();
-            msg.setFrom(fromEmail);
-            msg.setTo(email);
-            msg.setSubject("Welcome to AviQR! 🍽️");
-            msg.setText(String.format(
-                "Hi %s,\n\nWelcome to AviQR — India's QR-powered restaurant management platform!\n\n" +
-                "Here's how to get started:\n" +
-                "1. Complete your shop profile\n" +
-                "2. Add your menu items\n" +
-                "3. Generate your table QR codes\n" +
-                "4. Share with customers!\n\n" +
-                "Dashboard: https://aviqr.in/dashboard\n" +
-                "Support: support@aviqr.in\n\n" +
-                "Happy serving! 🚀\n\n— The AviQR Team", name));
-            mailSender.send(msg);
-            log.info("Welcome email sent to {}", email);
-        } catch (Exception e) {
-            log.error("Failed to send welcome email to {}: {}", email, e.getMessage());
-        }
+        String to   = str(event, "email");
+        String name = str(event, "name");
+        if (to == null || to.isBlank()) return;
+        String html = String.format(
+            "<p>Hi %s,</p>" +
+            "<p>Welcome to AviQR — India's QR-powered restaurant management platform!</p>" +
+            "<p>Here's how to get started:</p>" +
+            "<ol>" +
+            "<li>Complete your shop profile</li>" +
+            "<li>Add your menu items</li>" +
+            "<li>Generate your table QR codes</li>" +
+            "<li>Share with customers!</li>" +
+            "</ol>" +
+            "<p><a href=\"https://aviqr.in/dashboard\">Dashboard</a> · Support: support@aviqr.in</p>" +
+            "<p>Happy serving! 🚀<br>— The AviQR Team</p>", name);
+        email.send(to, "Welcome to AviQR! 🍽️", html);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
