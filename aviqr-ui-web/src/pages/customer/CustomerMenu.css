@@ -985,3 +985,145 @@
   .cm-cat-heading { padding: 14px 14px 8px; }
   .cm-media-modal { border-radius: 20px 20px 0 0; max-width: 100%; }
 }
+
+/* ── Whole item card opens the detail sheet ──────────────── */
+.cm-item-info { cursor: pointer; }
+
+/* Multi-photo count badge on the thumbnail */
+.cm-item-gallery-badge {
+  position: absolute;
+  bottom: 6px; right: 6px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 99px;
+  background: rgba(0,0,0,.65);
+  color: #fff;
+  font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 2;
+}
+
+/* ════════════════════════════════════════════════════════════
+   ITEM DETAIL SHEET — swipeable photo / video / 3D carousel
+   ════════════════════════════════════════════════════════════ */
+
+.cm-detail-modal { max-height: 94vh; overflow-y: auto; }
+
+.cm-carousel {
+  position: relative;
+  width: 100%;
+  background: #000;
+  flex-shrink: 0;
+}
+
+.cm-carousel-track {
+  display: flex;
+  width: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.cm-carousel-track::-webkit-scrollbar { display: none; }
+
+.cm-carousel-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  scroll-snap-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.cm-carousel-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cm-carousel-empty {
+  font-size: 48px;
+  opacity: .3;
+}
+
+.cm-carousel-video {
+  display: block;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.cm-carousel-3d { position: relative; width: 100%; height: 100%; }
+.cm-carousel-3d-inner {
+  width: 100%; height: 100%;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  position: relative;
+}
+.cm-carousel-3d model-viewer { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+.cm-carousel-3d .cm-media-3d-hint {
+  position: absolute; bottom: 0; left: 0; right: 0;
+}
+
+/* Prev / next arrows */
+.cm-carousel-arrow {
+  position: absolute;
+  top: 50%; transform: translateY(-50%);
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.45);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 3;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background .12s;
+}
+.cm-carousel-arrow:active { background: rgba(0,0,0,.65); }
+.cm-carousel-arrow-left  { left: 10px; }
+.cm-carousel-arrow-right { right: 10px; }
+
+/* Dot pagination */
+.cm-carousel-dots {
+  position: absolute;
+  bottom: 10px; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px;
+  z-index: 3;
+}
+.cm-carousel-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.4);
+  transition: background .15s, transform .15s;
+}
+.cm-carousel-dot.active {
+  background: #fff;
+  transform: scale(1.3);
+}
+
+/* Video / 3D availability badges, top-right of the carousel */
+.cm-carousel-badges {
+  position: absolute;
+  top: 10px; right: 10px;
+  display: flex; gap: 6px;
+  z-index: 3;
+}
+.cm-carousel-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 99px;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.cm-carousel-badge-3d { background: rgba(124,58,237,.75); }
+
+/* Detail body — description + badges below the carousel */
+.cm-detail-body { padding: 16px 18px 4px; }
+.cm-detail-badges { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cm-detail-desc { font-size: 13.5px; color: rgba(255,255,255,.7); line-height: 1.6; margin: 0; }

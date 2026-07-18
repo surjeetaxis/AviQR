@@ -9,7 +9,7 @@ import OrderCodePanel from '../../components/shared/OrderCodePanel.jsx';
 import OrderProgressTrack, { STATUSES } from '../../components/shared/OrderProgressTrack.jsx';
 import {
   ShoppingCart, Plus, Minus, Search, Star, Clock, MapPin,
-  X, ChevronRight, CheckCircle, QrCode, Globe, ChevronDown,
+  X, ChevronRight, ChevronLeft, CheckCircle, QrCode, Globe, ChevronDown,
   Flame, Leaf, Phone, Share2, Heart, AlertCircle, Bike,
   Play, Box, RotateCcw
 } from 'lucide-react';
@@ -46,14 +46,13 @@ function loadRazorpayScript() {
   });
 }
 
-// ─── Full-screen media modal ──────────────────────────────────────────────────
+// ─── Item detail sheet — swipeable photo/video/3D carousel + full details ─────
 
-function MediaModal({ item, view, onClose }) {
-  const modelWrapRef = useRef(null);
-  const parsed = view === 'video' ? parseVideoUrl(item.videoUrl) : null;
+function ModelSlide({ item }) {
+  const wrapRef = useRef(null);
 
   useEffect(() => {
-    if (view !== 'model' || !item.modelUrl || !modelWrapRef.current) return;
+    if (!item.modelUrl || !wrapRef.current) return;
     loadModelViewerScript();
     const el = document.createElement('model-viewer');
     el.src = item.modelUrl;
@@ -63,12 +62,125 @@ function MediaModal({ item, view, onClose }) {
     el.setAttribute('environment-image', 'neutral');
     el.setAttribute('shadow-intensity', '1');
     el.style.cssText = 'width:100%;height:100%;background:transparent;';
-    modelWrapRef.current.innerHTML = '';
-    modelWrapRef.current.appendChild(el);
-    return () => { if (modelWrapRef.current) modelWrapRef.current.innerHTML = ''; };
-  }, [view, item.modelUrl]);
+    wrapRef.current.innerHTML = '';
+    wrapRef.current.appendChild(el);
+    return () => { if (wrapRef.current) wrapRef.current.innerHTML = ''; };
+  }, [item.modelUrl, item.name]);
 
-  // Lock body scroll while modal is open
+  return (
+    <div className="cm-carousel-3d">
+      <div ref={wrapRef} className="cm-carousel-3d-inner">
+        <div className="cm-media-3d-loading">Loading 3D model…</div>
+      </div>
+      <div className="cm-media-3d-hint"><RotateCcw size={12} /> Drag to rotate · scroll to zoom</div>
+    </div>
+  );
+}
+
+function VideoSlide({ item }) {
+  const parsed = parseVideoUrl(item.videoUrl);
+  if (!parsed) return <div className="cm-media-error">Could not load video</div>;
+  return parsed.type === 'direct'
+    ? <video src={item.videoUrl} controls playsInline preload="metadata" className="cm-carousel-video" />
+    : (
+      <iframe
+        src={parsed.embedUrl}
+        title={item.name}
+        allow="autoplay; encrypted-media; fullscreen"
+        allowFullScreen
+        className="cm-media-iframe"
+      />
+    );
+}
+
+// Photos, then video, then 3D model — all swipeable left/right in one strip
+// via native CSS scroll-snap, with dots + arrows kept in sync via scroll position.
+function MediaCarousel({ item, startIndex = 0 }) {
+  const images = item.images && item.images.length ? item.images : (item.imageUrl ? [item.imageUrl] : []);
+  const slides = [
+    ...images.map(src => ({ type: 'image', src })),
+    ...(item.videoUrl ? [{ type: 'video' }] : []),
+    ...(item.modelUrl ? [{ type: 'model' }] : []),
+  ];
+  if (slides.length === 0) slides.push({ type: 'empty' });
+
+  const trackRef = useRef(null);
+  const [active, setActive] = useState(Math.min(startIndex, slides.length - 1));
+  const scrollTimeout = useRef(null);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (el) el.scrollTo({ left: active * el.clientWidth, behavior: 'auto' });
+    // Only run once on mount — jump straight to the requested starting slide.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleScroll = () => {
+    const el = trackRef.current;
+    if (!el) return;
+    clearTimeout(scrollTimeout.current);
+    scrollTimeout.current = setTimeout(() => {
+      setActive(Math.round(el.scrollLeft / el.clientWidth));
+    }, 80);
+  };
+
+  const goTo = (idx) => {
+    const el = trackRef.current;
+    if (!el) return;
+    setActive(idx);
+    el.scrollTo({ left: idx * el.clientWidth, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="cm-carousel">
+      <div className="cm-carousel-track" ref={trackRef} onScroll={handleScroll}>
+        {slides.map((s, i) => (
+          <div className="cm-carousel-slide" key={i}>
+            {s.type === 'image' && <img src={s.src} alt={item.name} className="cm-carousel-img" />}
+            {s.type === 'video' && <VideoSlide item={item} />}
+            {s.type === 'model' && <ModelSlide item={item} />}
+            {s.type === 'empty' && <div className="cm-carousel-empty">🍽</div>}
+          </div>
+        ))}
+      </div>
+
+      {slides.length > 1 && (
+        <>
+          {active > 0 && (
+            <button className="cm-carousel-arrow cm-carousel-arrow-left" onClick={() => goTo(active - 1)} aria-label="Previous">
+              <ChevronLeft size={18} />
+            </button>
+          )}
+          {active < slides.length - 1 && (
+            <button className="cm-carousel-arrow cm-carousel-arrow-right" onClick={() => goTo(active + 1)} aria-label="Next">
+              <ChevronRight size={18} />
+            </button>
+          )}
+          <div className="cm-carousel-dots">
+            {slides.map((s, i) => (
+              <button
+                key={i}
+                className={`cm-carousel-dot ${active === i ? 'active' : ''}`}
+                onClick={() => goTo(i)}
+                aria-label={`Slide ${i + 1}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {(item.videoUrl || item.modelUrl) && (
+        <div className="cm-carousel-badges">
+          {item.videoUrl && <span className="cm-carousel-badge"><Play size={10} fill="currentColor" /> Video</span>}
+          {item.modelUrl && <span className="cm-carousel-badge cm-carousel-badge-3d"><Box size={10} /> 3D</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ItemDetailSheet({ item, startIndex, lang, getItemName, getItemDesc, inCart, onAdd, onRemove, onClose }) {
+  // Lock body scroll while the sheet is open
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
@@ -76,50 +188,34 @@ function MediaModal({ item, view, onClose }) {
 
   return (
     <div className="cm-media-overlay" onClick={onClose}>
-      <div className="cm-media-modal" onClick={e => e.stopPropagation()}>
+      <div className="cm-media-modal cm-detail-modal" onClick={e => e.stopPropagation()}>
         <div className="cm-media-modal-header">
-          <div className="cm-media-modal-title">{item.name}</div>
+          <div className="cm-media-modal-title">{getItemName(item)}</div>
           <button className="cm-media-modal-close" onClick={onClose}><X size={20} /></button>
         </div>
 
-        {/* Video */}
-        {view === 'video' && (
-          <div className="cm-media-video-area">
-            {!parsed ? (
-              <div className="cm-media-error">Could not load video</div>
-            ) : parsed.type === 'direct' ? (
-              <video src={item.videoUrl} controls autoPlay playsInline className="cm-media-video" />
-            ) : (
-              <iframe
-                src={parsed.embedUrl}
-                title={item.name}
-                allow="autoplay; encrypted-media; fullscreen"
-                allowFullScreen
-                className="cm-media-iframe"
-              />
-            )}
-          </div>
-        )}
+        <MediaCarousel item={item} startIndex={startIndex} />
 
-        {/* 3D Model */}
-        {view === 'model' && (
-          <>
-            <div ref={modelWrapRef} className="cm-media-3d-area">
-              <div className="cm-media-3d-loading">Loading 3D model…</div>
-            </div>
-            <div className="cm-media-3d-hint">
-              <RotateCcw size={12} /> Drag to rotate · scroll to zoom
-            </div>
-          </>
-        )}
+        <div className="cm-detail-body">
+          <div className="cm-detail-badges">
+            <span className={`cm-dot ${item.veg ? 'cm-dot-veg' : 'cm-dot-nonveg'}`} style={{ position:'static', width:12, height:12 }}><div className="cm-dot-inner" /></span>
+            {item.popular && <span className="cm-badge cm-badge-popular"><Flame size={9} /> {t('popular', lang)}</span>}
+            {item.spicy && <span className="cm-badge cm-badge-spicy">🌶</span>}
+          </div>
+          <p className="cm-detail-desc">{getItemDesc(item)}</p>
+        </div>
 
         <div className="cm-media-modal-footer">
           <span className="cm-media-modal-price">₹{item.price}</span>
-          {item.spicy && <span className="cm-badge cm-badge-spicy">🌶</span>}
-          {item.veg !== false
-            ? <span className="cm-dot cm-dot-veg" style={{ position:'static', width:12, height:12 }}><div className="cm-dot-inner" /></span>
-            : <span className="cm-dot cm-dot-nonveg" style={{ position:'static', width:12, height:12 }}><div className="cm-dot-inner" /></span>
-          }
+          {inCart === 0 ? (
+            <button className="cm-add-btn" onClick={onAdd}><Plus size={14} /> {t('addToCart', lang)}</button>
+          ) : (
+            <div className="cm-qty">
+              <button className="cm-qty-btn" onClick={onRemove}><Minus size={13} /></button>
+              <span className="cm-qty-num">{inCart}</span>
+              <button className="cm-qty-btn" onClick={onAdd}><Plus size={13} /></button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -254,19 +350,19 @@ const SHOPS = {
     categories: [
       { id:'c1', name:'Starters', nameHi:'स्टार्टर', nameTa:'தொடக்க உணவு', nameTe:'ప్రారంభం', nameKn:'ಸ್ಟಾರ್ಟರ್', nameMl:'ആദ്യ ഭക്ഷണം', nameBn:'স্টার্টার', nameMr:'स्टार्टर', nameGu:'સ્ટાર્ટર', emoji:'🥗',
         items:[
-          {id:'i1',name:'Paneer Tikka',nameHi:'पनीर टिक्का',nameTa:'பன்னீர் டிக்கா',desc:'Cottage cheese marinated in spices, grilled in tandoor',descHi:'मसालों में मैरीनेट किया हुआ पनीर, तंदूर में पका हुआ',price:280,popular:true,veg:true,spicy:false,imageUrl:'/demo/dishes/paneer-tikka.jpg'},
-          {id:'i2',name:'Chicken Tikka',nameHi:'चिकन टिक्का',nameTa:'சிக்கன் டிக்கா',desc:'Tender chicken charcoal grilled, served with mint chutney',descHi:'कोमल चिकन चारकोल ग्रिल किया हुआ, पुदीना चटनी के साथ',price:320,popular:true,veg:false,spicy:true,imageUrl:'/demo/dishes/chicken-tikka.jpg'},
+          {id:'i1',name:'Paneer Tikka',nameHi:'पनीर टिक्का',nameTa:'பன்னீர் டிக்கா',desc:'Cottage cheese marinated in spices, grilled in tandoor',descHi:'मसालों में मैरीनेट किया हुआ पनीर, तंदूर में पका हुआ',price:280,popular:true,veg:true,spicy:false,imageUrl:'/demo/dishes/paneer-tikka.jpg',images:['/demo/dishes/paneer-tikka.jpg','/demo/dishes/paneer-tikka-2.jpg']},
+          {id:'i2',name:'Chicken Tikka',nameHi:'चिकन टिक्का',nameTa:'சிக்கன் டிக்கா',desc:'Tender chicken charcoal grilled, served with mint chutney',descHi:'कोमल चिकन चारकोल ग्रिल किया हुआ, पुदीना चटनी के साथ',price:320,popular:true,veg:false,spicy:true,imageUrl:'/demo/dishes/chicken-tikka.jpg',images:['/demo/dishes/chicken-tikka.jpg','/demo/dishes/chicken-tikka-2.jpg']},
           {id:'i3',name:'Samosa (2 pcs)',nameHi:'समोसा (2 पीस)',nameTa:'சமோசா (2 பீஸ்)',desc:'Classic potato-filled pastry, served with chutneys',descHi:'आलू भरा हुआ क्लासिक समोसा, चटनी के साथ',price:60,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/samosa.jpg'},
           {id:'i4',name:'Veg Spring Rolls',nameHi:'वेज स्प्रिंग रोल',nameTa:'வெஜ் ஸ்பிரிங் ரோல்',desc:'Crispy rolls filled with fresh vegetables',descHi:'ताज़ी सब्जियों से भरे क्रिस्पी रोल',price:140,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/veg-spring-rolls.jpg'},
         ]
       },
       { id:'c2', name:'Main Course', nameHi:'मुख्य व्यंजन', nameTa:'முக்கிய உணவு', nameTe:'ముఖ్య వంటకాలు', nameKn:'ಮುಖ್ಯ ಕೋರ್ಸ್', nameMl:'പ്രധാന ഭക്ഷണം', nameBn:'মূল খাবার', nameMr:'मुख्य जेवण', nameGu:'મુખ્ય ભોજન', emoji:'🍛',
         items:[
-          {id:'i5',name:'Paneer Butter Masala',nameHi:'पनीर बटर मसाला',nameTa:'பன்னீர் பட்டர் மசாலா',desc:'Cottage cheese in rich tomato-cream gravy',descHi:'मलाईदार टमाटर की ग्रेवी में पनीर',price:320,popular:true,veg:true,spicy:false,imageUrl:'/demo/dishes/paneer-butter-masala.jpg'},
-          {id:'i6',name:'Butter Chicken',nameHi:'बटर चिकन',nameTa:'பட்டர் சிக்கன்',desc:'Succulent chicken in velvety butter-tomato sauce',descHi:'मखमली बटर-टमाटर सॉस में रसीला चिकन',price:380,popular:true,veg:false,spicy:false,imageUrl:'/demo/dishes/butter-chicken.jpg',videoUrl:'/demo/media/butter-chicken.mp4'},
+          {id:'i5',name:'Paneer Butter Masala',nameHi:'पनीर बटर मसाला',nameTa:'பன்னீர் பட்டர் மசாலா',desc:'Cottage cheese in rich tomato-cream gravy',descHi:'मलाईदार टमाटर की ग्रेवी में पनीर',price:320,popular:true,veg:true,spicy:false,imageUrl:'/demo/dishes/paneer-butter-masala.jpg',images:['/demo/dishes/paneer-butter-masala.jpg','/demo/dishes/paneer-butter-masala-2.jpg']},
+          {id:'i6',name:'Butter Chicken',nameHi:'बटर चिकन',nameTa:'பட்டர் சிக்கன்',desc:'Succulent chicken in velvety butter-tomato sauce',descHi:'मखमली बटर-टमाटर सॉस में रसीला चिकन',price:380,popular:true,veg:false,spicy:false,imageUrl:'/demo/dishes/butter-chicken.jpg',images:['/demo/dishes/butter-chicken.jpg','/demo/dishes/butter-chicken-2.jpg'],videoUrl:'/demo/media/butter-chicken.mp4'},
           {id:'i7',name:'Dal Makhani',nameHi:'दाल मखनी',nameTa:'தால் மக்கனி',desc:'Black lentils slow-cooked overnight with cream',descHi:'रात भर धीमी आँच पर पकाई हुई काली दाल',price:260,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/dal-makhani.jpg'},
           {id:'i8',name:'Kadai Paneer',nameHi:'कड़ाई पनीर',nameTa:'கடாய் பன்னீர்',desc:'Cottage cheese with bell peppers in spiced tomato gravy',descHi:'शिमला मिर्च के साथ मसालेदार टमाटर ग्रेवी में पनीर',price:300,popular:false,veg:true,spicy:true,imageUrl:'/demo/dishes/kadai-paneer.jpg'},
-          {id:'i9',name:'Chicken Biryani',nameHi:'चिकन बिरयानी',nameTa:'சிக்கன் பிரியாணி',desc:'Aromatic basmati rice layered with spiced chicken',descHi:'मसालेदार चिकन के साथ खुशबूदार बासमती चावल',price:380,popular:true,veg:false,spicy:true,imageUrl:'/demo/dishes/chicken-biryani.jpg'},
+          {id:'i9',name:'Chicken Biryani',nameHi:'चिकन बिरयानी',nameTa:'சிக்கன் பிரியாணி',desc:'Aromatic basmati rice layered with spiced chicken',descHi:'मसालेदार चिकन के साथ खुशबूदार बासमती चावल',price:380,popular:true,veg:false,spicy:true,imageUrl:'/demo/dishes/chicken-biryani.jpg',images:['/demo/dishes/chicken-biryani.jpg','/demo/dishes/chicken-biryani-2.jpg']},
         ]
       },
       { id:'c3', name:'Breads', nameHi:'रोटी', nameTa:'ரொட்டி', nameTe:'రొట్టెలు', nameKn:'ರೊಟ್ಟಿ', nameMl:'റൊട്ടി', nameBn:'রুটি', nameMr:'भाकरी', nameGu:'રોટી', emoji:'🫓',
@@ -278,7 +374,7 @@ const SHOPS = {
       },
       { id:'c4', name:'Drinks', nameHi:'पेय', nameTa:'பானங்கள்', nameTe:'పానీయాలు', nameKn:'ಪಾನೀಯಗಳು', nameMl:'പാനീയങ്ങൾ', nameBn:'পানীয়', nameMr:'पेये', nameGu:'પીણાં', emoji:'🥤',
         items:[
-          {id:'i13',name:'Sweet Lassi',nameHi:'मीठी लस्सी',nameTa:'இனிப்பு லஸ்ஸி',desc:'Thick chilled yoghurt drink sweetened with sugar',descHi:'चीनी से मीठी, ठंडी गाढ़ी लस्सी',price:80,popular:true,veg:true,spicy:false,imageUrl:'/demo/dishes/sweet-lassi.jpg',videoUrl:'/demo/media/sweet-lassi.mp4'},
+          {id:'i13',name:'Sweet Lassi',nameHi:'मीठी लस्सी',nameTa:'இனிப்பு லஸ்ஸி',desc:'Thick chilled yoghurt drink sweetened with sugar',descHi:'चीनी से मीठी, ठंडी गाढ़ी लस्सी',price:80,popular:true,veg:true,spicy:false,imageUrl:'/demo/dishes/sweet-lassi.jpg',images:['/demo/dishes/sweet-lassi.jpg','/demo/dishes/sweet-lassi-2.jpg'],videoUrl:'/demo/media/sweet-lassi.mp4'},
           {id:'i14',name:'Masala Chaas',nameHi:'मसाला छाछ',nameTa:'மசாலா மோர்',desc:'Spiced buttermilk with cumin and coriander',descHi:'जीरा और धनिया के साथ मसालेदार छाछ',price:60,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/masala-chaas.jpg'},
           {id:'i15',name:'Filter Coffee',nameHi:'फ़िल्टर कॉफ़ी',nameTa:'ஃபில்டர் காபி',desc:'South Indian decoction with frothy hot milk',descHi:'दक्षिण भारतीय कॉफी, झागदार गर्म दूध के साथ',price:50,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/filter-coffee.jpg',videoUrl:'/demo/media/filter-coffee.mp4',modelUrl:'/demo/media/filter-coffee.glb'},
         ]
@@ -319,6 +415,7 @@ function normalizeApiShop(data) {
       veg: i.veg !== false,
       spicy: !!i.spicy,
       imageUrl:  i.imageUrl  || '',
+      images:    i.images && i.images.length ? i.images : (i.imageUrl ? [i.imageUrl] : []),
       videoUrl:  i.videoUrl  || '',
       modelUrl:  i.modelUrl  || '',
       mediaType: i.mediaType || 'NONE',
@@ -390,7 +487,7 @@ export default function CustomerMenu() {
       .catch(() => {})
       .finally(() => setMenuLoading(false));
   }, [shopId]);
-  const [mediaModal, setMediaModal]     = useState(null); // { item, view:'video'|'model' }
+  const [detailItem, setDetailItem]     = useState(null); // { item, startIndex }
   const [showCart, setShowCart]         = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [liked, setLiked]              = useState({});
@@ -737,6 +834,10 @@ export default function CustomerMenu() {
               const hasModel  = !!item.modelUrl;
               const hasImage  = !!item.imageUrl;
               const hasMedia  = hasVideo || hasModel;
+              const imageCount = item.images && item.images.length ? item.images.length : (hasImage ? 1 : 0);
+              const videoSlideIndex = imageCount;
+              const modelSlideIndex = imageCount + (hasVideo ? 1 : 0);
+              const openDetail = (startIndex = 0) => setDetailItem({ item, startIndex });
               return (
                 <div
                   key={item.id}
@@ -750,7 +851,7 @@ export default function CustomerMenu() {
 
                   <div className="cm-item-body">
                     <div className="cm-item-top">
-                      <div className="cm-item-info">
+                      <div className="cm-item-info" onClick={() => openDetail(0)} role="button" tabIndex={0}>
                         <div className="cm-item-name-row">
                           <span className="cm-item-name">{getItemName(item)}</span>
                           {item.popular && (
@@ -768,7 +869,7 @@ export default function CustomerMenu() {
                             {hasVideo && (
                               <button
                                 className="cm-media-link cm-media-link-video"
-                                onClick={() => setMediaModal({ item, view: 'video' })}
+                                onClick={e => { e.stopPropagation(); openDetail(videoSlideIndex); }}
                               >
                                 <Play size={10} fill="currentColor" /> Watch video
                               </button>
@@ -776,7 +877,7 @@ export default function CustomerMenu() {
                             {hasModel && (
                               <button
                                 className="cm-media-link cm-media-link-3d"
-                                onClick={() => setMediaModal({ item, view: 'model' })}
+                                onClick={e => { e.stopPropagation(); openDetail(modelSlideIndex); }}
                               >
                                 <Box size={10} /> View in 3D
                               </button>
@@ -788,10 +889,10 @@ export default function CustomerMenu() {
                       </div>
 
                       <div className="cm-item-right">
-                        {/* Thumbnail — tappable if media exists */}
+                        {/* Thumbnail — always tappable, opens the full detail sheet */}
                         <div
-                          className={`cm-item-img-wrap ${hasMedia ? 'cm-item-img-wrap-clickable' : ''}`}
-                          onClick={() => hasMedia && setMediaModal({ item, view: hasVideo ? 'video' : 'model' })}
+                          className="cm-item-img-wrap cm-item-img-wrap-clickable"
+                          onClick={() => openDetail(0)}
                         >
                           {hasImage ? (
                             <img
@@ -814,6 +915,11 @@ export default function CustomerMenu() {
                           {hasModel && !hasVideo && (
                             <div className="cm-item-3d-btn" aria-label="View 3D">
                               <Box size={13} />
+                            </div>
+                          )}
+                          {imageCount > 1 && (
+                            <div className="cm-item-gallery-badge" aria-label={`${imageCount} photos`}>
+                              {imageCount}
                             </div>
                           )}
 
@@ -857,12 +963,18 @@ export default function CustomerMenu() {
         </div>
       </div>
 
-      {/* ── Media modal ── */}
-      {mediaModal && (
-        <MediaModal
-          item={mediaModal.item}
-          view={mediaModal.view}
-          onClose={() => setMediaModal(null)}
+      {/* ── Item detail sheet — swipeable photos/video/3D + full details ── */}
+      {detailItem && (
+        <ItemDetailSheet
+          item={detailItem.item}
+          startIndex={detailItem.startIndex}
+          lang={lang}
+          getItemName={getItemName}
+          getItemDesc={getItemDesc}
+          inCart={cart[detailItem.item.id] || 0}
+          onAdd={() => addItem(detailItem.item.id)}
+          onRemove={() => remItem(detailItem.item.id)}
+          onClose={() => setDetailItem(null)}
         />
       )}
 
