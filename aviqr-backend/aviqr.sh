@@ -34,6 +34,10 @@ if [ -d "/usr/lib/jvm/java-21-openjdk-amd64" ]; then
   export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 elif [ -d "/usr/lib/jvm/temurin-21" ]; then
   export JAVA_HOME=/usr/lib/jvm/temurin-21
+elif [ -d "/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home" ]; then
+  export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home
+elif command -v /usr/libexec/java_home >/dev/null 2>&1; then
+  JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null) && export JAVA_HOME
 fi
 
 # ── Service catalog (start order matters: registry/gateway/auth go first) ────

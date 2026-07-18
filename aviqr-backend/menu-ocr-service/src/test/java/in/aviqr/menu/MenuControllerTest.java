@@ -31,11 +31,13 @@ class MenuControllerTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
 
-    @MockBean CategoryRepository    catRepo;
-    @MockBean MenuItemRepository    itemRepo;
-    @MockBean PricingRuleRepository ruleRepo;
-    @MockBean DynamicPricingService pricingService;
-    @MockBean RestTemplate          restTemplate; // MenuController fetches shop info (name/rating/etc.) for the public menu banner
+    @MockBean CategoryRepository     catRepo;
+    @MockBean MenuItemRepository     itemRepo;
+    @MockBean MenuVariantRepository  variantRepo;
+    @MockBean MenuAddonRepository    addonRepo;
+    @MockBean PricingRuleRepository  ruleRepo;
+    @MockBean DynamicPricingService  pricingService;
+    @MockBean RestTemplate           restTemplate; // MenuController fetches shop info (name/rating/etc.) for the public menu banner
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
