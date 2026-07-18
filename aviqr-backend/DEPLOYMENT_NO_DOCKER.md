@@ -1205,6 +1205,16 @@ server {
         add_header Cache-Control "public, immutable";
     }
 
+    # Never let a proxy/CDN/browser cache the service worker itself — it
+    # must always be revalidated so the byte-diff update check (see
+    # aviqr-ui-web/public/sw.js) fires promptly after every deploy. Without
+    # this, nginx's default (no explicit directive under location /) can be
+    # cached heuristically by some browsers/CDNs, delaying update detection.
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+        expires off;
+    }
+
     # Gzip compression
     gzip on;
     gzip_types text/plain text/css application/json application/javascript
