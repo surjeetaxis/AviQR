@@ -100,6 +100,7 @@ export const authApi = {
   deactivateAccount: () => api.put('/api/v1/auth/deactivate', {}),
   getUsers:      (p)    => api.get('/api/v1/auth/admin/users', { params: p }),
   updateStatus:  (id,s) => api.put(`/api/v1/auth/admin/users/${id}/status?status=${s}`),
+  updateRole:    (id,r) => api.put(`/api/v1/auth/admin/users/${id}/role?role=${r}`),
   deleteUser:    (id)   => api.delete(`/api/v1/auth/admin/users/${id}`),
   getUserStats:  ()     => api.get('/api/v1/auth/admin/users/stats'),
 };
@@ -107,6 +108,7 @@ export const authApi = {
 // ── Shop ────────────────────────────────────────────────────────────────────
 export const shopApi = {
   getMyShops:  ()       => api.get('/api/v1/shops/my'),
+  create:      (d)      => api.post('/api/v1/shops', d),
   getStaff:    (sId)    => {
     const outletId = getActiveOutletId();
     return outletId
@@ -256,6 +258,7 @@ export const paymentApi = {
   getByShop:   (sId,p) => api.get(`/api/v1/payments/shop/${sId}`, { params: p }),
   getByCustomer: (cId,p) => api.get(`/api/v1/payments/customer/${cId}`, { params: p }),
   listAll:     (p)     => api.get('/api/v1/payments', { params: p }),
+  refund:      (paymentId) => api.post(`/api/v1/payments/${paymentId}/refund`),
 };
 
 // ── OCR jobs (admin/support visibility) ──────────────────────────────────────
@@ -388,6 +391,13 @@ export const mallApi = {
   getPublicMall:    (id) => api.get(`/api/v1/malls/public/${id}`),
   getPublicVendors: (id) => api.get(`/api/v1/malls/public/${id}/vendors`),
   createMallQr:(id)    => api.post(`/api/v1/malls/${id}/qr-code`),
+  update:      (id, d) => api.put(`/api/v1/malls/${id}`, d),
+};
+
+// ── Vendor link requests (shop-owner side of the mall Invite-Restaurant flow) ─
+export const vendorRequestApi = {
+  mine:    (shopIds)         => api.get('/api/v1/vendors/requests/mine', { params: { shopIds } }),
+  respond: (vendorId, decision) => api.put(`/api/v1/vendors/${vendorId}/respond?decision=${decision}`),
 };
 
 // ── Support ──────────────────────────────────────────────────────────────────

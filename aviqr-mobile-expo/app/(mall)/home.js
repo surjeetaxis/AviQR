@@ -4,18 +4,31 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { mallApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
+import { Logo } from '../../src/components/common/Logo.js';
 import { BottomSheet } from '../../src/components/common/BottomSheet.js';
 import { Input } from '../../src/components/common/Input.js';
 import { Button } from '../../src/components/common/Button.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
+const LINK_STATUS_CFG = {
+  ACTIVE:   { label: 'Approved', color: '#059669', bg: '#DCFCE7' },
+  PENDING:  { label: 'Pending',  color: '#D97706', bg: '#FEF3C7' },
+  REJECTED: { label: 'Rejected', color: '#DC2626', bg: '#FEE2E2' },
+};
+const LINK_FILTERS = [
+  { key: 'all',      label: 'All' },
+  { key: 'ACTIVE',   label: 'Approved' },
+  { key: 'PENDING',  label: 'Pending' },
+  { key: 'REJECTED', label: 'Rejected' },
+];
 const NAV_ITEMS = [
   { icon: '🧾', label: 'Orders',       href: '/(mall)/orders' },
   { icon: '💰', label: 'Revenue Share', href: '/(mall)/revenue' },
   { icon: '📱', label: 'QR Code',      href: '/(mall)/qrcode' },
   { icon: '📊', label: 'Reports',      href: '/(mall)/reports' },
   { icon: '⭐', label: 'Subscription', href: '/(mall)/subscription' },
+  { icon: '⚙️', label: 'Settings',     href: '/(mall)/settings' },
 ];
 
 export default function MallHomeScreen() {
@@ -28,6 +41,10 @@ export default function MallHomeScreen() {
   const [addSheet, setAddSheet] = useState(false);
   const [form, setForm]         = useState({ name: '', category: '', floor: '', contact: '' });
   const [saving, setSaving]     = useState(false);
+  const [linkFilter, setLinkFilter] = useState('all');
+  const [inviteSheet, setInviteSheet] = useState(false);
+  const [inviteShopId, setInviteShopId] = useState('');
+  const [inviting, setInviting] = useState(false);
   const set = (k,v) => setForm(f => ({ ...f, [k]:v }));
 
   const load = useCallback(async () => {
@@ -68,6 +85,19 @@ export default function MallHomeScreen() {
     finally { setSaving(false); }
   };
 
+  const inviteRestaurant = async () => {
+    if (!inviteShopId.trim()) return Alert.alert('Enter the restaurant\'s shop ID');
+    setInviting(true);
+    try {
+      const res = await mallApi.requestVendor({ mallId: mall.id, shopId: inviteShopId.trim() });
+      setVendors(prev => [...prev, res.data.data]);
+      setInviteSheet(false);
+      setInviteShopId('');
+      Alert.alert('Invite sent', 'The restaurant owner will see this request and can accept or reject it.');
+    } catch (e) { Alert.alert('Could not send invite', e.response?.data?.message || 'Please check the shop ID and try again.'); }
+    finally { setInviting(false); }
+  };
+
   const deleteVendor = (vendor) => {
     Alert.alert('Remove vendor', `Remove ${vendor.name} from the mall?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -85,35 +115,46 @@ export default function MallHomeScreen() {
   // revenue is computed properly (via a vendor-scoped token) in the Revenue
   // Share and Reports screens instead of read here as always-zero fields.
 
-  const filtered = vendors.filter(v => !search || v.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = vendors
+    .filter(v => !search || v.name.toLowerCase().includes(search.toLowerCase()))
+    .filter(v => linkFilter === 'all' || (v.status || 'ACTIVE') === linkFilter);
 
-  const VendorCard = ({ vendor }) => (
-    <View style={[styles.vendorCard, !vendor.active && styles.inactiveCard]}>
-      <View style={styles.vendorLeft}>
-        <View style={styles.vendorAvatar}><Text style={styles.vendorAvatarText}>{vendor.name?.[0]}</Text></View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.vendorName}>{vendor.name}</Text>
-          <Text style={styles.vendorMeta}>{vendor.category} · {vendor.floor}</Text>
-          <Text style={styles.vendorContact}>{vendor.contact}</Text>
+  const VendorCard = ({ vendor }) => {
+    const link = LINK_STATUS_CFG[vendor.status || 'ACTIVE'];
+    return (
+      <View style={[styles.vendorCard, !vendor.active && styles.inactiveCard]}>
+        <View style={styles.vendorLeft}>
+          <View style={styles.vendorAvatar}><Text style={styles.vendorAvatarText}>{vendor.name?.[0]}</Text></View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.vendorName}>{vendor.name}</Text>
+              <View style={[styles.linkBadge, { backgroundColor: link.bg }]}><Text style={[styles.linkBadgeTxt, { color: link.color }]}>{link.label}</Text></View>
+            </View>
+            <Text style={styles.vendorMeta}>{vendor.category} · {vendor.floor}</Text>
+            <Text style={styles.vendorContact}>{vendor.contact}</Text>
+          </View>
+        </View>
+        <View style={styles.vendorRight}>
+          <Switch value={!!vendor.active} onValueChange={() => toggleVendor(vendor)} trackColor={{ true: Colors.primary }} thumbColor={Colors.white} />
+          <TouchableOpacity onPress={() => deleteVendor(vendor)}>
+            <Text style={{ fontSize: 16, color: Colors.error }}>🗑️</Text>
+          </TouchableOpacity>
         </View>
       </View>
-      <View style={styles.vendorRight}>
-        <Switch value={!!vendor.active} onValueChange={() => toggleVendor(vendor)} trackColor={{ true: Colors.primary }} thumbColor={Colors.white} />
-        <TouchableOpacity onPress={() => deleteVendor(vendor)}>
-          <Text style={{ fontSize: 16, color: Colors.error }}>🗑️</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <LinearGradient colors={['#1E3A5F','#2563EB']} style={styles.header}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.headerSub}>MALL DASHBOARD</Text>
-            <Text style={styles.mallName}>{mall?.name || 'Loading…'}</Text>
-            <Text style={styles.mallCity}>{mall?.city}</Text>
+          <View style={styles.brandRow}>
+            <Logo size={30} />
+            <View>
+              <Text style={styles.headerSub}>MALL DASHBOARD</Text>
+              <Text style={styles.mallName}>{mall?.name || 'Loading…'}</Text>
+              <Text style={styles.mallCity}>{mall?.city}</Text>
+            </View>
           </View>
           <TouchableOpacity onPress={logout} style={{ padding: 8 }}>
             <Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.6)' }}>🚪</Text>
@@ -143,10 +184,20 @@ export default function MallHomeScreen() {
 
       <View style={styles.controls}>
         <Input placeholder="Search vendors…" value={search} onChangeText={setSearch} style={{ flex: 1, marginBottom: 0 }} />
+        <TouchableOpacity style={styles.addBtn} onPress={() => setInviteSheet(true)}>
+          <Text style={{ fontSize: 16, color: Colors.white }}>✉️</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.addBtn} onPress={() => setAddSheet(true)}>
           <Text style={{ fontSize: 16, color: Colors.white }}>➕</Text>
-          <Text style={styles.addBtnText}>Add Vendor</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.filterRow}>
+        {LINK_FILTERS.map(f => (
+          <TouchableOpacity key={f.key} style={[styles.filterChip, linkFilter === f.key && styles.filterChipActive]} onPress={() => setLinkFilter(f.key)}>
+            <Text style={[styles.filterChipTxt, linkFilter === f.key && styles.filterChipTxtActive]}>{f.label}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <FlatList
@@ -166,6 +217,13 @@ export default function MallHomeScreen() {
         <Input label="Contact Number" placeholder="9845012345" value={form.contact} onChangeText={v => set('contact',v)} keyboardType="phone-pad" />
         <Button title="Add Vendor" onPress={addVendor} loading={saving} style={{ marginTop: 12 }} />
       </BottomSheet>
+
+      <BottomSheet visible={inviteSheet} onClose={() => setInviteSheet(false)}>
+        <Text style={styles.sheetTitle}>Invite a Restaurant</Text>
+        <Text style={styles.inviteHint}>Enter the restaurant's shop ID — they'll get a request to link their shop to your food court, which they can accept or reject.</Text>
+        <Input label="Restaurant shop ID" placeholder="e.g. ecdbc557-91fa-44ee-992f-03683ad8bbde" value={inviteShopId} onChangeText={setInviteShopId} autoCapitalize="none" />
+        <Button title={inviting ? 'Sending…' : 'Send Invite'} onPress={inviteRestaurant} loading={inviting} style={{ marginTop: 12 }} />
+      </BottomSheet>
     </View>
   );
 }
@@ -173,6 +231,7 @@ export default function MallHomeScreen() {
 const styles = StyleSheet.create({
   header:       { paddingTop: 52, paddingHorizontal: Spacing.base, paddingBottom: 24 },
   headerRow:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.base },
+  brandRow:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerSub:    { fontSize: FontSize.xs, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5 },
   mallName:     { fontSize: FontSize.xl, fontWeight: '800', color: Colors.white, marginTop: 4 },
   mallCity:     { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
@@ -197,4 +256,12 @@ const styles = StyleSheet.create({
   vendorContact:{ fontSize: FontSize.xs, color: Colors.gray400 },
   vendorRight:  { alignItems: 'center', gap: 10 },
   sheetTitle:   { fontSize: FontSize.lg, fontWeight: '800', marginBottom: Spacing.base },
+  linkBadge:    { paddingHorizontal: 7, paddingVertical: 2, borderRadius: Radius.full },
+  linkBadgeTxt: { fontSize: 9.5, fontWeight: '700' },
+  filterRow:    { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.base, paddingBottom: Spacing.sm },
+  filterChip:   { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
+  filterChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  filterChipTxt: { fontSize: 11.5, fontWeight: '700', color: Colors.gray600 },
+  filterChipTxtActive: { color: Colors.white },
+  inviteHint:   { fontSize: FontSize.xs, color: Colors.gray500, marginBottom: 12, lineHeight: 17 },
 });

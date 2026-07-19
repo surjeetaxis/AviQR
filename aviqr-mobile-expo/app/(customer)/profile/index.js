@@ -7,6 +7,7 @@ import { PageHeader } from '../../../src/components/common/PageHeader.js';
 import { Input } from '../../../src/components/common/Input.js';
 import { Button } from '../../../src/components/common/Button.js';
 import { BottomSheet } from '../../../src/components/common/BottomSheet.js';
+import { CustomerBottomNav } from '../../../src/components/common/CustomerBottomNav.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../../src/theme/index.js';
 
 const LANGUAGES = [
@@ -29,6 +30,15 @@ export default function CustomerProfileScreen() {
   const [saving, setSaving]         = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
+
+  // Bottom nav is shared across every customer screen (menu/orders/profile)
+  // so it doesn't disappear just because you're not on the menu screen —
+  // it previously only rendered on menu.js.
+  const handleTabChange = (key) => {
+    if (key === 'profile') return; // already here
+    if (key === 'orders') return router.push(currentShopId ? { pathname: '/(customer)/orders', params: { shopId: currentShopId } } : '/(customer)/orders');
+    router.push(currentShopId ? { pathname: '/(customer)/menu', params: { shopId: currentShopId } } : '/(customer)/menu');
+  };
 
   useEffect(() => {
     if (!user?.phone) { setLoadingFav(false); return; }
@@ -76,6 +86,7 @@ export default function CustomerProfileScreen() {
           <Text style={ss.centerTxt}>Log in to see your profile, rewards, and favorites.</Text>
           <Button title="Log in" onPress={() => router.push('/login')} style={{ marginTop: 16 }} />
         </View>
+        <CustomerBottomNav activeTab="profile" onChangeTab={handleTabChange} cartCount={0} pageBackground={Colors.background} />
       </View>
     );
   }
@@ -83,7 +94,7 @@ export default function CustomerProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <PageHeader title="Profile" />
-      <ScrollView contentContainerStyle={{ padding: Spacing.base, paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ padding: Spacing.base, paddingBottom: 100 }}>
         <View style={ss.identityCard}>
           <View style={ss.avatar}><Text style={{ fontSize: 20 }}>🙋</Text></View>
           <View style={{ flex: 1 }}>
@@ -156,6 +167,8 @@ export default function CustomerProfileScreen() {
         </View>
         <Button title={saving ? 'Saving…' : 'Save changes'} onPress={saveEdit} loading={saving} disabled={!editForm.name.trim()} style={{ marginTop: 12 }} />
       </BottomSheet>
+
+      <CustomerBottomNav activeTab="profile" onChangeTab={handleTabChange} cartCount={0} pageBackground={Colors.background} />
     </View>
   );
 }

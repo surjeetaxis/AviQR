@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { orderApi } from '../../../src/api/index.js';
 import { useAuth } from '../../../src/context/AuthContext.js';
 import { PageHeader } from '../../../src/components/common/PageHeader.js';
 import { EmptyState } from '../../../src/components/common/EmptyState.js';
+import { CustomerBottomNav } from '../../../src/components/common/CustomerBottomNav.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../../src/theme/index.js';
 
 const STATUS_COLOR = { PENDING_PAYMENT: '#D97706', NEW: '#F59E0B', ACCEPTED: '#2563EB', PREPARING: '#2563EB', READY: '#059669', COMPLETED: '#6B7280', CANCELLED: '#DC2626', REJECTED: '#DC2626' };
@@ -15,9 +16,22 @@ const STATUS_COLOR = { PENDING_PAYMENT: '#D97706', NEW: '#F59E0B', ACCEPTED: '#2
 // (accepted/preparing/ready) shows up without leaving and re-entering.
 export default function CustomerOrdersScreen() {
   const { user } = useAuth();
+  const { shopId } = useLocalSearchParams();
   const [orders, setOrders]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
+
+  // Bottom nav is shared across every customer screen (menu/orders/profile)
+  // so it doesn't disappear just because you're not on the menu screen —
+  // it previously only rendered on menu.js.
+  const handleTabChange = (key) => {
+    if (key === 'orders') return; // already here
+    if (key === 'profile') return router.push(shopId ? { pathname: '/(customer)/profile', params: { shopId } } : '/(customer)/profile');
+    // home/search/cart all live on the menu screen — this screen has no
+    // shop context of its own beyond whichever shop the customer arrived
+    // from (if any).
+    router.push(shopId ? { pathname: '/(customer)/menu', params: { shopId } } : '/(customer)/menu');
+  };
 
   const load = useCallback(() => {
     return orderApi.getHistory({ page: 0, size: 20 })
@@ -37,6 +51,7 @@ export default function CustomerOrdersScreen() {
       <View style={{ flex: 1, backgroundColor: Colors.background }}>
         <PageHeader title="My Orders" />
         <EmptyState icon="🔑" title="Log in to see your orders" subtitle="Order history is tied to your account" />
+        <CustomerBottomNav activeTab="orders" onChangeTab={handleTabChange} cartCount={0} pageBackground={Colors.background} />
       </View>
     );
   }
@@ -52,7 +67,7 @@ export default function CustomerOrdersScreen() {
         <FlatList
           data={orders}
           keyExtractor={o => o.id}
-          contentContainerStyle={{ padding: Spacing.base, gap: 8, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: Spacing.base, gap: 8, paddingBottom: 100 }}
           ListEmptyComponent={<EmptyState icon="📦" title="No orders yet" />}
           renderItem={({ item }) => (
             <TouchableOpacity style={ss.card} onPress={() => router.push(`/(customer)/orders/${item.id}`)} activeOpacity={0.8}>
@@ -69,6 +84,7 @@ export default function CustomerOrdersScreen() {
           )}
         />
       )}
+      <CustomerBottomNav activeTab="orders" onChangeTab={handleTabChange} cartCount={0} pageBackground={Colors.background} />
     </View>
   );
 }

@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { supportApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
+import { Logo } from '../../src/components/common/Logo.js';
 import { Input } from '../../src/components/common/Input.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
 import { BottomSheet } from '../../src/components/common/BottomSheet.js';
@@ -86,9 +87,12 @@ export default function SupportHomeScreen() {
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <LinearGradient colors={['#0C4A6E','#0891B2']} style={styles.header}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.headerSub}>SUPPORT AGENT</Text>
-            <Text style={styles.agentName}>{user?.name}</Text>
+          <View style={styles.brandRow}>
+            <Logo size={30} />
+            <View>
+              <Text style={styles.headerSub}>SUPPORT AGENT</Text>
+              <Text style={styles.agentName}>{user?.name}</Text>
+            </View>
           </View>
           <TouchableOpacity onPress={logout} style={{ padding: 8 }}>
             <Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.6)' }}>🚪</Text>
@@ -176,6 +180,7 @@ export default function SupportHomeScreen() {
 const styles = StyleSheet.create({
   header:       { paddingTop: 52, paddingHorizontal: Spacing.base, paddingBottom: 24 },
   headerRow:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.base },
+  brandRow:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerSub:    { fontSize: FontSize.xs, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5 },
   agentName:    { fontSize: FontSize.xl, fontWeight: '800', color: Colors.white, marginTop: 4 },
   statsRow:     { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: Radius.lg, padding: Spacing.md },

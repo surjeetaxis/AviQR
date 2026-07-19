@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { planApi, offerApi } from '../../api/index.js';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../theme/index.js';
+import { Logo } from '../common/Logo.js';
 
 // Mobile port of aviqr-ui-web/src/pages/landing/Landing.jsx — same section
 // order and same copy, condensed for a single scrolling phone column instead
@@ -120,6 +121,7 @@ export default function LandingScreen() {
     <ScrollView style={ss.screen} showsVerticalScrollIndicator={false}>
       {/* Hero */}
       <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.hero}>
+        <View style={{ marginBottom: 10 }}><Logo size={40} /></View>
         <Text style={ss.brand}>Avi<Text style={ss.accent}>QR</Text></Text>
         <Text style={ss.eyebrow}>India's multilingual QR menu & order platform</Text>
         <Text style={ss.headline}>One QR code.{'\n'}Your entire restaurant OS.</Text>

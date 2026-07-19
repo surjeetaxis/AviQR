@@ -2,13 +2,16 @@ import { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Share, StyleSheet, Alert } from 'react-native';
 import * as Print from 'expo-print';
 import { router } from 'expo-router';
-import { reportApi, invoiceApi } from '../../src/api/index.js';
+import { reportApi, invoiceApi, paymentApi } from '../../src/api/index.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { Input } from '../../src/components/common/Input.js';
 import { BottomSheet } from '../../src/components/common/BottomSheet.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
+import { confirmAction } from '../../src/utils/confirmAction.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
+
+const REFUNDABLE_PAYMENT_STATUSES = ['PAID', 'CAPTURED'];
 
 const TYPES = ['', 'DINE_IN', 'TAKEAWAY', 'DELIVERY'];
 const STATUSES = ['', 'NEW', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED', 'REJECTED'];
@@ -29,6 +32,7 @@ export default function OrderHistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [refunding, setRefunding] = useState(false);
 
   const load = useCallback(async (p = 0) => {
     if (!shopId) return;
@@ -59,6 +63,26 @@ export default function OrderHistoryScreen() {
     try { const res = await invoiceApi.getInvoiceHtml(orderId); await Print.printAsync({ html: res.data }); }
     catch { Alert.alert('Print failed', 'Could not load the invoice.'); }
   };
+
+  const refundOrder = () => confirmAction(
+    'Refund this order?',
+    `₹${Number(selected.total_amount || 0).toLocaleString('en-IN')} will be refunded to the customer via Razorpay.`,
+    async () => {
+      setRefunding(true);
+      try {
+        const res = await paymentApi.getByShop(shopId, { size: 200 });
+        const list = res.data.data?.content || res.data.data || [];
+        const payment = list.find(p => p.orderId === selected.id);
+        if (!payment) { Alert.alert('No payment record found', 'Could not find a matching online payment for this order.'); return; }
+        await paymentApi.refund(payment.paymentId);
+        Alert.alert('Refund initiated', 'The customer will be refunded by Razorpay.');
+        setOrders(prev => prev.map(o => o.id === selected.id ? { ...o, payment_status: 'REFUNDED' } : o));
+        setSelected(prev => prev ? { ...prev, payment_status: 'REFUNDED' } : prev);
+      } catch { Alert.alert('Refund failed', 'Please try again or process it from the web dashboard.'); }
+      finally { setRefunding(false); }
+    },
+    'Refund'
+  );
 
   const exportCsv = async () => {
     const rows = [['Order #', 'Date', 'Customer', 'Phone', 'Type', 'Status', 'Payment', 'Amount'], ...orders.map(o => [o.order_number, o.created_at?.slice(0, 10), o.customer_name, o.customer_phone, o.type, o.status, o.payment_method, o.total_amount])];
@@ -130,6 +154,11 @@ export default function OrderHistoryScreen() {
               <View key={label} style={ss.fieldRow}><Text style={ss.fieldLabel}>{label}</Text><Text style={ss.fieldValue} numberOfLines={1}>{String(value ?? '—')}</Text></View>
             ))}
             <TouchableOpacity style={ss.printBtn} onPress={() => printInvoice(selected.id)}><Text style={ss.printTxt}>🧾 Print Invoice</Text></TouchableOpacity>
+            {selected.payment_method === 'ONLINE' && REFUNDABLE_PAYMENT_STATUSES.includes(selected.payment_status) && (
+              <TouchableOpacity style={ss.refundBtn} disabled={refunding} onPress={refundOrder}>
+                <Text style={ss.refundTxt}>{refunding ? 'Processing…' : '↩ Refund Order'}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </BottomSheet>
@@ -164,4 +193,6 @@ const ss = StyleSheet.create({
   fieldValue: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900, flex: 1, textAlign: 'right' },
   printBtn: { marginTop: 16, backgroundColor: Colors.primary, borderRadius: Radius.md, paddingVertical: 14, alignItems: 'center' },
   printTxt: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
+  refundBtn: { marginTop: 10, backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.error, borderRadius: Radius.md, paddingVertical: 14, alignItems: 'center' },
+  refundTxt: { color: Colors.error, fontWeight: '700', fontSize: FontSize.sm },
 });

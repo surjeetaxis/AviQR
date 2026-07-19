@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.js';
 import { OWNER_NAV_GROUPS } from '../../config/ownerNavGroups.js';
 import { Colors, FontSize, Spacing, Radius } from '../../theme/index.js';
 import { confirmAction } from '../../utils/confirmAction.js';
+import { Logo } from './Logo.js';
 
 // Mobile port of the web app's Sidebar.jsx — same grouped structure/order/labels
 // (OWNER_NAV_GROUPS mirrors Sidebar.jsx's NAV_GROUPS), rendered as a full-screen
@@ -25,7 +26,10 @@ export function OwnerDrawer({ visible, onClose, basePath = '/(owner)', newOrderC
         <View style={ss.panel}>
           <ScrollView contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
             <View style={ss.header}>
-              <Text style={ss.wordmark}>Avi<Text style={{ color: Colors.primary }}>QR</Text></Text>
+              <View style={ss.brandRow}>
+                <Logo size={30} />
+                <Text style={ss.wordmark}>Avi<Text style={{ color: Colors.primary }}>QR</Text></Text>
+              </View>
               <TouchableOpacity onPress={onClose}><Text style={ss.close}>✕</Text></TouchableOpacity>
             </View>
 
@@ -70,6 +74,7 @@ const ss = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   panel: { width: '82%', maxWidth: 320, backgroundColor: Colors.gray900, paddingTop: 56, paddingHorizontal: Spacing.base },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   wordmark: { fontSize: FontSize['2xl'], fontWeight: '800', color: Colors.white },
   close: { fontSize: 20, color: 'rgba(255,255,255,0.6)' },
   shopCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: Radius.md, padding: 12, marginBottom: 12 },

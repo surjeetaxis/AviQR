@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     right: 16,
     height: NAV_HEIGHT,
     backgroundColor: Colors.primary,
-    borderRadius: 999,
+    borderRadius: 22, // matches web's BottomNav.css (26px on a 70px bar) — less curved than a full pill
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.35,

@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
-import { reportApi, orderApi } from '../../src/api/index.js';
+import { reportApi, orderApi, vendorRequestApi } from '../../src/api/index.js';
 import { MOCK_STATS, MOCK_ORDERS } from '../../src/api/mockData.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
@@ -44,23 +44,36 @@ export default function Dashboard() {
   const [loading,   setLoading]= useState(true);
   const [refreshing,setRef]    = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [invites, setInvites]  = useState([]);
+  const [respondingId, setRespondingId] = useState(null);
 
   const load = useCallback(async () => {
     try {
-      const [s, o] = await Promise.allSettled([
+      const [s, o, v] = await Promise.allSettled([
         reportApi.getDaily(shopId),
         orderApi.getLive(shopId),
+        vendorRequestApi.mine(shopId),
       ]);
       if (s.status === 'fulfilled') { setStats(s.value.data.data); setOffline(false); }
       else setOffline(true);
       if (o.status === 'fulfilled') setOrders(o.value.data.data || []);
       else if (!stats) setOrders(MOCK_ORDERS); // only show mock if no real data yet
+      if (v.status === 'fulfilled') setInvites(v.value.data.data || []);
     } catch {
       setOffline(true);
       if (!stats) setStats(MOCK_STATS);
       if (!orders.length) setOrders(MOCK_ORDERS);
     } finally { setLoading(false); }
   }, [shopId]);
+
+  const respondInvite = async (invite, decision) => {
+    setRespondingId(invite.id);
+    try {
+      await vendorRequestApi.respond(invite.id, decision);
+      setInvites(prev => prev.filter(i => i.id !== invite.id));
+    } catch { Alert.alert('Could not respond', 'Please try again.'); }
+    finally { setRespondingId(null); }
+  };
 
   useEffect(() => {
     load();
@@ -143,6 +156,28 @@ export default function Dashboard() {
             <Text style={ss.newOrderText}>🔔 {newOrders.length} new order{newOrders.length > 1 ? 's' : ''} waiting — tap to accept</Text>
           </TouchableOpacity>
         )}
+
+        {/* Mall/food-court link requests — a mall admin invited this shop to join their food court */}
+        {invites.map(inv => (
+          <View key={inv.id} style={ss.inviteCard}>
+            <Text style={ss.inviteTitle}>🏬 {inv.mallName} wants to add you to their food court</Text>
+            {inv.mallCity ? <Text style={ss.inviteSub}>{inv.mallCity}</Text> : null}
+            <View style={ss.inviteActions}>
+              <TouchableOpacity
+                style={[ss.inviteBtn, ss.inviteAccept]}
+                disabled={respondingId === inv.id}
+                onPress={() => respondInvite(inv, 'ACCEPT')}>
+                <Text style={ss.inviteAcceptText}>{respondingId === inv.id ? '…' : 'Accept'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[ss.inviteBtn, ss.inviteReject]}
+                disabled={respondingId === inv.id}
+                onPress={() => respondInvite(inv, 'REJECT')}>
+                <Text style={ss.inviteRejectText}>Reject</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
 
         {/* Secondary KPIs */}
         <View style={ss.kpiRow2}>
@@ -236,6 +271,15 @@ const ss = StyleSheet.create({
   body:       { padding:Spacing.md, gap:4 },
   newOrderBanner: { backgroundColor:'#EFF6FF', borderRadius:10, padding:12, marginBottom:8, borderWidth:1, borderColor:'#BFDBFE' },
   newOrderText:   { color:'#1D4ED8', fontSize:13, fontWeight:'600', textAlign:'center' },
+  inviteCard:     { backgroundColor:'#FEF3C7', borderRadius:10, padding:12, marginBottom:8, borderWidth:1, borderColor:'#FDE68A' },
+  inviteTitle:    { fontSize:13, fontWeight:'700', color:'#92400E' },
+  inviteSub:      { fontSize:11, color:'#B45309', marginTop:2 },
+  inviteActions:  { flexDirection:'row', gap:8, marginTop:10 },
+  inviteBtn:      { flex:1, paddingVertical:8, borderRadius:8, alignItems:'center' },
+  inviteAccept:   { backgroundColor:'#059669' },
+  inviteReject:   { backgroundColor:'white', borderWidth:1, borderColor:'#DC2626' },
+  inviteAcceptText: { color:'white', fontWeight:'700', fontSize:12.5 },
+  inviteRejectText: { color:'#DC2626', fontWeight:'700', fontSize:12.5 },
   kpiRow2:    { flexDirection:'row', gap:10, marginVertical:8 },
   kpiCard2:   { flex:1, backgroundColor:'white', borderRadius:10, padding:12, borderLeftWidth:3, ...Shadow.sm },
   kpiVal2:    { fontSize:18, fontWeight:'800' },

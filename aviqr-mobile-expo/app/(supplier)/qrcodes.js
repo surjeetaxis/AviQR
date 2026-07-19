@@ -5,6 +5,7 @@ import { PageHeader } from '../../src/components/common/PageHeader.js';
 import { Input } from '../../src/components/common/Input.js';
 import { Button } from '../../src/components/common/Button.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
+import { QrPosterStudio } from '../../src/components/common/QrPosterStudio.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
 
 export default function SupplierQrCodesScreen() {
@@ -15,6 +16,7 @@ export default function SupplierQrCodesScreen() {
   const [codes, setCodes]     = useState([]);
   const [outletCount, setOutletCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [studioTarget, setStudioTarget] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -66,9 +68,14 @@ export default function SupplierQrCodesScreen() {
                   <Text style={ss.brandTitle}>Main Brand QR</Text>
                   <Image source={{ uri: qrApi.imageUrl(brandQr.qrCode) }} style={ss.qrImage} />
                   <Text style={ss.targetUrl} numberOfLines={2}>{brandQr.targetUrl}</Text>
-                  <TouchableOpacity style={ss.downloadBtn} onPress={() => Linking.openURL(qrApi.imageUrl(brandQr.qrCode))}>
-                    <Text style={ss.downloadTxt}>⬇ Download</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity style={ss.downloadBtn} onPress={() => Linking.openURL(qrApi.imageUrl(brandQr.qrCode))}>
+                      <Text style={ss.downloadTxt}>⬇ Download</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[ss.downloadBtn, { backgroundColor: Colors.primaryLight }]} onPress={() => setStudioTarget(brandQr)}>
+                      <Text style={[ss.downloadTxt, { color: Colors.primaryDark }]}>🎨 Design & Print</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )
             ) : (
@@ -83,7 +90,7 @@ export default function SupplierQrCodesScreen() {
         }
         ListEmptyComponent={!loading && <EmptyState icon="📱" title="No QR codes" subtitle="Go to an outlet to generate QR codes" />}
         renderItem={({ item }) => (
-          <View style={ss.card}>
+          <TouchableOpacity style={ss.card} onPress={() => setStudioTarget(item)}>
             <View style={{ flex: 1 }}>
               <Text style={ss.name}>{item.label || item.tableLabel || `Table ${item.tableNumber}`}</Text>
               <Text style={ss.sub}>{item.outletName} · {item.scanCount || 0} scans</Text>
@@ -91,8 +98,16 @@ export default function SupplierQrCodesScreen() {
             <View style={[ss.badge, { backgroundColor: item.active ? '#DCFCE7' : '#F3F4F6' }]}>
               <Text style={[ss.badgeTxt, { color: item.active ? '#059669' : '#6B7280' }]}>{item.active ? 'Active' : 'Inactive'}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
+      />
+
+      <QrPosterStudio
+        visible={!!studioTarget}
+        onClose={() => setStudioTarget(null)}
+        shopId={null}
+        shopName={studioTarget?.outletName || brand?.name || 'AviQR'}
+        targetUrl={studioTarget?.targetUrl}
       />
     </View>
   );

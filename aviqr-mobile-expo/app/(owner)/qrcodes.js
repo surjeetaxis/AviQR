@@ -8,6 +8,7 @@ import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { Button } from '../../src/components/common/Button.js';
 import { Card } from '../../src/components/common/Card.js';
 import { BottomSheet } from '../../src/components/common/BottomSheet.js';
+import { QrPosterStudio } from '../../src/components/common/QrPosterStudio.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 export default function QRCodesScreen() {
@@ -16,6 +17,7 @@ export default function QRCodesScreen() {
   const [codes, setCodes]     = useState([]);
   const [preview, setPreview] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [studioTarget, setStudioTarget] = useState(null);
 
   useEffect(() => { if(shopId) loadCodes(); }, [shopId]);
 
@@ -58,8 +60,8 @@ export default function QRCodesScreen() {
         <TouchableOpacity onPress={() => shareQR(code)} style={styles.qrActionBtn}>
           <Text style={{ fontSize: 16, color: Colors.primary }}>📤</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.qrActionBtn}>
-          <Text style={{ fontSize: 16, color: Colors.gray500 }}>⬇️</Text>
+        <TouchableOpacity onPress={() => setStudioTarget(code)} style={styles.qrActionBtn}>
+          <Text style={{ fontSize: 16, color: Colors.primary }}>🎨</Text>
         </TouchableOpacity>
       </View>
     </Card>
@@ -104,12 +106,20 @@ export default function QRCodesScreen() {
             </View>
             <Text style={styles.previewUrl}>{preview.targetUrl}</Text>
             <View style={styles.previewActions}>
-              <Button title="Share" onPress={() => shareQR(preview)} variant="outline" style={{ flex: 1 }} />
-              <Button title="Download PNG" onPress={() => {}} style={{ flex: 1 }} />
+              <Button title="Share link" onPress={() => shareQR(preview)} variant="outline" style={{ flex: 1 }} />
+              <Button title="🎨 Design & Print" onPress={() => setStudioTarget(preview)} style={{ flex: 1 }} />
             </View>
           </View>
         )}
       </BottomSheet>
+
+      <QrPosterStudio
+        visible={!!studioTarget}
+        onClose={() => setStudioTarget(null)}
+        shopId={shopId}
+        shopName={user?.shopName || user?.name}
+        targetUrl={studioTarget?.targetUrl}
+      />
     </View>
   );
 }

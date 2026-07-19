@@ -7,6 +7,7 @@ import { authApi } from '../src/api/index.js';
 import { Button } from '../src/components/common/Button.js';
 import { Input } from '../src/components/common/Input.js';
 import { Colors, Radius, Spacing, FontSize } from '../src/theme/index.js';
+import { Logo } from '../src/components/common/Logo.js';
 
 function homeFor(role) {
   const r=(role||'').toUpperCase();
@@ -54,6 +55,7 @@ export default function Login() {
   return (
     <ScrollView style={ss.screen} contentContainerStyle={ss.scroll} keyboardShouldPersistTaps="handled">
       <LinearGradient colors={['#0F6E56','#1D9E75']} style={ss.hero}>
+        <Logo size={48} />
         <Text style={ss.brand}>Avi<Text style={ss.accent}>QR</Text></Text>
         <Text style={ss.tagline}>Restaurant · Hotel · Mall OS</Text>
         <Text style={ss.sub}>Scan · Order · Pay</Text>
@@ -105,7 +107,7 @@ export default function Login() {
 const ss = StyleSheet.create({
   screen:{flex:1,backgroundColor:Colors.background},
   scroll:{flexGrow:1},
-  hero:{paddingTop:72,paddingBottom:40,paddingHorizontal:24,alignItems:'center'},
+  hero:{paddingTop:72,paddingBottom:40,paddingHorizontal:24,alignItems:'center',gap:10},
   brand:{fontSize:44,fontWeight:'900',color:Colors.white,letterSpacing:-1},
   accent:{color:'#A7F3D0'},
   tagline:{fontSize:FontSize.base,color:'rgba(255,255,255,0.8)',marginTop:6},

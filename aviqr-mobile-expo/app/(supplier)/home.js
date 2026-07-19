@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ScrollView, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { shopApi, reportApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
+import { Logo } from '../../src/components/common/Logo.js';
 import { Card } from '../../src/components/common/Card.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
+import { Input } from '../../src/components/common/Input.js';
+import { Button } from '../../src/components/common/Button.js';
+import { BottomSheet } from '../../src/components/common/BottomSheet.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 const NAV_ITEMS = [
@@ -14,14 +18,31 @@ const NAV_ITEMS = [
   { icon: '📱', label: 'QR Codes',    href: '/(supplier)/qrcodes' },
   { icon: '📊', label: 'Reports',     href: '/(supplier)/reports' },
   { icon: '⭐', label: 'Subscription', href: '/(supplier)/subscription' },
+  { icon: '⚙️', label: 'Settings',     href: '/(supplier)/settings' },
 ];
 
 export default function SupplierHomeScreen() {
   const { user, logout } = useAuth();
   const [shops, setShops]   = useState([]);
   const [refreshing, setRef]= useState(false);
+  const [addSheet, setAddSheet] = useState(false);
+  const [form, setForm] = useState({ name: '', phone: '', city: '', address: '', tableCount: '' });
+  const [creating, setCreating] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   useEffect(() => { load(); }, []);
+
+  const createOutlet = async () => {
+    if (!form.name.trim() || !form.phone.trim()) return Alert.alert('Name and phone are required');
+    setCreating(true);
+    try {
+      await shopApi.create({ name: form.name.trim(), phone: form.phone.trim(), city: form.city, address: form.address, tableCount: form.tableCount ? Number(form.tableCount) : undefined });
+      setAddSheet(false);
+      setForm({ name: '', phone: '', city: '', address: '', tableCount: '' });
+      await load();
+    } catch (e) { Alert.alert('Could not create outlet', e.response?.data?.message || 'Please check the details and try again.'); }
+    finally { setCreating(false); }
+  };
 
   const load = async () => {
     try {
@@ -70,9 +91,12 @@ export default function SupplierHomeScreen() {
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <LinearGradient colors={['#064E3B','#059669']} style={styles.header}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.headerSub}>BRAND / SUPPLIER</Text>
-            <Text style={styles.headerName}>{user?.name}</Text>
+          <View style={styles.brandRow}>
+            <Logo size={30} />
+            <View>
+              <Text style={styles.headerSub}>BRAND / SUPPLIER</Text>
+              <Text style={styles.headerName}>{user?.name}</Text>
+            </View>
           </View>
           <TouchableOpacity onPress={logout} style={{ padding: 8 }}>
             <Text style={{fontSize:18,color:'rgba(255,255,255,0.6)'}}>⎋</Text>
@@ -125,7 +149,22 @@ export default function SupplierHomeScreen() {
             <Text style={styles.emptyText}>No outlets added yet</Text>
           </View>
         }
+        ListFooterComponent={
+          <TouchableOpacity style={styles.addOutletBtn} onPress={() => setAddSheet(true)}>
+            <Text style={styles.addOutletText}>+ Add Outlet</Text>
+          </TouchableOpacity>
+        }
       />
+
+      <BottomSheet visible={addSheet} onClose={() => setAddSheet(false)} height={480}>
+        <Text style={styles.sheetTitle}>Add a new outlet</Text>
+        <Input label="Outlet name *" placeholder="Ramesh Tea House — Jayanagar" value={form.name} onChangeText={v => set('name', v)} />
+        <Input label="Phone *" placeholder="9900112233" value={form.phone} onChangeText={v => set('phone', v)} keyboardType="phone-pad" />
+        <Input label="City" placeholder="Bengaluru" value={form.city} onChangeText={v => set('city', v)} />
+        <Input label="Address" value={form.address} onChangeText={v => set('address', v)} multiline />
+        <Input label="Number of tables" value={form.tableCount} onChangeText={v => set('tableCount', v)} keyboardType="numeric" />
+        <Button title={creating ? 'Creating…' : 'Create Outlet'} onPress={createOutlet} loading={creating} style={{ marginTop: 8 }} />
+      </BottomSheet>
     </View>
   );
 }
@@ -133,6 +172,7 @@ export default function SupplierHomeScreen() {
 const styles = StyleSheet.create({
   header:     { paddingTop: 52, paddingHorizontal: Spacing.base, paddingBottom: 24 },
   headerRow:  { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.base },
+  brandRow:   { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerSub:  { fontSize: FontSize.xs, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5 },
   headerName: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.white, marginTop: 4 },
   statsRow:   { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: Radius.lg, padding: Spacing.md },
@@ -158,4 +198,7 @@ const styles = StyleSheet.create({
   empty:      { alignItems: 'center', paddingTop: 60 },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
   emptyText:  { fontSize: FontSize.base, color: Colors.gray400 },
+  addOutletBtn: { alignItems: 'center', paddingVertical: 14, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.primary, borderStyle: 'dashed', marginTop: 4 },
+  addOutletText: { fontWeight: '700', color: Colors.primary, fontSize: FontSize.sm },
+  sheetTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900, marginBottom: Spacing.base },
 });

@@ -12,6 +12,15 @@ import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 const ROLES = ['OWNER','MANAGER','CASHIER','KITCHEN','MENU_EDITOR','ORDER_VIEWER'];
 const ROLE_COLORS = { OWNER: '#1D9E75', MANAGER: '#2563EB', CASHIER: '#7C3AED', KITCHEN: '#D97706', MENU_EDITOR: '#059669', ORDER_VIEWER: '#6B7280' };
+// Mirrors web's ROLE_PERMISSIONS (AuthContext.jsx) — null means full access.
+const ROLE_PERMISSIONS_PREVIEW = {
+  OWNER:        'Full access to every screen',
+  MANAGER:      'Full access to every screen',
+  CASHIER:      ['Dashboard', 'Orders', 'Billing', 'Reports', 'Order History'],
+  KITCHEN:      ['Dashboard', 'Orders', 'Kitchen (KOT)'],
+  MENU_EDITOR:  ['Dashboard', 'Menu', 'Variants', 'Shortcodes', 'Dine-in Areas'],
+  ORDER_VIEWER: ['Dashboard', 'Orders', 'Order History'],
+};
 
 export default function StaffScreen() {
   const { user } = useAuth();
@@ -114,6 +123,18 @@ export default function StaffScreen() {
             </TouchableOpacity>
           ))}
         </View>
+        <View style={styles.permPreview}>
+          <Text style={styles.permPreviewLabel}>Can access:</Text>
+          {Array.isArray(ROLE_PERMISSIONS_PREVIEW[form.role]) ? (
+            <View style={styles.permChipRow}>
+              {ROLE_PERMISSIONS_PREVIEW[form.role].map(p => (
+                <View key={p} style={styles.permChip}><Text style={styles.permChipText}>{p}</Text></View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.permFullText}>{ROLE_PERMISSIONS_PREVIEW[form.role]}</Text>
+          )}
+        </View>
         <Button title={editing ? 'Update' : 'Add Staff'} onPress={saveStaff} loading={saving} style={{ marginTop: Spacing.md }} />
       </BottomSheet>
     </View>
@@ -138,4 +159,10 @@ const styles = StyleSheet.create({
   roleGrid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   roleChip:     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border },
   roleChipText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray500 },
+  permPreview:  { marginTop: 14, padding: 12, backgroundColor: Colors.gray50, borderRadius: Radius.md },
+  permPreviewLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 },
+  permFullText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.primary },
+  permChipRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  permChip:     { backgroundColor: Colors.white, paddingHorizontal: 9, paddingVertical: 4, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border },
+  permChipText: { fontSize: 11, fontWeight: '600', color: Colors.gray700 },
 });

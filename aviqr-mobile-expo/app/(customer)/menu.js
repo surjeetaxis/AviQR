@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, ScrollView, SectionList, FlatList, StyleSheet,
-  TouchableOpacity, TextInput, Image, Alert, Animated
+  TouchableOpacity, TextInput, Image, Alert, Animated, Share, Linking
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -14,31 +14,50 @@ import { CustomerBottomNav } from '../../src/components/common/CustomerBottomNav
 import { SearchIcon, MinusIcon, PlusIcon, ArrowRightIcon, ShoppingBagIcon } from '../../src/components/common/NavIcons.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
 
+// Mirrors aviqr-ui-web's LANGUAGES list (CustomerMenu.jsx) — same order/codes,
+// so a shopper sees the same language picker on both platforms.
+const LANGUAGES = [
+  { code:'en', label:'English',   native:'English' },
+  { code:'hi', label:'Hindi',     native:'हिंदी' },
+  { code:'ta', label:'Tamil',     native:'தமிழ்' },
+  { code:'te', label:'Telugu',    native:'తెలుగు' },
+  { code:'kn', label:'Kannada',   native:'ಕನ್ನಡ' },
+  { code:'ml', label:'Malayalam', native:'മലയാളം' },
+  { code:'bn', label:'Bengali',   native:'বাংলা' },
+  { code:'mr', label:'Marathi',   native:'मराठी' },
+  { code:'gu', label:'Gujarati',  native:'ગુજરાતી' },
+];
+
 export default function CustomerMenuScreen() {
   // expo-router passes route params via useLocalSearchParams(), not a `route`
   // prop (that's React Navigation) — this previously always fell through to
   // the hardcoded demo shop regardless of which QR/link was actually opened.
-  const { shopId = '00000000-0000-0000-0000-000000000101', tableNumber, lang = 'en' } = useLocalSearchParams();
+  const { shopId = '00000000-0000-0000-0000-000000000101', tableNumber, lang: langParam = 'en' } = useLocalSearchParams();
   const { user } = useAuth();
 
   const [menu, setMenu]         = useState([]);
+  const [shop, setShop]         = useState({ name: 'Restaurant', tagline: '', emoji: '🍽', rating: 4.5, reviews: 0, timing: '9 AM – 11 PM', location: '', color: Colors.primary });
   const [cart, setCart]         = useState({});
   const [cartOpen, setCartOpen] = useState(false);
   const [orderOpen, setOrderOpen]= useState(false);
   const [search, setSearch]     = useState('');
-  const [activeCat, setActiveCat]= useState(null);
+  const [activeCat, setActiveCat]= useState('all');
   const [placedOrder, setPlaced]= useState(null);
   const [ordering, setOrdering] = useState(false);
-  const [filter, setFilter]     = useState('all'); // all, veg, nonveg, popular
-  const [customerInfo, setInfo] = useState({ name: user?.name || '', phone: user?.phone || '', table: tableNumber || '', paymentMethod: 'ONLINE' });
+  const [filter, setFilter]     = useState('all'); // all, veg
+  const [customerInfo, setInfo] = useState({ name: user?.name || '', phone: user?.phone || '', table: tableNumber || '', paymentMethod: 'ONLINE', orderType: 'DINE_IN' });
   const [activeTab, setActiveTab] = useState('home');
+  const [lang, setLang]         = useState(langParam);
+  const [showLang, setShowLang] = useState(false);
+  const [favorited, setFavorited] = useState(false);
   const searchInputRef = useRef(null);
+  const sectionListRef = useRef(null);
 
   const handleTabChange = (key) => {
     setActiveTab(key);
     if (key === 'search') searchInputRef.current?.focus();
     else if (key === 'cart') setCartOpen(true);
-    else if (key === 'orders') router.push('/(customer)/orders');
+    else if (key === 'orders') router.push({ pathname: '/(customer)/orders', params: { shopId } });
     else if (key === 'profile') router.push({ pathname: '/(customer)/profile', params: { shopId } });
   };
 
@@ -47,9 +66,33 @@ export default function CustomerMenuScreen() {
   const loadMenu = async () => {
     try {
       const res = await menuApi.getPublicMenu(shopId, lang);
-      setMenu(res.data.data?.categories || []);
-      if (res.data.data?.categories?.length > 0) setActiveCat(res.data.data.categories[0].id);
+      const data = res.data.data;
+      setMenu(data?.categories || []);
+      const s = data?.shop || {};
+      setShop({
+        name: s.name || 'Restaurant',
+        tagline: s.tagline || '',
+        emoji: s.emoji || '🍽',
+        rating: s.rating || 4.5,
+        reviews: s.reviews || 0,
+        timing: s.timing || s.openingHours || '9 AM – 11 PM',
+        location: s.address || s.location || '',
+        color: s.color || Colors.primary,
+      });
     } catch {}
+  };
+
+  const scrollToCategory = (catId) => {
+    setActiveCat(catId);
+    if (catId === 'all') { sectionListRef.current?.scrollToLocation?.({ sectionIndex: 0, itemIndex: 0, viewOffset: 0, animated: true }); return; }
+    const sectionIndex = filteredMenu.findIndex(cat => cat.id === catId);
+    if (sectionIndex >= 0) {
+      sectionListRef.current?.scrollToLocation?.({ sectionIndex, itemIndex: 0, viewOffset: 0, animated: true });
+    }
+  };
+
+  const onShare = async () => {
+    try { await Share.share({ message: `${shop.name} — order on AviQR`, title: shop.name }); } catch {}
   };
 
   // Cart helpers
@@ -72,7 +115,7 @@ export default function CustomerMenuScreen() {
         customerPhone: customerInfo.phone,
         tableNumber:   customerInfo.table || tableNumber,
         paymentMethod: customerInfo.paymentMethod,
-        type: 'DINE_IN',
+        type: customerInfo.orderType,
         items: cartItems.map(i => ({ menuItemId: i.id, itemName: i.name, quantity: i.qty, unitPrice: i.effectivePrice })),
       };
       const res = await orderApi.placeOrder(shopId, orderData);
@@ -90,14 +133,14 @@ export default function CustomerMenuScreen() {
     items: (cat.items || []).filter(item => {
       if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
       if (filter === 'veg' && !item.veg) return false;
-      if (filter === 'nonveg' && item.veg) return false;
-      if (filter === 'popular' && !item.popular) return false;
       return true;
     })
   })).filter(cat => cat.items.length > 0);
 
   const MenuItem = ({ item }) => {
     const qty = cart[item.id]?.qty || 0;
+    const imageCount = item.images?.length || (item.imageUrl ? 1 : 0);
+    const openMedia = (url) => { if (url) Linking.openURL(url).catch(() => {}); };
     return (
       <View style={styles.menuItem}>
         <View style={styles.menuItemLeft}>
@@ -116,8 +159,38 @@ export default function CustomerMenuScreen() {
               <Text style={styles.originalPrice}>₹{item.price}</Text>
             )}
           </View>
+          {/* Media quick-links — mirrors .cm-item-media-links on web. Opens
+              externally rather than an in-app player/3D viewer, which would
+              need expo-av/expo-video + react-native-webview (not installed). */}
+          {(item.videoUrl || item.modelUrl) && (
+            <View style={styles.mediaLinks}>
+              {!!item.videoUrl && (
+                <TouchableOpacity style={styles.mediaLinkVideo} onPress={() => openMedia(item.videoUrl)}>
+                  <Text style={styles.mediaLinkVideoText}>▶ Watch video</Text>
+                </TouchableOpacity>
+              )}
+              {!!item.modelUrl && (
+                <TouchableOpacity style={styles.mediaLink3d} onPress={() => openMedia(item.modelUrl)}>
+                  <Text style={styles.mediaLink3dText}>◈ View in 3D</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
-        {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={styles.menuItemImage} />}
+        {!!item.imageUrl && (
+          <TouchableOpacity style={styles.menuItemImageWrap} onPress={() => openMedia(item.videoUrl || item.modelUrl || item.imageUrl)} activeOpacity={0.85}>
+            <Image source={{ uri: item.imageUrl }} style={styles.menuItemImage} />
+            {(item.videoUrl || item.modelUrl) && (
+              <View style={styles.mediaBadgeRow}>
+                {!!item.videoUrl && <View style={styles.mediaBadge}><Text style={styles.mediaBadgeIcon}>▶</Text></View>}
+                {!!item.modelUrl && <View style={[styles.mediaBadge, styles.mediaBadge3d]}><Text style={styles.mediaBadgeIcon}>◈</Text></View>}
+              </View>
+            )}
+            {imageCount > 1 && (
+              <View style={styles.galleryBadge}><Text style={styles.galleryBadgeText}>🖼 {imageCount}</Text></View>
+            )}
+          </TouchableOpacity>
+        )}
         <View style={styles.qtyControl}>
           {qty > 0 ? (
             <View style={styles.qtyRow}>
@@ -141,46 +214,89 @@ export default function CustomerMenuScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
-      <LinearGradient colors={['#0F6E56','#1D9E75']} style={styles.header}>
-        <Text style={styles.shopTitle}>Menu</Text>
-        {tableNumber && <Text style={styles.tableInfo}>Table {tableNumber}</Text>}
+      {/* Header — mirrors aviqr-ui-web's .cm-header (brand + language + share) */}
+      <View style={styles.topHeader}>
+        <View style={styles.brandRow}>
+          <Text style={styles.brandIcon}>▦</Text>
+          <Text style={styles.brandName}>Avi<Text style={{ color: Colors.primary }}>QR</Text></Text>
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity style={styles.langBtn} onPress={() => setShowLang(v => !v)}>
+            <Text style={styles.langBtnText}>🌐 {LANGUAGES.find(l => l.code === lang)?.native || 'English'} ▾</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn} onPress={onShare}>
+            <Text style={{ fontSize: 15 }}>📤</Text>
+          </TouchableOpacity>
+        </View>
+        {showLang && (
+          <View style={styles.langDropdown}>
+            <ScrollView style={{ maxHeight: 240 }} showsVerticalScrollIndicator={false}>
+              {LANGUAGES.map(l => (
+                <TouchableOpacity
+                  key={l.code}
+                  style={[styles.langOption, lang === l.code && styles.langOptionActive]}
+                  onPress={() => { setLang(l.code); setShowLang(false); }}
+                >
+                  <Text style={styles.langNative}>{l.native}</Text>
+                  <Text style={styles.langLabel}>{l.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+
+      {/* Shop banner — mirrors .cm-shop-banner */}
+      <LinearGradient colors={[shop.color, '#085041']} style={styles.shopBanner}>
+        <View style={styles.shopEmojiWrap}><Text style={styles.shopEmoji}>{shop.emoji}</Text></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={styles.shopName}>{shop.name}</Text>
+          <TouchableOpacity style={styles.favBtn} onPress={() => setFavorited(f => !f)}>
+            <Text style={{ fontSize: 12 }}>{favorited ? '❤️' : '🤍'}</Text>
+          </TouchableOpacity>
+        </View>
+        {!!shop.tagline && <Text style={styles.shopTagline}>{shop.tagline}</Text>}
+        <View style={styles.shopMeta}>
+          <View style={styles.metaChip}><Text style={styles.metaChipText}>⭐ {shop.rating} ({shop.reviews})</Text></View>
+          <View style={styles.metaChip}><Text style={styles.metaChipText}>🕐 {shop.timing}</Text></View>
+          {!!shop.location && <View style={styles.metaChip}><Text style={styles.metaChipText} numberOfLines={1}>📍 {shop.location}</Text></View>}
+        </View>
+        {!!tableNumber && (
+          <View style={styles.tableChip}><Text style={styles.tableChipText}>📍 Table {tableNumber}</Text></View>
+        )}
       </LinearGradient>
 
-      {/* Search & Filters */}
-      <View style={styles.searchWrap}>
+      {/* Toolbar: search + veg-only toggle — mirrors .cm-toolbar */}
+      <View style={styles.toolbar}>
         <View style={styles.searchBox}>
           <SearchIcon size={16} color={Colors.gray400} />
           <TextInput ref={searchInputRef} style={styles.searchInput} placeholder="Search dishes…" placeholderTextColor={Colors.gray400} value={search} onChangeText={setSearch} />
         </View>
+        <TouchableOpacity style={[styles.vegFilter, filter === 'veg' && styles.vegFilterActive]} onPress={() => setFilter(f => f === 'veg' ? 'all' : 'veg')}>
+          <View style={[styles.vegDot, filter === 'veg' && styles.vegDotActive]} />
+          <Text style={[styles.vegText, filter === 'veg' && styles.vegTextActive]}>Veg</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Category tabs: All + real categories — mirrors .cm-cats */}
+      <View style={styles.catTabsWrap}>
         <FlatList
-          data={[{id:'all',label:'All'},{id:'veg',label:'🟢 Veg'},{id:'nonveg',label:'🔴 Non-Veg'},{id:'popular',label:'⭐ Popular'}]}
-          horizontal showsHorizontalScrollIndicator={false} keyExtractor={f => f.id}
-          style={{ marginTop: 8 }}
-          renderItem={({ item: f }) => (
-            <TouchableOpacity style={[styles.filterChip, filter === f.id && styles.filterChipActive]} onPress={() => setFilter(f.id)}>
-              <Text style={[styles.filterChipText, filter === f.id && styles.filterChipActiveText]}>{f.label}</Text>
+          data={[{ id: 'all', name: 'All', emoji: null }, ...menu]}
+          horizontal showsHorizontalScrollIndicator={false} keyExtractor={c => c.id}
+          contentContainerStyle={{ paddingHorizontal: Spacing.base, gap: 8 }}
+          renderItem={({ item: cat }) => (
+            <TouchableOpacity style={[styles.catTab, activeCat === cat.id && styles.catTabActive]} onPress={() => scrollToCategory(cat.id)}>
+              {!!cat.emoji && <Text style={styles.catEmoji}>{cat.emoji}</Text>}
+              <Text style={[styles.catTabText, activeCat === cat.id && styles.catTabActiveText]}>{cat.name}</Text>
             </TouchableOpacity>
           )}
         />
       </View>
 
-      {/* Category tabs */}
-      <FlatList
-        data={menu}
-        horizontal showsHorizontalScrollIndicator={false} keyExtractor={c => c.id}
-        style={styles.catTabs}
-        renderItem={({ item: cat }) => (
-          <TouchableOpacity style={[styles.catTab, activeCat === cat.id && styles.catTabActive]} onPress={() => setActiveCat(cat.id)}>
-            <Text style={styles.catEmoji}>{cat.emoji}</Text>
-            <Text style={[styles.catTabText, activeCat === cat.id && styles.catTabActiveText]}>{cat.name}</Text>
-          </TouchableOpacity>
-        )}
-      />
-
       {/* Menu items */}
       <SectionList
-        sections={filteredMenu.map(cat => ({ title: cat.name, emoji: cat.emoji, data: cat.items }))}
+        ref={sectionListRef}
+        sections={filteredMenu.map(cat => ({ id: cat.id, title: cat.name, emoji: cat.emoji, data: cat.items }))}
         keyExtractor={item => item.id}
         renderItem={({ item }) => <MenuItem item={item} />}
         renderSectionHeader={({ section }) => (
@@ -189,6 +305,7 @@ export default function CustomerMenuScreen() {
             <Text style={styles.sectionTitle}>{section.title}</Text>
           </View>
         )}
+        onScrollToIndexFailed={() => {}}
         contentContainerStyle={{ paddingBottom: cartCount > 0 ? 190 : 100 }}
         showsVerticalScrollIndicator={false}
         stickySectionHeadersEnabled={false}
@@ -266,22 +383,53 @@ export default function CustomerMenuScreen() {
 
 const styles = StyleSheet.create({
   screen:         { flex: 1, backgroundColor: Colors.background },
-  header:         { paddingTop: 52, paddingBottom: 16, paddingHorizontal: Spacing.base },
-  shopTitle:      { fontSize: FontSize['2xl'], fontWeight: '800', color: Colors.white },
-  tableInfo:      { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
-  searchWrap:     { backgroundColor: Colors.white, padding: Spacing.base, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  searchBox:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray100, borderRadius: Radius.full, paddingHorizontal: 14, height: 40, gap: 8 },
+
+  // ── Header — mirrors .cm-header/.cm-brand/.cm-lang-*/.cm-icon-btn ──
+  topHeader:      { paddingTop: 52, paddingBottom: 10, paddingHorizontal: Spacing.base, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  brandRow:       { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  brandIcon:      { fontSize: 17, color: Colors.primary },
+  brandName:      { fontSize: 18, fontWeight: '800', letterSpacing: -0.4, color: Colors.gray900 },
+  headerRight:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  langBtn:        { flexDirection: 'row', alignItems: 'center', height: 32, paddingHorizontal: 10, borderRadius: Radius.full, backgroundColor: Colors.gray100, borderWidth: 1, borderColor: Colors.gray200 },
+  langBtnText:    { fontSize: 12, fontWeight: '600', color: Colors.gray700 },
+  iconBtn:        { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.gray100 },
+  langDropdown:   { position: 'absolute', top: 56, right: Spacing.base, backgroundColor: Colors.white, borderRadius: 14, borderWidth: 1, borderColor: Colors.gray200, minWidth: 180, ...Shadow.lg, zIndex: 100 },
+  langOption:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: Colors.gray50 },
+  langOptionActive:{ backgroundColor: Colors.primaryLight },
+  langNative:     { fontSize: 14, fontWeight: '700', color: Colors.gray900 },
+  langLabel:      { fontSize: 11, color: Colors.gray400 },
+
+  // ── Shop banner — mirrors .cm-shop-banner ──
+  shopBanner:     { paddingTop: 20, paddingBottom: 18, paddingHorizontal: Spacing.base },
+  shopEmojiWrap:  { width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  shopEmoji:      { fontSize: 28 },
+  shopName:       { fontSize: 22, fontWeight: '800', color: Colors.white, letterSpacing: -0.4 },
+  favBtn:         { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  shopTagline:    { fontSize: 13, color: 'rgba(255,255,255,0.65)', marginTop: 3, marginBottom: 10 },
+  shopMeta:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  metaChip:       { backgroundColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 99 },
+  metaChipText:   { fontSize: 11.5, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
+  tableChip:      { position: 'absolute', top: 16, right: 16, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
+  tableChipText:  { fontSize: 12, fontWeight: '700', color: Colors.white },
+
+  // ── Toolbar (search + veg toggle) — mirrors .cm-toolbar/.cm-veg-filter ──
+  toolbar:        { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  searchBox:      { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray100, borderRadius: Radius.full, paddingHorizontal: 14, height: 40, gap: 8 },
   searchInput:    { flex: 1, fontSize: FontSize.base, color: Colors.gray900 },
-  filterChip:     { height: 30, paddingHorizontal: 12, borderRadius: Radius.full, backgroundColor: Colors.gray100, justifyContent: 'center', marginRight: 6 },
-  filterChipActive:{ backgroundColor: Colors.gray900 },
-  filterChipText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },
-  filterChipActiveText:{ color: Colors.white },
-  catTabs:        { backgroundColor: Colors.white, paddingVertical: 10, paddingHorizontal: Spacing.base, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  catTab:         { flexDirection: 'row', alignItems: 'center', gap: 5, height: 34, paddingHorizontal: 14, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border, marginRight: 8 },
-  catTabActive:   { backgroundColor: Colors.gray900, borderColor: Colors.gray900 },
+  vegFilter:      { flexDirection: 'row', alignItems: 'center', gap: 5, height: 40, paddingHorizontal: 12, borderRadius: 99, borderWidth: 1.5, borderColor: Colors.gray200, backgroundColor: Colors.white },
+  vegFilterActive:{ borderColor: '#16A34A', backgroundColor: '#F0FDF4' },
+  vegDot:         { width: 10, height: 10, borderRadius: 2, borderWidth: 1.5, borderColor: Colors.gray400 },
+  vegDotActive:   { borderColor: '#16A34A' },
+  vegText:        { fontSize: 12.5, fontWeight: '700', color: Colors.gray600 },
+  vegTextActive:  { color: '#166534' },
+
+  // ── Category tabs — mirrors .cm-cats/.cm-cat-tab ──
+  catTabsWrap:    { height: 54, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border, justifyContent: 'center' },
+  catTab:         { flexDirection: 'row', alignItems: 'center', gap: 5, height: 34, paddingHorizontal: 14, borderRadius: 99, backgroundColor: Colors.gray100, borderWidth: 1.5, borderColor: 'transparent' },
+  catTabActive:   { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
   catEmoji:       { fontSize: 14 },
-  catTabText:     { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },
-  catTabActiveText:{ color: Colors.white },
+  catTabText:     { fontSize: 13, fontWeight: '600', color: Colors.gray600 },
+  catTabActiveText:{ color: '#065F46' },
   sectionHeader:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: Spacing.base, paddingVertical: 12, backgroundColor: Colors.gray50 },
   sectionEmoji:   { fontSize: 18 },
   sectionTitle:   { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray800 },
@@ -298,7 +446,19 @@ const styles = StyleSheet.create({
   priceRow:       { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   menuItemPrice:  { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900 },
   originalPrice:  { fontSize: FontSize.sm, color: Colors.gray400, textDecorationLine: 'line-through' },
+  menuItemImageWrap:{ position: 'relative', width: 80, height: 80, borderRadius: Radius.md, overflow: 'hidden' },
   menuItemImage:  { width: 80, height: 80, borderRadius: Radius.md },
+  mediaBadgeRow:  { position: 'absolute', bottom: 4, left: 4, flexDirection: 'row', gap: 3 },
+  mediaBadge:     { width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  mediaBadge3d:   { backgroundColor: 'rgba(124,58,237,0.8)' },
+  mediaBadgeIcon: { fontSize: 8, color: Colors.white },
+  galleryBadge:   { position: 'absolute', bottom: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 9 },
+  galleryBadgeText:{ fontSize: 9, fontWeight: '700', color: Colors.white },
+  mediaLinks:     { flexDirection: 'row', gap: 6, marginTop: 6, flexWrap: 'wrap' },
+  mediaLinkVideo: { backgroundColor: '#FEF3C7', borderWidth: 1.5, borderColor: '#FCD34D', borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 },
+  mediaLinkVideoText:{ fontSize: 11, fontWeight: '700', color: '#92400E' },
+  mediaLink3d:    { backgroundColor: '#EDE9FE', borderWidth: 1.5, borderColor: '#C4B5FD', borderRadius: 99, paddingHorizontal: 10, paddingVertical: 4 },
+  mediaLink3dText:{ fontSize: 11, fontWeight: '700', color: '#5B21B6' },
   qtyControl:     { position: 'absolute', bottom: Spacing.base, right: Spacing.base },
   qtyRow:         { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.primary, overflow: 'hidden' },
   qtyBtn:         { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },

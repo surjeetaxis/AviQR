@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Linking, ActivityIndicator } from 'react-native';
 import { mallApi, qrApi } from '../../src/api/index.js';
 import { PageHeader } from '../../src/components/common/PageHeader.js';
+import { QrPosterStudio } from '../../src/components/common/QrPosterStudio.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
 
 // One QR for the whole food court — scan lands on the public food-court
@@ -12,6 +13,7 @@ export default function MallQrScreen() {
   const [qr, setQr] = useState(null);
   const [mallName, setMallName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [studioOpen, setStudioOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -52,9 +54,20 @@ export default function MallQrScreen() {
                 <Text style={ss.actionTxt}>↗ Preview</Text>
               </TouchableOpacity>
             </View>
+            <TouchableOpacity style={[ss.actionBtn, { marginTop: 10, width: '100%', backgroundColor: Colors.primaryLight }]} onPress={() => setStudioOpen(true)}>
+              <Text style={[ss.actionTxt, { color: Colors.primaryDark }]}>🎨 Design & Print</Text>
+            </TouchableOpacity>
           </View>
         ) : <Text style={ss.hint}>Could not load the food court QR. Pull to retry later.</Text>}
       </View>
+
+      <QrPosterStudio
+        visible={studioOpen}
+        onClose={() => setStudioOpen(false)}
+        shopId={null}
+        shopName={mallName}
+        targetUrl={qr?.targetUrl}
+      />
     </View>
   );
 }

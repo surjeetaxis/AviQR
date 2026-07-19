@@ -5,6 +5,7 @@ import { PageHeader } from '../../src/components/common/PageHeader.js';
 import { BottomSheet } from '../../src/components/common/BottomSheet.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
+import { QrPosterStudio } from '../../src/components/common/QrPosterStudio.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
 
 const TYPE_COLOR = { TABLE: { bg: '#DBEAFE', color: '#1D4ED8' }, CATEGORY: { bg: '#FEF3C7', color: '#B45309' } };
@@ -18,6 +19,7 @@ export default function AdminQrCodesScreen() {
   const [refreshing, setRef]  = useState(false);
   const [selected, setSelected] = useState(null);
   const [toggling, setToggling] = useState({});
+  const [studioOpen, setStudioOpen] = useState(false);
 
   const load = useCallback(async (pg = 0) => {
     setLoading(true);
@@ -94,12 +96,23 @@ export default function AdminQrCodesScreen() {
                 <Text style={ss.actionTxt}>↗ Open as customer</Text>
               </TouchableOpacity>
             </View>
+            <TouchableOpacity style={[ss.actionBtn, { marginTop: 10, width: '100%', backgroundColor: Colors.primaryLight }]} onPress={() => setStudioOpen(true)}>
+              <Text style={[ss.actionTxt, { color: Colors.primaryDark }]}>🎨 Design & Print</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => toggle(selected)} style={[ss.toggleBtn, { backgroundColor: selected.active ? '#FEE2E2' : '#DCFCE7' }]}>
               <Text style={{ color: selected.active ? '#DC2626' : '#059669', fontWeight: '700' }}>{selected.active ? 'Deactivate' : 'Activate'}</Text>
             </TouchableOpacity>
           </View>
         )}
       </BottomSheet>
+
+      <QrPosterStudio
+        visible={studioOpen}
+        onClose={() => setStudioOpen(false)}
+        shopId={selected?.shopId}
+        shopName={selected?.label || 'AviQR'}
+        targetUrl={selected?.targetUrl}
+      />
     </View>
   );
 }

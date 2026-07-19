@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { hotelApi, hotelOpsApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
+import { Logo } from '../../src/components/common/Logo.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
 import { Card } from '../../src/components/common/Card.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
@@ -25,10 +26,12 @@ const STATUS_NEXT = { NEW:'ACCEPTED', ACCEPTED:'PREPARING', PREPARING:'CONFIRMED
 const PRIORITY_COLOR = { HIGH:'#DC2626', NORMAL:'#6B7280', URGENT:'#DC2626' };
 const NAV_ITEMS = [
   { icon: '🧑‍🤝‍🧑', label: 'Guests',       href: '/(hotel)/guests' },
+  { icon: '🧹', label: 'Service Desk', href: '/(hotel)/service-desk' },
   { icon: '👔', label: 'Hotel Staff',  href: '/(hotel)/hotel-staff' },
   { icon: '📱', label: 'QR Mgmt',      href: '/(hotel)/qr-management' },
   { icon: '📊', label: 'Reports',      href: '/(hotel)/reports' },
   { icon: '⭐', label: 'Subscription', href: '/(hotel)/subscription' },
+  { icon: '⚙️', label: 'Settings',     href: '/(hotel)/settings' },
 ];
 
 // Normalise a QR-raised GuestServiceRequest into the same shape as legacy RoomRequest
@@ -189,9 +192,12 @@ export default function HotelHomeScreen() {
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <LinearGradient colors={['#4C1D95','#7C3AED']} style={styles.headerGrad}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.headerSub}>HOTEL DASHBOARD</Text>
-            <Text style={styles.hotelName}>{selectedHotel?.name || 'Loading…'}</Text>
+          <View style={styles.brandRow}>
+            <Logo size={30} />
+            <View>
+              <Text style={styles.headerSub}>HOTEL DASHBOARD</Text>
+              <Text style={styles.hotelName}>{selectedHotel?.name || 'Loading…'}</Text>
+            </View>
           </View>
           <TouchableOpacity onPress={logout} style={{ padding: 8 }}>
             <Text style={{ fontSize: 18 }}>🚪</Text>
@@ -351,6 +357,7 @@ function RoomBillModal({ room, onClose }) {
 const styles = StyleSheet.create({
   headerGrad:   { paddingTop: 52, paddingHorizontal: Spacing.base, paddingBottom: 24 },
   headerRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.base },
+  brandRow:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerSub:    { fontSize: FontSize.xs, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5 },
   hotelName:    { fontSize: FontSize.xl, fontWeight: '800', color: Colors.white, marginTop: 4 },
   statsRow:     { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: Radius.lg, padding: Spacing.md },

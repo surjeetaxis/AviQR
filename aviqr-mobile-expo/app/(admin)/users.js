@@ -57,7 +57,20 @@ export default function AdminUsersScreen() {
     ]);
   };
 
-  const ROLES = ['', 'OWNER','MANAGER','CASHIER','ADMIN','SUPPORT','HOTEL','MALL','CUSTOMER','SUPPLIER'];
+  const ROLES = ['', 'OWNER','MANAGER','CASHIER','KITCHEN','ADMIN','SUPPORT','HOTEL','MALL','CUSTOMER','SUPPLIER'];
+  const EDITABLE_ROLES = ['OWNER','MANAGER','CASHIER','KITCHEN','MENU_EDITOR','ORDER_VIEWER','ADMIN','SUPPORT','HOTEL','MALL','SUPPLIER'];
+  const [changingRole, setChangingRole] = useState(false);
+
+  const changeRole = async (newRole) => {
+    if (newRole === selected.role) return;
+    setChangingRole(true);
+    try {
+      await authApi.updateRole(selected.id, newRole);
+      setUsers(prev => prev.map(u => u.id === selected.id ? { ...u, role: newRole } : u));
+      setSelected(prev => prev ? { ...prev, role: newRole } : prev);
+    } catch { Alert.alert('Failed to update role'); }
+    finally { setChangingRole(false); }
+  };
 
   const UserCard = ({ item }) => (
     <TouchableOpacity style={styles.card} onPress={() => setSelected(item)} activeOpacity={0.8}>
@@ -124,8 +137,18 @@ export default function AdminUsersScreen() {
               {selected.status !== 'ACTIVE'     && <Button title="✓ Activate"  onPress={() => changeStatus(selected.id,'ACTIVE')}     style={{ marginBottom: 8 }} />}
               {selected.status !== 'SUSPENDED'  && <Button title="⊘ Suspend"   onPress={() => changeStatus(selected.id,'SUSPENDED')}  variant="outline" style={{ marginBottom: 8 }} />}
               {selected.status !== 'INACTIVE'   && <Button title="◌ Deactivate"onPress={() => changeStatus(selected.id,'INACTIVE')}   variant="ghost" style={{ marginBottom: 8 }} />}
-              <Button title="🗑 Delete user"    onPress={() => deleteUser(selected)} variant="danger" />
             </View>
+
+            <Text style={styles.roleEditLabel}>Change role {changingRole ? '(saving…)' : ''}</Text>
+            <View style={styles.roleGrid}>
+              {EDITABLE_ROLES.map(r => (
+                <TouchableOpacity key={r} disabled={changingRole} style={[styles.roleChip, selected.role === r && { backgroundColor: (ROLE_COLOR[r] || Colors.gray400) + '20', borderColor: ROLE_COLOR[r] || Colors.gray400 }]} onPress={() => changeRole(r)}>
+                  <Text style={[styles.roleChipTxt, selected.role === r && { color: ROLE_COLOR[r] || Colors.gray600 }]}>{r}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Button title="🗑 Delete user" onPress={() => deleteUser(selected)} variant="danger" style={{ marginTop: 16 }} />
           </View>
         )}
       </BottomSheet>
@@ -152,4 +175,8 @@ const styles = StyleSheet.create({
   selectedEmail:{ fontSize: FontSize.sm, color: Colors.gray400 },
   selectedPhone:{ fontSize: FontSize.sm, color: Colors.gray400 },
   actionBtns:   {},
+  roleEditLabel:{ fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500, textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 8, marginBottom: 8 },
+  roleGrid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  roleChip:     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border },
+  roleChipTxt:  { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray500 },
 });

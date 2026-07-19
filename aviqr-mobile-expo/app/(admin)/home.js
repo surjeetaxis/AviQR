@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { reportApi, authApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
+import { Logo } from '../../src/components/common/Logo.js';
 import { StatCard } from '../../src/components/common/StatCard.js';
 // Header removed - expo-router handles navigation
 import { Card } from '../../src/components/common/Card.js';
@@ -47,9 +48,12 @@ export default function AdminHomeScreen() {
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <LinearGradient colors={['#111827','#1F2937']} style={styles.header}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.headerRole}>SUPER ADMIN</Text>
-            <Text style={styles.headerName}>{user?.name}</Text>
+          <View style={styles.brandRow}>
+            <Logo size={30} />
+            <View>
+              <Text style={styles.headerRole}>SUPER ADMIN</Text>
+              <Text style={styles.headerName}>{user?.name}</Text>
+            </View>
           </View>
           <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
             <Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.6)' }}>🚪</Text>
@@ -111,6 +115,7 @@ export default function AdminHomeScreen() {
 const styles = StyleSheet.create({
   header:       { paddingTop: 52, paddingHorizontal: Spacing.base, paddingBottom: 24 },
   headerRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  brandRow:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerRole:   { fontSize: FontSize.xs, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 1.5 },
   headerName:   { fontSize: FontSize['2xl'], fontWeight: '800', color: Colors.white, marginTop: 4 },
   logoutBtn:    { padding: 10 },
