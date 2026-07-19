@@ -1,22 +1,32 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-// Icon not needed — using emoji
-// Toast replaced with Alert
+import { router } from 'expo-router';
 import { supportApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
-// SearchBar replaced with TextInput
-import { StatusBadge } from '../../src/components/common/StatusBadge.js';
-// BottomSheet replaced with Modal
-import { Button } from '../../src/components/common/Button.js';
 import { Input } from '../../src/components/common/Input.js';
+import { StatusBadge } from '../../src/components/common/StatusBadge.js';
+import { BottomSheet } from '../../src/components/common/BottomSheet.js';
+import { Button } from '../../src/components/common/Button.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 const PRIORITY_COLOR = { LOW:'#6B7280', MEDIUM:'#2563EB', HIGH:'#D97706', URGENT:'#DC2626' };
 const FILTERS = ['ALL','OPEN','PENDING','RESOLVED','CLOSED'];
+const NAV_ITEMS = [
+  { icon: '🧾', label: 'Orders',      href: '/(support)/orders' },
+  { icon: '💳', label: 'Payments',    href: '/(support)/payments' },
+  { icon: '👥', label: 'Users',       href: '/(support)/users' },
+  { icon: '🏪', label: 'Shops',       href: '/(support)/shops' },
+  { icon: '📱', label: 'QR Codes',    href: '/(admin)/qrcodes' },
+  { icon: '📷', label: 'OCR Jobs',    href: '/(support)/ocr' },
+  { icon: '📋', label: 'Audit Logs',  href: '/(support)/audit' },
+  { icon: '📊', label: 'Reports',     href: '/(admin)/reports' },
+  { icon: '⭐', label: 'Billing',     href: '/(support)/billing' },
+  { icon: '🕵️', label: 'Impersonate', href: '/(support)/impersonate' },
+];
 
-export default function SupportHomeScreen({ navigation }) {
+export default function SupportHomeScreen() {
   const { user, logout } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [stats, setStats]     = useState({});
@@ -44,11 +54,10 @@ export default function SupportHomeScreen({ navigation }) {
   const updateStatus = async (ticket, newStatus) => {
     setUpdating(true);
     try {
-      await supportApi.updateStatus(ticket.id, newStatus, newStatus === 'RESOLVED' ? resolution : undefined);
+      await supportApi.updateTicket(ticket.id, newStatus, newStatus === 'RESOLVED' ? resolution : undefined);
       setTickets(prev => prev.map(t => t.id === ticket.id ? { ...t, status: newStatus } : t));
       setSelected(null); setRes('');
-      Toast.show({ type: 'success', text1: `Ticket ${newStatus.toLowerCase()}` });
-    } catch { Toast.show({ type: 'error', text1: 'Failed to update' }); }
+    } catch { Alert.alert('Failed to update ticket'); }
     finally { setUpdating(false); }
   };
 
@@ -82,7 +91,7 @@ export default function SupportHomeScreen({ navigation }) {
             <Text style={styles.agentName}>{user?.name}</Text>
           </View>
           <TouchableOpacity onPress={logout} style={{ padding: 8 }}>
-            <Icon name="log-out" size={18} color="rgba(255,255,255,0.6)" />
+            <Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.6)' }}>🚪</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.statsRow}>
@@ -95,8 +104,17 @@ export default function SupportHomeScreen({ navigation }) {
         </View>
       </LinearGradient>
 
+      <View style={styles.navGrid}>
+        {NAV_ITEMS.map(n => (
+          <TouchableOpacity key={n.href} style={styles.navItem} onPress={() => router.push(n.href)} activeOpacity={0.8}>
+            <Text style={styles.navEmoji}>{n.icon}</Text>
+            <Text style={styles.navLabel}>{n.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <View style={styles.controls}>
-        <SearchBar value={search} onChangeText={setSearch} placeholder="Ticket # or subject…" />
+        <Input placeholder="Ticket # or subject…" value={search} onChangeText={setSearch} />
         <FlatList
           data={FILTERS}
           horizontal showsHorizontalScrollIndicator={false} keyExtractor={f => f}
@@ -164,6 +182,10 @@ const styles = StyleSheet.create({
   statItem:     { flex: 1, alignItems: 'center' },
   statValue:    { fontSize: FontSize.xl, fontWeight: '800', color: Colors.white },
   statLabel:    { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  navGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10, padding: Spacing.base, paddingBottom: 0 },
+  navItem:      { width: '22%', alignItems: 'center', gap: 6, paddingVertical: Spacing.base, backgroundColor: Colors.white, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border },
+  navEmoji:     { fontSize: 22 },
+  navLabel:     { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray700, textAlign: 'center' },
   controls:     { padding: Spacing.base, paddingBottom: 8 },
   chip:         { height: 30, paddingHorizontal: 12, borderRadius: Radius.full, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', marginRight: 6 },
   chipActive:   { backgroundColor: Colors.gray900, borderColor: Colors.gray900 },

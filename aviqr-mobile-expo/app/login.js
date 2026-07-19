@@ -73,7 +73,10 @@ export default function Login() {
         {tab==='password'?(
           <View>
             <Input label="Email" placeholder="sujeet@spiceroute.in" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none"/>
-            <Input label="Password" placeholder="Test@1234" value={pw} onChangeText={setPw} secureEntry/>
+            <Input label="Password" placeholder="Axis321#" value={pw} onChangeText={setPw} secureEntry/>
+            <TouchableOpacity onPress={()=>router.push('/forgot-password')} style={{alignSelf:'flex-end',marginBottom:12}}>
+              <Text style={{fontSize:FontSize.xs,color:Colors.primary,fontWeight:'700'}}>Forgot?</Text>
+            </TouchableOpacity>
             <Button title={loading?'Signing in…':'Sign In'} onPress={doLogin} loading={loading}/>
           </View>
         ):(

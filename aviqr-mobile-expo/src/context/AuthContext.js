@@ -1,35 +1,9 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { Platform } from 'react-native';
+import { router } from 'expo-router';
 import { authApi } from '../api/index.js';
+import { tokenStorage as storage } from '../api/tokenStorage.js';
 
 const AuthContext = createContext(null);
-
-// ── Storage — SecureStore on device, localStorage on web ─────────────────────
-const storage = {
-  async get(key) {
-    if (Platform.OS === 'web') {
-      return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
-    }
-    const SecureStore = require('expo-secure-store');
-    return SecureStore.getItemAsync(key);
-  },
-  async set(key, value) {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
-      return;
-    }
-    const SecureStore = require('expo-secure-store');
-    return SecureStore.setItemAsync(key, value);
-  },
-  async del(key) {
-    if (Platform.OS === 'web') {
-      if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
-      return;
-    }
-    const SecureStore = require('expo-secure-store');
-    return SecureStore.deleteItemAsync(key);
-  },
-};
 
 export const ROLE_HOME = {
   OWNER:'/(owner)/dashboard', MANAGER:'/(owner)/dashboard',
@@ -82,6 +56,16 @@ export function AuthProvider({ children }) {
     return saveSession(res.data.data);
   };
 
+  // Merges a profile update (e.g. from Settings/Profile screens) into the
+  // persisted session so other screens reading `user` see it immediately,
+  // without needing a full re-login.
+  const updateUser = async (partial) => {
+    const merged = { ...user, ...partial };
+    await storage.set('aviqr_user', JSON.stringify(merged));
+    setUser(merged);
+    return merged;
+  };
+
   const logout = async () => {
     try { await authApi.logout(); } catch {}
     try {
@@ -90,6 +74,11 @@ export function AuthProvider({ children }) {
       await storage.del('aviqr_user');
     } catch {}
     setUser(null);
+    // Every "Sign out" button across every role's screens just calls
+    // logout() with no follow-up navigation — without this, clearing the
+    // session left you stranded on the same now-unauthenticated screen
+    // instead of landing back on the public homepage.
+    router.replace('/');
   };
 
   const role = (user?.role || '').toUpperCase();
@@ -97,7 +86,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, loading,
-      login, loginOtp, register, logout,
+      login, loginOtp, register, logout, updateUser,
       homeRoute: ROLE_HOME[role] || '/(owner)/dashboard',
       isOwner:   ['OWNER','MANAGER','CASHIER','KITCHEN'].includes(role),
       isAdmin:   role === 'ADMIN',

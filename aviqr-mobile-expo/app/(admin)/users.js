@@ -1,19 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, RefreshControl } from 'react-native';
-// Icon not needed — using emoji
-// Toast replaced with Alert
+import { router } from 'expo-router';
 import { authApi } from '../../src/api/index.js';
-// Header removed - expo-router handles navigation
-// SearchBar replaced with TextInput
+import { PageHeader } from '../../src/components/common/PageHeader.js';
+import { Input } from '../../src/components/common/Input.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
-// BottomSheet replaced with Modal
+import { BottomSheet } from '../../src/components/common/BottomSheet.js';
 import { Button } from '../../src/components/common/Button.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 const ROLE_COLOR = { OWNER:'#1D9E75',MANAGER:'#2563EB',CASHIER:'#7C3AED',ADMIN:'#DC2626',SUPPORT:'#0891B2',HOTEL:'#7C3AED',MALL:'#2563EB',CUSTOMER:'#6B7280',SUPPLIER:'#059669',KITCHEN:'#D97706' };
 
-export default function AdminUsersScreen({ navigation }) {
+export default function AdminUsersScreen() {
   const [users, setUsers]   = useState([]);
   const [search, setSearch] = useState('');
   const [role, setRole]     = useState('');
@@ -39,21 +38,21 @@ export default function AdminUsersScreen({ navigation }) {
 
   const changeStatus = async (id, status) => {
     try {
-      await authApi.updateUserStatus(id, status);
+      await authApi.updateStatus(id, status);
       setUsers(prev => prev.map(u => u.id === id ? { ...u, status } : u));
       setSelected(null);
-      Toast.show({ type: 'success', text1: `User ${status.toLowerCase()}` });
-    } catch { Toast.show({ type: 'error', text1: 'Failed to update status' }); }
+    } catch { Alert.alert('Failed to update status'); }
   };
 
   const deleteUser = (user) => {
     Alert.alert('Delete user', `Permanently delete ${user.name}?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
-        await authApi.deleteUser(user.id);
-        setUsers(prev => prev.filter(u => u.id !== user.id));
-        setSelected(null);
-        Toast.show({ type: 'success', text1: 'User deleted' });
+        try {
+          await authApi.deleteUser(user.id);
+          setUsers(prev => prev.filter(u => u.id !== user.id));
+          setSelected(null);
+        } catch { Alert.alert('Failed to delete user'); }
       }}
     ]);
   };
@@ -75,15 +74,15 @@ export default function AdminUsersScreen({ navigation }) {
           <StatusBadge status={item.status} />
         </View>
       </View>
-      <Icon name="chevron-right" size={16} color={Colors.gray300} />
+      <Text style={{ fontSize: 16, color: Colors.gray300 }}>›</Text>
     </TouchableOpacity>
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <Header title="Users" subtitle={`${total} total`} onBack={() => navigation.goBack()} />
+      <PageHeader title={`Users · ${total} total`} />
       <View style={styles.controls}>
-        <SearchBar value={search} onChangeText={setSearch} placeholder="Name, email, phone…" />
+        <Input placeholder="Name, email, phone…" value={search} onChangeText={setSearch} />
         <FlatList
           data={ROLES}
           horizontal showsHorizontalScrollIndicator={false} keyExtractor={r => r}

@@ -7,6 +7,7 @@ import { Input } from '../../src/components/common/Input.js';
 import { Button } from '../../src/components/common/Button.js';
 import { Card } from '../../src/components/common/Card.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
+import { confirmAction } from '../../src/utils/confirmAction.js';
 
 export default function ProfileScreen() {
   const { user, updateProfile, logout } = useAuth();
@@ -25,33 +26,25 @@ export default function ProfileScreen() {
     } finally { setSaving(false); }
   };
 
-  const confirmLogout = () => Alert.alert(
+  const confirmLogout = () => confirmAction(
     'Sign out?',
     'You will need to sign in again.',
-    [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: logout },
-    ]
+    logout,
+    'Sign out'
   );
 
-  const confirmDelete = () => Alert.alert(
+  const confirmDelete = () => confirmAction(
     'Delete account?',
     'This permanently deletes all your data and cannot be undone.',
-    [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete my account',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await authApi.deleteAccount?.();
-            logout();
-          } catch {
-            Alert.alert('Error', 'Account deletion failed. Contact support@aviqr.in');
-          }
-        },
-      },
-    ]
+    async () => {
+      try {
+        await authApi.deleteAccount?.();
+        logout();
+      } catch {
+        Alert.alert('Error', 'Account deletion failed. Contact support@aviqr.in');
+      }
+    },
+    'Delete my account'
   );
 
   const roleCfg = ROLE_CONFIG?.[user?.role] || {};

@@ -23,6 +23,13 @@ const SERVICE_TYPES = [
 
 const STATUS_NEXT = { NEW:'ACCEPTED', ACCEPTED:'PREPARING', PREPARING:'CONFIRMED', CONFIRMED:'DONE' };
 const PRIORITY_COLOR = { HIGH:'#DC2626', NORMAL:'#6B7280', URGENT:'#DC2626' };
+const NAV_ITEMS = [
+  { icon: '🧑‍🤝‍🧑', label: 'Guests',       href: '/(hotel)/guests' },
+  { icon: '👔', label: 'Hotel Staff',  href: '/(hotel)/hotel-staff' },
+  { icon: '📱', label: 'QR Mgmt',      href: '/(hotel)/qr-management' },
+  { icon: '📊', label: 'Reports',      href: '/(hotel)/reports' },
+  { icon: '⭐', label: 'Subscription', href: '/(hotel)/subscription' },
+];
 
 // Normalise a QR-raised GuestServiceRequest into the same shape as legacy RoomRequest
 const mapGuestReq = (g) => ({
@@ -208,6 +215,15 @@ export default function HotelHomeScreen() {
         </View>
       </LinearGradient>
 
+      <View style={styles.navGrid}>
+        {NAV_ITEMS.map(n => (
+          <TouchableOpacity key={n.href} style={styles.navItem} onPress={() => router.push(n.href)} activeOpacity={0.8}>
+            <Text style={styles.navEmoji}>{n.icon}</Text>
+            <Text style={styles.navLabel}>{n.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {/* Tabs */}
       <View style={styles.tabRow}>
         {[['requests', `Requests (${liveRequests.length})`], ['bookings', `Bookings (${bookings.length})`], ['rooms', `Rooms (${rooms.length})`]].map(([t, l]) => (
@@ -342,6 +358,10 @@ const styles = StyleSheet.create({
   statValue:    { fontSize: FontSize['2xl'], fontWeight: '800', color: Colors.white },
   statLabel:    { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.65)', marginTop: 3 },
   statDivider:  { width: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginVertical: 4 },
+  navGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10, padding: Spacing.base, paddingBottom: 4, backgroundColor: Colors.white },
+  navItem:      { width: '18%', alignItems: 'center', gap: 6, paddingVertical: Spacing.sm, backgroundColor: Colors.background, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border },
+  navEmoji:     { fontSize: 20 },
+  navLabel:     { fontSize: 10, fontWeight: '600', color: Colors.gray700, textAlign: 'center' },
   tabRow:       { flexDirection: 'row', backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
   tabBtn:       { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center' },
   tabActive:    { borderBottomWidth: 2.5, borderBottomColor: Colors.purple || '#7C3AED' },

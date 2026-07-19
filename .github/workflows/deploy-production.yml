@@ -1,0 +1,59 @@
+name: Deploy to Production
+
+# Runs after CI succeeds on master, or on demand via workflow_dispatch
+# (e.g. to redeploy the current master, or to roll back to an older SHA by
+# passing it as the `ref` input).
+on:
+  workflow_run:
+    workflows: ['CI']
+    branches: [master]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git SHA or branch/tag to deploy'
+        required: false
+        default: 'master'
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy (SSH + systemd)
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    # Requires a "production" Environment configured in repo Settings with
+    # required reviewers — the job pauses here until someone approves it.
+    environment: production
+    steps:
+      - name: Resolve ref to deploy
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PRODUCTION_SSH_HOST }}
+          username: ${{ secrets.PRODUCTION_SSH_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_SSH_PORT || 22 }}
+          command_timeout: 30m
+          script: |
+            set -e
+            bash /var/www/aviqr/aviqr-backend/deploy/deploy.sh "${{ steps.ref.outputs.value }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Deploy target" >> "$GITHUB_STEP_SUMMARY"
+          echo "Ref: \`${{ steps.ref.outputs.value }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Result: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"

@@ -43,8 +43,10 @@ export default function Register() {
     <div className="auth-page">
       <div className="auth-left">
         <div className="auth-brand">
-          <div className="auth-brand-logo"><span>🍽️</span></div>
-          <h1 className="auth-brand-name">Avi<em>QR</em></h1>
+          <Link to="/" style={{ textDecoration:'none', display:'block' }}>
+            <div className="auth-brand-logo"><span>🍽️</span></div>
+            <h1 className="auth-brand-name">Avi<em>QR</em></h1>
+          </Link>
           <p style={{ color:'rgba(255,255,255,0.55)', fontSize:14, marginTop:6 }}>
             Restaurant &amp; Hotel OS
           </p>

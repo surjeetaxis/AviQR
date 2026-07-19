@@ -11,7 +11,7 @@ import {
   ShoppingCart, Plus, Minus, Search, Star, Clock, MapPin,
   X, ChevronRight, ChevronLeft, CheckCircle, QrCode, Globe, ChevronDown,
   Flame, Leaf, Phone, Share2, Heart, AlertCircle, Bike,
-  Play, Box, RotateCcw
+  Play, Box, RotateCcw, Images
 } from 'lucide-react';
 
 // ─── Media helpers ────────────────────────────────────────────────────────────
@@ -350,33 +350,33 @@ const SHOPS = {
     categories: [
       { id:'c1', name:'Starters', nameHi:'स्टार्टर', nameTa:'தொடக்க உணவு', nameTe:'ప్రారంభం', nameKn:'ಸ್ಟಾರ್ಟರ್', nameMl:'ആദ്യ ഭക്ഷണം', nameBn:'স্টার্টার', nameMr:'स्टार्टर', nameGu:'સ્ટાર્ટર', emoji:'🥗',
         items:[
-          {id:'i1',name:'Paneer Tikka',nameHi:'पनीर टिक्का',nameTa:'பன்னீர் டிக்கா',desc:'Cottage cheese marinated in spices, grilled in tandoor',descHi:'मसालों में मैरीनेट किया हुआ पनीर, तंदूर में पका हुआ',price:280,popular:true,veg:true,spicy:false,imageUrl:'/demo/dishes/paneer-tikka.jpg',images:['/demo/dishes/paneer-tikka.jpg','/demo/dishes/paneer-tikka-2.jpg']},
-          {id:'i2',name:'Chicken Tikka',nameHi:'चिकन टिक्का',nameTa:'சிக்கன் டிக்கா',desc:'Tender chicken charcoal grilled, served with mint chutney',descHi:'कोमल चिकन चारकोल ग्रिल किया हुआ, पुदीना चटनी के साथ',price:320,popular:true,veg:false,spicy:true,imageUrl:'/demo/dishes/chicken-tikka.jpg',images:['/demo/dishes/chicken-tikka.jpg','/demo/dishes/chicken-tikka-2.jpg']},
-          {id:'i3',name:'Samosa (2 pcs)',nameHi:'समोसा (2 पीस)',nameTa:'சமோசா (2 பீஸ்)',desc:'Classic potato-filled pastry, served with chutneys',descHi:'आलू भरा हुआ क्लासिक समोसा, चटनी के साथ',price:60,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/samosa.jpg'},
-          {id:'i4',name:'Veg Spring Rolls',nameHi:'वेज स्प्रिंग रोल',nameTa:'வெஜ் ஸ்பிரிங் ரோல்',desc:'Crispy rolls filled with fresh vegetables',descHi:'ताज़ी सब्जियों से भरे क्रिस्पी रोल',price:140,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/veg-spring-rolls.jpg'},
+          {id:'i1',name:'Paneer Tikka',nameHi:'पनीर टिक्का',nameTa:'பன்னீர் டிக்கா',desc:'Cottage cheese marinated in spices, grilled in tandoor',descHi:'मसालों में मैरीनेट किया हुआ पनीर, तंदूर में पका हुआ',price:280,popular:true,veg:true,spicy:false,imageUrl:'/demo/dishes/paneer-tikka.jpg',images:['/demo/dishes/paneer-tikka.jpg','/demo/dishes/paneer-tikka-2.jpg'],videoUrl:'/demo/media/grilled-skewers.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
+          {id:'i2',name:'Chicken Tikka',nameHi:'चिकन टिक्का',nameTa:'சிக்கன் டிக்கா',desc:'Tender chicken charcoal grilled, served with mint chutney',descHi:'कोमल चिकन चारकोल ग्रिल किया हुआ, पुदीना चटनी के साथ',price:320,popular:true,veg:false,spicy:true,imageUrl:'/demo/dishes/chicken-tikka.jpg',images:['/demo/dishes/chicken-tikka.jpg','/demo/dishes/chicken-tikka-2.jpg'],videoUrl:'/demo/media/grilled-skewers.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
+          {id:'i3',name:'Samosa (2 pcs)',nameHi:'समोसा (2 पीस)',nameTa:'சமோசா (2 பீஸ்)',desc:'Classic potato-filled pastry, served with chutneys',descHi:'आलू भरा हुआ क्लासिक समोसा, चटनी के साथ',price:60,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/samosa.jpg',images:['/demo/dishes/samosa.jpg','/demo/dishes/samosa-2.jpg'],videoUrl:'/demo/media/deep-frying.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
+          {id:'i4',name:'Veg Spring Rolls',nameHi:'वेज स्प्रिंग रोल',nameTa:'வெஜ் ஸ்பிரிங் ரோல்',desc:'Crispy rolls filled with fresh vegetables',descHi:'ताज़ी सब्जियों से भरे क्रिस्पी रोल',price:140,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/veg-spring-rolls.jpg',images:['/demo/dishes/veg-spring-rolls.jpg','/demo/dishes/veg-spring-rolls-2.jpg'],videoUrl:'/demo/media/deep-frying.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
         ]
       },
       { id:'c2', name:'Main Course', nameHi:'मुख्य व्यंजन', nameTa:'முக்கிய உணவு', nameTe:'ముఖ్య వంటకాలు', nameKn:'ಮುಖ್ಯ ಕೋರ್ಸ್', nameMl:'പ്രധാന ഭക്ഷണം', nameBn:'মূল খাবার', nameMr:'मुख्य जेवण', nameGu:'મુખ્ય ભોજન', emoji:'🍛',
         items:[
-          {id:'i5',name:'Paneer Butter Masala',nameHi:'पनीर बटर मसाला',nameTa:'பன்னீர் பட்டர் மசாலா',desc:'Cottage cheese in rich tomato-cream gravy',descHi:'मलाईदार टमाटर की ग्रेवी में पनीर',price:320,popular:true,veg:true,spicy:false,imageUrl:'/demo/dishes/paneer-butter-masala.jpg',images:['/demo/dishes/paneer-butter-masala.jpg','/demo/dishes/paneer-butter-masala-2.jpg']},
-          {id:'i6',name:'Butter Chicken',nameHi:'बटर चिकन',nameTa:'பட்டர் சிக்கன்',desc:'Succulent chicken in velvety butter-tomato sauce',descHi:'मखमली बटर-टमाटर सॉस में रसीला चिकन',price:380,popular:true,veg:false,spicy:false,imageUrl:'/demo/dishes/butter-chicken.jpg',images:['/demo/dishes/butter-chicken.jpg','/demo/dishes/butter-chicken-2.jpg'],videoUrl:'/demo/media/butter-chicken.mp4'},
-          {id:'i7',name:'Dal Makhani',nameHi:'दाल मखनी',nameTa:'தால் மக்கனி',desc:'Black lentils slow-cooked overnight with cream',descHi:'रात भर धीमी आँच पर पकाई हुई काली दाल',price:260,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/dal-makhani.jpg'},
-          {id:'i8',name:'Kadai Paneer',nameHi:'कड़ाई पनीर',nameTa:'கடாய் பன்னீர்',desc:'Cottage cheese with bell peppers in spiced tomato gravy',descHi:'शिमला मिर्च के साथ मसालेदार टमाटर ग्रेवी में पनीर',price:300,popular:false,veg:true,spicy:true,imageUrl:'/demo/dishes/kadai-paneer.jpg'},
-          {id:'i9',name:'Chicken Biryani',nameHi:'चिकन बिरयानी',nameTa:'சிக்கன் பிரியாணி',desc:'Aromatic basmati rice layered with spiced chicken',descHi:'मसालेदार चिकन के साथ खुशबूदार बासमती चावल',price:380,popular:true,veg:false,spicy:true,imageUrl:'/demo/dishes/chicken-biryani.jpg',images:['/demo/dishes/chicken-biryani.jpg','/demo/dishes/chicken-biryani-2.jpg']},
+          {id:'i5',name:'Paneer Butter Masala',nameHi:'पनीर बटर मसाला',nameTa:'பன்னீர் பட்டர் மசாலா',desc:'Cottage cheese in rich tomato-cream gravy',descHi:'मलाईदार टमाटर की ग्रेवी में पनीर',price:320,popular:true,veg:true,spicy:false,imageUrl:'/demo/dishes/paneer-butter-masala.jpg',images:['/demo/dishes/paneer-butter-masala.jpg','/demo/dishes/paneer-butter-masala-2.jpg'],videoUrl:'/demo/media/curry-simmer.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
+          {id:'i6',name:'Butter Chicken',nameHi:'बटर चिकन',nameTa:'பட்டர் சிக்கன்',desc:'Succulent chicken in velvety butter-tomato sauce',descHi:'मखमली बटर-टमाटर सॉस में रसीला चिकन',price:380,popular:true,veg:false,spicy:false,imageUrl:'/demo/dishes/butter-chicken.jpg',images:['/demo/dishes/butter-chicken.jpg','/demo/dishes/butter-chicken-2.jpg'],videoUrl:'/demo/media/butter-chicken.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
+          {id:'i7',name:'Dal Makhani',nameHi:'दाल मखनी',nameTa:'தால் மக்கனி',desc:'Black lentils slow-cooked overnight with cream',descHi:'रात भर धीमी आँच पर पकाई हुई काली दाल',price:260,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/dal-makhani.jpg',images:['/demo/dishes/dal-makhani.jpg','/demo/dishes/dal-makhani-2.jpg'],videoUrl:'/demo/media/curry-simmer.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
+          {id:'i8',name:'Kadai Paneer',nameHi:'कड़ाई पनीर',nameTa:'கடாய் பன்னீர்',desc:'Cottage cheese with bell peppers in spiced tomato gravy',descHi:'शिमला मिर्च के साथ मसालेदार टमाटर ग्रेवी में पनीर',price:300,popular:false,veg:true,spicy:true,imageUrl:'/demo/dishes/kadai-paneer.jpg',images:['/demo/dishes/kadai-paneer.jpg','/demo/dishes/kadai-paneer-2.jpg'],videoUrl:'/demo/media/curry-simmer.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
+          {id:'i9',name:'Chicken Biryani',nameHi:'चिकन बिरयानी',nameTa:'சிக்கன் பிரியாணி',desc:'Aromatic basmati rice layered with spiced chicken',descHi:'मसालेदार चिकन के साथ खुशबूदार बासमती चावल',price:380,popular:true,veg:false,spicy:true,imageUrl:'/demo/dishes/chicken-biryani.jpg',images:['/demo/dishes/chicken-biryani.jpg','/demo/dishes/chicken-biryani-2.jpg'],videoUrl:'/demo/media/chicken-biryani.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
         ]
       },
       { id:'c3', name:'Breads', nameHi:'रोटी', nameTa:'ரொட்டி', nameTe:'రొట్టెలు', nameKn:'ರೊಟ್ಟಿ', nameMl:'റൊട്ടി', nameBn:'রুটি', nameMr:'भाकरी', nameGu:'રોટી', emoji:'🫓',
         items:[
-          {id:'i10',name:'Butter Naan',nameHi:'बटर नान',nameTa:'பட்டர் நான்',desc:'Leavened flatbread cooked in tandoor, brushed with butter',descHi:'तंदूर में बनी नरम नान, मक्खन लगी हुई',price:50,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/butter-naan.jpg'},
-          {id:'i11',name:'Garlic Naan',nameHi:'गार्लिक नान',nameTa:'பூண்டு நான்',desc:'Naan topped with garlic and coriander',descHi:'लहसुन और धनिया से सजी नान',price:60,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/garlic-naan.jpg'},
-          {id:'i12',name:'Laccha Paratha',nameHi:'लच्छा पराठा',nameTa:'லச்சா பராட்டா',desc:'Flaky multi-layered flatbread, fresh from tandoor',descHi:'तंदूर से ताज़ा, परतदार पराठा',price:55,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/laccha-paratha.jpg'},
+          {id:'i10',name:'Butter Naan',nameHi:'बटर नान',nameTa:'பட்டர் நான்',desc:'Leavened flatbread cooked in tandoor, brushed with butter',descHi:'तंदूर में बनी नरम नान, मक्खन लगी हुई',price:50,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/butter-naan.jpg',images:['/demo/dishes/butter-naan.jpg','/demo/dishes/butter-naan-2.jpg'],videoUrl:'/demo/media/tandoor-bread.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
+          {id:'i11',name:'Garlic Naan',nameHi:'गार्लिक नान',nameTa:'பூண்டு நான்',desc:'Naan topped with garlic and coriander',descHi:'लहसुन और धनिया से सजी नान',price:60,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/garlic-naan.jpg',images:['/demo/dishes/garlic-naan.jpg','/demo/dishes/garlic-naan-2.jpg'],videoUrl:'/demo/media/tandoor-bread.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
+          {id:'i12',name:'Laccha Paratha',nameHi:'लच्छा पराठा',nameTa:'லச்சா பராட்டா',desc:'Flaky multi-layered flatbread, fresh from tandoor',descHi:'तंदूर से ताज़ा, परतदार पराठा',price:55,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/laccha-paratha.jpg',images:['/demo/dishes/laccha-paratha.jpg','/demo/dishes/laccha-paratha-2.jpg'],videoUrl:'/demo/media/tandoor-bread.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
         ]
       },
       { id:'c4', name:'Drinks', nameHi:'पेय', nameTa:'பானங்கள்', nameTe:'పానీయాలు', nameKn:'ಪಾನೀಯಗಳು', nameMl:'പാനീയങ്ങൾ', nameBn:'পানীয়', nameMr:'पेये', nameGu:'પીણાં', emoji:'🥤',
         items:[
-          {id:'i13',name:'Sweet Lassi',nameHi:'मीठी लस्सी',nameTa:'இனிப்பு லஸ்ஸி',desc:'Thick chilled yoghurt drink sweetened with sugar',descHi:'चीनी से मीठी, ठंडी गाढ़ी लस्सी',price:80,popular:true,veg:true,spicy:false,imageUrl:'/demo/dishes/sweet-lassi.jpg',images:['/demo/dishes/sweet-lassi.jpg','/demo/dishes/sweet-lassi-2.jpg'],videoUrl:'/demo/media/sweet-lassi.mp4'},
-          {id:'i14',name:'Masala Chaas',nameHi:'मसाला छाछ',nameTa:'மசாலா மோர்',desc:'Spiced buttermilk with cumin and coriander',descHi:'जीरा और धनिया के साथ मसालेदार छाछ',price:60,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/masala-chaas.jpg'},
-          {id:'i15',name:'Filter Coffee',nameHi:'फ़िल्टर कॉफ़ी',nameTa:'ஃபில்டர் காபி',desc:'South Indian decoction with frothy hot milk',descHi:'दक्षिण भारतीय कॉफी, झागदार गर्म दूध के साथ',price:50,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/filter-coffee.jpg',videoUrl:'/demo/media/filter-coffee.mp4',modelUrl:'/demo/media/filter-coffee.glb'},
+          {id:'i13',name:'Sweet Lassi',nameHi:'मीठी लस्सी',nameTa:'இனிப்பு லஸ்ஸி',desc:'Thick chilled yoghurt drink sweetened with sugar',descHi:'चीनी से मीठी, ठंडी गाढ़ी लस्सी',price:80,popular:true,veg:true,spicy:false,imageUrl:'/demo/dishes/sweet-lassi.jpg',images:['/demo/dishes/sweet-lassi.jpg','/demo/dishes/sweet-lassi-2.jpg'],videoUrl:'/demo/media/sweet-lassi.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
+          {id:'i14',name:'Masala Chaas',nameHi:'मसाला छाछ',nameTa:'மசாலா மோர்',desc:'Spiced buttermilk with cumin and coriander',descHi:'जीरा और धनिया के साथ मसालेदार छाछ',price:60,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/masala-chaas.jpg',images:['/demo/dishes/masala-chaas.jpg','/demo/dishes/masala-chaas-2.jpg'],videoUrl:'/demo/media/masala-chaas.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
+          {id:'i15',name:'Filter Coffee',nameHi:'फ़िल्टर कॉफ़ी',nameTa:'ஃபில்டர் காபி',desc:'South Indian decoction with frothy hot milk',descHi:'दक्षिण भारतीय कॉफी, झागदार गर्म दूध के साथ',price:50,popular:false,veg:true,spicy:false,imageUrl:'/demo/dishes/filter-coffee.jpg',images:['/demo/dishes/filter-coffee.jpg','/demo/dishes/filter-coffee-2.jpg'],videoUrl:'/demo/media/filter-coffee.mp4',modelUrl:'/demo/media/dish-3d-preview.glb'},
         ]
       },
     ]
@@ -906,20 +906,23 @@ export default function CustomerMenu() {
                           ) : null}
                           <div className="cm-item-img" style={hasImage ? { display:'none' } : {}}>{cat.emoji}</div>
 
-                          {/* Media overlay badge */}
-                          {hasVideo && (
-                            <div className="cm-item-play-btn" aria-label="Watch video">
-                              <Play size={14} fill="white" />
-                            </div>
-                          )}
-                          {hasModel && !hasVideo && (
-                            <div className="cm-item-3d-btn" aria-label="View 3D">
-                              <Box size={13} />
+                          {hasMedia && (
+                            <div className="cm-item-media-badges">
+                              {hasVideo && (
+                                <span className="cm-item-media-badge cm-item-media-badge-video" aria-label="Watch video">
+                                  <Play size={11} fill="white" />
+                                </span>
+                              )}
+                              {hasModel && (
+                                <span className="cm-item-media-badge cm-item-media-badge-3d" aria-label="View in 3D">
+                                  <Box size={11} />
+                                </span>
+                              )}
                             </div>
                           )}
                           {imageCount > 1 && (
                             <div className="cm-item-gallery-badge" aria-label={`${imageCount} photos`}>
-                              {imageCount}
+                              <Images size={10} /> {imageCount}
                             </div>
                           )}
 

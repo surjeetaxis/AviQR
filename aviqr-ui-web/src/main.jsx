@@ -6,8 +6,12 @@ import { AuthProvider } from './context/AuthContext.jsx';
 import { CustomerAuthProvider } from './context/CustomerAuthContext.jsx';
 import { CartProvider } from './context/CartContext.jsx';
 import OfflineBanner from './components/OfflineBanner.jsx';
+import UpdateAvailableBanner from './components/UpdateAvailableBanner.jsx';
+import { registerServiceWorker } from './pwa/registerServiceWorker.js';
 import App from './App.jsx';
 import './styles/index.css';
+
+registerServiceWorker();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -17,6 +21,7 @@ createRoot(document.getElementById('root')).render(
           <CustomerAuthProvider>
             <CartProvider>
               <OfflineBanner />
+              <UpdateAvailableBanner />
               <App />
             </CartProvider>
           </CustomerAuthProvider>

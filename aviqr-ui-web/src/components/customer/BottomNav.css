@@ -1,0 +1,113 @@
+.bn-wrap {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 420px;
+  height: 70px;
+  background: var(--green, #1D9E75);
+  border-radius: 26px;
+  box-shadow: 0 12px 28px rgba(29, 158, 117, .35), 0 2px 8px rgba(0, 0, 0, .08);
+  z-index: 60; /* above the cart FAB (50), below sheet backdrops (70) */
+}
+
+.bn-row {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 38px; /* clearance so the raised circle + notch never touch the corners */
+}
+
+.bn-item {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, .85);
+  font-family: inherit;
+}
+
+.bn-icon-wrap { position: relative; display: flex; z-index: 2; }
+
+/* The active tab's own icon is hidden — the sliding indicator shows it
+   raised in its place instead. */
+.bn-item.active .bn-icon-wrap svg { opacity: 0; }
+
+.bn-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  background: var(--red, #DC2626);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  z-index: 3;
+}
+
+/* ── Sliding indicator — one raised circle + notch, positioned from the
+   active button's measured on-screen location (see BottomNav.jsx), so it
+   stays correct at every tab including the two edge positions ── */
+.bn-indicator {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: left .38s cubic-bezier(.34, 1.56, .64, 1);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.bn-indicator::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 104px;
+  height: 42px;
+  z-index: 1;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 104 42'%3E%3Cpath d='M0,0 C26,0 43,42 52,42 C61,42 78,0 104,0 Z' fill='%23F9FAFB'/%3E%3C/svg%3E");
+}
+
+.bn-indicator-circle {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--white, #fff);
+  color: var(--green, #1D9E75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-21px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .22), 0 0 0 4px var(--green-darker, #16805F);
+  z-index: 2;
+}
+.bn-indicator-circle .bn-badge { box-shadow: 0 0 0 2px var(--white, #fff); }
+
+@media (max-width: 380px) {
+  .bn-wrap { width: calc(100% - 24px); height: 64px; }
+  .bn-row { padding: 0 32px; }
+  .bn-indicator-circle { width: 52px; height: 52px; transform: translateY(-18px); }
+}

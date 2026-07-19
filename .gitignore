@@ -11,6 +11,7 @@ out/
 *.jar
 *.war
 *.ear
+!aviqr-backend/gradle/wrapper/gradle-wrapper.jar
 
 # =========================
 # Logs & PIDs

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-// Icon not needed — using emoji
+import { router } from 'expo-router';
 import { reportApi, authApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { StatCard } from '../../src/components/common/StatCard.js';
@@ -9,7 +9,7 @@ import { StatCard } from '../../src/components/common/StatCard.js';
 import { Card } from '../../src/components/common/Card.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
-export default function AdminHomeScreen({ navigation }) {
+export default function AdminHomeScreen() {
   const { user, logout } = useAuth();
   const [stats, setStats]   = useState(null);
   const [userStats, setUS]  = useState(null);
@@ -31,14 +31,16 @@ export default function AdminHomeScreen({ navigation }) {
   const onRefresh = async () => { setRef(true); await load(); setRef(false); };
 
   const NAV_ITEMS = [
-    { icon: '👥', label: 'Users',      screen: 'AdminUsers',    color: Colors.primary },
-    { icon: '🏪', label: 'Shops',      screen: 'AdminShops',    color: '#2563EB' },
-    { icon: '🏨', label: 'Hotels',     screen: 'AdminHotels',   color: '#7C3AED' },
-    { icon: '🏬', label: 'Malls',      screen: 'AdminMalls',    color: '#D97706' },
-    { icon: '💳', label: 'Payments',   screen: 'AdminPayments', color: '#059669' },
-    { icon: '🎫', label: 'Tickets',    screen: 'AdminTickets',  color: '#DC2626' },
-    { icon: '📊', label: 'Reports',    screen: 'AdminReports',  color: Colors.gray600 },
-    { icon: '⚙️', label: 'Settings',   screen: 'AdminSettings', color: Colors.gray500 },
+    { icon: '👥', label: 'Users',       href: '/(admin)/users',        color: Colors.primary },
+    { icon: '🏪', label: 'Shops',       href: '/(admin)/shops',        color: '#2563EB' },
+    { icon: '🏨', label: 'Hotels',      href: '/(admin)/hotels',       color: '#7C3AED' },
+    { icon: '🏬', label: 'Malls',       href: '/(admin)/malls',        color: '#D97706' },
+    { icon: '📦', label: 'Suppliers',   href: '/(admin)/suppliers',    color: '#059669' },
+    { icon: '🧾', label: 'Orders',      href: '/(admin)/orders',       color: '#2563EB' },
+    { icon: '💳', label: 'Payments',    href: '/(admin)/payments',     color: '#7C3AED' },
+    { icon: '📱', label: 'QR Codes',    href: '/(admin)/qrcodes',      color: '#D97706' },
+    { icon: '⭐', label: 'Subscription',href: '/(admin)/subscription', color: '#059669' },
+    { icon: '📊', label: 'Reports',     href: '/(admin)/reports',      color: Colors.gray600 },
   ];
 
   return (
@@ -50,7 +52,7 @@ export default function AdminHomeScreen({ navigation }) {
             <Text style={styles.headerName}>{user?.name}</Text>
           </View>
           <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-            <Icon name="log-out" size={18} color="rgba(255,255,255,0.6)" />
+            <Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.6)' }}>🚪</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -63,12 +65,12 @@ export default function AdminHomeScreen({ navigation }) {
         {/* Platform KPIs */}
         <Text style={styles.sectionTitle}>Platform Overview</Text>
         <View style={styles.kpiGrid}>
-          <StatCard emoji="🏪" value={stats?.totalShops?.toLocaleString() || '—'} label="Total Shops" color={Colors.primary} />
+          <StatCard emoji="🏪" value={stats?.activeShops?.toLocaleString() || '—'} label="Active Shops" color={Colors.primary} />
           <StatCard emoji="👥" value={stats?.totalOrders?.toLocaleString() || '—'} label="Total Orders" color="#2563EB" />
         </View>
         <View style={styles.kpiGrid}>
           <StatCard emoji="💰" value={stats?.totalRevenue ? `₹${(stats.totalRevenue/100000).toFixed(1)}L` : '—'} label="Platform GMV" color="#7C3AED" />
-          <StatCard emoji="🏨" value={stats?.totalHotels || '—'} label="Hotels" color="#D97706" />
+          <StatCard emoji="📅" value={stats?.todayOrders?.toLocaleString() || '—'} label="Today's Orders" color="#D97706" />
         </View>
 
         {/* User breakdown */}
@@ -93,7 +95,7 @@ export default function AdminHomeScreen({ navigation }) {
         <Text style={styles.sectionTitle}>Manage</Text>
         <View style={styles.navGrid}>
           {NAV_ITEMS.map(n => (
-            <TouchableOpacity key={n.screen} style={styles.navItem} onPress={() => navigation.navigate(n.screen)} activeOpacity={0.8}>
+            <TouchableOpacity key={n.href} style={styles.navItem} onPress={() => router.push(n.href)} activeOpacity={0.8}>
               <View style={[styles.navIcon, { backgroundColor: n.color + '18' }]}>
                 <Text style={styles.navEmoji}>{n.icon}</Text>
               </View>

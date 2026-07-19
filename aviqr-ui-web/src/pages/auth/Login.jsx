@@ -119,7 +119,7 @@ export default function Login() {
       {/* ── Left panel ── */}
       <div className="auth-left">
         <div className="auth-brand">
-          <div className="auth-brand-logo">
+          <Link to="/" className="auth-brand-logo" style={{ textDecoration:'none' }}>
             <div style={{ width:36, height:36 }}>
               <svg viewBox="0 0 28 28" fill="none">
                 <rect x="3" y="3" width="9" height="9" rx="2" fill="#1D9E75"/>
@@ -135,7 +135,7 @@ export default function Login() {
               </svg>
             </div>
             <span className="auth-brand-name">Avi<em>QR</em></span>
-          </div>
+          </Link>
         </div>
 
         <div className="auth-left-body">

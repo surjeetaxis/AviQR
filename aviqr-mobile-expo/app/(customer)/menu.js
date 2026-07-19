@@ -3,9 +3,8 @@ import {
   View, Text, ScrollView, SectionList, FlatList, StyleSheet,
   TouchableOpacity, TextInput, Image, Alert, Animated
 } from 'react-native';
-// Icon not needed — using emoji
 import { LinearGradient } from 'expo-linear-gradient';
-// Toast replaced with Alert
+import { router, useLocalSearchParams } from 'expo-router';
 import { menuApi, orderApi, paymentApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { Button } from '../../src/components/common/Button.js';
@@ -15,8 +14,11 @@ import { CustomerBottomNav } from '../../src/components/common/CustomerBottomNav
 import { SearchIcon, MinusIcon, PlusIcon, ArrowRightIcon, ShoppingBagIcon } from '../../src/components/common/NavIcons.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
 
-export default function CustomerMenuScreen({ route }) {
-  const { shopId = '00000000-0000-0000-0000-000000000101', tableNumber, lang = 'en' } = route?.params || {};
+export default function CustomerMenuScreen() {
+  // expo-router passes route params via useLocalSearchParams(), not a `route`
+  // prop (that's React Navigation) — this previously always fell through to
+  // the hardcoded demo shop regardless of which QR/link was actually opened.
+  const { shopId = '00000000-0000-0000-0000-000000000101', tableNumber, lang = 'en' } = useLocalSearchParams();
   const { user } = useAuth();
 
   const [menu, setMenu]         = useState([]);
@@ -32,16 +34,12 @@ export default function CustomerMenuScreen({ route }) {
   const [activeTab, setActiveTab] = useState('home');
   const searchInputRef = useRef(null);
 
-  // Search/Orders/Profile don't have dedicated mobile screens yet (only the
-  // web customer portal has /portal/orders + /portal/profile) — those tabs
-  // do the closest sensible thing today rather than being dead buttons.
   const handleTabChange = (key) => {
     setActiveTab(key);
     if (key === 'search') searchInputRef.current?.focus();
     else if (key === 'cart') setCartOpen(true);
-    else if (key === 'orders' || key === 'profile') {
-      Alert.alert('Coming soon', `${key === 'orders' ? 'Order history' : 'Profile'} isn't available in the app yet.`);
-    }
+    else if (key === 'orders') router.push('/(customer)/orders');
+    else if (key === 'profile') router.push({ pathname: '/(customer)/profile', params: { shopId } });
   };
 
   useEffect(() => { loadMenu(); }, [shopId, lang]);
@@ -82,9 +80,8 @@ export default function CustomerMenuScreen({ route }) {
       setCart({});
       setCartOpen(false);
       setOrderOpen(true);
-      Toast.show({ type: 'success', text1: '🎉 Order placed!' });
     } catch (e) {
-      Toast.show({ type: 'error', text1: e.response?.data?.message || 'Failed to place order' });
+      Alert.alert('Failed to place order', e.response?.data?.message || 'Please try again.');
     } finally { setOrdering(false); }
   };
 

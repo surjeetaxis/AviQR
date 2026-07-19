@@ -94,13 +94,13 @@ export default function App() {
       <Route path="/features"        element={<FeaturesPage />} />
       <Route path="/contact"         element={<ContactPage />} />
       <Route path="/faq"             element={<FAQPage />} />
-      <Route path="/customer"        element={<CustomerMenu />} />
       <Route path="/onboarding"      element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
       {/* Customer Portal — persistent bottom-nav shell (Home/Search/Cart/Orders/Profile)
           wraps the three QR-flow pages at their EXISTING paths, so already-printed
           QR codes keep working unchanged, plus the new Orders/Profile pages. */}
       <Route element={<CustomerPortalShell />}>
+        <Route path="/customer"                element={<CustomerMenu />} />
         <Route path="/menu/:shopId"            element={<CustomerMenu />} />
         <Route path="/hotel-services/:hotelId" element={<GuestServices />} />
         <Route path="/food-court/:mallId"      element={<FoodCourtHome />} />

@@ -112,7 +112,9 @@ Edit `aviqr-backend/.env` with real values:
 |----------|----------|---------|
 | `JWT_SECRET` | Yes | `openssl rand -hex 32` |
 | `RAZORPAY_KEY_ID` + `SECRET` | Yes | razorpay.com Dashboard |
-| `TWILIO_ACCOUNT_SID` + `AUTH_TOKEN` | High | console.twilio.com |
+| `ANTHROPIC_API_KEY` | Yes (for the 11 AI Hub features) | console.anthropic.com |
+| `WASENDER_API_KEY` | High (WhatsApp) | wasenderapi.com dashboard |
+| `TWILIO_ACCOUNT_SID` + `AUTH_TOKEN` | High (SMS campaigns only — WhatsApp moved to WaSenderAPI) | console.twilio.com |
 | `SMTP_USER` + `SMTP_PASSWORD` | High | Gmail App Password |
 | `GOOGLE_VISION_API_KEY` | Optional | Google Cloud Console |
 | `VITE_SENTRY_DSN` | Optional | sentry.io |
@@ -131,16 +133,33 @@ chmod +x aviqr_test_suite.sh
 
 ## Production deployment
 
-See `AVIQR_DEPLOYMENT_GUIDE.md` for full production deployment guide.
+See `aviqr-backend/DEPLOYMENT_NO_DOCKER.md` for the full production deployment guide
+(the Docker-based `aviqr-backend/DEPLOYMENT.md` is stale — see the note below).
 
-**Quick summary:**
+**CI/CD:** `.github/workflows/ci.yml` builds + tests backend/web/mobile on every push and
+PR. `.github/workflows/deploy-production.yml` deploys to the production server over SSH
+after CI passes on `master` (or on manual dispatch), gated by a required-reviewer approval,
+with automatic health-check + rollback. One-time server/secrets setup: see
+`aviqr-backend/DEPLOYMENT_NO_DOCKER.md` → PROD STEP 15.
+
+**Quick summary (manual, first-time setup):**
 1. Provision server (Ubuntu 22.04, 8 vCPU / 16 GB RAM)
 2. Configure DNS: `aviqr.in` + `api.aviqr.in` → server IP
 3. Install Nginx, Certbot
-4. `cd aviqr-backend && ./aviqr.sh install --yes && ./aviqr.sh db-setup && ./aviqr.sh build && ./aviqr.sh run all`
+4. `cd aviqr-backend && ./aviqr.sh install --yes && ./aviqr.sh db-setup && ./aviqr.sh build && SPRING_PROFILES_ACTIVE=production ./aviqr.sh run all`
 5. Build frontend: `cd aviqr-ui-web && VITE_API_URL=https://api.aviqr.in npm run build`
 6. Configure Nginx to serve `dist/` + proxy to port 8080
 7. `certbot --nginx -d aviqr.in -d api.aviqr.in`
+
+**Important:** `./aviqr.sh run all` defaults to the `local` Spring profile (weak default JWT
+secret, OTP dev-mode bypass, mock payment keys). Always set `SPRING_PROFILES_ACTIVE=production`
+(and have every required var in `aviqr-backend/.env` — see below) before starting real
+production traffic. For a hardened, auto-restarting setup use the systemd services in
+`aviqr-backend/DEPLOYMENT_NO_DOCKER.md` instead of the bare `run all` foreground/background
+process. The Docker-based `aviqr-backend/DEPLOYMENT.md` guide predates the current service
+layout (references old `shop-service`/`menu-service`/`order-service`/`mall-service` names
+instead of the merged `shop-mall-service`/`menu-ocr-service`/`order-qr-service` etc.) and has
+no `Dockerfile`/`docker-compose.yml` in the repo yet — treat it as aspirational, not ready to run.
 
 ---
 
@@ -152,7 +171,7 @@ See `AVIQR_DEPLOYMENT_GUIDE.md` for full production deployment guide.
 - **Databases**: PostgreSQL 16 (×9), MongoDB 7, Redis 7
 - **Payments**: Razorpay (real SDK integration)
 - **AI**: Anthropic Claude claude-sonnet-4-6 (11 features)
-- **Notifications**: Twilio WhatsApp + SMS, Spring Mail
+- **Notifications**: WaSenderAPI (WhatsApp), Twilio (SMS), Spring Mail
 
 ---
 

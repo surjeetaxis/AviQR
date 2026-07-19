@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-// Icon not needed — using emoji
-// Toast replaced with Alert
+import { router } from 'expo-router';
 import { shopApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
-// Header removed - expo-router handles navigation
-// BottomSheet replaced with Modal
+import { BottomSheet } from '../../src/components/common/BottomSheet.js';
 import { Input } from '../../src/components/common/Input.js';
 import { Button } from '../../src/components/common/Button.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
@@ -35,7 +33,7 @@ export default function StaffScreen() {
   };
 
   const saveStaff = async () => {
-    if (!form.name) return Toast.show({ type: 'error', text1: 'Name required' });
+    if (!form.name) return Alert.alert('Name required');
     setSaving(true);
     try {
       if (editing) {
@@ -46,8 +44,7 @@ export default function StaffScreen() {
         setStaff(prev => [...prev, res.data.data]);
       }
       setShowAdd(false); setEditing(null); setForm({ name: '', phone: '', email: '', role: 'CASHIER' });
-      Toast.show({ type: 'success', text1: editing ? 'Staff updated' : 'Staff added' });
-    } catch { Toast.show({ type: 'error', text1: 'Failed to save' }); }
+    } catch { Alert.alert('Failed to save staff member'); }
     finally { setSaving(false); }
   };
 
@@ -55,9 +52,10 @@ export default function StaffScreen() {
     Alert.alert('Remove staff', `Remove ${member.name} from your team?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: async () => {
-        await shopApi.removeStaff(member.id);
-        setStaff(prev => prev.filter(s => s.id !== member.id));
-        Toast.show({ type: 'success', text1: 'Staff removed' });
+        try {
+          await shopApi.removeStaff(member.id);
+          setStaff(prev => prev.filter(s => s.id !== member.id));
+        } catch { Alert.alert('Failed to remove staff member'); }
       }}
     ]);
   };
@@ -76,10 +74,10 @@ export default function StaffScreen() {
       </View>
       <View style={styles.actions}>
         <TouchableOpacity onPress={() => { setEditing(member); setForm({ name: member.name, phone: member.phone || '', email: member.email || '', role: member.role }); setShowAdd(true); }}>
-          <Icon name="edit-2" size={16} color={Colors.gray400} />
+          <Text style={{ fontSize: 16, color: Colors.gray400 }}>✏️</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => removeStaff(member)}>
-          <Icon name="trash-2" size={16} color={Colors.error} />
+          <Text style={{ fontSize: 16, color: Colors.error }}>🗑️</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -87,11 +85,13 @@ export default function StaffScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <Header title="Staff" subtitle={`${staff.length} members`} rightAction={
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>‹ Back</Text></TouchableOpacity>
+        <Text style={styles.title}>Staff · {staff.length}</Text>
         <TouchableOpacity style={styles.addBtn} onPress={() => { setEditing(null); setForm({ name: '', phone: '', email: '', role: 'CASHIER' }); setShowAdd(true); }}>
-          <Icon name="user-plus" size={18} color={Colors.primary} />
+          <Text style={{ fontSize: 18, color: Colors.primary }}>➕</Text>
         </TouchableOpacity>
-      } />
+      </View>
 
       <FlatList
         data={staff}
@@ -121,6 +121,9 @@ export default function StaffScreen() {
 }
 
 const styles = StyleSheet.create({
+  header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  back:         { fontSize: FontSize.base, color: Colors.primary, fontWeight: '600' },
+  title:        { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900 },
   addBtn:       { padding: 8 },
   card:         { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.base, gap: 12, borderWidth: 1, borderColor: Colors.border },
   avatar:       { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },

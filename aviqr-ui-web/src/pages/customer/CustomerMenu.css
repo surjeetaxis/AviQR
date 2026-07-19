@@ -653,6 +653,12 @@
   transform: scale(.99);
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
+@media (hover: hover) {
+  .cm-item:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,.1);
+    transform: translateY(-1px);
+  }
+}
 
 /* Item info area */
 .cm-item-name { font-size: 14.5px; font-weight: 700; }
@@ -667,14 +673,26 @@
   font-size: 36px;
 }
 
-.cm-item-img-wrap-clickable { cursor: pointer; }
+.cm-item-img-wrap-clickable { cursor: pointer; overflow: hidden; border-radius: 14px; }
 .cm-item-img-wrap-clickable .cm-item-img,
 .cm-item-img-wrap-clickable .cm-item-img-photo {
   box-shadow: 0 4px 14px rgba(0,0,0,.14);
+  transition: transform .25s ease;
 }
 .cm-item-img-wrap-clickable:active .cm-item-img,
 .cm-item-img-wrap-clickable:active .cm-item-img-photo {
   transform: scale(.97);
+}
+
+/* Soft scrim behind bottom badges so they stay legible on any photo */
+.cm-item-img-wrap-clickable::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 42%;
+  background: linear-gradient(to top, rgba(0,0,0,.5), transparent);
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* Actual item photo */
@@ -686,34 +704,32 @@
   border: none;
 }
 
-/* ── Play / 3D overlay buttons on thumbnail ──────────────── */
-.cm-item-play-btn,
-.cm-item-3d-btn {
+/* ── Media badges on thumbnail — shown together, not one-at-a-time ─ */
+.cm-item-media-badges {
   position: absolute;
   bottom: 6px; left: 6px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 99px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  font-size: 11px;
-  font-weight: 700;
-  border: 1px solid rgba(255,255,255,.4);
-  transition: transform .1s;
+  display: flex;
+  gap: 4px;
   z-index: 2;
 }
-.cm-item-play-btn {
-  background: rgba(0,0,0,.65);
+.cm-item-media-badge {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,.4);
   color: #fff;
-  width: 30px; height: 30px;
-  padding-left: 2px; /* optical center for play icon */
 }
-.cm-item-3d-btn {
-  background: rgba(124,58,237,.8);
-  color: #fff;
-  width: 30px; height: 30px;
+.cm-item-media-badge-video { background: rgba(0,0,0,.6); padding-left: 1px; }
+.cm-item-media-badge-3d    { background: rgba(124,58,237,.8); }
+
+@media (hover: hover) {
+  .cm-item-img-wrap-clickable:hover .cm-item-img,
+  .cm-item-img-wrap-clickable:hover .cm-item-img-photo {
+    transform: scale(1.05);
+  }
 }
-.cm-item-play-btn:active,
-.cm-item-3d-btn:active { transform: scale(.92); }
 
 /* ── Media action links below description ────────────────── */
 .cm-item-media-links {
@@ -993,12 +1009,13 @@
 .cm-item-gallery-badge {
   position: absolute;
   bottom: 6px; right: 6px;
-  min-width: 18px; height: 18px; padding: 0 5px;
+  min-width: 18px; height: 22px; padding: 0 7px;
   border-radius: 99px;
-  background: rgba(0,0,0,.65);
+  background: rgba(0,0,0,.6);
+  border: 1px solid rgba(255,255,255,.4);
   color: #fff;
   font-size: 10px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center; gap: 3px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 2;
@@ -1071,8 +1088,8 @@
 .cm-carousel-arrow {
   position: absolute;
   top: 50%; transform: translateY(-50%);
-  width: 32px; height: 32px;
-  border-radius: 50%;
+  width: 30px; height: 44px;
+  border-radius: 10px;
   background: rgba(0,0,0,.45);
   color: #fff;
   display: flex; align-items: center; justify-content: center;
@@ -1084,8 +1101,25 @@
 .cm-carousel-arrow:active { background: rgba(0,0,0,.65); }
 .cm-carousel-arrow-left  { left: 10px; }
 .cm-carousel-arrow-right { right: 10px; }
+@media (hover: hover) {
+  .cm-carousel-arrow:hover {
+    background: rgba(0,0,0,.6);
+    transform: translateY(-50%) scale(1.08);
+  }
+}
 
-/* Dot pagination */
+/* Soft scrim behind dots/badges so they stay legible on bright photos */
+.cm-carousel::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 70px;
+  background: linear-gradient(to top, rgba(0,0,0,.45), transparent);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Dot pagination — active dot elongates into a pill */
 .cm-carousel-dots {
   position: absolute;
   bottom: 10px; left: 0; right: 0;
@@ -1096,12 +1130,13 @@
 .cm-carousel-dot {
   width: 6px; height: 6px;
   border-radius: 50%;
-  background: rgba(255,255,255,.4);
-  transition: background .15s, transform .15s;
+  background: rgba(255,255,255,.45);
+  transition: all .25s cubic-bezier(.4,0,.2,1);
 }
 .cm-carousel-dot.active {
+  width: 18px;
+  border-radius: 4px;
   background: #fff;
-  transform: scale(1.3);
 }
 
 /* Video / 3D availability badges, top-right of the carousel */

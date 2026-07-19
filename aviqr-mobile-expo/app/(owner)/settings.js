@@ -7,6 +7,7 @@ import { shopApi } from '../../src/api/index.js';
 import { Input } from '../../src/components/common/Input.js';
 import { Button } from '../../src/components/common/Button.js';
 import { Colors, FontSize, Radius, Shadow } from '../../src/theme/index.js';
+import { confirmAction } from '../../src/utils/confirmAction.js';
 
 const LANGUAGES = [
   {code:'en',label:'English',native:'English'},{code:'hi',label:'Hindi',native:'हिंदी'},
@@ -86,7 +87,7 @@ export default function Settings() {
         <Row label="Change Password" right={<Text style={ss.chevron}>›</Text>} border/>
         <Row label="Help & Support"  right={<Text style={ss.chevron}>›</Text>} border/>
         <Row label="Sign Out" right={
-          <TouchableOpacity onPress={()=>Alert.alert('Sign out?','',[ {text:'Cancel',style:'cancel'},{text:'Sign out',style:'destructive',onPress:logout}])}>
+          <TouchableOpacity onPress={()=>confirmAction('Sign out?','',logout,'Sign out')}>
             <Text style={{color:Colors.error,fontWeight:'600'}}>Sign out</Text>
           </TouchableOpacity>
         } border={false}/>

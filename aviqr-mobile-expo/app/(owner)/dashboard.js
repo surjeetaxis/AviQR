@@ -9,7 +9,9 @@ import { reportApi, orderApi } from '../../src/api/index.js';
 import { MOCK_STATS, MOCK_ORDERS } from '../../src/api/mockData.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
+import { OwnerDrawer } from '../../src/components/common/OwnerDrawer.js';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../src/theme/index.js';
+import { confirmAction } from '../../src/utils/confirmAction.js';
 
 const STATUS_NEXT = { NEW:'ACCEPTED', ACCEPTED:'PREPARING', PREPARING:'READY', READY:'COMPLETED' };
 const STATUS_LABEL = { NEW:'Accept', ACCEPTED:'Start', PREPARING:'Ready', READY:'Done' };
@@ -41,6 +43,7 @@ export default function Dashboard() {
   const [offline,   setOffline]= useState(false);
   const [loading,   setLoading]= useState(true);
   const [refreshing,setRef]    = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -79,10 +82,14 @@ export default function Dashboard() {
 
   const QUICK = [
     { emoji:'📦', label:'Orders',   href:`${basePath}/orders`,   badge: newOrders.length },
+    { emoji:'🧾', label:'Billing',  href:`${basePath}/billing` },
+    { emoji:'👨‍🍳', label:'Kitchen', href:`${basePath}/kot` },
     { emoji:'🍽️', label:'Menu',     href:`${basePath}/menu` },
+    { emoji:'📦', label:'Inventory', href:`${basePath}/inventory` },
     { emoji:'📱', label:'QR Codes', href:`${basePath}/qrcodes` },
     { emoji:'👥', label:'Staff',    href:`${basePath}/staff` },
     { emoji:'📊', label:'Reports',  href:`${basePath}/reports` },
+    { emoji:'✨', label:'AI Hub',   href:`${basePath}/ai-hub` },
     { emoji:'⚙️', label:'Settings', href:`${basePath}/settings` },
   ];
 
@@ -100,11 +107,16 @@ export default function Dashboard() {
       {/* Header */}
       <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.header}>
         <View style={ss.hRow}>
-          <View>
-            <Text style={ss.greet}>{greeting()} 👋</Text>
-            <Text style={ss.shopName}>{user?.shopName || user?.name || 'My Shop'}</Text>
+          <View style={{ flexDirection:'row', alignItems:'center', gap:12 }}>
+            <TouchableOpacity onPress={() => setDrawerOpen(true)} style={ss.menuBtn} accessibilityLabel="Open menu">
+              <Text style={ss.menuIcon}>☰</Text>
+            </TouchableOpacity>
+            <View>
+              <Text style={ss.greet}>{greeting()} 👋</Text>
+              <Text style={ss.shopName}>{user?.shopName || user?.name || 'My Shop'}</Text>
+            </View>
           </View>
-          <TouchableOpacity onPress={() => Alert.alert('Sign out?', 'You will need to log in again.', [{ text:'Cancel', style:'cancel' }, { text:'Sign out', style:'destructive', onPress: logout }])} style={ss.avatarBtn}>
+          <TouchableOpacity onPress={() => confirmAction('Sign out?', 'You will need to log in again.', logout, 'Sign out')} style={ss.avatarBtn}>
             <Text style={ss.avatarText}>{user?.name?.slice(0, 2).toUpperCase() || 'ME'}</Text>
           </TouchableOpacity>
         </View>
@@ -201,6 +213,7 @@ export default function Dashboard() {
 
         <View style={{ height: 32 }} />
       </View>
+      <OwnerDrawer visible={drawerOpen} onClose={() => setDrawerOpen(false)} basePath={basePath} newOrderCount={newOrders.length} />
     </ScrollView>
   );
 }
@@ -213,6 +226,8 @@ const ss = StyleSheet.create({
   shopName:   { color:'white', fontSize:20, fontWeight:'800', marginTop:2 },
   avatarBtn:  { width:40, height:40, borderRadius:20, backgroundColor:'rgba(255,255,255,0.2)', alignItems:'center', justifyContent:'center' },
   avatarText: { color:'white', fontSize:14, fontWeight:'700' },
+  menuBtn:    { width:36, height:36, borderRadius:18, backgroundColor:'rgba(255,255,255,0.15)', alignItems:'center', justifyContent:'center' },
+  menuIcon:   { color:'white', fontSize:18, fontWeight:'700' },
   kpiRow:     { flexDirection:'row', gap:12 },
   kpiCard:    { flex:1, backgroundColor:'rgba(255,255,255,0.15)', borderRadius:12, padding:12 },
   kpiVal:     { color:'white', fontSize:22, fontWeight:'800' },

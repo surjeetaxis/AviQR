@@ -1,19 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Switch, RefreshControl, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-// Icon not needed — using emoji
-// Toast replaced with Alert
+import { router } from 'expo-router';
 import { mallApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
-// SearchBar replaced with TextInput
-import { StatusBadge } from '../../src/components/common/StatusBadge.js';
-// BottomSheet replaced with Modal
+import { BottomSheet } from '../../src/components/common/BottomSheet.js';
 import { Input } from '../../src/components/common/Input.js';
 import { Button } from '../../src/components/common/Button.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
-export default function MallHomeScreen({ navigation }) {
+const NAV_ITEMS = [
+  { icon: '🧾', label: 'Orders',       href: '/(mall)/orders' },
+  { icon: '💰', label: 'Revenue Share', href: '/(mall)/revenue' },
+  { icon: '📱', label: 'QR Code',      href: '/(mall)/qrcode' },
+  { icon: '📊', label: 'Reports',      href: '/(mall)/reports' },
+  { icon: '⭐', label: 'Subscription', href: '/(mall)/subscription' },
+];
+
+export default function MallHomeScreen() {
   const { user, logout } = useAuth();
   const [malls, setMalls]       = useState([]);
   const [mall, setMall]         = useState(null);
@@ -48,19 +53,18 @@ export default function MallHomeScreen({ navigation }) {
     try {
       await mallApi.toggleVendor(vendor.id, !vendor.active);
       setVendors(prev => prev.map(v => v.id === vendor.id ? { ...v, active: !v.active } : v));
-    } catch { Toast.show({ type: 'error', text1: 'Failed to update' }); }
+    } catch { Alert.alert('Failed to update vendor status'); }
   };
 
   const addVendor = async () => {
-    if (!form.name) return Toast.show({ type: 'error', text1: 'Vendor name required' });
+    if (!form.name) return Alert.alert('Vendor name required');
     setSaving(true);
     try {
       const res = await mallApi.addVendor({ ...form, mallId: mall.id });
       setVendors(prev => [...prev, res.data.data]);
       setAddSheet(false);
       setForm({ name: '', category: '', floor: '', contact: '' });
-      Toast.show({ type: 'success', text1: 'Vendor added!' });
-    } catch { Toast.show({ type: 'error', text1: 'Failed to add vendor' }); }
+    } catch { Alert.alert('Failed to add vendor'); }
     finally { setSaving(false); }
   };
 
@@ -68,16 +72,18 @@ export default function MallHomeScreen({ navigation }) {
     Alert.alert('Remove vendor', `Remove ${vendor.name} from the mall?`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: async () => {
-        await mallApi.deleteVendor(vendor.id);
-        setVendors(prev => prev.filter(v => v.id !== vendor.id));
-        Toast.show({ type: 'success', text1: 'Vendor removed' });
+        try {
+          await mallApi.deleteVendor(vendor.id);
+          setVendors(prev => prev.filter(v => v.id !== vendor.id));
+        } catch { Alert.alert('Failed to remove vendor'); }
       }}
     ]);
   };
 
-  const activeCount   = vendors.filter(v => v.active).length;
-  const totalRevenue  = vendors.reduce((s, v) => s + (v.revenue || 0), 0);
-  const totalOrders   = vendors.reduce((s, v) => s + (v.orders || 0), 0);
+  const activeCount = vendors.filter(v => v.active).length;
+  // Vendor.revenue/orders don't exist on the backend entity — real per-vendor
+  // revenue is computed properly (via a vendor-scoped token) in the Revenue
+  // Share and Reports screens instead of read here as always-zero fields.
 
   const filtered = vendors.filter(v => !search || v.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -94,7 +100,7 @@ export default function MallHomeScreen({ navigation }) {
       <View style={styles.vendorRight}>
         <Switch value={!!vendor.active} onValueChange={() => toggleVendor(vendor)} trackColor={{ true: Colors.primary }} thumbColor={Colors.white} />
         <TouchableOpacity onPress={() => deleteVendor(vendor)}>
-          <Icon name="trash-2" size={14} color={Colors.error} />
+          <Text style={{ fontSize: 16, color: Colors.error }}>🗑️</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -110,13 +116,13 @@ export default function MallHomeScreen({ navigation }) {
             <Text style={styles.mallCity}>{mall?.city}</Text>
           </View>
           <TouchableOpacity onPress={logout} style={{ padding: 8 }}>
-            <Icon name="log-out" size={18} color="rgba(255,255,255,0.6)" />
+            <Text style={{ fontSize: 18, color: 'rgba(255,255,255,0.6)' }}>🚪</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.statsRow}>
           {[
             { label:'Active Vendors', value: activeCount },
-            { label:'Commission 10%', value: `₹${Math.round(totalRevenue * 0.1).toLocaleString('en-IN')}` },
+            { label:'Total Vendors',  value: vendors.length },
           ].map(s => (
             <View key={s.label} style={styles.statItem}>
               <Text style={styles.statValue}>{s.value}</Text>
@@ -126,10 +132,19 @@ export default function MallHomeScreen({ navigation }) {
         </View>
       </LinearGradient>
 
+      <View style={styles.navGrid}>
+        {NAV_ITEMS.map(n => (
+          <TouchableOpacity key={n.href} style={styles.navItem} onPress={() => router.push(n.href)} activeOpacity={0.8}>
+            <Text style={styles.navEmoji}>{n.icon}</Text>
+            <Text style={styles.navLabel}>{n.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <View style={styles.controls}>
-        <SearchBar value={search} onChangeText={setSearch} placeholder="Search vendors…" />
+        <Input placeholder="Search vendors…" value={search} onChangeText={setSearch} style={{ flex: 1, marginBottom: 0 }} />
         <TouchableOpacity style={styles.addBtn} onPress={() => setAddSheet(true)}>
-          <Icon name="plus" size={16} color={Colors.white} />
+          <Text style={{ fontSize: 16, color: Colors.white }}>➕</Text>
           <Text style={styles.addBtnText}>Add Vendor</Text>
         </TouchableOpacity>
       </View>
@@ -165,6 +180,10 @@ const styles = StyleSheet.create({
   statItem:     { alignItems: 'center', flex: 1 },
   statValue:    { fontSize: FontSize.xl, fontWeight: '800', color: Colors.white },
   statLabel:    { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  navGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10, padding: Spacing.base, paddingBottom: 0 },
+  navItem:      { width: '18%', alignItems: 'center', gap: 6, paddingVertical: Spacing.base, backgroundColor: Colors.white, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border },
+  navEmoji:     { fontSize: 20 },
+  navLabel:     { fontSize: 10, fontWeight: '600', color: Colors.gray700, textAlign: 'center' },
   controls:     { flexDirection: 'row', gap: 10, padding: Spacing.base, alignItems: 'center' },
   addBtn:       { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary, height: 44, paddingHorizontal: 14, borderRadius: Radius.md },
   addBtnText:   { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
