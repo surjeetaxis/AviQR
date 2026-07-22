@@ -17,8 +17,8 @@ import java.util.List;
  * MARKET FEATURE: unified customer profile REST API (CRM foundation).
  *
  * Endpoints:
- *   GET    /api/v1/customers/{shopId}/profile?phone=   → merged profile (open — customer's own data)
- *   PUT    /api/v1/customers/{shopId}/profile           → self-service upsert (open)
+ *   GET    /api/v1/customers/{shopId}/profile?phone=   → merged profile (staff, or the customer's own verified phone)
+ *   PUT    /api/v1/customers/{shopId}/profile           → self-service upsert (staff, or the customer's own verified phone)
  *   GET    /api/v1/customers/{shopId}                   → merged CRM list (staff only)
  *   PUT    /api/v1/customers/{shopId}/profile/notes      → staff-only notes
  *   POST   /api/v1/customers/{shopId}/profile/labels     → staff-only add label
@@ -34,14 +34,24 @@ public class CustomerController {
     @GetMapping("/{shopId}/profile")
     public ResponseEntity<ApiResponse<CustomerProfileResponse>> getProfile(
             @PathVariable String shopId,
-            @RequestParam String phone) {
+            @RequestParam String phone,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId,
+            @RequestHeader(value = "X-User-Phone", defaultValue = "") String callerPhone) {
+        if (!canAccessProfile(shopId, phone, role, callerShopId, callerPhone))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok(customerService.getProfile(shopId, phone)));
     }
 
     @PutMapping("/{shopId}/profile")
     public ResponseEntity<ApiResponse<Object>> updateProfile(
             @PathVariable String shopId,
-            @Valid @RequestBody CustomerUpdateRequest req) {
+            @Valid @RequestBody CustomerUpdateRequest req,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId,
+            @RequestHeader(value = "X-User-Phone", defaultValue = "") String callerPhone) {
+        if (!canAccessProfile(shopId, req.getPhone(), role, callerShopId, callerPhone))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         var customer = customerService.upsertProfile(shopId, req.getPhone(), req.getName(),
             req.getEmail(), req.getBirthday(), req.getAnniversary());
         return ResponseEntity.ok(ApiResponse.ok("Profile updated", customer));
@@ -99,5 +109,13 @@ public class CustomerController {
         if ("CUSTOMER".equals(role) || role.isBlank()) return false;
         if ("ADMIN".equals(role) || "SUPPORT".equals(role)) return true;
         return shopId.equals(callerShopId);
+    }
+
+    // Staff may view/edit any customer's profile at their shop; a plain customer may only
+    // view/edit the profile bound to their own JWT-verified phone number — never one supplied
+    // by an arbitrary caller.
+    private boolean canAccessProfile(String shopId, String phone, String role, String callerShopId, String callerPhone) {
+        if (canManage(shopId, role, callerShopId)) return true;
+        return !callerPhone.isBlank() && callerPhone.equals(phone);
     }
 }

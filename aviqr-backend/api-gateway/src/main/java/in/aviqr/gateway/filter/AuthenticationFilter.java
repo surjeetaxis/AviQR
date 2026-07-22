@@ -34,9 +34,10 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                         .build().parseSignedClaims(authHeader.substring(7)).getPayload();
                 return chain.filter(exchange.mutate().request(
                         exchange.getRequest().mutate()
-                                .header("X-User-Id",   claims.getSubject())
-                                .header("X-User-Role", claims.get("role",   String.class) != null ? claims.get("role",   String.class) : "")
-                                .header("X-Shop-Id",   claims.get("shopId", String.class) != null ? claims.get("shopId", String.class) : "")
+                                .header("X-User-Id",    claims.getSubject())
+                                .header("X-User-Role",  claims.get("role",   String.class) != null ? claims.get("role",   String.class) : "")
+                                .header("X-Shop-Id",    claims.get("shopId", String.class) != null ? claims.get("shopId", String.class) : "")
+                                .header("X-User-Phone", claims.get("phone",  String.class) != null ? claims.get("phone",  String.class) : "")
                                 .build()).build());
             } catch (Exception e) {
                 log.warn("JWT validation failed: {}", e.getMessage());

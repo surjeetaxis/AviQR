@@ -14,9 +14,11 @@ import in.aviqr.shop.repository.CustomerRepository;
 import in.aviqr.shop.repository.LoyaltyAccountRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.ResolvableType;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -46,6 +48,9 @@ import java.util.UUID;
 public class CampaignService {
 
     private static final String SMS_SEND_URL = "http://notification-report-review-service/api/v1/notifications/sms/send";
+
+    @Value("${internal.sync.secret:}")
+    private String internalSyncSecret;
 
     private final CampaignRepository campaignRepo;
     private final CampaignLogRepository logRepo;
@@ -181,10 +186,12 @@ public class CampaignService {
 
     private Boolean postSms(String phone, String message) {
         Map<String, String> body = Map.of("phone", phone, "message", message);
+        HttpHeaders headers = new HttpHeaders();
+        if (!internalSyncSecret.isBlank()) headers.set("X-Internal-Secret", internalSyncSecret);
         ParameterizedTypeReference<ApiResponse<Boolean>> ref = ParameterizedTypeReference.forType(
             ResolvableType.forClassWithGenerics(ApiResponse.class, Boolean.class).getType());
         ResponseEntity<ApiResponse<Boolean>> resp = restTemplate.exchange(
-            SMS_SEND_URL, HttpMethod.POST, new HttpEntity<>(body), ref);
+            SMS_SEND_URL, HttpMethod.POST, new HttpEntity<>(body, headers), ref);
         return resp.getBody() != null ? resp.getBody().getData() : null;
     }
 

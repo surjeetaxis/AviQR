@@ -35,8 +35,11 @@ public class OrderService {
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // ── Bill break-up: subtotal → discount/service charge → tax → total ──
-        BigDecimal discount      = req.getDiscount()      != null ? req.getDiscount()      : BigDecimal.ZERO;
-        BigDecimal serviceCharge = req.getServiceCharge()  != null ? req.getServiceCharge()  : BigDecimal.ZERO;
+        // Discount/service charge are staff-applied billing decisions — a self-service
+        // (customer QR) order must never be able to set its own discount, or a crafted
+        // request could zero out the bill. Only honor these fields on staff-created (POS) orders.
+        BigDecimal discount      = (!selfService && req.getDiscount()      != null) ? req.getDiscount()      : BigDecimal.ZERO;
+        BigDecimal serviceCharge = (!selfService && req.getServiceCharge() != null) ? req.getServiceCharge() : BigDecimal.ZERO;
         // Discount can't exceed subtotal+serviceCharge — clamp rather than let the bill go negative
         BigDecimal taxableAmount = subtotal.subtract(discount).add(serviceCharge).max(BigDecimal.ZERO);
         BigDecimal gstRate = fetchShopTaxPercent(shopId);
