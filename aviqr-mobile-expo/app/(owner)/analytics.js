@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
 import { router } from 'expo-router';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { reportApi, rawMaterialApi } from '../../src/api/index.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
@@ -63,6 +65,26 @@ export default function AnalyticsScreen() {
 
   useEffect(() => { load(); }, [load]);
 
+  const [exporting, setExporting] = useState(false);
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const rows = [
+        ['Date', 'Revenue', 'Orders'],
+        ...revenue.map(r => [r.date, r.revenue, r.orders]),
+        [],
+        ['Top Items'],
+        ['Name', 'Sold', 'Revenue'],
+        ...topItems.map(i => [i.name, i.qty_sold ?? i.qty ?? 0, i.revenue ?? 0]),
+      ];
+      const csv = rows.map(r => r.join(',')).join('\n');
+      const path = `${FileSystem.cacheDirectory}analytics_${range}d_${new Date().toISOString().slice(0, 10)}.csv`;
+      await FileSystem.writeAsStringAsync(path, csv);
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(path, { mimeType: 'text/csv' });
+    } catch { Alert.alert('Export failed', 'Could not generate the CSV.'); }
+    finally { setExporting(false); }
+  };
+
   const totalRevenue = revenue.reduce((s, r) => s + r.revenue, 0);
   const totalOrders  = revenue.reduce((s, r) => s + r.orders, 0);
   const avgOrder     = totalOrders ? totalRevenue / totalOrders : 0;
@@ -81,7 +103,7 @@ export default function AnalyticsScreen() {
       <View style={ss.header}>
         <TouchableOpacity onPress={() => router.back()}><Text style={ss.back}>‹ Back</Text></TouchableOpacity>
         <Text style={ss.title}>Analytics</Text>
-        <View style={{ width: 44 }} />
+        <TouchableOpacity onPress={exportCsv} disabled={exporting}><Text style={ss.exportBtn}>{exporting ? '…' : '⬇ CSV'}</Text></TouchableOpacity>
       </View>
       {offline && <OfflineBadge onRetry={load} />}
 
@@ -167,6 +189,7 @@ const ss = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
   back: { fontSize: FontSize.base, color: Colors.primary, fontWeight: '600' },
+  exportBtn: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '700' },
   title: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900 },
   rangeRow: { flexDirection: 'row', gap: 8, padding: Spacing.base, paddingBottom: 0 },
   rangeChip: { flex: 1, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.md, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },

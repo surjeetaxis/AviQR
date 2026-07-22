@@ -390,23 +390,28 @@ export default function KOT() {
         <>
           {/* Mobile: one column at a time, picked via tabs — the 4-across
               grid has no room to breathe under ~860px (columns collapsed to
-              unreadable slivers with clipped text). */}
-          <div style={{ display: 'flex', overflowX: 'auto', gap: 8, padding: '10px 14px', background: '#0F172A', borderBottom: '1px solid #334155' }}>
+              unreadable slivers with clipped text). A 2x2 GRID (not a
+              horizontally-scrolling row) so all 4 tabs are simultaneously
+              visible on any phone width — a scrollable row always hid at
+              least one tab off-screen with no reliable way to signal that
+              more existed, which read as "the other tabs are missing"
+              rather than "swipe to see them". */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, padding: '10px 14px', background: '#0F172A', borderBottom: '1px solid #334155' }}>
             {COLS.map(col => {
               const count = orders.filter(o => o.status === col.status).length;
               const active = mobileCol === col.status;
               return (
                 <button key={col.status} onClick={() => setMobileCol(col.status)}
                   style={{
-                    flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '8px 12px', borderRadius: 999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    padding: '9px 8px', borderRadius: 10,
                     background: active ? col.color : '#1E293B',
                     border: `1.5px solid ${active ? col.color : '#334155'}`,
                     color: 'white', fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
                   }}>
                   <span>{col.icon}</span>
-                  <span>{col.label}</span>
-                  <span style={{ background: 'rgba(255,255,255,0.25)', padding: '1px 7px', borderRadius: 999, fontSize: 11, fontWeight: 900 }}>{count}</span>
+                  <span>{col.status === 'READY' ? 'Ready' : col.label}</span>
+                  <span style={{ background: 'rgba(255,255,255,0.25)', padding: '1px 6px', borderRadius: 999, fontSize: 11, fontWeight: 900 }}>{count}</span>
                 </button>
               );
             })}

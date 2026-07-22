@@ -14,11 +14,11 @@ import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 const NAV_ITEMS = [
   { icon: '🔄', label: 'Menu Sync',   href: '/(supplier)/menu-sync' },
-  { icon: '🧾', label: 'Orders',      href: '/(supplier)/orders' },
-  { icon: '📱', label: 'QR Codes',    href: '/(supplier)/qrcodes' },
-  { icon: '📊', label: 'Reports',     href: '/(supplier)/reports' },
-  { icon: '⭐', label: 'Subscription', href: '/(supplier)/subscription' },
-  { icon: '⚙️', label: 'Settings',     href: '/(supplier)/settings' },
+  { icon: '🧾', label: 'Orders',      href: '/(supplier)/supplier-orders' },
+  { icon: '📱', label: 'QR Codes',    href: '/(supplier)/supplier-qrcodes' },
+  { icon: '📊', label: 'Reports',     href: '/(supplier)/supplier-reports' },
+  { icon: '⭐', label: 'Subscription', href: '/(supplier)/supplier-subscription' },
+  { icon: '⚙️', label: 'Settings',     href: '/(supplier)/supplier-settings' },
 ];
 
 export default function SupplierHomeScreen() {

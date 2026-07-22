@@ -15,15 +15,15 @@ import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 const PRIORITY_COLOR = { LOW:'#6B7280', MEDIUM:'#2563EB', HIGH:'#D97706', URGENT:'#DC2626' };
 const FILTERS = ['ALL','OPEN','PENDING','RESOLVED','CLOSED'];
 const NAV_ITEMS = [
-  { icon: '🧾', label: 'Orders',      href: '/(support)/orders' },
-  { icon: '💳', label: 'Payments',    href: '/(support)/payments' },
-  { icon: '👥', label: 'Users',       href: '/(support)/users' },
-  { icon: '🏪', label: 'Shops',       href: '/(support)/shops' },
-  { icon: '📱', label: 'QR Codes',    href: '/(admin)/qrcodes' },
+  { icon: '🧾', label: 'Orders',      href: '/(support)/support-orders' },
+  { icon: '💳', label: 'Payments',    href: '/(support)/support-payments' },
+  { icon: '👥', label: 'Users',       href: '/(support)/support-users' },
+  { icon: '🏪', label: 'Shops',       href: '/(support)/support-shops' },
+  { icon: '📱', label: 'QR Codes',    href: '/(admin)/admin-qrcodes' },
   { icon: '📷', label: 'OCR Jobs',    href: '/(support)/ocr' },
   { icon: '📋', label: 'Audit Logs',  href: '/(support)/audit' },
-  { icon: '📊', label: 'Reports',     href: '/(admin)/reports' },
-  { icon: '⭐', label: 'Billing',     href: '/(support)/billing' },
+  { icon: '📊', label: 'Reports',     href: '/(admin)/admin-reports' },
+  { icon: '⭐', label: 'Billing',     href: '/(support)/support-billing' },
   { icon: '🕵️', label: 'Impersonate', href: '/(support)/impersonate' },
 ];
 

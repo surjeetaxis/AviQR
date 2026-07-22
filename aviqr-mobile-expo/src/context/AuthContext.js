@@ -8,9 +8,9 @@ const AuthContext = createContext(null);
 export const ROLE_HOME = {
   OWNER:'/(owner)/dashboard', MANAGER:'/(owner)/dashboard',
   CASHIER:'/(owner)/dashboard', KITCHEN:'/(owner)/dashboard',
-  ADMIN:'/(admin)/home', SUPPORT:'/(support)/home',
-  HOTEL:'/(hotel)/home', MALL:'/(mall)/home',
-  SUPPLIER:'/(supplier)/home', CUSTOMER:'/(customer)/menu',
+  ADMIN:'/(admin)/admin-home', SUPPORT:'/(support)/support-home',
+  HOTEL:'/(hotel)/hotel-home', MALL:'/(mall)/mall-home',
+  SUPPLIER:'/(supplier)/supplier-home', CUSTOMER:'/(customer)/shop/menu',
 };
 
 export function AuthProvider({ children }) {

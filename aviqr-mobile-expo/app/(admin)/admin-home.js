@@ -32,16 +32,16 @@ export default function AdminHomeScreen() {
   const onRefresh = async () => { setRef(true); await load(); setRef(false); };
 
   const NAV_ITEMS = [
-    { icon: '👥', label: 'Users',       href: '/(admin)/users',        color: Colors.primary },
-    { icon: '🏪', label: 'Shops',       href: '/(admin)/shops',        color: '#2563EB' },
+    { icon: '👥', label: 'Users',       href: '/(admin)/admin-users',        color: Colors.primary },
+    { icon: '🏪', label: 'Shops',       href: '/(admin)/admin-shops',        color: '#2563EB' },
     { icon: '🏨', label: 'Hotels',      href: '/(admin)/hotels',       color: '#7C3AED' },
     { icon: '🏬', label: 'Malls',       href: '/(admin)/malls',        color: '#D97706' },
     { icon: '📦', label: 'Suppliers',   href: '/(admin)/suppliers',    color: '#059669' },
-    { icon: '🧾', label: 'Orders',      href: '/(admin)/orders',       color: '#2563EB' },
-    { icon: '💳', label: 'Payments',    href: '/(admin)/payments',     color: '#7C3AED' },
-    { icon: '📱', label: 'QR Codes',    href: '/(admin)/qrcodes',      color: '#D97706' },
-    { icon: '⭐', label: 'Subscription',href: '/(admin)/subscription', color: '#059669' },
-    { icon: '📊', label: 'Reports',     href: '/(admin)/reports',      color: Colors.gray600 },
+    { icon: '🧾', label: 'Orders',      href: '/(admin)/admin-orders',       color: '#2563EB' },
+    { icon: '💳', label: 'Payments',    href: '/(admin)/admin-payments',     color: '#7C3AED' },
+    { icon: '📱', label: 'QR Codes',    href: '/(admin)/admin-qrcodes',      color: '#D97706' },
+    { icon: '⭐', label: 'Subscription',href: '/(admin)/admin-subscription', color: '#059669' },
+    { icon: '📊', label: 'Reports',     href: '/(admin)/admin-reports',      color: Colors.gray600 },
   ];
 
   return (
@@ -76,15 +76,19 @@ export default function AdminHomeScreen() {
           <StatCard emoji="💰" value={stats?.totalRevenue ? `₹${(stats.totalRevenue/100000).toFixed(1)}L` : '—'} label="Platform GMV" color="#7C3AED" />
           <StatCard emoji="📅" value={stats?.todayOrders?.toLocaleString() || '—'} label="Today's Orders" color="#D97706" />
         </View>
+        <View style={styles.kpiGrid}>
+          <StatCard emoji="💵" value={stats?.todayRevenue ? `₹${Number(stats.todayRevenue).toLocaleString('en-IN')}` : '—'} label="Today's Revenue" color="#059669" />
+          <StatCard emoji="🧮" value={stats?.avgOrderValue ? `₹${Number(stats.avgOrderValue).toLocaleString('en-IN')}` : '—'} label="Avg Order Value" color="#2563EB" />
+        </View>
 
         {/* User breakdown */}
         {userStats && (
           <Card style={styles.userCard}>
             <Text style={styles.userCardTitle}>Users by role</Text>
-            {['owner','manager','customer','hotel','mall','support','admin'].map(role => (
+            {Object.keys(userStats).filter(role => role !== 'total').sort((a, b) => (userStats[b] || 0) - (userStats[a] || 0)).map(role => (
               userStats[role] > 0 && (
                 <View key={role} style={styles.userRow}>
-                  <Text style={styles.userRole}>{role.charAt(0).toUpperCase() + role.slice(1)}</Text>
+                  <Text style={styles.userRole} numberOfLines={1}>{role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</Text>
                   <View style={styles.userBar}>
                     <View style={[styles.userBarFill, { width: `${Math.min(100, (userStats[role] / (userStats.total || 1)) * 100)}%`, backgroundColor: Colors.primary }]} />
                   </View>
@@ -125,7 +129,7 @@ const styles = StyleSheet.create({
   userCard:     { padding: Spacing.base, marginTop: Spacing.sm },
   userCardTitle:{ fontSize: FontSize.base, fontWeight: '800', marginBottom: 12 },
   userRow:      { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  userRole:     { width: 80, fontSize: FontSize.sm, color: Colors.gray700, textTransform: 'capitalize' },
+  userRole:     { width: 96, fontSize: FontSize.xs, color: Colors.gray700 },
   userBar:      { flex: 1, height: 6, backgroundColor: Colors.gray100, borderRadius: 3, marginHorizontal: 10, overflow: 'hidden' },
   userBarFill:  { height: '100%', borderRadius: 3 },
   userCount:    { width: 32, fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray700, textAlign: 'right' },

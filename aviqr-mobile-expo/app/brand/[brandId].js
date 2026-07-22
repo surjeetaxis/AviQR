@@ -59,7 +59,7 @@ export default function BrandHomeScreen() {
         columnWrapperStyle={{ gap: 12 }}
         ListEmptyComponent={<Text style={ss.emptyTxt}>{search ? 'No outlets match your search.' : 'No outlets are open yet.'}</Text>}
         renderItem={({ item }) => (
-          <TouchableOpacity style={ss.card} onPress={() => router.push({ pathname: '/(customer)/menu', params: { shopId: item.id } })}>
+          <TouchableOpacity style={ss.card} onPress={() => router.push({ pathname: '/(customer)/shop/menu', params: { shopId: item.id } })}>
             <View style={ss.cardIcon}><Text style={{ fontSize: 20 }}>🏪</Text></View>
             <Text style={ss.cardName}>{item.name}</Text>
             {item.tagline && <Text style={ss.cardTagline}>{item.tagline}</Text>}

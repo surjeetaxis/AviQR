@@ -3,7 +3,8 @@ import { View, Text, FlatList, StyleSheet, TouchableOpacity, TextInput, Modal, S
 import * as Print from 'expo-print';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
-import { menuApi, variantApi, addonApi, shopApi, posApi, invoiceApi } from '../../src/api/index.js';
+import QRCode from 'react-native-qrcode-svg';
+import { menuApi, variantApi, addonApi, shopApi, posApi, invoiceApi, shortcodeApi, diningAreaApi } from '../../src/api/index.js';
 import { Button } from '../../src/components/common/Button.js';
 import { Input } from '../../src/components/common/Input.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
@@ -47,25 +48,62 @@ export default function BillingScreen() {
   const [placing, setPlacing]         = useState(false);
   const [success, setSuccess]         = useState(null);
 
+  const [shortcode, setShortcode]     = useState('');
+  const [shortcodeBusy, setShortcodeBusy] = useState(false);
+  const [diningAreas, setDiningAreas] = useState([]);
+  const [diningArea, setDiningArea]   = useState(null);
+  const [areaPrices, setAreaPrices]   = useState({}); // { [menuItemId]: price }
+  const [upiId, setUpiId]             = useState('');
+
   const load = useCallback(async () => {
     if (!shopId) return;
     try {
-      const [c, i, a, s] = await Promise.allSettled([
+      const [c, i, a, s, d] = await Promise.allSettled([
         menuApi.getCategories(shopId),
         menuApi.getItems(shopId),
         addonApi.getByShop(shopId),
         shopApi.getSettings(shopId),
+        diningAreaApi.getByShop(shopId),
       ]);
       if (c.status === 'fulfilled') setCats(c.value.data.data || []);
       if (i.status === 'fulfilled') setItems(i.value.data.data || []);
       if (a.status === 'fulfilled') setAddons(a.value.data.data || []);
-      if (s.status === 'fulfilled') setTax(s.value.data.data?.taxPercent || 0);
+      if (s.status === 'fulfilled') { setTax(s.value.data.data?.taxPercent || 0); setUpiId(s.value.data.data?.upiId || ''); }
+      if (d.status === 'fulfilled') setDiningAreas(d.value.data.data || []);
       setOffline(c.status === 'rejected' && i.status === 'rejected');
       if (c.status === 'fulfilled' && (c.value.data.data || []).length && !selCat) setSelCat(c.value.data.data[0]);
     } catch { setOffline(true); }
   }, [shopId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const selectDiningArea = async (area) => {
+    setDiningArea(area);
+    if (!area) { setAreaPrices({}); return; }
+    try {
+      const res = await diningAreaApi.getPrices(area.id);
+      const map = {};
+      (res.data.data || []).forEach(p => { map[p.menuItemId] = p.price; });
+      setAreaPrices(map);
+    } catch { setAreaPrices({}); }
+  };
+
+  const lookupShortcode = async () => {
+    if (!shortcode.trim()) return;
+    setShortcodeBusy(true);
+    try {
+      const res = await shortcodeApi.lookup(shopId, shortcode.trim());
+      const r = res.data.data;
+      const unitPrice = areaPrices[r.itemId] ?? r.price;
+      setCart(prev => [...prev, {
+        key: `${r.itemId}-${r.variantId || 'base'}-${Date.now()}`,
+        menuItemId: r.itemId, name: r.itemName, variantName: r.variantName || null,
+        unitPrice: Number(unitPrice), addons: [], qty: 1, notes: '',
+      }]);
+      setShortcode('');
+    } catch { Alert.alert('Shortcode not found', `No item matches "${shortcode.trim()}"`); }
+    finally { setShortcodeBusy(false); }
+  };
 
   const filtered = items.filter(it => {
     if (selCat && it.categoryId !== selCat.id) return false;
@@ -91,7 +129,10 @@ export default function BillingScreen() {
     setPickAddons(prev => prev.some(a => a.id === addon.id) ? prev.filter(a => a.id !== addon.id) : [...prev, addon]);
   };
 
-  const pickUnitPrice = () => (pickVariant ? pickVariant.price : pickItem?.price) || 0;
+  const pickUnitPrice = () => {
+    if (!pickVariant && pickItem && areaPrices[pickItem.id] != null) return areaPrices[pickItem.id];
+    return (pickVariant ? pickVariant.price : pickItem?.price) || 0;
+  };
   const pickAddonTotal = () => pickAddons.reduce((s, a) => s + (a.price || 0), 0);
   const pickLineTotal = () => (pickUnitPrice() + pickAddonTotal()) * pickQty;
 
@@ -181,6 +222,22 @@ export default function BillingScreen() {
         <Text style={ss.title}>Billing</Text>
       </View>
       {offline && <OfflineBadge onRetry={load} />}
+      <View style={ss.quickRow}>
+        <TextInput style={ss.shortcodeInput} placeholder="⚡ Shortcode…" value={shortcode} onChangeText={setShortcode} placeholderTextColor={Colors.gray400} onSubmitEditing={lookupShortcode} autoCapitalize="none" />
+        <TouchableOpacity style={ss.shortcodeGo} onPress={lookupShortcode} disabled={shortcodeBusy}>
+          <Text style={ss.shortcodeGoTxt}>{shortcodeBusy ? '…' : 'Add'}</Text>
+        </TouchableOpacity>
+      </View>
+      {diningAreas.length > 0 && (
+        <FlatList horizontal showsHorizontalScrollIndicator={false} data={[{ id: null, name: 'Standard pricing' }, ...diningAreas]} keyExtractor={a => a.id || 'std'}
+          style={ss.catList}
+          renderItem={({ item: area }) => (
+            <TouchableOpacity style={[ss.catChip, (diningArea?.id || null) === area.id && ss.catActive]} onPress={() => selectDiningArea(area.id ? area : null)}>
+              <Text style={[ss.catTxt, (diningArea?.id || null) === area.id && ss.catActiveTxt]}>🪑 {area.name}</Text>
+            </TouchableOpacity>
+          )}
+        />
+      )}
       <TextInput style={ss.search} placeholder="Search items…" value={search} onChangeText={setSearch} placeholderTextColor={Colors.gray400} />
       <FlatList horizontal showsHorizontalScrollIndicator={false} data={cats} keyExtractor={c => c.id}
         style={ss.catList}
@@ -198,7 +255,14 @@ export default function BillingScreen() {
             <View style={[ss.vegDot, { backgroundColor: item.veg ? '#1D9E75' : '#DC2626' }]} />
             <View style={ss.itemInfo}>
               <Text style={ss.itemName}>{item.name}</Text>
-              <Text style={ss.itemPrice}>₹{item.price}</Text>
+              {areaPrices[item.id] != null && areaPrices[item.id] !== item.price ? (
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                  <Text style={[ss.itemPrice, { textDecorationLine: 'line-through', color: Colors.gray400, fontSize: FontSize.xs }]}>₹{item.price}</Text>
+                  <Text style={ss.itemPrice}>₹{areaPrices[item.id]}</Text>
+                </View>
+              ) : (
+                <Text style={ss.itemPrice}>₹{item.price}</Text>
+              )}
             </View>
             <Text style={ss.addTxt}>+ Add</Text>
           </TouchableOpacity>
@@ -320,6 +384,19 @@ export default function BillingScreen() {
                 ))}
               </View>
 
+              {payMethod === 'UPI' && upiId && (
+                <View style={ss.upiPanel}>
+                  <QRCode value={`upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(user?.shopName || 'Shop')}&am=${total.toFixed(2)}&cu=INR&tn=Order`} size={160} />
+                  <Text style={ss.upiScanTxt}>Scan &amp; Pay ₹{total.toFixed(0)}</Text>
+                  <Text style={ss.upiIdTxt}>{upiId}</Text>
+                </View>
+              )}
+              {payMethod === 'UPI' && !upiId && (
+                <View style={ss.upiHint}>
+                  <Text style={ss.upiHintTxt}>UPI QR not set up — add your UPI ID in Settings to enable this.</Text>
+                </View>
+              )}
+
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <Input label="Discount (₹)" placeholder="0" value={discount} onChangeText={setDiscount} keyboardType="decimal-pad" style={{ flex: 1 }} />
                 <Input label="Service Charge (₹)" placeholder="0" value={serviceCharge} onChangeText={setServiceCharge} keyboardType="decimal-pad" style={{ flex: 1 }} />
@@ -350,6 +427,15 @@ const ss = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
   title: { fontSize: FontSize['2xl'], fontWeight: '800', color: Colors.gray900 },
   search: { height: 40, backgroundColor: Colors.gray100, borderRadius: Radius.full, paddingHorizontal: 14, margin: 12, fontSize: FontSize.base, color: Colors.gray900 },
+  quickRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, marginTop: 8 },
+  shortcodeInput: { flex: 1, height: 38, backgroundColor: Colors.gray100, borderRadius: Radius.md, paddingHorizontal: 12, fontSize: FontSize.sm, color: Colors.gray900 },
+  shortcodeGo: { height: 38, paddingHorizontal: 16, backgroundColor: Colors.primary, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  shortcodeGoTxt: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
+  upiPanel: { alignItems: 'center', gap: 8, backgroundColor: '#F5F3FF', borderWidth: 1.5, borderColor: '#C4B5FD', borderRadius: Radius.lg, padding: 14, marginBottom: 12 },
+  upiScanTxt: { fontWeight: '700', color: '#5B21B6', fontSize: FontSize.sm },
+  upiIdTxt: { fontSize: FontSize.xs, color: '#7C3AED' },
+  upiHint: { backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A', borderRadius: Radius.md, padding: 10, marginBottom: 12 },
+  upiHintTxt: { fontSize: FontSize.xs, color: '#92400E' },
   catList: { paddingHorizontal: 12, paddingBottom: 8 },
   catChip: { flexDirection: 'row', alignItems: 'center', height: 34, paddingHorizontal: 14, borderRadius: Radius.full, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border, marginRight: 8 },
   catActive: { backgroundColor: Colors.gray900, borderColor: Colors.gray900 },

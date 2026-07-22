@@ -97,6 +97,9 @@ export const authApi = {
   logout:        ()     => api.post('/api/v1/auth/logout'),
   getProfile:    ()     => api.get('/api/v1/auth/profile'),
   updateProfile: (d)    => api.put('/api/v1/auth/profile', d),
+  // Backend is @PutMapping — web's client mistakenly calls this with POST, which
+  // 405s against the real endpoint. Using PUT here so it actually works.
+  changePassword: (d)   => api.put('/api/v1/auth/change-password', d),
   deactivateAccount: () => api.put('/api/v1/auth/deactivate', {}),
   getUsers:      (p)    => api.get('/api/v1/auth/admin/users', { params: p }),
   updateStatus:  (id,s) => api.put(`/api/v1/auth/admin/users/${id}/status?status=${s}`),
@@ -141,6 +144,16 @@ export const menuApi = {
   toggleAvail:    (id, a)     => api.put(`/api/v1/items/${id}/availability?available=${a}`),
   deleteItem:     (id)        => api.delete(`/api/v1/items/${id}`),
   copyToShops:    (fromShopId, toShopIds) => api.post('/api/v1/menu/copy', { fromShopId, toShopIds }),
+  getPricingRules: (sId)   => api.get(`/api/v1/pricing-rules/shop/${sId}`),
+  createRule:      (d)     => api.post('/api/v1/pricing-rules', d),
+  updateRule:      (id, d) => api.put(`/api/v1/pricing-rules/${id}`, d),
+  deleteRule:      (id)    => api.delete(`/api/v1/pricing-rules/${id}`),
+};
+
+// ── Aggregator (Zomato/Swiggy) integration mapping — one row per platform ───
+export const aggregatorConfigApi = {
+  getMapping:  (shopId)      => api.get(`/api/v1/aggregator/mapping/${shopId}`),
+  saveMapping: (d)           => api.post('/api/v1/aggregator/mapping', d),
 };
 
 // ── Raw materials (recipe ingredient master, supplier menu-sync copy) ───────
@@ -289,6 +302,8 @@ export const reportApi = {
   getRevenue:  (sId,d,token) => api.get(`/api/v1/reports/shop/${sId}/revenue?days=${d||7}`, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined),
   getTopItems: (sId)   => api.get(`/api/v1/reports/shop/${sId}/top-items`),
   getPeakHours:(sId)   => api.get(`/api/v1/reports/shop/${sId}/peak-hours`),
+  getTaxReport: (sId, startDate, endDate) => api.get(`/api/v1/reports/shop/${sId}/tax`, { params: { startDate, endDate } }),
+  exportTaxReport: (sId, startDate, endDate) => api.get(`/api/v1/reports/shop/${sId}/tax/export`, { params: { startDate, endDate }, responseType: 'text' }),
   getOrderTypes:      (sId, days) => api.get(`/api/v1/reports/shop/${sId}/order-types`, { params: { days } }),
   getAggregatorBreakdown: (sId, days) => api.get(`/api/v1/reports/shop/${sId}/aggregator-breakdown`, { params: { days } }),
   getHistory:  (sId, params) => api.get(`/api/v1/reports/shop/${sId}/history`, { params }),

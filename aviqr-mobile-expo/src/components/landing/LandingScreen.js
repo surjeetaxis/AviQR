@@ -11,6 +11,11 @@ import { Logo } from '../common/Logo.js';
 // of a multi-column desktop grid. Pricing pulls the same real endpoints the
 // web page uses (planApi.listPublic / offerApi.listActive), not static copy.
 
+// Real seeded public shop ("AviQR Demo Kitchen") — the demo CTA opens an
+// actual live menu backed by the real backend, not fabricated preview data
+// (web's own "/menu/demo" route is a hardcoded client-side mock for this exact button).
+const DEMO_SHOP_ID = '37b03f5b-564e-40be-a998-b42e52e24004';
+
 const STATS = [
   { value: 'Free',   label: 'Starter plan — no card' },
   { value: '9',      label: 'Indian languages' },
@@ -132,6 +137,9 @@ export default function LandingScreen() {
         <TouchableOpacity style={ss.ctaSecondary} onPress={() => router.push('/login')}>
           <Text style={ss.ctaSecondaryTxt}>Already have an account? Sign in</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={ss.ctaDemo} onPress={() => router.push({ pathname: '/(customer)/shop/menu', params: { shopId: DEMO_SHOP_ID } })}>
+          <Text style={ss.ctaDemoTxt}>▶ See live demo menu</Text>
+        </TouchableOpacity>
         <View style={ss.proofRow}>
           {['No app download', 'Live in 10 minutes', 'Cancel anytime'].map(t => (
             <Text key={t} style={ss.proofItem}>✓ {t}</Text>
@@ -163,6 +171,34 @@ export default function LandingScreen() {
             </View>
           </View>
         ))}
+
+        {/* Dish preview spotlight — mirrors web's icon-based mockup card (not a
+            real photo/video on either platform — it's an illustrative preview
+            of the feature, same as aviqr-ui-web's .dish-spotlight-visual). */}
+        <View style={ss.dishSpotlight}>
+          <View style={ss.dishBadge}><Text style={ss.dishBadgeTxt}>📹 Dish previews</Text></View>
+          <Text style={ss.dishTitle}>Let the dish sell itself</Text>
+          <Text style={ss.dishDesc}>Add a short video or a rotatable 3D model to any menu item — customers see exactly what's coming before they order.</Text>
+          <View style={ss.dishCard}>
+            <View style={ss.dishMedia}>
+              <Text style={{ fontSize: 36 }}>🍛</Text>
+              <View style={ss.dishPlayBtn}><Text style={{ color: Colors.white, fontSize: 12 }}>▶</Text></View>
+              <View style={ss.dish3dBadge}><Text style={ss.dish3dBadgeTxt}>360° 3D</Text></View>
+            </View>
+            <View style={ss.dishInfo}>
+              <View>
+                <Text style={ss.dishName}>Butter Chicken</Text>
+                <Text style={ss.dishSub}>Chef's special · ★ 4.8</Text>
+              </View>
+              <Text style={ss.dishPrice}>₹320</Text>
+            </View>
+            <View style={ss.dishTabs}>
+              {['Photo', 'Video', '3D'].map((t, i) => (
+                <View key={t} style={[ss.dishTab, i === 0 && ss.dishTabActive]}><Text style={[ss.dishTabTxt, i === 0 && ss.dishTabTxtActive]}>{t}</Text></View>
+              ))}
+            </View>
+          </View>
+        </View>
       </View>
 
       {/* For business */}
@@ -310,6 +346,8 @@ const ss = StyleSheet.create({
   ctaPrimaryTxt: { color: Colors.primaryDark, fontWeight: '800', fontSize: FontSize.base },
   ctaSecondary: { paddingVertical: 10, alignItems: 'center' },
   ctaSecondaryTxt: { color: Colors.white, fontWeight: '600', fontSize: FontSize.sm, textDecorationLine: 'underline' },
+  ctaDemo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)', borderRadius: Radius.full, paddingVertical: 10, marginTop: 4 },
+  ctaDemoTxt: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
   proofRow: { marginTop: 12, gap: 4 },
   proofItem: { color: 'rgba(255,255,255,0.8)', fontSize: FontSize.xs },
   statsBand: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: Colors.white, padding: Spacing.base, borderBottomWidth: 1, borderBottomColor: Colors.border },
@@ -326,6 +364,25 @@ const ss = StyleSheet.create({
   featureEmoji: { fontSize: 22 },
   featureTitle: { fontSize: FontSize.base, fontWeight: '700', color: Colors.gray900 },
   featureDesc: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 2, lineHeight: 16 },
+  dishSpotlight: { marginTop: 16, backgroundColor: '#F5FBF9', borderRadius: Radius.xl, padding: 18, borderWidth: 1, borderColor: '#D3EEE5' },
+  dishBadge: { alignSelf: 'flex-start', backgroundColor: Colors.primaryLight, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8 },
+  dishBadgeTxt: { fontSize: 11, fontWeight: '700', color: Colors.primaryDark },
+  dishTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900 },
+  dishDesc: { fontSize: FontSize.sm, color: Colors.gray600, marginTop: 6, lineHeight: 19, marginBottom: 14 },
+  dishCard: { backgroundColor: Colors.white, borderRadius: Radius.lg, ...Shadow.md, overflow: 'hidden' },
+  dishMedia: { height: 130, backgroundColor: '#FDECEA', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  dishPlayBtn: { position: 'absolute', width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
+  dish3dBadge: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3 },
+  dish3dBadgeTxt: { color: Colors.white, fontSize: 10, fontWeight: '700' },
+  dishInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12 },
+  dishName: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900 },
+  dishSub: { fontSize: FontSize.xs, color: Colors.gray400, marginTop: 2 },
+  dishPrice: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.primary },
+  dishTabs: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: Colors.gray100 },
+  dishTab: { flex: 1, alignItems: 'center', paddingVertical: 8 },
+  dishTabActive: { borderBottomWidth: 2, borderBottomColor: Colors.primary },
+  dishTabTxt: { fontSize: 11, fontWeight: '600', color: Colors.gray400 },
+  dishTabTxtActive: { color: Colors.primary },
   aiStrip: { backgroundColor: Colors.gray900, borderRadius: Radius.md, padding: 14, marginTop: 8 },
   aiStripHead: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm, marginBottom: 10 },
   pillWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

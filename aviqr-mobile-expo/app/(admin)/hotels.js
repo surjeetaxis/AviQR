@@ -88,6 +88,7 @@ export default function AdminHotelsScreen() {
             {[
               ['Hotel ID', selected.id], ['Owner ID', selected.ownerId], ['Phone', selected.phone],
               ['Email', selected.email], ['City', selected.city], ['Address', selected.address],
+              ['Plan', selected.subscriptionPlan || '—'], ['Total rooms (registered)', selected.totalRooms ?? '—'],
               ['Check-in / out', `${selected.checkInTime || '—'} / ${selected.checkOutTime || '—'}`],
               ['Enabled services', (selected.enabledServices || []).join(', ') || '—'],
               ['Status', selected.active === false ? 'Inactive' : 'Active'],

@@ -14,9 +14,9 @@ const TYPES = [
 ];
 
 function homeFor(role) {
-  if(role==='ADMIN')return'/(admin)/home';if(role==='SUPPORT')return'/(support)/home';
-  if(role==='HOTEL')return'/(hotel)/home';if(role==='MALL')return'/(mall)/home';
-  if(role==='SUPPLIER')return'/(supplier)/home';
+  if(role==='ADMIN')return'/(admin)/admin-home';if(role==='SUPPORT')return'/(support)/support-home';
+  if(role==='HOTEL')return'/(hotel)/hotel-home';if(role==='MALL')return'/(mall)/mall-home';
+  if(role==='SUPPLIER')return'/(supplier)/supplier-home';
   return'/(owner)/dashboard';
 }
 

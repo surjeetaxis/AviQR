@@ -46,19 +46,25 @@ export default function Dashboard() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [invites, setInvites]  = useState([]);
   const [respondingId, setRespondingId] = useState(null);
+  const [revenue, setRevenue] = useState([]);
+  const [topItems, setTopItems] = useState([]);
 
   const load = useCallback(async () => {
     try {
-      const [s, o, v] = await Promise.allSettled([
+      const [s, o, v, r, t] = await Promise.allSettled([
         reportApi.getDaily(shopId),
         orderApi.getLive(shopId),
         vendorRequestApi.mine(shopId),
+        reportApi.getRevenue(shopId, 7),
+        reportApi.getTopItems(shopId),
       ]);
       if (s.status === 'fulfilled') { setStats(s.value.data.data); setOffline(false); }
       else setOffline(true);
       if (o.status === 'fulfilled') setOrders(o.value.data.data || []);
       else if (!stats) setOrders(MOCK_ORDERS); // only show mock if no real data yet
       if (v.status === 'fulfilled') setInvites(v.value.data.data || []);
+      if (r.status === 'fulfilled') setRevenue(r.value.data.data || []);
+      if (t.status === 'fulfilled') setTopItems((t.value.data.data || []).slice(0, 5));
     } catch {
       setOffline(true);
       if (!stats) setStats(MOCK_STATS);
@@ -189,6 +195,36 @@ export default function Dashboard() {
           ))}
         </View>
 
+        {/* Revenue trend + top items */}
+        {revenue.length > 0 && (
+          <View style={ss.chartCard}>
+            <Text style={ss.sectionTitle2}>Revenue trend (7 days)</Text>
+            <View style={ss.chartWrap}>
+              {revenue.map((r, i) => {
+                const max = Math.max(1, ...revenue.map(x => Number(x.revenue || 0)));
+                return (
+                  <View key={i} style={ss.barCol}>
+                    <View style={[ss.bar, { height: Math.max(4, (Number(r.revenue || 0) / max) * 90) }]} />
+                    <Text style={ss.barLabel}>{String(r.date || '').slice(-5)}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+        {topItems.length > 0 && (
+          <View style={ss.chartCard}>
+            <Text style={ss.sectionTitle2}>Top selling items</Text>
+            {topItems.map((item, i) => (
+              <View key={i} style={ss.topRow}>
+                <Text style={ss.topRank}>#{i + 1}</Text>
+                <Text style={ss.topName} numberOfLines={1}>{item.name}</Text>
+                <Text style={ss.topRev}>₹{fmt(item.revenue)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Quick actions */}
         <Text style={ss.sectionTitle}>Quick actions</Text>
         <View style={ss.quickGrid}>
@@ -286,6 +322,16 @@ const ss = StyleSheet.create({
   kpiLabel2:  { fontSize:11, color:'#6B7280', marginTop:2 },
   sectionHeader: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginTop:16, marginBottom:8 },
   sectionTitle:  { fontSize:16, fontWeight:'700', color:'#111827', marginTop:8, marginBottom:6 },
+  chartCard:     { backgroundColor: Colors.white, borderRadius: Radius.lg, padding: 14, marginTop: 8, ...Shadow.sm },
+  sectionTitle2: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 12 },
+  chartWrap:     { flexDirection: 'row', alignItems: 'flex-end', height: 110, gap: 4 },
+  barCol:        { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
+  bar:           { width: '70%', backgroundColor: Colors.primary, borderRadius: 3, minHeight: 4 },
+  barLabel:      { fontSize: 9, color: Colors.gray400, textAlign: 'center' },
+  topRow:        { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
+  topRank:       { width: 26, fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray400 },
+  topName:       { flex: 1, fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900 },
+  topRev:        { fontSize: FontSize.sm, fontWeight: '800', color: Colors.primary },
   seeAll:     { fontSize:13, color:'#1D9E75', fontWeight:'600' },
   quickGrid:  { flexDirection:'row', flexWrap:'wrap', gap:10 },
   quickCard:  { width:'30%', backgroundColor:'white', borderRadius:12, padding:14, alignItems:'center', ...Shadow.sm, position:'relative' },

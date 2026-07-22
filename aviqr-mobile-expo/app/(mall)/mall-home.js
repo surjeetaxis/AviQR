@@ -9,6 +9,7 @@ import { BottomSheet } from '../../src/components/common/BottomSheet.js';
 import { Input } from '../../src/components/common/Input.js';
 import { Button } from '../../src/components/common/Button.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
+import { QrPosterStudio } from '../../src/components/common/QrPosterStudio.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 const LINK_STATUS_CFG = {
@@ -23,12 +24,12 @@ const LINK_FILTERS = [
   { key: 'REJECTED', label: 'Rejected' },
 ];
 const NAV_ITEMS = [
-  { icon: '🧾', label: 'Orders',       href: '/(mall)/orders' },
+  { icon: '🧾', label: 'Orders',       href: '/(mall)/mall-orders' },
   { icon: '💰', label: 'Revenue Share', href: '/(mall)/revenue' },
   { icon: '📱', label: 'QR Code',      href: '/(mall)/qrcode' },
-  { icon: '📊', label: 'Reports',      href: '/(mall)/reports' },
-  { icon: '⭐', label: 'Subscription', href: '/(mall)/subscription' },
-  { icon: '⚙️', label: 'Settings',     href: '/(mall)/settings' },
+  { icon: '📊', label: 'Reports',      href: '/(mall)/mall-reports' },
+  { icon: '⭐', label: 'Subscription', href: '/(mall)/mall-subscription' },
+  { icon: '⚙️', label: 'Settings',     href: '/(mall)/mall-settings' },
 ];
 
 export default function MallHomeScreen() {
@@ -44,6 +45,7 @@ export default function MallHomeScreen() {
   const [linkFilter, setLinkFilter] = useState('all');
   const [inviteSheet, setInviteSheet] = useState(false);
   const [inviteShopId, setInviteShopId] = useState('');
+  const [qrVendor, setQrVendor] = useState(null);
   const [inviting, setInviting] = useState(false);
   const set = (k,v) => setForm(f => ({ ...f, [k]:v }));
 
@@ -135,6 +137,11 @@ export default function MallHomeScreen() {
           </View>
         </View>
         <View style={styles.vendorRight}>
+          {vendor.shopId && (
+            <TouchableOpacity onPress={() => setQrVendor(vendor)}>
+              <Text style={{ fontSize: 16, color: Colors.primary }}>📱</Text>
+            </TouchableOpacity>
+          )}
           <Switch value={!!vendor.active} onValueChange={() => toggleVendor(vendor)} trackColor={{ true: Colors.primary }} thumbColor={Colors.white} />
           <TouchableOpacity onPress={() => deleteVendor(vendor)}>
             <Text style={{ fontSize: 16, color: Colors.error }}>🗑️</Text>
@@ -224,6 +231,14 @@ export default function MallHomeScreen() {
         <Input label="Restaurant shop ID" placeholder="e.g. ecdbc557-91fa-44ee-992f-03683ad8bbde" value={inviteShopId} onChangeText={setInviteShopId} autoCapitalize="none" />
         <Button title={inviting ? 'Sending…' : 'Send Invite'} onPress={inviteRestaurant} loading={inviting} style={{ marginTop: 12 }} />
       </BottomSheet>
+
+      <QrPosterStudio
+        visible={!!qrVendor}
+        onClose={() => setQrVendor(null)}
+        shopId={qrVendor?.shopId}
+        shopName={qrVendor?.name}
+        targetUrl={qrVendor?.shopId ? `https://aviqr.in/menu/${qrVendor.shopId}` : undefined}
+      />
     </View>
   );
 }

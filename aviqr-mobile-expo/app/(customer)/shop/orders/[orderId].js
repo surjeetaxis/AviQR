@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { orderApi } from '../../../src/api/index.js';
-import { PageHeader } from '../../../src/components/common/PageHeader.js';
-import { Colors, FontSize, Spacing, Radius, Shadow } from '../../../src/theme/index.js';
+import { orderApi } from '../../../../src/api/index.js';
+import { PageHeader } from '../../../../src/components/common/PageHeader.js';
+import { OrderCodePanel } from '../../../../src/components/common/OrderCodePanel.js';
+import { Colors, FontSize, Spacing, Radius, Shadow } from '../../../../src/theme/index.js';
 
 const STATUS_COLOR = { PENDING_PAYMENT: '#D97706', NEW: '#F59E0B', ACCEPTED: '#2563EB', PREPARING: '#2563EB', READY: '#059669', COMPLETED: '#6B7280', CANCELLED: '#DC2626', REJECTED: '#DC2626' };
 const PROGRESS_STEPS = ['ACCEPTED', 'PREPARING', 'READY', 'COMPLETED'];
@@ -63,6 +64,8 @@ export default function CustomerOrderDetailScreen() {
           </View>
         )}
 
+        <View style={{ marginBottom: 16 }}><OrderCodePanel order={order} /></View>
+
         <Text style={ss.sectionTitle}>Items</Text>
         <View style={ss.card}>
           {(order.items || []).map((it, i) => (
@@ -83,7 +86,7 @@ export default function CustomerOrderDetailScreen() {
           <View style={[ss.billRow, ss.billTotal]}><Text style={ss.totalLabel}>Total</Text><Text style={ss.totalVal}>₹{order.totalAmount}</Text></View>
         </View>
 
-        <TouchableOpacity style={ss.menuLink} onPress={() => router.push({ pathname: '/(customer)/menu', params: { shopId: order.shopId } })}>
+        <TouchableOpacity style={ss.menuLink} onPress={() => router.push({ pathname: '/(customer)/shop/menu', params: { shopId: order.shopId } })}>
           <Text style={ss.menuLinkTxt}>View shop menu</Text>
           <Text style={{ fontSize: 16, color: Colors.gray400 }}>›</Text>
         </TouchableOpacity>

@@ -20,6 +20,8 @@ export default function AdminQrCodesScreen() {
   const [selected, setSelected] = useState(null);
   const [toggling, setToggling] = useState({});
   const [studioOpen, setStudioOpen] = useState(false);
+  const [typeF, setTypeF] = useState('');
+  const [activeF, setActiveF] = useState('');
 
   const load = useCallback(async (pg = 0) => {
     setLoading(true);
@@ -46,14 +48,40 @@ export default function AdminQrCodesScreen() {
   };
 
   const totalScans = codes.reduce((s, c) => s + (c.scanCount || 0), 0);
+  const activeCount = codes.filter(c => c.active).length;
+  const types = ['', ...Array.from(new Set(codes.map(c => c.type).filter(Boolean)))];
+  const filtered = codes
+    .filter(c => !typeF || c.type === typeF)
+    .filter(c => !activeF || (activeF === 'active' ? c.active : !c.active));
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <PageHeader title={`QR Codes · ${codes.length}`} />
       {offline && <OfflineBadge onRetry={() => load(page)} />}
-      <Text style={ss.subheading}>{totalScans.toLocaleString('en-IN')} total scans</Text>
+
+      <View style={ss.statGrid}>
+        <View style={ss.statCard}><Text style={ss.statVal}>{codes.length}</Text><Text style={ss.statLabel}>This page</Text></View>
+        <View style={ss.statCard}><Text style={[ss.statVal, { color: '#059669' }]}>{activeCount}</Text><Text style={ss.statLabel}>Active</Text></View>
+        <View style={ss.statCard}><Text style={[ss.statVal, { color: '#6B7280' }]}>{codes.length - activeCount}</Text><Text style={ss.statLabel}>Inactive</Text></View>
+        <View style={ss.statCard}><Text style={[ss.statVal, { color: '#7C3AED' }]}>{totalScans.toLocaleString('en-IN')}</Text><Text style={ss.statLabel}>Total scans</Text></View>
+      </View>
+
+      <View style={ss.filterRow}>
+        {types.map(t => (
+          <TouchableOpacity key={t || 'all'} style={[ss.filterChip, typeF === t && ss.filterChipActive]} onPress={() => setTypeF(t)}>
+            <Text style={[ss.filterChipTxt, typeF === t && ss.filterChipTxtActive]}>{t || 'All types'}</Text>
+          </TouchableOpacity>
+        ))}
+        {['', 'active', 'inactive'].map(a => (
+          <TouchableOpacity key={a || 'allstatus'} style={[ss.filterChip, activeF === a && ss.filterChipActive]} onPress={() => setActiveF(a)}>
+            <Text style={[ss.filterChipTxt, activeF === a && ss.filterChipTxtActive]}>{a === '' ? 'All status' : a === 'active' ? 'Active' : 'Inactive'}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Text style={ss.filterHint}>Filters apply to this page only ({codes.length} codes) — the backend doesn't support server-side filtering yet</Text>
+
       <FlatList
-        data={codes}
+        data={filtered}
         keyExtractor={c => c.id}
         contentContainerStyle={{ padding: Spacing.base, gap: 8, paddingBottom: 20 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRef(true); await load(0); setRef(false); }} tintColor={Colors.primary} />}
@@ -119,6 +147,16 @@ export default function AdminQrCodesScreen() {
 
 const ss = StyleSheet.create({
   subheading: { fontSize: FontSize.xs, color: Colors.gray400, paddingHorizontal: Spacing.base, marginTop: 8 },
+  statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: Spacing.base, paddingBottom: 4 },
+  statCard: { flexGrow: 1, minWidth: '22%', alignItems: 'center', backgroundColor: Colors.white, borderRadius: Radius.lg, paddingVertical: 10, borderWidth: 1, borderColor: Colors.border },
+  statVal: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900 },
+  statLabel: { fontSize: 10, color: Colors.gray500, marginTop: 2 },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: Spacing.base, paddingTop: 6 },
+  filterChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: Radius.full, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
+  filterChipActive: { backgroundColor: Colors.gray900, borderColor: Colors.gray900 },
+  filterChipTxt: { fontSize: 11, fontWeight: '600', color: Colors.gray600 },
+  filterChipTxtActive: { color: Colors.white },
+  filterHint: { fontSize: 10, color: Colors.gray400, paddingHorizontal: Spacing.base, marginTop: 6 },
   card: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.base, gap: 8, ...Shadow.sm },
   code: { fontSize: FontSize.sm, fontWeight: '800', color: '#7C3AED' },
   sub: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 2 },

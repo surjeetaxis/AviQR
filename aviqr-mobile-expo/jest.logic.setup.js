@@ -6,6 +6,7 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(async (k) => { delete _store[k]; }),
 }), { virtual: true });
 jest.mock('react-native', () => ({ Platform: { OS: 'android' } }), { virtual: true });
+jest.mock('expo-constants', () => ({ expoConfig: { hostUri: undefined, extra: {} } }), { virtual: true });
 
 // React Native global flag, undefined in plain node
 global.__DEV__ = true;

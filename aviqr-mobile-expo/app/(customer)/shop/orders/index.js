@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { orderApi } from '../../../src/api/index.js';
-import { useAuth } from '../../../src/context/AuthContext.js';
-import { PageHeader } from '../../../src/components/common/PageHeader.js';
-import { EmptyState } from '../../../src/components/common/EmptyState.js';
-import { CustomerBottomNav } from '../../../src/components/common/CustomerBottomNav.js';
-import { Colors, FontSize, Spacing, Radius, Shadow } from '../../../src/theme/index.js';
+import { orderApi } from '../../../../src/api/index.js';
+import { useAuth } from '../../../../src/context/AuthContext.js';
+import { PageHeader } from '../../../../src/components/common/PageHeader.js';
+import { EmptyState } from '../../../../src/components/common/EmptyState.js';
+import { CustomerBottomNav } from '../../../../src/components/common/CustomerBottomNav.js';
+import { Colors, FontSize, Spacing, Radius, Shadow } from '../../../../src/theme/index.js';
 
 const STATUS_COLOR = { PENDING_PAYMENT: '#D97706', NEW: '#F59E0B', ACCEPTED: '#2563EB', PREPARING: '#2563EB', READY: '#059669', COMPLETED: '#6B7280', CANCELLED: '#DC2626', REJECTED: '#DC2626' };
 
@@ -26,11 +26,11 @@ export default function CustomerOrdersScreen() {
   // it previously only rendered on menu.js.
   const handleTabChange = (key) => {
     if (key === 'orders') return; // already here
-    if (key === 'profile') return router.push(shopId ? { pathname: '/(customer)/profile', params: { shopId } } : '/(customer)/profile');
+    if (key === 'profile') return router.push(shopId ? { pathname: '/(customer)/shop/profile', params: { shopId } } : '/(customer)/shop/profile');
     // home/search/cart all live on the menu screen — this screen has no
     // shop context of its own beyond whichever shop the customer arrived
     // from (if any).
-    router.push(shopId ? { pathname: '/(customer)/menu', params: { shopId } } : '/(customer)/menu');
+    router.push(shopId ? { pathname: '/(customer)/shop/menu', params: { shopId } } : '/(customer)/shop/menu');
   };
 
   const load = useCallback(() => {
@@ -70,7 +70,7 @@ export default function CustomerOrdersScreen() {
           contentContainerStyle={{ padding: Spacing.base, gap: 8, paddingBottom: 100 }}
           ListEmptyComponent={<EmptyState icon="📦" title="No orders yet" />}
           renderItem={({ item }) => (
-            <TouchableOpacity style={ss.card} onPress={() => router.push(`/(customer)/orders/${item.id}`)} activeOpacity={0.8}>
+            <TouchableOpacity style={ss.card} onPress={() => router.push(`/(customer)/shop/orders/${item.id}`)} activeOpacity={0.8}>
               <View style={{ flex: 1 }}>
                 <Text style={ss.orderNum}>#{item.orderNumber || item.id?.slice(0, 8)}</Text>
                 <Text style={ss.sub}>{(item.items || []).length} item{(item.items || []).length !== 1 ? 's' : ''} · ₹{item.totalAmount}</Text>

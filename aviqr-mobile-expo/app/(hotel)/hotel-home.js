@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Alert, Modal, ScrollView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, RefreshControl, Alert, Modal, ScrollView, Image, Switch } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { hotelApi, hotelOpsApi } from '../../src/api/index.js';
+import { hotelApi, hotelOpsApi, qrApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { Logo } from '../../src/components/common/Logo.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
 import { Card } from '../../src/components/common/Card.js';
+import { Input } from '../../src/components/common/Input.js';
+import { Button } from '../../src/components/common/Button.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 const SERVICE_TYPES = [
@@ -29,9 +31,9 @@ const NAV_ITEMS = [
   { icon: '🧹', label: 'Service Desk', href: '/(hotel)/service-desk' },
   { icon: '👔', label: 'Hotel Staff',  href: '/(hotel)/hotel-staff' },
   { icon: '📱', label: 'QR Mgmt',      href: '/(hotel)/qr-management' },
-  { icon: '📊', label: 'Reports',      href: '/(hotel)/reports' },
-  { icon: '⭐', label: 'Subscription', href: '/(hotel)/subscription' },
-  { icon: '⚙️', label: 'Settings',     href: '/(hotel)/settings' },
+  { icon: '📊', label: 'Reports',      href: '/(hotel)/hotel-reports' },
+  { icon: '⭐', label: 'Subscription', href: '/(hotel)/hotel-subscription' },
+  { icon: '⚙️', label: 'Settings',     href: '/(hotel)/hotel-settings' },
 ];
 
 // Normalise a QR-raised GuestServiceRequest into the same shape as legacy RoomRequest
@@ -56,6 +58,10 @@ export default function HotelHomeScreen() {
   const [tab, setTab]             = useState('requests');
   const [refreshing, setRef]      = useState(false);
   const [billRoom, setBillRoom]   = useState(null);
+  const [qrRoom, setQrRoom]       = useState(null);
+  const [addRoom, setAddRoom]     = useState(false);
+  const [roomForm, setRoomForm]   = useState({ roomNumber: '', roomType: '', floor: '' });
+  const [savingRoom, setSavingRoom] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -107,6 +113,33 @@ export default function HotelHomeScreen() {
     catch { Alert.alert('Failed to update booking'); }
   };
 
+  const submitAddRoom = async () => {
+    if (!roomForm.roomNumber.trim() || !selectedHotel) return Alert.alert('Room number is required');
+    setSavingRoom(true);
+    try {
+      const res = await hotelApi.createRoom({ hotelId: selectedHotel.id, ...roomForm });
+      setRooms(prev => [...prev, res.data.data]);
+      setAddRoom(false);
+      setRoomForm({ roomNumber: '', roomType: '', floor: '' });
+    } catch { Alert.alert('Could not add room'); }
+    finally { setSavingRoom(false); }
+  };
+
+  const toggleRoomQr = async (room) => {
+    try {
+      await hotelApi.toggleRoomQr(room.id, !room.qrActive);
+      setRooms(prev => prev.map(r => r.id === room.id ? { ...r, qrActive: !r.qrActive } : r));
+      setQrRoom(prev => prev ? { ...prev, qrActive: !prev.qrActive } : prev);
+    } catch { Alert.alert('Failed to update QR'); }
+  };
+
+  const createRoomQrCode = async (room) => {
+    try {
+      const res = await hotelApi.createRoomQr(room.id);
+      setQrRoom(prev => prev ? { ...prev, _qr: res.data.data } : prev);
+    } catch { Alert.alert('Could not generate QR code'); }
+  };
+
   const liveRequests  = requests.filter(r => r.status !== 'DONE' && r.status !== 'CANCELLED');
   const occupiedRooms = rooms.filter(r => r.status === 'OCCUPIED').length;
   const urgentCount   = liveRequests.filter(r => r.priority === 'HIGH' || r.priority === 'URGENT').length;
@@ -150,11 +183,16 @@ export default function HotelHomeScreen() {
         </View>
       )}
       {room.checkInDate && <Text style={styles.roomDates}>In: {room.checkInDate} · Out: {room.checkOutDate}</Text>}
-      {room.status === 'OCCUPIED' && (
-        <TouchableOpacity style={styles.billBtn} onPress={() => setBillRoom(room)}>
-          <Text style={styles.billBtnText}>💳 Bill</Text>
+      <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+        {room.status === 'OCCUPIED' && (
+          <TouchableOpacity style={styles.billBtn} onPress={() => setBillRoom(room)}>
+            <Text style={styles.billBtnText}>💳 Bill</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={styles.qrBtn} onPress={() => setQrRoom(room)}>
+          <Text style={styles.qrBtnText}>📱 QR</Text>
         </TouchableOpacity>
-      )}
+      </View>
     </Card>
   );
 
@@ -282,10 +320,56 @@ export default function HotelHomeScreen() {
           renderItem={({ item }) => <View style={{ flex: 1, margin: 5 }}><RoomCard room={item} /></View>}
           contentContainerStyle={{ padding: Spacing.sm, paddingBottom: 32 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.white} />}
+          ListHeaderComponent={
+            <TouchableOpacity style={styles.addRoomBtn} onPress={() => setAddRoom(true)}>
+              <Text style={styles.addRoomBtnText}>+ Add Room</Text>
+            </TouchableOpacity>
+          }
         />
       )}
 
       {billRoom && <RoomBillModal room={billRoom} onClose={() => setBillRoom(null)} />}
+
+      <Modal visible={addRoom} transparent animationType="slide" onRequestClose={() => setAddRoom(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>Add Room</Text>
+              <TouchableOpacity onPress={() => setAddRoom(false)} style={styles.modalClose}><Text>✕</Text></TouchableOpacity>
+            </View>
+            <Input label="Room number *" placeholder="204" value={roomForm.roomNumber} onChangeText={v => setRoomForm(f => ({ ...f, roomNumber: v }))} />
+            <Input label="Room type" placeholder="Deluxe, Suite…" value={roomForm.roomType} onChangeText={v => setRoomForm(f => ({ ...f, roomType: v }))} />
+            <Input label="Floor" placeholder="2nd Floor" value={roomForm.floor} onChangeText={v => setRoomForm(f => ({ ...f, floor: v }))} />
+            <Button title={savingRoom ? 'Adding…' : 'Add Room'} onPress={submitAddRoom} loading={savingRoom} style={{ marginTop: 8 }} />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!qrRoom} transparent animationType="slide" onRequestClose={() => setQrRoom(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>Room {qrRoom?.roomNumber} QR</Text>
+              <TouchableOpacity onPress={() => setQrRoom(null)} style={styles.modalClose}><Text>✕</Text></TouchableOpacity>
+            </View>
+            {qrRoom && (
+              <View style={{ alignItems: 'center' }}>
+                {qrRoom._qr ? (
+                  <Image source={{ uri: qrApi.imageUrl(qrRoom._qr.qrCode) }} style={{ width: 200, height: 200, borderRadius: Radius.md, marginBottom: 12 }} />
+                ) : (
+                  <TouchableOpacity style={styles.settleBtn} onPress={() => createRoomQrCode(qrRoom)}>
+                    <Text style={styles.settleBtnText}>Generate QR Code</Text>
+                  </TouchableOpacity>
+                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 12, paddingHorizontal: 8 }}>
+                  <Text style={{ fontWeight: '700' }}>QR active</Text>
+                  <Switch value={!!qrRoom.qrActive} onValueChange={() => toggleRoomQr(qrRoom)} trackColor={{ true: Colors.primary }} />
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -393,8 +477,12 @@ const styles = StyleSheet.create({
   guestInfo:    { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   guestName:    { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '600' },
   roomDates:    { fontSize: FontSize.xs, color: Colors.gray400, marginTop: 2 },
-  billBtn:      { marginTop: 8, alignSelf: 'flex-start', backgroundColor: Colors.primaryLight, paddingVertical: 5, paddingHorizontal: 10, borderRadius: Radius.md },
+  billBtn:      { alignSelf: 'flex-start', backgroundColor: Colors.primaryLight, paddingVertical: 5, paddingHorizontal: 10, borderRadius: Radius.md },
   billBtnText:  { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  qrBtn:        { alignSelf: 'flex-start', backgroundColor: Colors.gray100, paddingVertical: 5, paddingHorizontal: 10, borderRadius: Radius.md },
+  qrBtnText:    { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray700 },
+  addRoomBtn:   { alignItems: 'center', paddingVertical: 12, margin: 5, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: '#7C3AED', borderStyle: 'dashed' },
+  addRoomBtnText: { color: '#7C3AED', fontWeight: '700', fontSize: FontSize.sm },
   emptyWrap:    { alignItems: 'center', paddingTop: 60 },
   emptyEmoji:   { fontSize: 48, marginBottom: 12 },
   emptyText:    { fontSize: FontSize.base, color: Colors.gray400, textAlign: 'center' },

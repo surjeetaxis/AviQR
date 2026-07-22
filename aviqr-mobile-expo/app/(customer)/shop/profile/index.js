@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { favoritesApi, loyaltyApi, authApi } from '../../../src/api/index.js';
-import { useAuth } from '../../../src/context/AuthContext.js';
-import { PageHeader } from '../../../src/components/common/PageHeader.js';
-import { Input } from '../../../src/components/common/Input.js';
-import { Button } from '../../../src/components/common/Button.js';
-import { BottomSheet } from '../../../src/components/common/BottomSheet.js';
-import { CustomerBottomNav } from '../../../src/components/common/CustomerBottomNav.js';
-import { Colors, FontSize, Spacing, Radius, Shadow } from '../../../src/theme/index.js';
+import { favoritesApi, loyaltyApi, authApi } from '../../../../src/api/index.js';
+import { useAuth } from '../../../../src/context/AuthContext.js';
+import { PageHeader } from '../../../../src/components/common/PageHeader.js';
+import { Input } from '../../../../src/components/common/Input.js';
+import { Button } from '../../../../src/components/common/Button.js';
+import { BottomSheet } from '../../../../src/components/common/BottomSheet.js';
+import { CustomerBottomNav } from '../../../../src/components/common/CustomerBottomNav.js';
+import { Colors, FontSize, Spacing, Radius, Shadow } from '../../../../src/theme/index.js';
 
 const LANGUAGES = [
   { code: 'en', label: 'English' }, { code: 'hi', label: 'Hindi' }, { code: 'ta', label: 'Tamil' },
@@ -36,8 +36,8 @@ export default function CustomerProfileScreen() {
   // it previously only rendered on menu.js.
   const handleTabChange = (key) => {
     if (key === 'profile') return; // already here
-    if (key === 'orders') return router.push(currentShopId ? { pathname: '/(customer)/orders', params: { shopId: currentShopId } } : '/(customer)/orders');
-    router.push(currentShopId ? { pathname: '/(customer)/menu', params: { shopId: currentShopId } } : '/(customer)/menu');
+    if (key === 'orders') return router.push(currentShopId ? { pathname: '/(customer)/shop/orders', params: { shopId: currentShopId } } : '/(customer)/shop/orders');
+    router.push(currentShopId ? { pathname: '/(customer)/shop/menu', params: { shopId: currentShopId } } : '/(customer)/shop/menu');
   };
 
   useEffect(() => {
@@ -105,12 +105,12 @@ export default function CustomerProfileScreen() {
         </View>
 
         <Text style={ss.sectionTitle}>ACCOUNT</Text>
-        <TouchableOpacity style={ss.navRow} onPress={() => router.push('/(customer)/orders')}>
+        <TouchableOpacity style={ss.navRow} onPress={() => router.push('/(customer)/shop/orders')}>
           <Text style={ss.navIcon}>📦</Text>
           <Text style={ss.navLabel}>Order History</Text>
           <Text style={ss.chevron}>›</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={ss.navRow} onPress={() => router.push('/(customer)/profile/addresses')}>
+        <TouchableOpacity style={ss.navRow} onPress={() => router.push('/(customer)/shop/profile/addresses')}>
           <Text style={ss.navIcon}>📍</Text>
           <Text style={ss.navLabel}>Saved Addresses</Text>
           <Text style={ss.chevron}>›</Text>
@@ -131,7 +131,7 @@ export default function CustomerProfileScreen() {
           <Text style={ss.hint}>No favorites yet — tap the heart on a restaurant to save it here.</Text>
         ) : favorites.map(f => (
           <View key={f.shopId} style={ss.favRow}>
-            <TouchableOpacity style={{ flex: 1 }} onPress={() => router.push({ pathname: '/(customer)/menu', params: { shopId: f.shopId } })}>
+            <TouchableOpacity style={{ flex: 1 }} onPress={() => router.push({ pathname: '/(customer)/shop/menu', params: { shopId: f.shopId } })}>
               <Text style={ss.favName}>{f.shopName}</Text>
               {f.city && <Text style={ss.favCity}>{f.city}</Text>}
             </TouchableOpacity>

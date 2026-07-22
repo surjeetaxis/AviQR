@@ -61,7 +61,7 @@ export default function FoodCourtHomeScreen() {
           <TouchableOpacity
             style={[ss.card, !item.shopId && { opacity: 0.5 }]}
             disabled={!item.shopId}
-            onPress={() => item.shopId && router.push({ pathname: '/(customer)/menu', params: { shopId: item.shopId } })}
+            onPress={() => item.shopId && router.push({ pathname: '/(customer)/shop/menu', params: { shopId: item.shopId } })}
           >
             <View style={ss.cardIcon}><Text style={{ fontSize: 20 }}>🍴</Text></View>
             <Text style={ss.cardName}>{item.name}</Text>

@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, ScrollView, SectionList, FlatList, StyleSheet,
-  TouchableOpacity, TextInput, Image, Alert, Animated, Share, Linking
+  TouchableOpacity, TextInput, Image, Alert, Animated, Share, Linking, Modal, Dimensions
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { menuApi, orderApi, paymentApi } from '../../src/api/index.js';
-import { useAuth } from '../../src/context/AuthContext.js';
-import { Button } from '../../src/components/common/Button.js';
-import { BottomSheet } from '../../src/components/common/BottomSheet.js';
-import { StatusBadge } from '../../src/components/common/StatusBadge.js';
-import { CustomerBottomNav } from '../../src/components/common/CustomerBottomNav.js';
-import { SearchIcon, MinusIcon, PlusIcon, ArrowRightIcon, ShoppingBagIcon } from '../../src/components/common/NavIcons.js';
-import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
+import { menuApi, orderApi, paymentApi } from '../../../src/api/index.js';
+import { useAuth } from '../../../src/context/AuthContext.js';
+import { Button } from '../../../src/components/common/Button.js';
+import { BottomSheet } from '../../../src/components/common/BottomSheet.js';
+import { StatusBadge } from '../../../src/components/common/StatusBadge.js';
+import { CustomerBottomNav } from '../../../src/components/common/CustomerBottomNav.js';
+import { OrderCodePanel } from '../../../src/components/common/OrderCodePanel.js';
+import { SearchIcon, MinusIcon, PlusIcon, ArrowRightIcon, ShoppingBagIcon } from '../../../src/components/common/NavIcons.js';
+import { Colors, FontSize, Spacing, Radius, Shadow } from '../../../src/theme/index.js';
 
 // Mirrors aviqr-ui-web's LANGUAGES list (CustomerMenu.jsx) — same order/codes,
 // so a shopper sees the same language picker on both platforms.
@@ -50,6 +51,7 @@ export default function CustomerMenuScreen() {
   const [lang, setLang]         = useState(langParam);
   const [showLang, setShowLang] = useState(false);
   const [favorited, setFavorited] = useState(false);
+  const [detailItem, setDetailItem] = useState(null);
   const searchInputRef = useRef(null);
   const sectionListRef = useRef(null);
 
@@ -57,8 +59,8 @@ export default function CustomerMenuScreen() {
     setActiveTab(key);
     if (key === 'search') searchInputRef.current?.focus();
     else if (key === 'cart') setCartOpen(true);
-    else if (key === 'orders') router.push({ pathname: '/(customer)/orders', params: { shopId } });
-    else if (key === 'profile') router.push({ pathname: '/(customer)/profile', params: { shopId } });
+    else if (key === 'orders') router.push({ pathname: '/(customer)/shop/orders', params: { shopId } });
+    else if (key === 'profile') router.push({ pathname: '/(customer)/shop/profile', params: { shopId } });
   };
 
   useEffect(() => { loadMenu(); }, [shopId, lang]);
@@ -113,7 +115,7 @@ export default function CustomerMenuScreen() {
       const orderData = {
         customerName:  customerInfo.name,
         customerPhone: customerInfo.phone,
-        tableNumber:   customerInfo.table || tableNumber,
+        tableNumber:   customerInfo.orderType === 'DINE_IN' ? (customerInfo.table || tableNumber) : null,
         paymentMethod: customerInfo.paymentMethod,
         type: customerInfo.orderType,
         items: cartItems.map(i => ({ menuItemId: i.id, itemName: i.name, quantity: i.qty, unitPrice: i.effectivePrice })),
@@ -142,7 +144,7 @@ export default function CustomerMenuScreen() {
     const imageCount = item.images?.length || (item.imageUrl ? 1 : 0);
     const openMedia = (url) => { if (url) Linking.openURL(url).catch(() => {}); };
     return (
-      <View style={styles.menuItem}>
+      <TouchableOpacity style={styles.menuItem} activeOpacity={0.85} onPress={() => setDetailItem(item)}>
         <View style={styles.menuItemLeft}>
           <View style={styles.foodTypeRow}>
             <View style={[styles.foodDot, { borderColor: item.veg ? '#1D9E75' : '#DC2626' }]}>
@@ -178,7 +180,7 @@ export default function CustomerMenuScreen() {
           )}
         </View>
         {!!item.imageUrl && (
-          <TouchableOpacity style={styles.menuItemImageWrap} onPress={() => openMedia(item.videoUrl || item.modelUrl || item.imageUrl)} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.menuItemImageWrap} onPress={() => setDetailItem(item)} activeOpacity={0.85}>
             <Image source={{ uri: item.imageUrl }} style={styles.menuItemImage} />
             {(item.videoUrl || item.modelUrl) && (
               <View style={styles.mediaBadgeRow}>
@@ -208,7 +210,74 @@ export default function CustomerMenuScreen() {
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const ItemDetailModal = () => {
+    const item = detailItem;
+    if (!item) return null;
+    const images = item.images?.length ? item.images : (item.imageUrl ? [item.imageUrl] : []);
+    const qty = cart[item.id]?.qty || 0;
+    const screenW = Dimensions.get('window').width;
+    return (
+      <Modal visible={!!item} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setDetailItem(null)}>
+        <View style={styles.detailScreen}>
+          <View style={styles.detailHeader}>
+            <Text style={styles.detailTitle} numberOfLines={1}>{item.name}</Text>
+            <TouchableOpacity onPress={() => setDetailItem(null)}><Text style={styles.detailClose}>✕</Text></TouchableOpacity>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {images.length > 0 ? (
+              <FlatList
+                data={images} horizontal pagingEnabled showsHorizontalScrollIndicator={false}
+                keyExtractor={(uri, i) => String(i)}
+                renderItem={({ item: uri }) => <Image source={{ uri }} style={{ width: screenW, height: screenW * 0.75 }} resizeMode="cover" />}
+              />
+            ) : (
+              <View style={[styles.detailEmptyMedia, { width: screenW, height: screenW * 0.6 }]}><Text style={{ fontSize: 48 }}>🍽</Text></View>
+            )}
+            {(item.videoUrl || item.modelUrl) && (
+              <View style={styles.detailMediaLinks}>
+                {!!item.videoUrl && (
+                  <TouchableOpacity style={styles.mediaLinkVideo} onPress={() => Linking.openURL(item.videoUrl).catch(() => {})}>
+                    <Text style={styles.mediaLinkVideoText}>▶ Watch video</Text>
+                  </TouchableOpacity>
+                )}
+                {!!item.modelUrl && (
+                  <TouchableOpacity style={styles.mediaLink3d} onPress={() => Linking.openURL(item.modelUrl).catch(() => {})}>
+                    <Text style={styles.mediaLink3dText}>◈ View in 3D</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+            <View style={styles.detailBody}>
+              <View style={styles.foodTypeRow}>
+                <View style={[styles.foodDot, { borderColor: item.veg ? '#1D9E75' : '#DC2626' }]}>
+                  <View style={[styles.foodDotInner, { backgroundColor: item.veg ? '#1D9E75' : '#DC2626' }]} />
+                </View>
+                {item.popular && <View style={styles.popularTag}><Text style={styles.popularTagText}>⭐ Popular</Text></View>}
+                {item.spicy && <Text style={styles.spicyTag}>🌶</Text>}
+              </View>
+              {!!item.description && <Text style={styles.detailDesc}>{item.description}</Text>}
+            </View>
+          </ScrollView>
+          <View style={styles.detailFooter}>
+            <Text style={styles.detailPrice}>₹{item.effectivePrice || item.price}</Text>
+            {qty === 0 ? (
+              <TouchableOpacity style={styles.addBtn} onPress={() => addItem(item)}>
+                <Text style={styles.addBtnText}>+ Add to cart</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.qtyRow}>
+                <TouchableOpacity style={styles.qtyBtn} onPress={() => removeItem(item)}><MinusIcon size={14} color={Colors.primary} /></TouchableOpacity>
+                <Text style={styles.qtyText}>{qty}</Text>
+                <TouchableOpacity style={styles.qtyBtn} onPress={() => addItem(item)}><PlusIcon size={14} color={Colors.primary} /></TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     );
   };
 
@@ -343,7 +412,16 @@ export default function CustomerMenuScreen() {
         </View>
         <TextInput style={styles.infoInput} placeholder="Your name *" value={customerInfo.name} onChangeText={v => setInfo(i => ({ ...i, name: v }))} placeholderTextColor={Colors.gray400} />
         <TextInput style={styles.infoInput} placeholder="Phone (optional)" value={customerInfo.phone} onChangeText={v => setInfo(i => ({ ...i, phone: v }))} keyboardType="phone-pad" placeholderTextColor={Colors.gray400} />
-        <TextInput style={styles.infoInput} placeholder="Table number" value={customerInfo.table} onChangeText={v => setInfo(i => ({ ...i, table: v }))} keyboardType="number-pad" placeholderTextColor={Colors.gray400} />
+        <View style={styles.payRow}>
+          {[['DINE_IN','🍽️ Dine-in'],['TAKEAWAY','🥡 Takeaway']].map(([t,l]) => (
+            <TouchableOpacity key={t} style={[styles.payChip, customerInfo.orderType === t && styles.payChipActive]} onPress={() => setInfo(i => ({ ...i, orderType: t }))}>
+              <Text style={[styles.payChipText, customerInfo.orderType === t && { color: Colors.primary }]}>{l}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {customerInfo.orderType === 'DINE_IN' && (
+          <TextInput style={styles.infoInput} placeholder="Table number" value={customerInfo.table} onChangeText={v => setInfo(i => ({ ...i, table: v }))} keyboardType="number-pad" placeholderTextColor={Colors.gray400} />
+        )}
         <View style={styles.payRow}>
           {[['ONLINE','💳 Online'],['CASH','💵 Cash']].map(([m,l]) => (
             <TouchableOpacity key={m} style={[styles.payChip, customerInfo.paymentMethod === m && styles.payChipActive]} onPress={() => setInfo(i => ({ ...i, paymentMethod: m }))}>
@@ -355,19 +433,22 @@ export default function CustomerMenuScreen() {
       </BottomSheet>
 
       {/* Order Confirmation */}
-      <BottomSheet visible={orderOpen} onClose={() => setOrderOpen(false)} height={380}>
+      <BottomSheet visible={orderOpen} onClose={() => setOrderOpen(false)} height={placedOrder?.confirmationCode ? 560 : 380}>
         {placedOrder && (
-          <View style={styles.confirmSheet}>
-            <Text style={styles.confirmEmoji}>🎉</Text>
-            <Text style={styles.confirmTitle}>Order Placed!</Text>
-            <Text style={styles.confirmNum}>{placedOrder.orderNumber}</Text>
-            <Text style={styles.confirmMsg}>Your order is being prepared. We'll notify you when it's ready.</Text>
-            <StatusBadge status={placedOrder.status} />
-            <View style={styles.confirmMeta}>
-              <Text style={styles.confirmMetaText}>Total: ₹{parseFloat(placedOrder.totalAmount).toFixed(0)}</Text>
-              <Text style={styles.confirmMetaText}>Table: {placedOrder.tableNumber || 'N/A'}</Text>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.confirmSheet}>
+              <Text style={styles.confirmEmoji}>🎉</Text>
+              <Text style={styles.confirmTitle}>Order Placed!</Text>
+              <Text style={styles.confirmNum}>{placedOrder.orderNumber}</Text>
+              <Text style={styles.confirmMsg}>Your order is being prepared. We'll notify you when it's ready.</Text>
+              <StatusBadge status={placedOrder.status} />
+              <View style={styles.confirmMeta}>
+                <Text style={styles.confirmMetaText}>Total: ₹{parseFloat(placedOrder.totalAmount).toFixed(0)}</Text>
+                <Text style={styles.confirmMetaText}>Table: {placedOrder.tableNumber || 'N/A'}</Text>
+              </View>
+              <OrderCodePanel order={placedOrder} />
             </View>
-          </View>
+          </ScrollView>
         )}
       </BottomSheet>
 
@@ -377,12 +458,24 @@ export default function CustomerMenuScreen() {
         cartCount={cartCount}
         pageBackground={Colors.background}
       />
+
+      <ItemDetailModal />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen:         { flex: 1, backgroundColor: Colors.background },
+  detailScreen:   { flex: 1, backgroundColor: Colors.white },
+  detailHeader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  detailTitle:    { flex: 1, fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900, marginRight: 12 },
+  detailClose:    { fontSize: 20, color: Colors.gray500 },
+  detailEmptyMedia: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.gray100 },
+  detailMediaLinks: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 12 },
+  detailBody:     { padding: 16, gap: 10 },
+  detailDesc:     { fontSize: FontSize.sm, color: Colors.gray600, lineHeight: 20 },
+  detailFooter:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderTopWidth: 1, borderTopColor: Colors.border },
+  detailPrice:    { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900 },
 
   // ── Header — mirrors .cm-header/.cm-brand/.cm-lang-*/.cm-icon-btn ──
   topHeader:      { paddingTop: 52, paddingBottom: 10, paddingHorizontal: Spacing.base, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },

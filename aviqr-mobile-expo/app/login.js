@@ -11,9 +11,9 @@ import { Logo } from '../src/components/common/Logo.js';
 
 function homeFor(role) {
   const r=(role||'').toUpperCase();
-  if(r==='ADMIN')return'/(admin)/home';if(r==='SUPPORT')return'/(support)/home';
-  if(r==='HOTEL')return'/(hotel)/home';if(r==='MALL')return'/(mall)/home';
-  if(r==='SUPPLIER')return'/(supplier)/home';if(r==='CUSTOMER')return'/(customer)/menu';
+  if(r==='ADMIN')return'/(admin)/admin-home';if(r==='SUPPORT')return'/(support)/support-home';
+  if(r==='HOTEL')return'/(hotel)/hotel-home';if(r==='MALL')return'/(mall)/mall-home';
+  if(r==='SUPPLIER')return'/(supplier)/supplier-home';if(r==='CUSTOMER')return'/(customer)/shop/menu';
   return'/(owner)/dashboard';
 }
 
