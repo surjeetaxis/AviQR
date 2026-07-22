@@ -31,11 +31,12 @@ describe('Button', () => {
     expect(queryByText('Saving')).toBeNull();
   });
 
-  it('does not fire onPress while loading', () => {
-    const onPress = jest.fn();
-    const { UNSAFE_root } = render(<Button title="Busy" onPress={onPress} loading />);
-    // press the underlying touchable
-    fireEvent.press(UNSAFE_root.findByType(require('react-native').TouchableOpacity));
-    expect(onPress).not.toHaveBeenCalled();
+  it('disables the underlying touchable while loading', () => {
+    // Firing a raw press event directly on the TouchableOpacity instance (via
+    // UNSAFE_root) bypasses RN's normal disabled-blocks-press handling in the
+    // test renderer — assert the prop that actually governs the behavior instead.
+    const { UNSAFE_root } = render(<Button title="Busy" onPress={jest.fn()} loading />);
+    const touchable = UNSAFE_root.findByType(require('react-native').TouchableOpacity);
+    expect(touchable.props.disabled).toBe(true);
   });
 });

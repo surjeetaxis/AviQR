@@ -13,13 +13,17 @@ import in.aviqr.order.entity.OrderItem;
 import in.aviqr.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * MARKET FEATURE: GST-compliant Tax Invoice PDF.
@@ -42,23 +46,56 @@ import java.util.UUID;
 public class InvoiceService {
 
     private final OrderRepository orderRepo;
+    private final RestTemplate restTemplate;
+
+    @Value("${shop.service.url:http://shop-mall-service}")
+    private String shopServiceUrl;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
     private static final String HSN_CODE  = "996331"; // Restaurant / food services
-    private static final BigDecimal GST_RATE  = new BigDecimal("5.00");  // 5% total GST
-    private static final BigDecimal CGST_RATE = new BigDecimal("2.50");  // 2.5% CGST
-    private static final BigDecimal SGST_RATE = new BigDecimal("2.50");  // 2.5% SGST
 
-    public byte[] generateInvoicePdf(UUID orderId, ShopInfoDto shop) {
+    public byte[] generateInvoicePdf(UUID orderId) {
         Order order = orderRepo.findById(orderId)
             .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
-        return renderPdf(order, shop);
+        return renderPdf(order, fetchShopInfo(order.getShopId()));
     }
 
-    public String generateInvoiceHtml(UUID orderId, ShopInfoDto shop) {
+    public String generateInvoiceHtml(UUID orderId) {
         Order order = orderRepo.findById(orderId)
             .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
-        return buildHtml(order, shop);
+        return buildHtml(order, fetchShopInfo(order.getShopId()));
+    }
+
+    /** Real shop name/address/GSTIN/logo for the invoice header — looked up server-side
+     *  by the order's shopId rather than trusted from caller-supplied query params (which
+     *  always defaulted to a generic "Restaurant"/"Bengaluru" placeholder regardless of
+     *  which shop the order actually belonged to). Falls back to a placeholder only if
+     *  shop-mall-service can't be reached. */
+    private ShopInfoDto fetchShopInfo(String shopId) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resp = restTemplate.getForObject(shopServiceUrl + "/api/v1/shops/" + shopId, Map.class);
+            if (resp != null && resp.get("data") instanceof Map<?,?> data) {
+                return ShopInfoDto.builder()
+                    .businessName(str(data, "name", "Restaurant"))
+                    .address(str(data, "address", ""))
+                    .city(str(data, "city", "Bengaluru"))
+                    .state(str(data, "state", "Karnataka"))
+                    .gstin(str(data, "gstin", null))
+                    .phone(str(data, "phone", null))
+                    .email(str(data, "email", null))
+                    .logoUrl(str(data, "logoUrl", null))
+                    .build();
+            }
+        } catch (Exception e) {
+            log.debug("Could not fetch shop info for invoice, shop {}: {}", shopId, e.getMessage());
+        }
+        return ShopInfoDto.builder().businessName("Restaurant").address("").city("Bengaluru").state("Karnataka").build();
+    }
+
+    private String str(Map<?, ?> m, String key, String fallback) {
+        Object v = m.get(key);
+        return v != null ? v.toString() : fallback;
     }
 
     private byte[] renderPdf(Order order, ShopInfoDto shop) {
@@ -74,17 +111,20 @@ public class InvoiceService {
     }
 
     private String buildHtml(Order order, ShopInfoDto shop) {
-        BigDecimal subtotal = order.getSubtotal();
-        BigDecimal cgst     = subtotal.multiply(CGST_RATE).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        BigDecimal sgst     = subtotal.multiply(SGST_RATE).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        BigDecimal total    = subtotal.add(cgst).add(sgst);
+        // Real, already-charged amounts — not recomputed from a hardcoded GST rate, so this
+        // matches what the customer actually paid even when a shop's tax % differs from 5%.
+        BigDecimal subtotal      = order.getSubtotal();
+        BigDecimal discount      = order.getDiscount()      != null ? order.getDiscount()      : BigDecimal.ZERO;
+        BigDecimal serviceCharge = order.getServiceCharge() != null ? order.getServiceCharge() : BigDecimal.ZERO;
+        BigDecimal tax           = order.getTax()           != null ? order.getTax()           : BigDecimal.ZERO;
+        BigDecimal total         = order.getTotalAmount();
+        BigDecimal cgst = tax.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+        BigDecimal sgst = tax.subtract(cgst);
 
         StringBuilder rows = new StringBuilder();
         int sno = 1;
         for (OrderItem item : order.getItems()) {
             BigDecimal itemTotal = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
-            BigDecimal itemCgst  = itemTotal.multiply(CGST_RATE).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            BigDecimal itemSgst  = itemTotal.multiply(SGST_RATE).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             rows.append("""
                 <tr>
                   <td class="center">%d</td>
@@ -93,21 +133,33 @@ public class InvoiceService {
                   <td class="right">%d</td>
                   <td class="right">₹%.2f</td>
                   <td class="right">₹%.2f</td>
-                  <td class="right">₹%.2f</td>
-                  <td class="right">₹%.2f</td>
                 </tr>
                 """.formatted(
                     sno++,
-                    escHtml(item.getItemName()),
+                    itemDescription(item),
                     HSN_CODE,
                     item.getQuantity(),
                     item.getUnitPrice(),
-                    itemTotal,
-                    itemCgst,
-                    itemSgst
+                    itemTotal
                 )
             );
         }
+
+        StringBuilder totals = new StringBuilder();
+        totals.append("<tr><td>Subtotal</td><td class=\"right\">₹%.2f</td></tr>".formatted(subtotal));
+        if (discount.signum() > 0)
+            totals.append("<tr><td>Discount</td><td class=\"right\">− ₹%.2f</td></tr>".formatted(discount));
+        if (serviceCharge.signum() > 0)
+            totals.append("<tr><td>Service Charge</td><td class=\"right\">₹%.2f</td></tr>".formatted(serviceCharge));
+        if (tax.signum() > 0) {
+            totals.append("<tr><td>CGST</td><td class=\"right\">₹%.2f</td></tr>".formatted(cgst));
+            totals.append("<tr><td>SGST</td><td class=\"right\">₹%.2f</td></tr>".formatted(sgst));
+        }
+        totals.append("<tr class=\"grand\"><td>TOTAL</td><td class=\"right\">₹%.2f</td></tr>".formatted(total));
+
+        String logoHtml = (shop.getLogoUrl() != null && !shop.getLogoUrl().isBlank())
+            ? "<img src=\"%s\" alt=\"logo\" style=\"max-height:48px;max-width:120px;margin-bottom:6px;\"/><br/>".formatted(escHtml(shop.getLogoUrl()))
+            : "";
 
         String invoiceDate = order.getCreatedAt() != null
             ? order.getCreatedAt().format(DATE_FMT) : "N/A";
@@ -148,6 +200,7 @@ public class InvoiceService {
 
         <div class="header">
           <div class="header-left">
+            %s
             <h1>%s</h1>
             <p style="margin:4px 0; color:#555;">%s</p>
             <p style="margin:2px 0; color:#555;">%s</p>
@@ -188,8 +241,6 @@ public class InvoiceService {
               <th class="right">Qty</th>
               <th class="right">Rate (₹)</th>
               <th class="right">Amount (₹)</th>
-              <th class="right">CGST 2.5%%</th>
-              <th class="right">SGST 2.5%%</th>
             </tr>
           </thead>
           <tbody>
@@ -198,14 +249,11 @@ public class InvoiceService {
         </table>
 
         <table class="totals">
-          <tr><td>Subtotal</td><td class="right">₹%.2f</td></tr>
-          <tr><td>CGST @ 2.5%%</td><td class="right">₹%.2f</td></tr>
-          <tr><td>SGST @ 2.5%%</td><td class="right">₹%.2f</td></tr>
-          <tr class="grand"><td>TOTAL</td><td class="right">₹%.2f</td></tr>
+          %s
         </table>
 
         <p class="gst-note">
-          Total GST = ₹%.2f (CGST ₹%.2f + SGST ₹%.2f) | HSN Code: %s (Restaurant Services)
+          HSN Code: %s (Restaurant Services)
         </p>
 
         <div class="footer">
@@ -216,6 +264,7 @@ public class InvoiceService {
         </body>
         </html>
         """.formatted(
+            logoHtml,
             escHtml(shop.getBusinessName()),
             escHtml(shop.getAddress()),
             escHtml(shop.getCity() + ", " + shop.getState()),
@@ -228,10 +277,26 @@ public class InvoiceService {
             escHtml(order.getTableNumber() != null ? "Table " + order.getTableNumber() : "Takeaway"),
             escHtml(order.getPaymentMethod() != null ? order.getPaymentMethod().name() : "CASH"),
             rows.toString(),
-            subtotal, cgst, sgst, total,
-            cgst.add(sgst), cgst, sgst, HSN_CODE,
+            totals.toString(),
+            HSN_CODE,
             escHtml(shop.getEmail() != null ? shop.getEmail() : shop.getPhone())
         );
+    }
+
+    /** Item Description cell: name, plus the selected variant (if any) and a smaller
+     *  line listing selected add-ons with their individual prices (if any). */
+    private String itemDescription(OrderItem item) {
+        StringBuilder desc = new StringBuilder(escHtml(item.getItemName()));
+        if (item.getVariantName() != null && !item.getVariantName().isBlank()) {
+            desc.append(" <span style=\"color:#666;\">(").append(escHtml(item.getVariantName())).append(")</span>");
+        }
+        if (item.getAddons() != null && !item.getAddons().isEmpty()) {
+            String addonText = item.getAddons().stream()
+                .map(a -> escHtml(a.getName()) + " (+₹%.2f)".formatted(a.getPrice()))
+                .collect(Collectors.joining(", "));
+            desc.append("<br/><span style=\"font-size:9px;color:#888;\">+ ").append(addonText).append("</span>");
+        }
+        return desc.toString();
     }
 
     private String escHtml(String s) {
@@ -253,5 +318,6 @@ public class InvoiceService {
         private String gstin;
         private String phone;
         private String email;
+        private String logoUrl;
     }
 }

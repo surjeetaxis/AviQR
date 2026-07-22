@@ -1,11 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import QRCode from 'qrcode';
 import {
   Store, Clock, CreditCard, Bell, Shield, Tag, Save, Globe, Check, AlertTriangle,
   ExternalLink, Plus, Trash2, X, Link2, Lock, Eye, EyeOff, Palette, ShoppingBag,
-  Printer, ChevronRight, Wifi, WifiOff, RefreshCw, Info, Key, QrCode,
+  Printer, ChevronRight, Wifi, WifiOff, RefreshCw, Info, Key, QrCode, Image as ImageIcon,
 } from 'lucide-react';
+
+// Converts an uploaded file to a data URL — same pattern as menu item image
+// upload (Menu.jsx) since there's no dedicated shop-asset storage endpoint.
+function readFileAsDataUrl(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { shopApi, authApi, menuApi, aggregatorConfigApi, planApi, offerApi } from '../api/index.js';
@@ -109,8 +120,9 @@ export default function Settings() {
 
   // ── State ────────────────────────────────────────────────────────────────
   const [shopForm, setShopForm] = useState({
-    name:'', phone:'', email:'', address:'', city:'', gstin:'', description:'', website:'',
+    name:'', phone:'', email:'', address:'', city:'', gstin:'', description:'', website:'', logoUrl:'',
   });
+  const logoInputRef = useRef(null);
   const [hours, setHours] = useState(
     DAYS.reduce((a, d) => ({ ...a, [d]:{ open: d !== 'Sunday', from:'09:00', to:'22:00' } }), {})
   );
@@ -185,7 +197,7 @@ export default function Settings() {
     shopApi.getById(shopId).then(r => {
       const d = r.data.data;
       if (d) {
-        setShopForm(f => ({ ...f, name:d.name||'', phone:d.phone||'', email:d.email||'', address:d.address||'', city:d.city||'', gstin:d.gstin||'', description:d.description||'', website:d.website||'' }));
+        setShopForm(f => ({ ...f, name:d.name||'', phone:d.phone||'', email:d.email||'', address:d.address||'', city:d.city||'', gstin:d.gstin||'', description:d.description||'', website:d.website||'', logoUrl:d.logoUrl||'' }));
         setShopPlan((d.subscriptionPlan || 'STARTER').toUpperCase());
       }
     }).catch(() => {});
@@ -199,6 +211,13 @@ export default function Settings() {
   const set  = k => v  => setSettings(s => ({ ...s, [k]: v }));
   const tog  = k => () => setSettings(s => ({ ...s, [k]: !s[k] }));
   const setS = k => e  => setShopForm(f => ({ ...f, [k]: e.target.value }));
+  const handleLogoFile = async e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await readFileAsDataUrl(file);
+    setShopForm(f => ({ ...f, logoUrl: dataUrl }));
+    e.target.value = '';
+  };
 
   // ── Save helpers ─────────────────────────────────────────────────────────
   const saveSection = async (extraCalls = []) => {
@@ -432,6 +451,27 @@ export default function Settings() {
             )}
 
             <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+              <Field label="Logo" hint="Shown on your printed receipts and invoices">
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{ width:56, height:56, borderRadius:10, border:'1px solid var(--gray-200)', background:'var(--gray-50, #F9FAFB)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', flexShrink:0 }}>
+                    {shopForm.logoUrl
+                      ? <img src={shopForm.logoUrl} alt="Shop logo" style={{ width:'100%', height:'100%', objectFit:'contain' }}/>
+                      : <ImageIcon size={20} color="var(--gray-300)"/>}
+                  </div>
+                  <input className="field-input" style={{ flex:1 }} placeholder="https://... .jpg / .png / .svg"
+                    value={shopForm.logoUrl} onChange={setS('logoUrl')} />
+                  <button type="button" className="btn btn-secondary" style={{ height:34, flexShrink:0 }} onClick={() => logoInputRef.current?.click()}>
+                    <ImageIcon size={14}/> Upload
+                  </button>
+                  {shopForm.logoUrl && (
+                    <button type="button" onClick={() => setShopForm(f => ({ ...f, logoUrl:'' }))}
+                      style={{ background:'none', border:'none', cursor:'pointer', color:'var(--gray-400)', display:'flex', alignItems:'center', flexShrink:0 }} title="Remove logo">
+                      <X size={16}/>
+                    </button>
+                  )}
+                  <input ref={logoInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleLogoFile}/>
+                </div>
+              </Field>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
                 <Field label="Shop name *">
                   <input className="field-input" value={shopForm.name} onChange={setS('name')} placeholder="Spice Route"/>

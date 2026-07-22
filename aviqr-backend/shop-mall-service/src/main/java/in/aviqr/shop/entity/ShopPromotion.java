@@ -30,6 +30,14 @@ public class ShopPromotion {
 
     private Double discountValue; // 500 for FIXED (rupees), 10 for PERCENTAGE
 
+    // Optional scoping — null means "applies to all". Lets a shop offer different
+    // discounts per outlet/service type (e.g. SPA vs ROOM_SERVICE), menu category,
+    // or region, instead of one promotion applying storewide everywhere.
+    private String outletType;
+    private String category;
+    private String state;
+    private String city;
+
     private LocalDateTime startsAt; // null = starts immediately
     private LocalDateTime endsAt;   // null = no end date
 

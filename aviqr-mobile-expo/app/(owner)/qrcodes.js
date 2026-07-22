@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Share, Alert } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-// Icon not needed — using emoji
-// Toast replaced with Alert
+import { router } from 'expo-router';
 import { qrApi } from '../../src/api/index.js';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
-// Header removed - expo-router handles navigation
 import { Button } from '../../src/components/common/Button.js';
 import { Card } from '../../src/components/common/Card.js';
-// BottomSheet replaced with Modal
+import { BottomSheet } from '../../src/components/common/BottomSheet.js';
+import { QrPosterStudio } from '../../src/components/common/QrPosterStudio.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 export default function QRCodesScreen() {
@@ -18,6 +17,7 @@ export default function QRCodesScreen() {
   const [codes, setCodes]     = useState([]);
   const [preview, setPreview] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [studioTarget, setStudioTarget] = useState(null);
 
   useEffect(() => { if(shopId) loadCodes(); }, [shopId]);
 
@@ -33,8 +33,7 @@ export default function QRCodesScreen() {
     try {
       await qrApi.create(shopId, { type, group, label });
       await loadCodes();
-      Toast.show({ type: 'success', text1: 'QR Code created!' });
-    } catch { Toast.show({ type: 'error', text1: 'Failed to create QR' }); }
+    } catch { Alert.alert('Failed to create QR code'); }
     finally { setCreating(false); }
   };
 
@@ -59,10 +58,10 @@ export default function QRCodesScreen() {
       </View>
       <View style={styles.qrActions}>
         <TouchableOpacity onPress={() => shareQR(code)} style={styles.qrActionBtn}>
-          <Icon name="share-2" size={16} color={Colors.primary} />
+          <Text style={{ fontSize: 16, color: Colors.primary }}>📤</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.qrActionBtn}>
-          <Icon name="download" size={16} color={Colors.gray500} />
+        <TouchableOpacity onPress={() => setStudioTarget(code)} style={styles.qrActionBtn}>
+          <Text style={{ fontSize: 16, color: Colors.primary }}>🎨</Text>
         </TouchableOpacity>
       </View>
     </Card>
@@ -70,7 +69,11 @@ export default function QRCodesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <Header title="QR Codes" subtitle={`${codes.length} codes`} />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>‹ Back</Text></TouchableOpacity>
+        <Text style={styles.title}>QR Codes · {codes.length}</Text>
+        <View style={{ width: 44 }} />
+      </View>
 
       <FlatList
         data={codes}
@@ -103,17 +106,28 @@ export default function QRCodesScreen() {
             </View>
             <Text style={styles.previewUrl}>{preview.targetUrl}</Text>
             <View style={styles.previewActions}>
-              <Button title="Share" onPress={() => shareQR(preview)} variant="outline" style={{ flex: 1 }} />
-              <Button title="Download PNG" onPress={() => {}} style={{ flex: 1 }} />
+              <Button title="Share link" onPress={() => shareQR(preview)} variant="outline" style={{ flex: 1 }} />
+              <Button title="🎨 Design & Print" onPress={() => setStudioTarget(preview)} style={{ flex: 1 }} />
             </View>
           </View>
         )}
       </BottomSheet>
+
+      <QrPosterStudio
+        visible={!!studioTarget}
+        onClose={() => setStudioTarget(null)}
+        shopId={shopId}
+        shopName={user?.shopName || user?.name}
+        targetUrl={studioTarget?.targetUrl}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  header:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  back:          { fontSize: FontSize.base, color: Colors.primary, fontWeight: '600' },
+  title:         { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900 },
   createRow:     { flexDirection: 'row', gap: 8, marginBottom: Spacing.base },
   createBtn:     { flex: 1, alignItems: 'center', gap: 6, paddingVertical: Spacing.base, backgroundColor: Colors.white, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.primary, borderStyle: 'dashed' },
   createEmoji:   { fontSize: 22 },

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, FileText } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import StatCard from '../components/StatCard.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -22,7 +22,35 @@ export default function Reports() {
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
 
+  const today = new Date().toISOString().slice(0,10);
+  const monthAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString().slice(0,10);
+  const [taxStart,   setTaxStart]   = useState(monthAgo);
+  const [taxEnd,     setTaxEnd]     = useState(today);
+  const [taxRows,    setTaxRows]    = useState([]);
+  const [taxTotals,  setTaxTotals]  = useState(null);
+  const [taxLoading, setTaxLoading] = useState(true);
+  const [exporting,  setExporting]  = useState(false);
+
   useEffect(() => { load(); }, [range, shopId]);
+  useEffect(() => { loadTax(); }, [taxStart, taxEnd, shopId]);
+
+  const loadTax = async () => {
+    if (!shopId) return;
+    setTaxLoading(true);
+    try {
+      const res = await reportApi.getTaxReport(shopId, taxStart, taxEnd);
+      setTaxRows(res.data.data?.rows || []);
+      setTaxTotals(res.data.data?.totals || null);
+    } catch { setTaxRows([]); setTaxTotals(null); }
+    finally { setTaxLoading(false); }
+  };
+
+  const downloadTaxReport = async () => {
+    setExporting(true);
+    try { await reportApi.exportTaxReport(shopId, taxStart, taxEnd); }
+    catch { alert('Could not download tax report'); }
+    finally { setExporting(false); }
+  };
 
   const load = async () => {
     if (!shopId) { setError('No shop linked to this account'); setLoading(false); return; }
@@ -174,6 +202,61 @@ export default function Reports() {
             }
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 20 }}>
+        <div className="card-header" style={{ flexWrap: 'wrap', gap: 10 }}>
+          <div><div className="card-title">Tax report</div><div className="card-subtitle">CGST/SGST breakdown for filing — same split shown on your invoices</div></div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input type="date" className="field-input" style={{ height: 36 }} value={taxStart} max={taxEnd} onChange={e => setTaxStart(e.target.value)} />
+            <span style={{ color: 'var(--gray-400)', fontSize: 12 }}>to</span>
+            <input type="date" className="field-input" style={{ height: 36 }} value={taxEnd} min={taxStart} max={today} onChange={e => setTaxEnd(e.target.value)} />
+            <button className="btn btn-secondary" onClick={downloadTaxReport} disabled={exporting || taxLoading || taxRows.length === 0}>
+              <FileText size={13} /> {exporting ? 'Downloading…' : 'Download CSV'}
+            </button>
+          </div>
+        </div>
+        {taxLoading ? (
+          <p style={{ color: 'var(--gray-400)', fontSize: 13, padding: '12px 0' }}>Loading…</p>
+        ) : taxRows.length === 0 ? (
+          <p style={{ color: 'var(--gray-400)', fontSize: 13, padding: '12px 0' }}>No orders in this date range</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="admin-table" style={{ marginTop: 12 }}>
+              <thead>
+                <tr>
+                  <th>Date</th><th>Orders</th><th>Subtotal</th><th>CGST</th><th>SGST</th><th>Total Tax</th><th>Total Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {taxRows.map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.date}</td>
+                    <td>{r.orders}</td>
+                    <td>₹{fmt(r.subtotal)}</td>
+                    <td>₹{fmt(r.cgst)}</td>
+                    <td>₹{fmt(r.sgst)}</td>
+                    <td>₹{fmt(r.tax)}</td>
+                    <td style={{ fontWeight: 700 }}>₹{fmt(r.totalAmount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              {taxTotals && (
+                <tfoot>
+                  <tr style={{ fontWeight: 800, borderTop: '2px solid var(--gray-200)' }}>
+                    <td>Total</td>
+                    <td>{taxTotals.orders}</td>
+                    <td>₹{fmt(taxTotals.subtotal)}</td>
+                    <td>₹{fmt(taxTotals.cgst)}</td>
+                    <td>₹{fmt(taxTotals.sgst)}</td>
+                    <td>₹{fmt(taxTotals.tax)}</td>
+                    <td>₹{fmt(taxTotals.totalAmount)}</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

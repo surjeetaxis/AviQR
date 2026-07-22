@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, RefreshControl } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Modal, TextInput, Alert, RefreshControl, Switch } from 'react-native';
 import { router } from 'expo-router';
 import { hotelApi, hotelOutletApi } from '../../../src/api/index.js';
+import { confirmAction } from '../../../src/utils/confirmAction.js';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../../src/theme/index.js';
 
 const OUTLET_TYPES = ['RESTAURANT','BAR','SPA','GYM','POOL','SHOP','ACTIVITY','BANQUET','KIDS_CLUB','BUSINESS_CENTER','LAUNDRY','CONCIERGE','OTHER'];
@@ -41,14 +42,39 @@ export default function OutletsScreen() {
     finally { setSaving(false); }
   };
 
+  const toggleOutlet = async (item) => {
+    setOutlets(prev => prev.map(o => o.id === item.id ? { ...o, active: !o.active } : o));
+    try { await hotelOutletApi.toggleStatus(item.id, !item.active); }
+    catch { Alert.alert('Failed to update outlet'); await load(); }
+  };
+
+  const deleteOutlet = (item) => confirmAction(
+    'Delete outlet?', `"${item.name}" will be permanently removed.`,
+    async () => {
+      try { await hotelOutletApi.delete(item.id); setOutlets(prev => prev.filter(o => o.id !== item.id)); }
+      catch { Alert.alert('Failed to delete outlet'); }
+    }, 'Delete'
+  );
+
+  const createQr = async (item) => {
+    try {
+      await hotelOutletApi.createQr(item.id);
+      Alert.alert('QR created', `A QR code for ${item.name} is ready — find it under QR Management.`);
+    } catch { Alert.alert('Failed to create QR code'); }
+  };
+
   const OutletCard = ({ item }) => (
-    <TouchableOpacity style={s.card} onPress={() => router.push(`/(hotel)/outlets/${item.id}/dashboard`)}>
-      <View style={{ flex: 1 }}>
+    <View style={s.card}>
+      <TouchableOpacity style={{ flex: 1 }} onPress={() => router.push(`/(hotel)/outlets/${item.id}/dashboard`)}>
         <Text style={s.name}>{item.name}</Text>
         <Text style={s.meta}>{item.outletType?.replace('_',' ')}{item.location ? ` · ${item.location}` : ''}</Text>
+      </TouchableOpacity>
+      <View style={s.cardActions}>
+        <TouchableOpacity onPress={() => createQr(item)}><Text style={s.actionIcon}>📱</Text></TouchableOpacity>
+        <Switch value={!!item.active} onValueChange={() => toggleOutlet(item)} trackColor={{ true: Colors.primary }} />
+        <TouchableOpacity onPress={() => deleteOutlet(item)}><Text style={[s.actionIcon, { color: '#DC2626' }]}>🗑️</Text></TouchableOpacity>
       </View>
-      <Text style={[s.status, item.active ? s.active : s.inactive]}>{item.active ? 'Active' : 'Inactive'}</Text>
-    </TouchableOpacity>
+    </View>
   );
 
   return (
@@ -106,6 +132,8 @@ const s = StyleSheet.create({
   addBtn:     { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingHorizontal: 14, paddingVertical: 8 },
   addBtnText: { color: 'white', fontWeight: '700', fontSize: FontSize.sm },
   card:       { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.base, borderWidth: 1, borderColor: Colors.border, ...Shadow.sm },
+  cardActions:{ flexDirection: 'row', alignItems: 'center', gap: 12 },
+  actionIcon: { fontSize: 16 },
   name:       { fontSize: FontSize.base, fontWeight: '700', color: Colors.gray900 },
   meta:       { fontSize: FontSize.xs, color: Colors.gray400, marginTop: 2 },
   status:     { fontSize: FontSize.xs, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full },

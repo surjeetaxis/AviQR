@@ -1,10 +1,14 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { authApi } from '../../api/index.js';
+import OtpInput from '../../components/shared/OtpInput.jsx';
+import OtpSuccessCheck from '../../components/shared/OtpSuccessCheck.jsx';
 import './Auth.css';
+
+const RESEND_COOLDOWN_SECONDS = 30;
 
 // Named export used by Register.jsx and ForgotPassword.jsx
 export function AuthBrand() {
@@ -53,8 +57,16 @@ export default function Login() {
   const [phone, setPhone] = useState('');
   const [otp,   setOtp]   = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [verified, setVerified] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setInterval(() => setResendCooldown(s => s - 1), 1000);
+    return () => clearInterval(t);
+  }, [resendCooldown]);
 
   const goHome = (role) => nav(ROLE_HOME[(role||'').toUpperCase()] || '/dashboard');
 
@@ -79,17 +91,26 @@ export default function Login() {
     } catch {
       setError('Could not send OTP. Use 123456 for dev mode.');
       setOtpSent(true);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    }
   };
 
-  const handleOtp = async () => {
-    if (!otp) return;
+  // Accepts the completed code directly (from OtpInput's onComplete) so it
+  // doesn't race the setOtp state update when auto-verifying.
+  const handleOtp = async (code) => {
+    const value = code ?? otp;
+    if (!value || value.length < 6) return;
     setLoading(true); setError('');
     try {
-      const u = await loginWithOtp(phone, otp);
-      goHome(u.role);
-    } catch { setError('Invalid OTP. Dev code: 123456'); }
-    finally { setLoading(false); }
+      const u = await loginWithOtp(phone, value);
+      setVerified(true);
+      setTimeout(() => goHome(u.role), 1200);
+    } catch {
+      setError('Invalid OTP. Dev code: 123456');
+      setLoading(false);
+    }
   };
 
   return (
@@ -98,7 +119,7 @@ export default function Login() {
       {/* ── Left panel ── */}
       <div className="auth-left">
         <div className="auth-brand">
-          <div className="auth-brand-logo">
+          <Link to="/" className="auth-brand-logo" style={{ textDecoration:'none' }}>
             <div style={{ width:36, height:36 }}>
               <svg viewBox="0 0 28 28" fill="none">
                 <rect x="3" y="3" width="9" height="9" rx="2" fill="#1D9E75"/>
@@ -114,7 +135,7 @@ export default function Login() {
               </svg>
             </div>
             <span className="auth-brand-name">Avi<em>QR</em></span>
-          </div>
+          </Link>
         </div>
 
         <div className="auth-left-body">
@@ -176,7 +197,7 @@ export default function Login() {
                 {loading ? 'Signing in…' : <><span>Sign in</span><ArrowRight size={15}/></>}
               </button>
             </form>
-          ) : (
+          ) : !otpSent ? (
             <div className="auth-form">
               <div className="field">
                 <label className="field-label">Mobile number</label>
@@ -184,26 +205,30 @@ export default function Login() {
                   <span className="field-dial">🇮🇳 +91</span>
                   <input className="field-input field-input-phone" type="tel" placeholder="9845012345"
                     value={phone} onChange={e => setPhone(e.target.value)}/>
-                  {!otpSent && (
-                    <button className="btn-send-otp" type="button" onClick={sendOtp} disabled={loading}>
-                      {loading ? 'Sending…' : 'Send OTP'}
-                    </button>
-                  )}
+                  <button className="btn-send-otp" type="button" onClick={sendOtp} disabled={loading}>
+                    {loading ? 'Sending…' : 'Send OTP'}
+                  </button>
                 </div>
               </div>
-              {otpSent && (
-                <div className="field">
-                  <label className="field-label">One-time password <span className="otp-hint">Dev mode: 123456</span></label>
-                  <input className="field-input otp-input" type="text" placeholder="------"
-                    value={otp} onChange={e => setOtp(e.target.value)} maxLength={6}/>
-                  <button type="button" className="resend-btn" onClick={sendOtp}>Resend OTP</button>
-                </div>
-              )}
-              {otpSent && (
-                <button type="button" className="btn-auth-primary" onClick={handleOtp} disabled={loading}>
-                  {loading ? 'Verifying…' : <><span>Verify &amp; sign in</span><ArrowRight size={15}/></>}
-                </button>
-              )}
+            </div>
+          ) : verified ? (
+            <OtpSuccessCheck label="Verified successfully" sub="Signing you in…" />
+          ) : (
+            <div className="auth-form otp-verify-panel">
+              <h3 className="otp-verify-title">Let's verify your number</h3>
+              <p className="otp-verify-sub">
+                We've sent a 6-digit code to +91 {phone}. It'll auto-verify once entered.
+                <br /><span className="otp-hint">Dev mode: 123456</span>
+              </p>
+              <OtpInput length={6} value={otp} onChange={setOtp} onComplete={handleOtp} disabled={loading} />
+              <button type="button" className="btn-auth-primary" style={{ marginTop: 20 }}
+                onClick={() => handleOtp()} disabled={loading || otp.length < 6}>
+                {loading ? 'Verifying…' : <><span>Verify &amp; sign in</span><ArrowRight size={15}/></>}
+              </button>
+              <button type="button" className="resend-btn" style={{ marginTop: 12 }}
+                onClick={sendOtp} disabled={resendCooldown > 0}>
+                Didn't receive the code? <strong>{resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend'}</strong>
+              </button>
             </div>
           )}
 

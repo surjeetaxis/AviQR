@@ -206,6 +206,7 @@ CREATE TABLE IF NOT EXISTS shops (
     address           TEXT,
     city              VARCHAR(100),
     state             VARCHAR(100),
+    zone              VARCHAR(100),
     pincode           VARCHAR(10),
     logo_url          VARCHAR(1000),
     latitude          DECIMAL(10,8),
@@ -331,6 +332,60 @@ CREATE TABLE IF NOT EXISTS customer_favorites (
     UNIQUE (customer_phone, shop_id)
 );
 CREATE INDEX IF NOT EXISTS idx_favorite_phone ON customer_favorites (customer_phone);
+
+-- ── Unified customer profile: CRM identity fields not covered by
+--    loyalty_accounts (points/spend) — same phone+shop keyed identity ──
+CREATE TABLE IF NOT EXISTS customers (
+    id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_phone  VARCHAR(20)   NOT NULL,
+    shop_id         VARCHAR(100)  NOT NULL,
+    customer_name   VARCHAR(200),
+    email           VARCHAR(255),
+    birthday        DATE,
+    anniversary     DATE,
+    notes           TEXT,
+    created_at      TIMESTAMP     DEFAULT NOW(),
+    updated_at      TIMESTAMP     DEFAULT NOW(),
+    UNIQUE (customer_phone, shop_id)
+);
+CREATE INDEX IF NOT EXISTS idx_customers_phone_shop ON customers (customer_phone, shop_id);
+CREATE INDEX IF NOT EXISTS idx_customers_shop       ON customers (shop_id);
+
+CREATE TABLE IF NOT EXISTS customer_labels (
+    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    label       VARCHAR(60) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_customer_labels_customer ON customer_labels (customer_id);
+
+-- ── SMS CRM campaigns (birthday/anniversary wishes, segment broadcasts) ──
+CREATE TABLE IF NOT EXISTS campaigns (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id           VARCHAR(100) NOT NULL,
+    name              VARCHAR(200) NOT NULL,
+    message_template  TEXT NOT NULL,
+    audience_type     VARCHAR(30) NOT NULL,
+    audience_label    VARCHAR(60),
+    status            VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    scheduled_at      TIMESTAMP,
+    last_run_at       TIMESTAMP,
+    sent_count        INTEGER DEFAULT 0,
+    failed_count      INTEGER DEFAULT 0,
+    created_at        TIMESTAMP DEFAULT NOW(),
+    updated_at        TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_campaigns_shop ON campaigns (shop_id);
+
+CREATE TABLE IF NOT EXISTS campaign_logs (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    campaign_id    UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    shop_id        VARCHAR(100) NOT NULL,
+    customer_phone VARCHAR(20) NOT NULL,
+    customer_name  VARCHAR(200),
+    status         VARCHAR(20) NOT NULL,
+    error_message  TEXT,
+    sent_at        TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_campaign_logs_campaign ON campaign_logs (campaign_id);
 
 CREATE TABLE IF NOT EXISTS loyalty_transactions (
     id                  UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -785,6 +840,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     order_id     UUID          NOT NULL,
     menu_item_id UUID          NOT NULL,
     item_name    VARCHAR(255)  NOT NULL,
+    variant_name VARCHAR(100),
     quantity     INTEGER       NOT NULL,
     unit_price   DECIMAL(10,2) NOT NULL,
     total_price  DECIMAL(10,2) NOT NULL,
@@ -801,6 +857,23 @@ END $$;
 
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id    ON order_items (order_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_menu_item_id ON order_items (menu_item_id);
+
+-- Selected add-ons snapshot (name/price captured at order time — see OrderItemAddon)
+CREATE TABLE IF NOT EXISTS order_item_addons (
+    order_item_id UUID          NOT NULL,
+    name          VARCHAR(255)  NOT NULL,
+    price         DECIMAL(10,2) NOT NULL
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_constraint WHERE conname = 'fk_order_item_addons_order_item_id') THEN
+    ALTER TABLE order_item_addons ADD CONSTRAINT fk_order_item_addons_order_item_id
+      FOREIGN KEY (order_item_id) REFERENCES order_items (id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_order_item_addons_order_item_id ON order_item_addons (order_item_id);
 
 -- ── Sequence for order numbers ────────────────────────────────
 CREATE SEQUENCE IF NOT EXISTS seq_order_number START 100001 INCREMENT 1 CACHE 20;
@@ -824,7 +897,7 @@ INSERT INTO orders (id, order_number, shop_id, customer_id, customer_name, custo
   ('c80edcef-ed35-49a2-ada2-481ab31b4002', 'ORD-1002', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '223f40ff-4020-4baf-8d8e-44e347263bd1', 'Ravi Kumar',     '9123456789', '7',  'DINE_IN',  'COMPLETED', 'CASH',   'CASH',    NULL,               760.00,  38.00, 798.00,  NULL,             NOW() - INTERVAL '3 hours', NOW() - INTERVAL '175 min', NOW() - INTERVAL '150 min'),
   ('60183b05-bb9a-41f7-81b6-536a88b933ca', 'ORD-1003', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                  'Deepak Joshi',   '9988001122', '2',  'DINE_IN',  'PREPARING', 'ONLINE', 'PAID',    'pay_Def456ghi002', 600.00,  30.00, 630.00,  'Less spicy',     NOW() - INTERVAL '20 min', NOW() - INTERVAL '15 min', NULL),
   ('d2ca1722-356d-41d3-9d9b-a31edbdf04fe', 'ORD-1004', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                  'Sneha Reddy',    '9900445566', '9',  'DINE_IN',  'NEW',       'ONLINE', 'PAID',    'pay_Ghi789jkl003', 440.00,  22.00, 462.00,  NULL,             NOW() - INTERVAL '5 min',  NULL,                       NULL),
-  ('fb91ae26-dbcc-4339-8320-fecef5d8e04c', 'ORD-1005', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',   '9876543210', '4',  'DINE_IN',  'READY',     'ONLINE', 'PAID',    'pay_Jkl012mno004', 320.00,  16.00, 336.00,  NULL,             NOW() - INTERVAL '35 min', NOW() - INTERVAL '30 min', NULL),
+  ('fb91ae26-dbcc-4339-8320-fecef5d8e04c', 'ORD-1005', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',   '9876543210', '4',  'DINE_IN',  'READY',     'ONLINE', 'PAID',    'pay_Jkl012mno004', 380.00,  19.00, 399.00,  NULL,             NOW() - INTERVAL '35 min', NOW() - INTERVAL '30 min', NULL),
   ('19223584-6e9a-4b0c-86a3-459845066ee3', 'ORD-1006', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                  'Mohan Verma',    '9900887766', NULL, 'TAKEAWAY', 'COMPLETED', 'ONLINE', 'PAID',    'pay_Mno345pqr005', 380.00,  19.00, 399.00,  NULL,             NOW() - INTERVAL '4 hours', NOW() - INTERVAL '235 min', NOW() - INTERVAL '220 min'),
   ('cbef9f2c-44b0-4e03-8c46-476beb6bee0a', 'ORD-1007', '44aeca17-767e-410b-868f-9fdd593fa091', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Anjali Singh',   '9876543210', '3',  'DINE_IN',  'COMPLETED', 'ONLINE', 'PAID',    'pay_Pqr678stu006', 500.00,  25.00, 525.00,  NULL,             NOW() - INTERVAL '1 day',  NOW() - INTERVAL '1 day',  NOW() - INTERVAL '23 hours'),
   ('e5aa1100-0924-452e-abb2-4ca6aa1fce5e', 'ORD-1008', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                  'Karan Malhotra', '9811223344', '1',  'DINE_IN',  'ACCEPTED',  'CASH',   'PENDING', NULL,               840.00,  42.00, 882.00,  'Extra chapati',  NOW() - INTERVAL '25 min', NOW() - INTERVAL '20 min', NULL)
@@ -849,6 +922,8 @@ INSERT INTO order_items (id, order_id, menu_item_id, item_name, quantity, unit_p
   (gen_random_uuid(), 'd2ca1722-356d-41d3-9d9b-a31edbdf04fe', '21d56a25-8a99-4f72-ae5c-5fbd4818adc8', 'Garlic Naan',          2,  65.00, 130.00),
   -- Order 5
   (gen_random_uuid(), 'fb91ae26-dbcc-4339-8320-fecef5d8e04c', '692fca3e-4f99-4a16-98d4-96affdfaa29a', 'Butter Chicken',       1, 380.00, 380.00),
+  -- Order 6 (ORD-1006) — previously had no items seeded despite a non-zero total
+  (gen_random_uuid(), '19223584-6e9a-4b0c-86a3-459845066ee3', '692fca3e-4f99-4a16-98d4-96affdfaa29a', 'Butter Chicken',       1, 380.00, 380.00),
   -- Order 8
   (gen_random_uuid(), 'e5aa1100-0924-452e-abb2-4ca6aa1fce5e', 'bbcba77a-d3dc-4497-a151-cc04e6bec540', 'Chicken Kadai',        1, 360.00, 360.00),
   (gen_random_uuid(), 'e5aa1100-0924-452e-abb2-4ca6aa1fce5e', '40b195f0-633a-42ac-86ef-f06b87d62934', 'Dal Makhani',          1, 280.00, 280.00),
@@ -865,6 +940,10 @@ ON CONFLICT DO NOTHING;
 INSERT INTO order_items (id, order_id, menu_item_id, item_name, quantity, unit_price, total_price)
 SELECT gen_random_uuid(), o.id, v.menu_item_id, v.item_name, v.qty, v.price, v.price * v.qty
 FROM (VALUES
+  -- ORD-1007 previously had no items seeded despite a non-zero total — Kerala Fish
+  -- Curry + Tender Coconut sums to exactly the existing subtotal (500.00).
+  ('ORD-1007', '3012baf3-b6bd-426c-997a-4147afc47dd1'::uuid, 'Kerala Fish Curry',  1, 420.00),
+  ('ORD-1007', 'fcf73d5b-5ee5-432d-8bc1-860a88ee1f1d'::uuid, 'Tender Coconut',     1,  80.00),
   ('ORD-1009', '3012baf3-b6bd-426c-997a-4147afc47dd1'::uuid, 'Kerala Fish Curry',  2, 420.00),
   ('ORD-1010', 'f2d406f1-6dd9-4a5c-940b-40b87921983a'::uuid, 'Prawn Koliwada',     1, 360.00),
   ('ORD-1010', 'fcf73d5b-5ee5-432d-8bc1-860a88ee1f1d'::uuid, 'Tender Coconut',     1,  80.00),
@@ -957,7 +1036,7 @@ INSERT INTO payments (id, payment_id, order_id, razorpay_order_id, shop_id, cust
   (gen_random_uuid(), 'pay_Abc123xyz001', 'ORD-1001', 'order_RpAbc001', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '24e349fe-42b8-4ac1-b202-99261aac3165', 719.25, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '2 hours',  NOW() - INTERVAL '115 min'),
   (gen_random_uuid(), 'pay_Def456ghi002', 'ORD-1003', 'order_RpDef002', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                   630.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '22 min',   NOW() - INTERVAL '20 min'),
   (gen_random_uuid(), 'pay_Ghi789jkl003', 'ORD-1004', 'order_RpGhi003', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                   462.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '6 min',    NOW() - INTERVAL '5 min'),
-  (gen_random_uuid(), 'pay_Jkl012mno004', 'ORD-1005', 'order_RpJkl004', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '24e349fe-42b8-4ac1-b202-99261aac3165', 336.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '36 min',   NOW() - INTERVAL '34 min'),
+  (gen_random_uuid(), 'pay_Jkl012mno004', 'ORD-1005', 'order_RpJkl004', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', '24e349fe-42b8-4ac1-b202-99261aac3165', 399.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '36 min',   NOW() - INTERVAL '34 min'),
   (gen_random_uuid(), 'pay_Mno345pqr005', 'ORD-1006', 'order_RpMno005', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                   399.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '4 hours',  NOW() - INTERVAL '235 min'),
   (gen_random_uuid(), 'pay_Pqr678stu006', 'ORD-1007', 'order_RpPqr006', '44aeca17-767e-410b-868f-9fdd593fa091', '24e349fe-42b8-4ac1-b202-99261aac3165', 525.00, 'INR', 'CAPTURED', 'RAZORPAY', NOW() - INTERVAL '1 day',    NOW() - INTERVAL '1 day'),
   (gen_random_uuid(), 'pay_FAIL_001',     'ORD-FAIL1', 'order_RpFail01', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', NULL,                                   280.00, 'INR', 'FAILED',   'RAZORPAY', NOW() - INTERVAL '6 hours',  NULL),
@@ -1632,6 +1711,41 @@ CREATE TABLE IF NOT EXISTS menu_addons (
 );
 CREATE INDEX IF NOT EXISTS idx_menu_addons_shop ON menu_addons(shop_id);
 
+-- Menu Shortcodes (fast POS billing — short code maps to an item + optional variant)
+CREATE TABLE IF NOT EXISTS menu_shortcodes (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id         VARCHAR(100) NOT NULL,
+    code            VARCHAR(10) NOT NULL,
+    menu_item_id    UUID NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+    variant_id      UUID,
+    active          BOOLEAN DEFAULT TRUE,
+    sort_order      INTEGER DEFAULT 0,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_menu_shortcodes_shop_code ON menu_shortcodes(shop_id, UPPER(code));
+CREATE INDEX IF NOT EXISTS idx_menu_shortcodes_shop_id ON menu_shortcodes(shop_id);
+
+-- Dine-in Areas (Indoor, Rooftop, Garden, etc. — separate menu pricing per area)
+CREATE TABLE IF NOT EXISTS dining_areas (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id     VARCHAR(100) NOT NULL,
+    name        VARCHAR(100) NOT NULL,
+    sort_order  INTEGER DEFAULT 0,
+    active      BOOLEAN DEFAULT TRUE,
+    created_at  TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_dining_areas_shop_id ON dining_areas(shop_id);
+
+-- Per-area menu item price overrides (absence of a row = use menu_items.price)
+CREATE TABLE IF NOT EXISTS area_menu_prices (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    area_id         UUID NOT NULL REFERENCES dining_areas(id) ON DELETE CASCADE,
+    menu_item_id    UUID NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+    price           NUMERIC(10,2) NOT NULL,
+    UNIQUE(area_id, menu_item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_area_menu_prices_area_id ON area_menu_prices(area_id);
+
 -- Raw Materials / Ingredients
 CREATE TABLE IF NOT EXISTS raw_materials (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1921,6 +2035,10 @@ CREATE TABLE IF NOT EXISTS shop_promotions (
     label          VARCHAR(255) NOT NULL,
     discount_type  VARCHAR(20)  DEFAULT 'FIXED',
     discount_value DOUBLE PRECISION,
+    outlet_type    VARCHAR(50),
+    category       VARCHAR(100),
+    state          VARCHAR(100),
+    city           VARCHAR(100),
     starts_at      TIMESTAMP,
     ends_at        TIMESTAMP,
     active         BOOLEAN      DEFAULT TRUE,
@@ -1930,6 +2048,30 @@ CREATE TABLE IF NOT EXISTS shop_promotions (
 
 CREATE INDEX IF NOT EXISTS idx_shop_promotions_shop_id ON shop_promotions (shop_id);
 CREATE INDEX IF NOT EXISTS idx_shop_promotions_active  ON shop_promotions (active);
+
+-- ── tax_rules ─────────────────────────────────────────────────
+-- Shop-scoped tax overrides checked in priority order (lowest first, first match
+-- wins) before falling back to shop_settings.tax_percent. Lets a shop levy
+-- different rates by region (state/city), service type (outlet/room/order type),
+-- or menu category instead of one flat rate for everything.
+CREATE TABLE IF NOT EXISTS tax_rules (
+    id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id      VARCHAR(100) NOT NULL,
+    name         VARCHAR(255) NOT NULL,
+    type         VARCHAR(20)  NOT NULL, -- REGION / SERVICE_TYPE / CATEGORY / DEFAULT
+    state        VARCHAR(100),
+    city         VARCHAR(100),
+    outlet_type  VARCHAR(50),
+    category     VARCHAR(100),
+    tax_percent  DECIMAL(5,2) NOT NULL,
+    priority     INTEGER      DEFAULT 100,
+    active       BOOLEAN      DEFAULT TRUE,
+    created_at   TIMESTAMP    DEFAULT NOW(),
+    updated_at   TIMESTAMP    DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tax_rules_shop_id ON tax_rules (shop_id);
+CREATE INDEX IF NOT EXISTS idx_tax_rules_active  ON tax_rules (active);
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aviqr;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aviqr;

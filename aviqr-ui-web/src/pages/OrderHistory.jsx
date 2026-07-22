@@ -142,7 +142,7 @@ export default function OrderHistory() {
                   <td style={{ padding:'10px 14px' }} onClick={e=>e.stopPropagation()}>
                     {o.status === 'COMPLETED' && (
                       <button style={{ background:'var(--gray-100)', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer', fontSize:11, display:'flex', alignItems:'center', gap:3 }}
-                        onClick={() => window.open(invoiceApi.downloadUrl(o.id, {}), '_blank')}>
+                        onClick={() => invoiceApi.openInvoice(o.id)}>
                         <FileText size={11}/> Invoice
                       </button>
                     )}
@@ -224,7 +224,7 @@ export default function OrderHistory() {
               <div style={{ display:'flex', gap:10, marginTop:20 }}>
                 {o.status === 'COMPLETED' && (
                   <button className="btn btn-secondary" style={{ flex:1 }}
-                    onClick={() => window.open(invoiceApi.downloadUrl(o.id, {}), '_blank')}>
+                    onClick={() => invoiceApi.openInvoice(o.id)}>
                     <FileText size={13}/> Download Invoice
                   </button>
                 )}

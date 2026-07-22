@@ -26,11 +26,18 @@ BASE=$(cd "$(dirname "$0")" && pwd)
 LOG_DIR="$BASE/logs"
 mkdir -p "$LOG_DIR"
 
+# ── Spring profile: defaults to local dev, override with SPRING_PROFILES_ACTIVE=production ──
+SPRING_PROFILES_ACTIVE="${SPRING_PROFILES_ACTIVE:-local}"
+
 # ── Ensure Java 21 is used for all Gradle/Spring Boot invocations ─────────────
 if [ -d "/usr/lib/jvm/java-21-openjdk-amd64" ]; then
   export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 elif [ -d "/usr/lib/jvm/temurin-21" ]; then
   export JAVA_HOME=/usr/lib/jvm/temurin-21
+elif [ -d "/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home" ]; then
+  export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home
+elif command -v /usr/libexec/java_home >/dev/null 2>&1; then
+  JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null) && export JAVA_HOME
 fi
 
 # ── Service catalog (start order matters: registry/gateway/auth go first) ────
@@ -364,8 +371,8 @@ start_one() {
     echo "     • Or install Gradle:        sudo apt install gradle  (or sdk install gradle 8.10.2)"
     exit 1
   fi
-  echo "→ Starting $name..."
-  SPRING_PROFILES_ACTIVE=local "$GRADLE" "${name}:bootRun" \
+  echo "→ Starting $name (profile: $SPRING_PROFILES_ACTIVE)..."
+  SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" "$GRADLE" "${name}:bootRun" \
     --no-daemon \
     > "$LOG_DIR/${name}.log" 2>&1 &
   echo $! > "$LOG_DIR/${name}.pid"
@@ -466,8 +473,8 @@ cmd_run() {
     start_one "$target"
     echo "  Log: $LOG_DIR/${target}.log"
   else
-    echo "→ Running $target in foreground (Ctrl+C to stop). Use --bg to background it."
-    SPRING_PROFILES_ACTIVE=local "$BASE/gradlew" "${target}:bootRun" --no-daemon
+    echo "→ Running $target in foreground (profile: $SPRING_PROFILES_ACTIVE, Ctrl+C to stop). Use --bg to background it."
+    SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE" "$BASE/gradlew" "${target}:bootRun" --no-daemon
   fi
 }
 

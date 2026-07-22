@@ -30,6 +30,18 @@ const PLANS = {
 
 function planInfo(p) { return PLANS[p?.toUpperCase()] || PLANS.STARTER; }
 
+// Shared shop-status label/color — was previously two different renderings of the
+// same `status` field (Shops page echoed the raw enum; Subscriptions collapsed
+// every non-ACTIVE value, including INACTIVE, to "Suspended").
+const SHOP_STATUS = {
+  ACTIVE:    { label:'Active',    color:'#059669' },
+  INACTIVE:  { label:'Inactive',  color:'#6B7280' },
+  SUSPENDED: { label:'Suspended', color:'#DC2626' },
+  PENDING:   { label:'Pending',   color:'#D97706' },
+  CLOSED:    { label:'Closed',    color:'#6B7280' },
+};
+function shopStatusInfo(status) { return SHOP_STATUS[status] || { label: status || '—', color:'#6B7280' }; }
+
 const VERTICAL_COLORS = {
   SHOP:     { label:'Restaurant/Shop', color:'#059669', bg:'#DCFCE7' },
   HOTEL:    { label:'Hotel',           color:'#2563EB', bg:'#DBEAFE' },
@@ -38,18 +50,18 @@ const VERTICAL_COLORS = {
 };
 
 const NAV = [
-  {key:'overview',      label:'Overview',      icon:BarChart2},
-  {key:'users',         label:'Users',         icon:Users},
-  {key:'shops',         label:'Shops',         icon:Store},
-  {key:'hotels',        label:'Hotels',        icon:Hotel},
-  {key:'malls',         label:'Malls',         icon:Building2},
-  {key:'suppliers',     label:'Suppliers',     icon:Package},
-  {key:'orders',        label:'Orders',        icon:ShoppingBag},
-  {key:'payments',      label:'Payments',      icon:CreditCard},
-  {key:'qrcodes',       label:'QR Codes',      icon:QrCode},
-  {key:'subscription',  label:'Subscriptions', icon:Star},
-  {key:'reports',       label:'Reports',       icon:TrendingUp},
-  {key:'settings',      label:'Settings',      icon:Settings},
+  {key:'overview',      labelKey:'overview',      icon:BarChart2},
+  {key:'users',         labelKey:'navUsers',         icon:Users},
+  {key:'shops',         labelKey:'navShops',         icon:Store},
+  {key:'hotels',        labelKey:'navHotels',        icon:Hotel},
+  {key:'malls',         labelKey:'navMalls',         icon:Building2},
+  {key:'suppliers',     labelKey:'navSuppliers',     icon:Package},
+  {key:'orders',        labelKey:'orders',        icon:ShoppingBag},
+  {key:'payments',      labelKey:'navPayments',      icon:CreditCard},
+  {key:'qrcodes',       labelKey:'qrCodes',      icon:QrCode},
+  {key:'subscription',  labelKey:'navSubscriptions', icon:Star},
+  {key:'reports',       labelKey:'reports',       icon:TrendingUp},
+  {key:'settings',      labelKey:'settings',      icon:Settings},
 ];
 
 export default function AdminDashboard() {
@@ -95,7 +107,7 @@ export default function AdminDashboard() {
           {NAV.map(n => (
             <button key={n.key} className={`admin-nav-item ${tab === n.key ? 'active' : ''}`}
               onClick={() => { setTab(n.key); setSidebarOpen(false); }}>
-              <n.icon size={16}/> <span>{n.label}</span>
+              <n.icon size={16}/> <span>{t(n.labelKey, lang)}</span>
             </button>
           ))}
         </nav>
@@ -122,7 +134,7 @@ export default function AdminDashboard() {
               avatar={user?.name?.[0] || 'A'}
               onLogout={() => { logout(); navigate('/'); }}
               items={[
-                { label:'Profile & Settings', icon:Settings, onClick:() => setTab('settings') },
+                { label:t('profileAndSettings', lang), icon:Settings, onClick:() => setTab('settings') },
                 { label:'Preview customer app', icon:Eye, onClick:() => navigate('/customer') },
               ]}
             />
@@ -150,7 +162,8 @@ export default function AdminDashboard() {
 
 // ── Overview ─────────────────────────────────────────────────────────────────
 function AdminOverview({ ps, us, onNav, onRefresh }) {
-  const fmt = n => Number(n || 0).toLocaleString('en-IN');
+  const { lang } = useLang();
+  const fmt = n => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
   const KPIs = [
     { label: 'Active shops',     value: ps ? fmt(ps.activeShops || 0)     : '—', icon: Store,       color: 'green',  key: 'shops' },
@@ -164,8 +177,8 @@ function AdminOverview({ ps, us, onNav, onRefresh }) {
   return (
     <div className="admin-overview">
       <div className="page-header">
-        <div><h1 className="page-title">Platform Overview</h1><p className="page-subtitle">Live data</p></div>
-        <button className="btn-refresh" onClick={onRefresh}><RefreshCw size={13}/> Refresh</button>
+        <div><h1 className="page-title">{t('platformOverview', lang)}</h1><p className="page-subtitle">{t('liveData', lang)}</p></div>
+        <button className="btn-refresh" onClick={onRefresh}><RefreshCw size={13}/> {t('refresh', lang)}</button>
       </div>
 
       {!ps && (
@@ -203,6 +216,7 @@ function AdminOverview({ ps, us, onNav, onRefresh }) {
 
 // ── Live Users Page ───────────────────────────────────────────────────────────
 function LiveUsersPage() {
+  const { lang } = useLang();
   const [users, setUsers]   = useState([]);
   const [search, setSearch] = useState('');
   const [roleF, setRoleF]   = useState('all');
@@ -288,7 +302,7 @@ function LiveUsersPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Users</h1><p className="page-subtitle">{filtered.length} shown</p></div>
+        <div><h1 className="page-title">{t('navUsers', lang)}</h1><p className="page-subtitle">{filtered.length} shown</p></div>
         <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && (
@@ -446,6 +460,7 @@ function ModalFieldList({ fields }) {
 
 // ── Admin Shops Page ──────────────────────────────────────────────────────────
 function AdminShopsPage() {
+  const { lang } = useLang();
   const [shops, setShops]   = useState([]);
   const [search, setSearch] = useState('');
   const [planF, setPlanF]   = useState('all');
@@ -517,7 +532,7 @@ function AdminShopsPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Shops</h1><p className="page-subtitle">{filtered.length} shops</p></div>
+        <div><h1 className="page-title">{t('navShops', lang)}</h1><p className="page-subtitle">{filtered.length} shops</p></div>
         <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
@@ -570,7 +585,7 @@ function AdminShopsPage() {
                       <button className={`toggle-status-btn ${s.status==='ACTIVE'?'tog-active':'tog-suspended'}`}
                         onClick={() => toggleStatus(s)}>
                         {s.status==='ACTIVE' ? <ToggleRight size={17}/> : <ToggleLeft size={17}/>}
-                        <span style={{ color: STATUS_CLR[s.status] || '#6B7280' }}>{s.status}</span>
+                        <span style={{ color: shopStatusInfo(s.status).color }}>{shopStatusInfo(s.status).label}</span>
                       </button>
                     </td>
                     <td style={{ fontSize:12, color:'var(--gray-400)' }}>
@@ -630,6 +645,7 @@ function AdminShopsPage() {
 
 // ── Admin Hotels Page ─────────────────────────────────────────────────────────
 function AdminHotelsPage() {
+  const { lang } = useLang();
   const [hotels, setHotels] = useState([]);
   const [loading, setLoad]  = useState(true);
   const [error, setErr]     = useState('');
@@ -670,7 +686,7 @@ function AdminHotelsPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Hotels</h1><p className="page-subtitle">{hotels.length} hotels</p></div>
+        <div><h1 className="page-title">{t('navHotels', lang)}</h1><p className="page-subtitle">{hotels.length} hotels</p></div>
         <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
@@ -748,6 +764,7 @@ function AdminHotelsPage() {
 
 // ── Admin Malls Page ──────────────────────────────────────────────────────────
 function AdminMallsPage() {
+  const { lang } = useLang();
   const [malls, setMalls]   = useState([]);
   const [loading, setLoad]  = useState(true);
   const [error, setErr]     = useState('');
@@ -781,7 +798,7 @@ function AdminMallsPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Malls</h1><p className="page-subtitle">{malls.length} malls</p></div>
+        <div><h1 className="page-title">{t('navMalls', lang)}</h1><p className="page-subtitle">{malls.length} malls</p></div>
         <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
@@ -862,6 +879,7 @@ function AdminMallsPage() {
 
 // ── Admin Suppliers Page ──────────────────────────────────────────────────────
 function AdminSuppliersPage() {
+  const { lang } = useLang();
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoad]        = useState(true);
   const [error, setErr]           = useState('');
@@ -920,7 +938,7 @@ function AdminSuppliersPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Suppliers</h1><p className="page-subtitle">{suppliers.length} suppliers</p></div>
+        <div><h1 className="page-title">{t('navSuppliers', lang)}</h1><p className="page-subtitle">{suppliers.length} suppliers</p></div>
         <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
@@ -1020,12 +1038,15 @@ function useShopNameMap() {
 }
 
 function AdminOrdersPage() {
+  const { lang } = useLang();
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState('');
   const [statF, setStatF]   = useState('all');
   const [loading, setLoad]  = useState(true);
   const [error, setErr]     = useState('');
   const [page, setPage]     = useState(0);
+  const [viewOrder, setView] = useState(null);
+  const [viewLoad, setViewLoad] = useState(false);
   const shopNames = useShopNameMap();
   const PAGE_SIZE = 30;
 
@@ -1043,6 +1064,15 @@ function AdminOrdersPage() {
 
   useEffect(() => { load(0); }, [load]);
 
+  const openView = async (o) => {
+    setView(o); setViewLoad(true);
+    try {
+      const res = await orderApi.getById(o.id);
+      setView(res.data?.data || o);
+    } catch { /* keep the row's own data as a fallback */ }
+    finally { setViewLoad(false); }
+  };
+
   const STATUS_CLR = { PENDING:'#D97706',ACCEPTED:'#2563EB',PREPARING:'#7C3AED',READY:'#059669',DELIVERED:'#059669',CANCELLED:'#DC2626',COMPLETED:'#059669' };
   const STATUS_BG  = { PENDING:'#FEF3C7',ACCEPTED:'#DBEAFE',PREPARING:'#EDE9FE',READY:'#DCFCE7',DELIVERED:'#DCFCE7',CANCELLED:'#FEE2E2',COMPLETED:'#DCFCE7' };
 
@@ -1058,7 +1088,7 @@ function AdminOrdersPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Orders</h1><p className="page-subtitle">Platform-wide · {filtered.length} shown</p></div>
+        <div><h1 className="page-title">{t('orders', lang)}</h1><p className="page-subtitle">Platform-wide · {filtered.length} shown</p></div>
         <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
@@ -1087,11 +1117,11 @@ function AdminOrdersPage() {
         <div className="admin-table-card">
           <table className="admin-table">
             <thead>
-              <tr><th>Order</th><th>Shop</th><th>Customer</th><th>Type</th><th>Total</th><th>Status</th><th>Date</th></tr>
+              <tr><th>Order</th><th>Shop</th><th>Customer</th><th>Type</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No orders found</td></tr>
+                <tr><td colSpan={8} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No orders found</td></tr>
               )}
               {filtered.map(o => (
                 <tr key={o.id}>
@@ -1114,10 +1144,61 @@ function AdminOrdersPage() {
                   <td style={{ fontSize:12, color:'var(--gray-400)' }}>
                     {o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN') : '—'}
                   </td>
+                  <td>
+                    <button className="admin-row-btn" title="View details" onClick={() => openView(o)}><Eye size={12}/></button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Order detail modal */}
+      {viewOrder && (
+        <div className="modal-backdrop" onClick={() => setView(null)}>
+          <div className="modal" style={{ maxWidth:560 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">#{viewOrder.orderNumber}</h2>
+              <button className="modal-close" onClick={() => setView(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              {viewLoad && <div style={{ textAlign:'center', padding:'12px 0', color:'var(--gray-400)', fontSize:12.5 }}>Loading full order…</div>}
+              <div className="modal-section-title">Order</div>
+              <ModalFieldList fields={[
+                ['Shop', shopNames[viewOrder.shopId] || viewOrder.shopId],
+                ['Customer', viewOrder.customerName],
+                ['Phone', viewOrder.customerPhone],
+                ['Table', viewOrder.tableNumber || '—'],
+                ['Type', viewOrder.type],
+                ['Status', viewOrder.status],
+                ['Payment', `${viewOrder.paymentMethod || '—'} · ${viewOrder.paymentStatus || '—'}`],
+                ['Subtotal', `₹${Number(viewOrder.subtotal||0).toLocaleString('en-IN')}`],
+                ['Tax', `₹${Number(viewOrder.tax||0).toLocaleString('en-IN')}`],
+                ['Total', `₹${Number(viewOrder.totalAmount||0).toLocaleString('en-IN')}`],
+                ['Placed', viewOrder.createdAt ? new Date(viewOrder.createdAt).toLocaleString('en-IN') : '—'],
+              ]} />
+              <div className="modal-section-title">Items</div>
+              {Array.isArray(viewOrder.items) && viewOrder.items.length > 0 ? (
+                <div className="admin-table-card" style={{ marginBottom:0 }}>
+                  <table className="admin-table">
+                    <thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead>
+                    <tbody>
+                      {viewOrder.items.map((it, i) => (
+                        <tr key={i}>
+                          <td style={{ fontSize:12.5 }}>{it.itemName || it.name}</td>
+                          <td style={{ fontSize:12.5 }}>{it.quantity}</td>
+                          <td style={{ fontSize:12.5, fontWeight:600 }}>₹{Number(it.totalPrice||0).toLocaleString('en-IN')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p style={{ fontSize:12.5, color:'var(--gray-400)' }}>No items on this order.</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1126,6 +1207,7 @@ function AdminOrdersPage() {
 
 // ── Admin Payments Page ───────────────────────────────────────────────────────
 function AdminPaymentsPage() {
+  const { lang } = useLang();
   const [payments, setPayments] = useState([]);
   const [statF, setStatF]       = useState('all');
   const [loading, setLoad]      = useState(true);
@@ -1156,7 +1238,7 @@ function AdminPaymentsPage() {
   return (
     <div>
       <div className="page-header">
-        <div><h1 className="page-title">Payments</h1><p className="page-subtitle">Platform-wide · {filtered.length} shown</p></div>
+        <div><h1 className="page-title">{t('navPayments', lang)}</h1><p className="page-subtitle">Platform-wide · {filtered.length} shown</p></div>
         <button className="btn-refresh" onClick={() => load(0)}><RefreshCw size={13}/> Refresh</button>
       </div>
       {error && <div className="demo-notice" style={{ background:'#FEE2E2', borderColor:'#FCA5A5', color:'#DC2626', marginBottom:12 }}>⚠ {error}</div>}
@@ -1215,6 +1297,7 @@ function AdminPaymentsPage() {
 // ── Admin Subscription Management ─────────────────────────────────────────────
 // Admin manages OTHER shops' subscriptions — admin has no personal subscription
 function AdminSubscriptionManagement() {
+  const { lang } = useLang();
   const [subTab, setSubTab]       = useState('assignments'); // assignments | plans | offers
 
   const [shops, setShops]         = useState([]);
@@ -1310,7 +1393,7 @@ function AdminSubscriptionManagement() {
 
       <div className="page-header">
         <div>
-          <h1 className="page-title">Subscription Management</h1>
+          <h1 className="page-title">{t('subscriptionManagement', lang)}</h1>
           <p className="page-subtitle">Manage plans, discount offers, billing & reminders</p>
         </div>
         <button className="btn-refresh" onClick={() => { load(); loadPlans(); }}><RefreshCw size={13}/> Refresh</button>
@@ -1397,8 +1480,8 @@ function AdminSubscriptionManagement() {
                           </span>
                         </td>
                         <td>
-                          <span style={{ fontSize:11, fontWeight:700, color: s.status==='ACTIVE'?'#059669':'#DC2626' }}>
-                            {s.status === 'ACTIVE' ? '● Active' : '● Suspended'}
+                          <span style={{ fontSize:11, fontWeight:700, color: shopStatusInfo(s.status).color }}>
+                            ● {shopStatusInfo(s.status).label}
                           </span>
                         </td>
                         <td style={{ fontSize:13, textAlign:'center' }}>{s.tableCount || '—'}</td>
@@ -1855,6 +1938,7 @@ function AdminOffersManager({ plans }) {
 
 // ── Admin Reports ─────────────────────────────────────────────────────────────
 export function AdminReports() {
+  const { lang } = useLang();
   const [stats, setStats]  = useState(null);
   const [loading, setLoad] = useState(true);
 
@@ -1865,8 +1949,15 @@ export function AdminReports() {
       .finally(() => setLoad(false));
   }, []);
 
-  const fmt  = n => Number(n || 0).toLocaleString('en-IN');
-  const fmtC = n => `₹${(Number(n || 0) / 10000000).toFixed(2)}Cr`;
+  const fmt  = n => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  // Crore-only formatting rounded every sub-crore amount down to "₹0.00Cr" — fall
+  // back to lakhs, then plain rupees, for amounts below 1 crore.
+  const fmtC = n => {
+    const v = Number(n || 0);
+    if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)}Cr`;
+    if (v >= 100000)   return `₹${(v / 100000).toFixed(2)}L`;
+    return `₹${fmt(v)}`;
+  };
 
   const CARDS = stats ? [
     { label: 'Total shops (active)',   value: fmt(stats.activeShops || 0) },
@@ -1879,7 +1970,7 @@ export function AdminReports() {
 
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Platform Reports</h1></div>
+      <div className="page-header"><h1 className="page-title">{t('platformReports', lang)}</h1></div>
       {loading ? (
         <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading…</div>
       ) : stats ? (
@@ -1906,6 +1997,13 @@ function AdminSettings() {
     { title: 'Payment gateway',   fields: ['Razorpay Key ID', 'Razorpay Secret'] },
     { title: 'Notifications',     fields: ['Twilio SID', 'WhatsApp API key', 'SMTP host', 'SMTP user'] },
   ];
+  // No platform-wide settings entity/endpoint exists in the backend yet (unlike
+  // per-shop settings) — inputs are controlled so they at least behave like a real
+  // form, but Save is honestly disabled rather than silently doing nothing or
+  // faking persistence with no backend to write to.
+  const [values, setValues] = useState({});
+  const setField = (f, v) => setValues(prev => ({ ...prev, [f]: v }));
+
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
       <div className="page-header"><h1 className="page-title">{t('settings', lang)}</h1></div>
@@ -1916,12 +2014,14 @@ function AdminSettings() {
             {s.fields.map(f => (
               <div key={f} className="form-field">
                 <label className="form-label">{f}</label>
-                <input className="form-input" placeholder={`Enter ${f.toLowerCase()}`}/>
+                <input className="form-input" placeholder={`Enter ${f.toLowerCase()}`}
+                  value={values[f] || ''} onChange={e => setField(f, e.target.value)}/>
               </div>
             ))}
           </div>
-          <div style={{ marginTop:14, display:'flex', justifyContent:'flex-end' }}>
-            <button className="btn btn-primary">Save</button>
+          <div style={{ marginTop:14, display:'flex', justifyContent:'flex-end', alignItems:'center', gap:10 }}>
+            <span style={{ fontSize:11.5, color:'var(--gray-400)' }}>Platform-wide settings storage isn't built yet</span>
+            <button className="btn btn-primary" disabled title="No backend endpoint exists yet for platform-wide settings">Save</button>
           </div>
         </div>
       ))}
@@ -1931,6 +2031,7 @@ function AdminSettings() {
 
 // ── Admin QR Codes Page ───────────────────────────────────────────────────────
 export function AdminQRCodesPage() {
+  const { lang } = useLang();
   const [codes, setCodes]     = useState([]);
   const [typeF, setTypeF]     = useState('all');
   const [activeF, setActiveF] = useState('all');
@@ -1991,7 +2092,7 @@ export function AdminQRCodesPage() {
       )}
       <div className="page-header">
         <div>
-          <h1 className="page-title">QR Codes</h1>
+          <h1 className="page-title">{t('qrCodes', lang)}</h1>
           <p className="page-subtitle">Platform-wide · {codes.length} total · {totalScans.toLocaleString('en-IN')} scans</p>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>

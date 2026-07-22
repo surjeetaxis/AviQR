@@ -1,15 +1,20 @@
 // ── FILE: menu-service/src/main/java/in/aviqr/menu/service/InventoryService.java ──
 package in.aviqr.menu.service;
 
+import in.aviqr.menu.config.RabbitMQConfig;
 import in.aviqr.menu.entity.MenuItem;
 import in.aviqr.menu.entity.StockItem;
 import in.aviqr.menu.repository.MenuItemRepository;
 import in.aviqr.menu.repository.StockItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -31,6 +36,11 @@ public class InventoryService {
 
     private final StockItemRepository stockRepo;
     private final MenuItemRepository  itemRepo;
+    private final RabbitTemplate      rabbit;
+    private final RestTemplate        restTemplate;
+
+    @Value("${shop.service.url:http://shop-mall-service}")
+    private String shopServiceUrl;
 
     /** Called when owner sets/updates stock quantity for an item */
     @Transactional
@@ -91,10 +101,49 @@ public class InventoryService {
                     });
                 } else if (newQty <= refreshed.getLowStockThreshold()) {
                     log.warn("LOW STOCK ALERT: item={} remaining={}", itemId, newQty);
-                    // TODO: publish low-stock event to notification-service via RabbitMQ
+                    publishLowStockEvent(refreshed.getShopId(), itemId, newQty);
                 }
             });
         });
+    }
+
+    /**
+     * Publishes to the aviqr.inventory / stock.low route — consumed by
+     * notification-report-review-service's NotificationConsumer.onLowStock,
+     * which saves an in-app notification and WhatsApps the owner (if a phone
+     * number is resolved). Never lets a publish/lookup failure roll back the
+     * stock deduction that triggered it.
+     */
+    private void publishLowStockEvent(String shopId, UUID itemId, int remaining) {
+        try {
+            String itemName = itemRepo.findById(itemId).map(MenuItem::getName).orElse("Menu item");
+
+            Map<String, Object> event = new HashMap<>();
+            event.put("shopId", shopId);
+            event.put("itemName", itemName);
+            event.put("remaining", remaining);
+            String ownerPhone = fetchShopOwnerPhone(shopId);
+            if (ownerPhone != null) event.put("ownerPhone", ownerPhone);
+
+            rabbit.convertAndSend(RabbitMQConfig.STOCK_EXCHANGE, RabbitMQConfig.STOCK_LOW_ROUTING_KEY, event);
+        } catch (Exception e) {
+            log.warn("Failed to publish low-stock event for item {}: {}", itemId, e.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private String fetchShopOwnerPhone(String shopId) {
+        try {
+            Map<String, Object> resp = restTemplate.getForObject(
+                shopServiceUrl + "/api/v1/shops/" + shopId, Map.class);
+            if (resp != null && resp.get("data") instanceof Map<?, ?> data) {
+                Object phone = data.get("phone");
+                return phone != null ? phone.toString() : null;
+            }
+        } catch (Exception e) {
+            log.debug("Could not resolve owner phone for shop {}: {}", shopId, e.getMessage());
+        }
+        return null;
     }
 
     public List<StockItem> getShopStock(String shopId) {

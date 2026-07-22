@@ -13,7 +13,12 @@ public class RabbitMQConfig {
     public static final String HOTEL_EXCHANGE       = "aviqr.hotel";
     public static final String STOCK_EXCHANGE       = "aviqr.inventory";
 
-    public static final String ORDER_NEW_QUEUE      = "order.new.queue";
+    // Each consumer of "order.new" gets its own queue name — menu-ocr-service
+    // (stock deduction) and hotel-service (room-charge posting) also listen to
+    // this exchange/routing key with their own distinctly-named queues. Sharing
+    // one queue name across services makes RabbitMQ treat them as competing
+    // consumers, so each order would only reach ONE of the three at random.
+    public static final String ORDER_NEW_QUEUE      = "order.new.notification.queue";
     public static final String ORDER_STATUS_QUEUE   = "order.status.queue";   // ADDED — was missing
     public static final String HOTEL_REQ_QUEUE      = "hotel.request.queue";
     public static final String STOCK_LOW_QUEUE      = "stock.low.queue";      // ADDED

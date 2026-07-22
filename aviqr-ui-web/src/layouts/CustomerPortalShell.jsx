@@ -2,6 +2,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Home, Search, ShoppingCart, Package, User } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 import { getCustomerContext, contextRoute } from '../context/customerContext.js';
+import BottomNav from '../components/customer/BottomNav.jsx';
 import './CustomerPortalShell.css';
 
 // The Customer Portal shell: persistent bottom nav across all three QR flows
@@ -48,21 +49,12 @@ export default function CustomerPortalShell() {
       <div className="cps-content">
         <Outlet />
       </div>
-      <nav className="cps-nav" aria-label="Customer Portal navigation">
-        {TABS.map(tab => (
-          <button
-            key={tab.key}
-            className={`cps-nav-item ${activeTab === tab.key ? 'active' : ''}`}
-            onClick={() => goTab(tab.key)}
-          >
-            <div className="cps-nav-icon-wrap">
-              <tab.icon size={20} />
-              {tab.key === 'cart' && cartCount > 0 && <span className="cps-nav-badge">{cartCount}</span>}
-            </div>
-            <span className="cps-nav-label">{tab.label}</span>
-          </button>
-        ))}
-      </nav>
+      <BottomNav
+        tabs={TABS}
+        activeKey={activeTab}
+        badges={{ cart: cartCount }}
+        onTabClick={goTab}
+      />
     </div>
   );
 }

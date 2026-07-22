@@ -15,7 +15,11 @@ public class RabbitMQConfig {
     public static final String OCR_EXCHANGE       = "aviqr.ocr";
     public static final String NOTIF_EXCHANGE     = "aviqr.notifications";
 
-    public static final String ORDER_NEW_QUEUE    = "order.new.queue";
+    // Own queue name — see the identical comment in notification-report-review-service's
+    // RabbitMQConfig. Each order.new consumer must bind a distinctly-named queue
+    // to the same exchange/routing key, or RabbitMQ delivers each message to only
+    // one of the competing consumers instead of all of them.
+    public static final String ORDER_NEW_QUEUE    = "order.new.room-charge.queue";
     public static final String HOTEL_REQ_QUEUE    = "hotel.request.queue";
     public static final String OCR_APPROVED_QUEUE = "ocr.approved.queue";
     public static final String NOTIF_QUEUE        = "notification.queue";

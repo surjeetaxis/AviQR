@@ -902,13 +902,24 @@ rabbitmqctl delete_user guest   # remove default insecure user
 
 ---
 
-## ── PROD STEP 4 — Upload Code ────────────────────────
+## ── PROD STEP 4 — Get Code Onto the Server ───────────
+
+**Recommended: git clone.** The CI/CD pipeline (`deploy.sh`, see PROD STEP 15)
+requires `/var/www/aviqr` to be a git checkout — it deploys by `git fetch` +
+`git checkout <sha>`, not by re-uploading zips.
 
 ```bash
-# Create app directory
 mkdir -p /var/www/aviqr
 cd /var/www/aviqr
+git clone git@github.com:surjeetaxis/AviQR.git .
+# (add the server's SSH key as a deploy key on the GitHub repo first:
+#  Settings → Deploy keys → Add deploy key, read-only is enough)
+```
 
+<details>
+<summary>Alternative: manual zip upload (no git on server, no CI/CD)</summary>
+
+```bash
 # Upload from your local machine (run this on LOCAL machine):
 scp aviqr-backend-v1.zip  root@YOUR_SERVER_IP:/var/www/aviqr/
 scp aviqr-complete-v4.zip root@YOUR_SERVER_IP:/var/www/aviqr/
@@ -918,6 +929,10 @@ cd /var/www/aviqr
 unzip aviqr-backend-v1.zip  -d aviqr-backend
 unzip aviqr-complete-v4.zip -d aviqr-ui-web
 ```
+
+Note: this path is incompatible with `deploy.sh` / the GitHub Actions deploy
+workflow, which both assume a git checkout.
+</details>
 
 ---
 
@@ -1061,10 +1076,10 @@ User=www-data
 Group=www-data
 WorkingDirectory=/var/www/aviqr/aviqr-backend
 EnvironmentFile=/var/www/aviqr/aviqr-backend/.env
-Environment=SPRING_PROFILES_ACTIVE=prod
+Environment=SPRING_PROFILES_ACTIVE=production
 ExecStart=/usr/bin/java --enable-preview \
   -Xms256m -Xmx512m \
-  -Dspring.profiles.active=prod \
+  -Dspring.profiles.active=production \
   -jar ${JAR_PATH}
 SuccessExitStatus=143
 Restart=on-failure
@@ -1188,6 +1203,16 @@ server {
     location /assets/ {
         expires 1y;
         add_header Cache-Control "public, immutable";
+    }
+
+    # Never let a proxy/CDN/browser cache the service worker itself — it
+    # must always be revalidated so the byte-diff update check (see
+    # aviqr-ui-web/public/sw.js) fires promptly after every deploy. Without
+    # this, nginx's default (no explicit directive under location /) can be
+    # cached heuristically by some browsers/CDNs, delaying update detection.
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+        expires off;
     }
 
     # Gzip compression
@@ -1368,6 +1393,65 @@ mongodump --uri "mongodb://aviqr:PASSWORD@localhost:27017/aviqr_logs?authSource=
 crontab -e
 # 0 2 * * * pg_dumpall -U aviqr -h localhost > /var/backups/aviqr_pg_$(date +\%Y\%m\%d).sql
 ```
+
+---
+
+## ── PROD STEP 15 — CI/CD Setup ───────────────────────
+
+GitHub Actions workflows live at `.github/workflows/ci.yml` (build + test on
+every push/PR) and `.github/workflows/deploy-production.yml` (deploys to this
+server after CI passes on `master`, or on manual dispatch). The deploy job
+runs `aviqr-backend/deploy/deploy.sh` over SSH — that script does the git
+checkout, backend build, ordered systemd restarts, Eureka/gateway health
+check, and automatic rollback to the previous commit if the health check
+fails.
+
+### 1. Create a dedicated deploy user (don't deploy as root)
+```bash
+adduser --disabled-password --gecos "" aviqr-deploy
+usermod -aG www-data aviqr-deploy
+chown -R aviqr-deploy:www-data /var/www/aviqr
+```
+
+### 2. Let it restart services without a password prompt
+`deploy.sh` calls `sudo systemctl restart/is-active aviqr-*`. Scope sudo to
+exactly that — not full root:
+```bash
+cat > /etc/sudoers.d/aviqr-deploy << 'EOF'
+aviqr-deploy ALL=(root) NOPASSWD: /bin/systemctl restart aviqr-*, /bin/systemctl is-active aviqr-*, /bin/systemctl status aviqr-*
+EOF
+chmod 440 /etc/sudoers.d/aviqr-deploy
+```
+
+### 3. Generate an SSH keypair for GitHub Actions to use
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/aviqr_deploy_key -C "github-actions-deploy" -N ""
+# Public key → server's authorized_keys for aviqr-deploy:
+mkdir -p /home/aviqr-deploy/.ssh
+cat ~/.ssh/aviqr_deploy_key.pub >> /home/aviqr-deploy/.ssh/authorized_keys
+chown -R aviqr-deploy:aviqr-deploy /home/aviqr-deploy/.ssh
+chmod 700 /home/aviqr-deploy/.ssh && chmod 600 /home/aviqr-deploy/.ssh/authorized_keys
+```
+
+### 4. Add GitHub repo secrets (Settings → Secrets and variables → Actions)
+| Secret | Value |
+|---|---|
+| `PRODUCTION_SSH_HOST` | server IP or hostname |
+| `PRODUCTION_SSH_USER` | `aviqr-deploy` |
+| `PRODUCTION_SSH_KEY` | contents of `~/.ssh/aviqr_deploy_key` (private key) |
+| `PRODUCTION_SSH_PORT` | `22` (optional — defaults to 22 if unset) |
+
+### 5. Create the `production` Environment (Settings → Environments → New)
+Add **required reviewers** so every deploy needs a manual approval click
+before it touches the live server — the workflow pauses on
+`environment: production` until someone approves it in the GitHub UI.
+
+### 6. Verify
+Push to `master` (or run the "Deploy to Production" workflow manually from
+the Actions tab), approve the environment gate, and watch
+`/var/log/aviqr-deploy.log` on the server or the Action's log for progress.
+A failed health check rolls the server back to the previous commit
+automatically — check `journalctl -u 'aviqr-*' -n 100` if that also fails.
 
 ---
 

@@ -7,12 +7,13 @@ import { authApi } from '../src/api/index.js';
 import { Button } from '../src/components/common/Button.js';
 import { Input } from '../src/components/common/Input.js';
 import { Colors, Radius, Spacing, FontSize } from '../src/theme/index.js';
+import { Logo } from '../src/components/common/Logo.js';
 
 function homeFor(role) {
   const r=(role||'').toUpperCase();
-  if(r==='ADMIN')return'/(admin)/home';if(r==='SUPPORT')return'/(support)/home';
-  if(r==='HOTEL')return'/(hotel)/home';if(r==='MALL')return'/(mall)/home';
-  if(r==='SUPPLIER')return'/(supplier)/home';if(r==='CUSTOMER')return'/(customer)/menu';
+  if(r==='ADMIN')return'/(admin)/admin-home';if(r==='SUPPORT')return'/(support)/support-home';
+  if(r==='HOTEL')return'/(hotel)/hotel-home';if(r==='MALL')return'/(mall)/mall-home';
+  if(r==='SUPPLIER')return'/(supplier)/supplier-home';if(r==='CUSTOMER')return'/(customer)/shop/menu';
   return'/(owner)/dashboard';
 }
 
@@ -54,6 +55,7 @@ export default function Login() {
   return (
     <ScrollView style={ss.screen} contentContainerStyle={ss.scroll} keyboardShouldPersistTaps="handled">
       <LinearGradient colors={['#0F6E56','#1D9E75']} style={ss.hero}>
+        <Logo size={48} />
         <Text style={ss.brand}>Avi<Text style={ss.accent}>QR</Text></Text>
         <Text style={ss.tagline}>Restaurant · Hotel · Mall OS</Text>
         <Text style={ss.sub}>Scan · Order · Pay</Text>
@@ -73,7 +75,10 @@ export default function Login() {
         {tab==='password'?(
           <View>
             <Input label="Email" placeholder="sujeet@spiceroute.in" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none"/>
-            <Input label="Password" placeholder="Test@1234" value={pw} onChangeText={setPw} secureEntry/>
+            <Input label="Password" placeholder="Axis321#" value={pw} onChangeText={setPw} secureEntry/>
+            <TouchableOpacity onPress={()=>router.push('/forgot-password')} style={{alignSelf:'flex-end',marginBottom:12}}>
+              <Text style={{fontSize:FontSize.xs,color:Colors.primary,fontWeight:'700'}}>Forgot?</Text>
+            </TouchableOpacity>
             <Button title={loading?'Signing in…':'Sign In'} onPress={doLogin} loading={loading}/>
           </View>
         ):(
@@ -102,7 +107,7 @@ export default function Login() {
 const ss = StyleSheet.create({
   screen:{flex:1,backgroundColor:Colors.background},
   scroll:{flexGrow:1},
-  hero:{paddingTop:72,paddingBottom:40,paddingHorizontal:24,alignItems:'center'},
+  hero:{paddingTop:72,paddingBottom:40,paddingHorizontal:24,alignItems:'center',gap:10},
   brand:{fontSize:44,fontWeight:'900',color:Colors.white,letterSpacing:-1},
   accent:{color:'#A7F3D0'},
   tagline:{fontSize:FontSize.base,color:'rgba(255,255,255,0.8)',marginTop:6},

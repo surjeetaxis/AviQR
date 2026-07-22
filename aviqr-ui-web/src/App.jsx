@@ -15,9 +15,12 @@ import Reports           from './pages/Reports.jsx';
 import Settings          from './pages/Settings.jsx';
 import Inventory         from './pages/Inventory.jsx';
 import Loyalty           from './pages/Loyalty.jsx';
+import Campaigns         from './pages/Campaigns.jsx';
 import Billing           from './pages/Billing.jsx';
 import RawMaterials      from './pages/RawMaterials.jsx';
 import MenuVariations    from './pages/MenuVariations.jsx';
+import Shortcodes        from './pages/Shortcodes.jsx';
+import DiningAreas       from './pages/DiningAreas.jsx';
 import OrderHistory    from './pages/OrderHistory.jsx';
 import Analytics         from './pages/Analytics.jsx';
 import AdminDashboard    from './pages/admin/AdminDashboard.jsx';
@@ -41,6 +44,7 @@ import TermsPage         from './pages/legal/TermsPage.jsx';
 import PrivacyPage       from './pages/legal/PrivacyPage.jsx';
 import RefundPage        from './pages/legal/RefundPage.jsx';
 import AboutPage         from './pages/company/AboutPage.jsx';
+import FeaturesPage      from './pages/company/FeaturesPage.jsx';
 import ContactPage       from './pages/company/ContactPage.jsx';
 import FAQPage           from './pages/company/FAQPage.jsx';
 import AIHub             from './pages/ai/AIHub.jsx';
@@ -87,15 +91,16 @@ export default function App() {
       <Route path="/privacy"         element={<PrivacyPage />} />
       <Route path="/refund"          element={<RefundPage />} />
       <Route path="/about"           element={<AboutPage />} />
+      <Route path="/features"        element={<FeaturesPage />} />
       <Route path="/contact"         element={<ContactPage />} />
       <Route path="/faq"             element={<FAQPage />} />
-      <Route path="/customer"        element={<CustomerMenu />} />
       <Route path="/onboarding"      element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
       {/* Customer Portal — persistent bottom-nav shell (Home/Search/Cart/Orders/Profile)
           wraps the three QR-flow pages at their EXISTING paths, so already-printed
           QR codes keep working unchanged, plus the new Orders/Profile pages. */}
       <Route element={<CustomerPortalShell />}>
+        <Route path="/customer"                element={<CustomerMenu />} />
         <Route path="/menu/:shopId"            element={<CustomerMenu />} />
         <Route path="/hotel-services/:hotelId" element={<GuestServices />} />
         <Route path="/food-court/:mallId"      element={<FoodCourtHome />} />
@@ -122,6 +127,8 @@ export default function App() {
         {/* Menu — OWNER MANAGER MENU_EDITOR */}
         <Route path="menu"         element={<RoleRoute path="menu"><Menu /></RoleRoute>} />
         <Route path="variations"   element={<RoleRoute path="variations"><MenuVariations /></RoleRoute>} />
+        <Route path="shortcodes"   element={<RoleRoute path="shortcodes"><Shortcodes /></RoleRoute>} />
+        <Route path="dining-areas" element={<RoleRoute path="dining-areas"><DiningAreas /></RoleRoute>} />
         {/* Reports — OWNER MANAGER CASHIER */}
         <Route path="reports"      element={<RoleRoute path="reports"><Reports /></RoleRoute>} />
         <Route path="order-history" element={<RoleRoute path="order-history"><OrderHistory /></RoleRoute>} />
@@ -131,6 +138,7 @@ export default function App() {
         <Route path="inventory"    element={<RoleRoute path="inventory"><Inventory /></RoleRoute>} />
         <Route path="raw-materials" element={<RoleRoute path="raw-materials"><RawMaterials /></RoleRoute>} />
         <Route path="loyalty"      element={<RoleRoute path="loyalty"><Loyalty /></RoleRoute>} />
+        <Route path="campaigns"    element={<RoleRoute path="campaigns"><Campaigns /></RoleRoute>} />
         <Route path="analytics"    element={<RoleRoute path="analytics"><Analytics /></RoleRoute>} />
         <Route path="ai"           element={<RoleRoute path="ai"><AIHub /></RoleRoute>} />
       </Route>
@@ -141,8 +149,11 @@ export default function App() {
         <Route path="staff"         element={<Staff />} />
         <Route path="settings"      element={<Settings />} />
         <Route path="loyalty"       element={<Loyalty />} />
+        <Route path="campaigns"     element={<Campaigns />} />
         <Route path="menu"          element={<Menu />} />
         <Route path="variations"    element={<MenuVariations />} />
+        <Route path="shortcodes"    element={<Shortcodes />} />
+        <Route path="dining-areas"  element={<DiningAreas />} />
         <Route path="orders"        element={<Orders />} />
         <Route path="billing"       element={<Billing />} />
         <Route path="kot"           element={<KOT />} />

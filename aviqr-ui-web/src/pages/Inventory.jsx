@@ -352,9 +352,7 @@ export default function Inventory() {
 
                       {/* Stock qty */}
                       <td style={{ padding:'11px 14px' }}>
-                        {!item.trackStock ? (
-                          <span style={{ fontSize:12, color:'var(--gray-400)' }}>—</span>
-                        ) : isEditing ? (
+                        {isEditing ? (
                           <input type="number" min="0" value={editQty} autoFocus
                             onChange={e => setEditQty(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') saveQty(item); if (e.key === 'Escape') setEditingId(null); }}

@@ -196,12 +196,10 @@
 }
 
 @media (max-width: 900px) {
-  .sidebar {
-    transform: translateX(-100%);
-    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.2);
-  }
-  .sidebar-open { transform: translateX(0); }
-  .sidebar-close { display: block; }
+  /* Replaced by OwnerBottomNav.jsx on mobile widths — no off-canvas drawer
+     anymore, so the sidebar (and its hamburger trigger/backdrop, hidden in
+     Topbar.css/DashboardLayout.css) simply doesn't render here at all. */
+  .sidebar { display: none; }
 }
 
 /* ─── Role switcher ───────────────────────────────────────────────────────── */

@@ -89,6 +89,24 @@
 
 ---
 
+## 💰 Tax Rules — `/api/v1/tax-rules`
+
+Shop-scoped tax overrides, checked in priority order (lowest first, first match wins) before
+falling back to `shop_settings.tax_percent`. Lets a shop levy different rates by region
+(state/city — defaults to the shop's own address), service type (outlet/room/order type),
+or menu category.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET  | `/tax-rules/resolve/{shopId}?outletType=&category=&state=&city=` | ❌ | Resolve the applicable tax rate |
+| GET  | `/tax-rules/shop/{shopId}` | ✅ | List all tax rules for a shop |
+| POST | `/tax-rules/shop/{shopId}` | ✅ OWNER | Create a tax rule (REGION/SERVICE_TYPE/CATEGORY/DEFAULT) |
+| PUT  | `/tax-rules/{id}` | ✅ OWNER | Update a tax rule |
+| PUT  | `/tax-rules/{id}/active?active=true` | ✅ OWNER | Enable/disable a tax rule |
+| DELETE | `/tax-rules/{id}` | ✅ OWNER | Delete a tax rule |
+
+---
+
 ## 🍽️ Menu Service — `/api/v1`
 
 | Method | Path | Auth | Description |

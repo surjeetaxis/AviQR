@@ -24,6 +24,8 @@ public class Order {
     @Enumerated(EnumType.STRING) @Column(length=20) @Builder.Default private PaymentStatus paymentStatus = PaymentStatus.PENDING;
     @Column(length=100) private String paymentId;
     @Column(nullable=false, precision=10, scale=2) private BigDecimal subtotal;
+    @Column(precision=10, scale=2) @Builder.Default private BigDecimal discount = BigDecimal.ZERO;
+    @Column(precision=10, scale=2) @Builder.Default private BigDecimal serviceCharge = BigDecimal.ZERO;
     @Column(precision=10, scale=2) @Builder.Default private BigDecimal tax = BigDecimal.ZERO;
     @Column(nullable=false, precision=10, scale=2) private BigDecimal totalAmount;
     private String notes;

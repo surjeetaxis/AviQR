@@ -18,9 +18,15 @@ export default function MenuScreen() {
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEdit] = useState(null);
-  const [form, setForm]     = useState({ name:'', price:'', description:'', veg:true, spicy:false, popular:false });
+  const EMPTY_ITEM = { name:'', price:'', description:'', veg:true, spicy:false, popular:false, imageUrl:'', videoUrl:'', modelUrl:'', mediaType:'NONE', nameHi:'', nameTa:'', nameTe:'' };
+  const [form, setForm]     = useState(EMPTY_ITEM);
   const [saving, setSaving] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [catSheet, setCatSheet] = useState(false);
+  const [editCat, setEditCat] = useState(null);
+  const [catForm, setCatForm] = useState({ name: '', emoji: '' });
+  const [savingCat, setSavingCat] = useState(false);
+  const [showTranslations, setShowTranslations] = useState(false);
 
   useEffect(() => { if(shopId) loadMenu(); }, [shopId]);
   const set = (k,v) => setForm(f => ({...f,[k]:v}));
@@ -53,7 +59,7 @@ export default function MenuScreen() {
       }
     } catch {
       setItems(prev => editItem ? prev.map(i=>i.id===editItem.id?{...i,...data}:i) : [...prev,{...data,id:Date.now().toString()}]);
-    } finally { setSaving(false); setShowAdd(false); setEdit(null); setForm({name:'',price:'',description:'',veg:true,spicy:false,popular:false}); }
+    } finally { setSaving(false); setShowAdd(false); setEdit(null); setForm(EMPTY_ITEM); }
   };
 
   const deleteItem = (item) => Alert.alert('Delete','Remove "'+item.name+'"?',[
@@ -61,6 +67,35 @@ export default function MenuScreen() {
     {text:'Delete',style:'destructive',onPress:async()=>{
       setItems(prev=>prev.filter(i=>i.id!==item.id));
       try{await menuApi.deleteItem(item.id);}catch{}
+    }}
+  ]);
+
+  const openNewCat = () => { setEditCat(null); setCatForm({ name: '', emoji: '' }); setCatSheet(true); };
+  const openEditCat = (cat) => { setEditCat(cat); setCatForm({ name: cat.name, emoji: cat.emoji || '' }); setCatSheet(true); };
+  const saveCat = async () => {
+    if (!catForm.name.trim()) return Alert.alert('Category name is required');
+    setSavingCat(true);
+    try {
+      if (editCat) {
+        await menuApi.updateCategory(editCat.id, { ...editCat, ...catForm });
+        setCats(prev => prev.map(c => c.id === editCat.id ? { ...c, ...catForm } : c));
+      } else {
+        const res = await menuApi.createCategory({ shopId, ...catForm });
+        setCats(prev => [...prev, res.data.data]);
+      }
+      setCatSheet(false);
+    } catch { Alert.alert('Could not save category'); }
+    finally { setSavingCat(false); }
+  };
+  const deleteCat = (cat) => Alert.alert('Delete category', `Remove "${cat.name}"? Items stay but lose this category.`, [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Delete', style: 'destructive', onPress: async () => {
+      try {
+        await menuApi.deleteCategory(cat.id);
+        setCats(prev => prev.filter(c => c.id !== cat.id));
+        if (selCat?.id === cat.id) setSelCat(null);
+        setCatSheet(false);
+      } catch { Alert.alert('Could not delete category'); }
     }}
   ]);
 
@@ -74,21 +109,26 @@ export default function MenuScreen() {
     <View style={ss.screen}>
       <View style={ss.header}>
         <Text style={ss.title}>Menu</Text>
-        <TouchableOpacity style={ss.addBtn} onPress={() => { setEdit(null); setForm({name:'',price:'',description:'',veg:true,spicy:false,popular:false}); setShowAdd(true); }}>
+        <TouchableOpacity style={ss.addBtn} onPress={() => { setEdit(null); setForm(EMPTY_ITEM); setShowAdd(true); }}>
           <Text style={ss.addBtnTxt}>+ Add Item</Text>
         </TouchableOpacity>
       </View>
       {offline && <OfflineBadge onRetry={loadMenu}/>}
       <TextInput style={ss.search} placeholder="Search items…" value={search} onChangeText={setSearch} placeholderTextColor={Colors.gray400}/>
-      <FlatList horizontal showsHorizontalScrollIndicator={false} data={cats} keyExtractor={c=>c.id}
+      <FlatList horizontal showsHorizontalScrollIndicator={false} data={[...cats, { id: '__add__' }]} keyExtractor={c=>c.id}
         style={ss.catList}
-        renderItem={({item:cat})=>(
-          <TouchableOpacity style={[ss.catChip,selCat?.id===cat.id&&ss.catActive]} onPress={()=>setSelCat(cat)}>
+        renderItem={({item:cat})=> cat.id === '__add__' ? (
+          <TouchableOpacity style={[ss.catChip, ss.catAddChip]} onPress={openNewCat}>
+            <Text style={ss.catAddTxt}>+ Category</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={[ss.catChip,selCat?.id===cat.id&&ss.catActive]} onPress={()=>setSelCat(cat)} onLongPress={()=>openEditCat(cat)}>
             <Text>{cat.emoji} </Text>
             <Text style={[ss.catTxt,selCat?.id===cat.id&&ss.catActiveTxt]}>{cat.name}</Text>
           </TouchableOpacity>
         )}
       />
+      <Text style={ss.catHint}>Long-press a category to edit or delete it</Text>
       <FlatList data={filtered} keyExtractor={i=>i.id}
         contentContainerStyle={{paddingBottom:32}}
         ListEmptyComponent={<EmptyState icon="🍽️" title="No items" subtitle="Add your first menu item"/>}
@@ -106,7 +146,7 @@ export default function MenuScreen() {
             </View>
             <View style={ss.itemActions}>
               <Switch value={!!item.available} onValueChange={()=>toggleAvail(item)} trackColor={{true:Colors.primary}} thumbColor={Colors.white}/>
-              <TouchableOpacity onPress={()=>{setEdit(item);setForm({name:item.name,price:String(item.price),description:item.description||'',veg:item.veg,spicy:item.spicy,popular:item.popular});setShowAdd(true);}}>
+              <TouchableOpacity onPress={()=>{setEdit(item);setForm({name:item.name,price:String(item.price),description:item.description||'',veg:item.veg,spicy:item.spicy,popular:item.popular,imageUrl:item.imageUrl||'',videoUrl:item.videoUrl||'',modelUrl:item.modelUrl||'',mediaType:item.mediaType||'NONE',nameHi:item.nameHi||'',nameTa:item.nameTa||'',nameTe:item.nameTe||''});setShowAdd(true);}}>
                 <Text style={{color:Colors.gray400,fontSize:16}}>✏️</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={()=>deleteItem(item)}>
@@ -133,9 +173,46 @@ export default function MenuScreen() {
               </View>
             ))}
           </View>
+
+          <Text style={ss.sectionLabel}>Media</Text>
+          <View style={ss.mediaTypeRow}>
+            {['NONE','VIDEO','MODEL_3D'].map(mt => (
+              <TouchableOpacity key={mt} style={[ss.mediaChip, form.mediaType===mt && ss.mediaChipActive]} onPress={()=>set('mediaType',mt)}>
+                <Text style={[ss.mediaChipTxt, form.mediaType===mt && ss.mediaChipTxtActive]}>{mt==='NONE'?'Photo':mt==='VIDEO'?'Video':'3D Model'}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Input label="Image URL" placeholder="https://…jpg" value={form.imageUrl} onChangeText={v=>set('imageUrl',v)} autoCapitalize="none"/>
+          {form.mediaType==='VIDEO' && <Input label="Video URL" placeholder="https://…mp4 or YouTube link" value={form.videoUrl} onChangeText={v=>set('videoUrl',v)} autoCapitalize="none"/>}
+          {form.mediaType==='MODEL_3D' && <Input label="3D Model URL (.glb/.gltf)" placeholder="https://…glb" value={form.modelUrl} onChangeText={v=>set('modelUrl',v)} autoCapitalize="none"/>}
+
+          <TouchableOpacity onPress={()=>setShowTranslations(s=>!s)}>
+            <Text style={ss.translationsToggle}>{showTranslations?'▾':'▸'} Translated names (optional)</Text>
+          </TouchableOpacity>
+          {showTranslations && (
+            <>
+              <Input label="Hindi name" value={form.nameHi} onChangeText={v=>set('nameHi',v)}/>
+              <Input label="Tamil name" value={form.nameTa} onChangeText={v=>set('nameTa',v)}/>
+              <Input label="Telugu name" value={form.nameTe} onChangeText={v=>set('nameTe',v)}/>
+            </>
+          )}
+
           <Button title={saving?'Saving…':editItem?'Update Item':'Add Item'} onPress={saveItem} loading={saving} style={{marginTop:16}}/>
           <Button title="Cancel" onPress={()=>setShowAdd(false)} variant="ghost" style={{marginTop:8}}/>
         </ScrollView>
+      </Modal>
+
+      <Modal visible={catSheet} transparent animationType="slide" onRequestClose={()=>setCatSheet(false)}>
+        <View style={ss.catModalOverlay}>
+          <View style={ss.catModalCard}>
+            <Text style={ss.modalTitle}>{editCat ? 'Edit category' : 'New category'}</Text>
+            <Input label="Name" placeholder="Starters" value={catForm.name} onChangeText={v=>setCatForm(f=>({...f,name:v}))}/>
+            <Input label="Emoji (optional)" placeholder="🍢" value={catForm.emoji} onChangeText={v=>setCatForm(f=>({...f,emoji:v}))}/>
+            <Button title={savingCat?'Saving…':'Save'} onPress={saveCat} loading={savingCat} style={{marginTop:12}}/>
+            {editCat && <Button title="Delete category" onPress={()=>deleteCat(editCat)} variant="danger" style={{marginTop:8}}/>}
+            <Button title="Cancel" onPress={()=>setCatSheet(false)} variant="ghost" style={{marginTop:8}}/>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -167,4 +244,16 @@ const ss = StyleSheet.create({
   switches:{flexDirection:'row',gap:10,marginTop:4},
   switchRow:{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'space-between',backgroundColor:Colors.gray50,borderRadius:Radius.md,padding:10},
   switchLabel:{fontSize:FontSize.sm,fontWeight:'600',color:Colors.gray700},
+  catAddChip:{borderStyle:'dashed',borderColor:Colors.primary},
+  catAddTxt:{fontSize:FontSize.xs,fontWeight:'700',color:Colors.primary},
+  catHint:{fontSize:10,color:Colors.gray400,paddingHorizontal:12,marginBottom:6},
+  sectionLabel:{fontSize:FontSize.sm,fontWeight:'700',color:Colors.gray700,marginTop:12,marginBottom:8},
+  mediaTypeRow:{flexDirection:'row',gap:8,marginBottom:10},
+  mediaChip:{paddingHorizontal:12,paddingVertical:6,borderRadius:Radius.full,backgroundColor:Colors.gray100,borderWidth:1.5,borderColor:'transparent'},
+  mediaChipActive:{backgroundColor:Colors.primary},
+  mediaChipTxt:{fontSize:FontSize.xs,fontWeight:'700',color:Colors.gray700},
+  mediaChipTxtActive:{color:Colors.white},
+  translationsToggle:{fontSize:FontSize.sm,fontWeight:'700',color:Colors.primary,marginTop:14,marginBottom:8},
+  catModalOverlay:{flex:1,backgroundColor:'rgba(0,0,0,0.45)',justifyContent:'flex-end'},
+  catModalCard:{backgroundColor:Colors.white,borderTopLeftRadius:Radius.xl,borderTopRightRadius:Radius.xl,padding:20},
 });

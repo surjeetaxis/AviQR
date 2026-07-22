@@ -20,15 +20,30 @@ public class ShopPromotionController {
     private final ShopPromotionRepository repo;
     private final ShopService shopService;
 
-    // Public — active, in-window promotions for a shop (customer-facing / poster auto-fill)
+    // Public — active, in-window promotions for a shop (customer-facing / poster auto-fill).
+    // outletType/category/state/city are optional filters: a promotion scoped to one of
+    // them only shows up when the request matches (unscoped promotions always show).
     @GetMapping("/public/{shopId}")
-    public ResponseEntity<ApiResponse<List<ShopPromotion>>> publicActive(@PathVariable String shopId) {
+    public ResponseEntity<ApiResponse<List<ShopPromotion>>> publicActive(
+            @PathVariable String shopId,
+            @RequestParam(required = false) String outletType,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String city) {
         LocalDateTime now = LocalDateTime.now();
         List<ShopPromotion> live = repo.findByShopIdAndActiveTrue(shopId).stream()
             .filter(p -> (p.getStartsAt() == null || !p.getStartsAt().isAfter(now))
                       && (p.getEndsAt() == null || !p.getEndsAt().isBefore(now)))
+            .filter(p -> matchesOrUnscoped(p.getOutletType(), outletType)
+                      && matchesOrUnscoped(p.getCategory(), category)
+                      && matchesOrUnscoped(p.getState(), state)
+                      && matchesOrUnscoped(p.getCity(), city))
             .toList();
         return ResponseEntity.ok(ApiResponse.ok(live));
+    }
+
+    private boolean matchesOrUnscoped(String promotionValue, String requestValue) {
+        return promotionValue == null || (requestValue != null && promotionValue.equalsIgnoreCase(requestValue));
     }
 
     // Owner/manager (own shop) or ADMIN/SUPPORT — every promotion for a shop, incl. inactive
@@ -58,6 +73,10 @@ public class ShopPromotionController {
             .label(req.getLabel())
             .discountType(req.getDiscountType() != null ? req.getDiscountType() : PromotionDiscountType.FIXED)
             .discountValue(req.getDiscountValue())
+            .outletType(req.getOutletType())
+            .category(req.getCategory())
+            .state(req.getState())
+            .city(req.getCity())
             .startsAt(req.getStartsAt())
             .endsAt(req.getEndsAt())
             .active(true)
@@ -80,6 +99,10 @@ public class ShopPromotionController {
         promo.setLabel(req.getLabel());
         if (req.getDiscountType() != null) promo.setDiscountType(req.getDiscountType());
         promo.setDiscountValue(req.getDiscountValue());
+        promo.setOutletType(req.getOutletType());
+        promo.setCategory(req.getCategory());
+        promo.setState(req.getState());
+        promo.setCity(req.getCity());
         promo.setStartsAt(req.getStartsAt());
         promo.setEndsAt(req.getEndsAt());
         return ResponseEntity.ok(ApiResponse.ok("Promotion updated", repo.save(promo)));

@@ -154,8 +154,21 @@ export default function KOT() {
   const [fullscreen, setFullscreen] = useState(false); // browser native fullscreen
   const [muted, setMuted] = useState(false);
   const [tick, setTick] = useState(0);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 860);
+  const [mobileCol, setMobileCol] = useState('NEW');
   const prevNewCount = useRef(0);
   const audioCtx = useRef(null);
+
+  // Below ~860px the 4-column kitchen-display grid has no room to breathe —
+  // each column collapses to a sliver with unreadable, clipped text. Switch
+  // to one column at a time (picked via tabs) instead of trying to squeeze
+  // all 4 into a narrow screen.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 860px)');
+    const onChange = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   // Manage sidebar/topbar visibility via body class. useLayoutEffect (not
   // useEffect) — this must apply before the browser paints, otherwise the
@@ -273,39 +286,41 @@ export default function KOT() {
     <div style={{ minHeight: '100vh', background: '#0F172A', padding: 0, fontFamily: 'Inter, sans-serif' }}>
 
       {/* Header */}
-      <div style={{ background: '#1E293B', borderBottom: '1px solid #334155', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ background: '#1E293B', borderBottom: '1px solid #334155', padding: isMobile ? '10px 14px' : '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <ChefHat size={24} color="#1D9E75" />
+          <ChefHat size={isMobile ? 20 : 24} color="#1D9E75" />
           <div>
-            <div style={{ fontWeight: 800, fontSize: 18, color: 'white', letterSpacing: 0.5 }}>
-              Kitchen Display — KOT
+            <div style={{ fontWeight: 800, fontSize: isMobile ? 15 : 18, color: 'white', letterSpacing: 0.5 }}>
+              {isMobile ? 'Kitchen Display' : 'Kitchen Display — KOT'}
             </div>
-            <div style={{ fontSize: 12, color: '#94A3B8' }}>
-              {user?.shopName || user?.name || 'Kitchen'} · Auto-refreshes every 8s
+            <div style={{ fontSize: isMobile ? 11 : 12, color: '#94A3B8' }}>
+              {user?.shopName || user?.name || 'Kitchen'}{!isMobile && ' · Auto-refreshes every 8s'}
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16, flexWrap: 'wrap', rowGap: 8 }}>
           {/* Stats */}
           <div style={{ display: 'flex', gap: 10 }}>
-            <div style={{ textAlign: 'center', background: '#334155', padding: '6px 14px', borderRadius: 8 }}>
-              <div style={{ fontWeight: 800, fontSize: 22, color: 'white' }}>{totalActive}</div>
+            <div style={{ textAlign: 'center', background: '#334155', padding: isMobile ? '4px 10px' : '6px 14px', borderRadius: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: isMobile ? 17 : 22, color: 'white' }}>{totalActive}</div>
               <div style={{ fontSize: 10, color: '#94A3B8', textTransform: 'uppercase' }}>Active</div>
             </div>
             {urgentCount > 0 && (
-              <div style={{ textAlign: 'center', background: '#7F1D1D', padding: '6px 14px', borderRadius: 8, animation: 'blink 1.5s step-end infinite' }}>
-                <div style={{ fontWeight: 800, fontSize: 22, color: '#FCA5A5' }}>{urgentCount}</div>
+              <div style={{ textAlign: 'center', background: '#7F1D1D', padding: isMobile ? '4px 10px' : '6px 14px', borderRadius: 8, animation: 'blink 1.5s step-end infinite' }}>
+                <div style={{ fontWeight: 800, fontSize: isMobile ? 17 : 22, color: '#FCA5A5' }}>{urgentCount}</div>
                 <div style={{ fontSize: 10, color: '#FCA5A5', textTransform: 'uppercase' }}>Urgent</div>
               </div>
             )}
           </div>
 
-          {/* Time */}
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontWeight: 800, fontSize: 24, color: 'white', fontFamily: 'monospace' }}>{timeStr}</div>
-            <div style={{ fontSize: 11, color: '#94A3B8' }}>{dateStr}</div>
-          </div>
+          {/* Time — dropped on mobile, not worth the header space next to a phone's own clock */}
+          {!isMobile && (
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontWeight: 800, fontSize: 24, color: 'white', fontFamily: 'monospace' }}>{timeStr}</div>
+              <div style={{ fontSize: 11, color: '#94A3B8' }}>{dateStr}</div>
+            </div>
+          )}
 
           {/* Controls */}
           <div style={{ display: 'flex', gap: 8 }}>
@@ -320,20 +335,20 @@ export default function KOT() {
               <RefreshCw size={16} />
             </button>
 
-            {/* Sidebar toggle: expand / minimize */}
+            {/* Sidebar toggle: expand / minimize — icon-only on mobile, no room for the label */}
             <button
               onClick={() => setExpanded(e => !e)}
               style={{
                 background: expanded ? '#1D9E75' : '#334155',
-                border: 'none', borderRadius: 8, padding: '8px 12px',
+                border: 'none', borderRadius: 8, padding: isMobile ? '8px 10px' : '8px 12px',
                 cursor: 'pointer', color: 'white',
                 display: 'flex', alignItems: 'center', gap: 6,
                 fontSize: 12, fontWeight: 700,
               }}
               title={expanded ? 'Show sidebar (minimize)' : 'Hide sidebar (maximize)'}>
               {expanded
-                ? <><PanelLeftOpen size={15} /> <span>Minimize</span></>
-                : <><PanelLeftClose size={15} /> <span>Maximize</span></>}
+                ? <><PanelLeftOpen size={15} /> {!isMobile && <span>Minimize</span>}</>
+                : <><PanelLeftClose size={15} /> {!isMobile && <span>Maximize</span>}</>}
             </button>
 
             {/* Browser native fullscreen */}
@@ -371,6 +386,56 @@ export default function KOT() {
           <div style={{ color: '#94A3B8', fontSize: 18, fontWeight: 600 }}>Kitchen is clear!</div>
           <div style={{ color: '#64748B', fontSize: 13 }}>New orders will appear here as customers place them</div>
         </div>
+      ) : isMobile ? (
+        <>
+          {/* Mobile: one column at a time, picked via tabs — the 4-across
+              grid has no room to breathe under ~860px (columns collapsed to
+              unreadable slivers with clipped text). A 2x2 GRID (not a
+              horizontally-scrolling row) so all 4 tabs are simultaneously
+              visible on any phone width — a scrollable row always hid at
+              least one tab off-screen with no reliable way to signal that
+              more existed, which read as "the other tabs are missing"
+              rather than "swipe to see them". */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, padding: '10px 14px', background: '#0F172A', borderBottom: '1px solid #334155' }}>
+            {COLS.map(col => {
+              const count = orders.filter(o => o.status === col.status).length;
+              const active = mobileCol === col.status;
+              return (
+                <button key={col.status} onClick={() => setMobileCol(col.status)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    padding: '9px 8px', borderRadius: 10,
+                    background: active ? col.color : '#1E293B',
+                    border: `1.5px solid ${active ? col.color : '#334155'}`,
+                    color: 'white', fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
+                  }}>
+                  <span>{col.icon}</span>
+                  <span>{col.status === 'READY' ? 'Ready' : col.label}</span>
+                  <span style={{ background: 'rgba(255,255,255,0.25)', padding: '1px 6px', borderRadius: 999, fontSize: 11, fontWeight: 900 }}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {(() => {
+            const col = COLS.find(c => c.status === mobileCol);
+            const colOrders = orders.filter(o => o.status === col.status).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            return (
+              <div style={{ padding: 12, minHeight: 'calc(100vh - 220px)' }}>
+                {colOrders.length === 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 160, color: '#475569', flexDirection: 'column', gap: 6 }}>
+                    <span style={{ fontSize: 28 }}>—</span>
+                    <span style={{ fontSize: 12 }}>No orders in {col.label}</span>
+                  </div>
+                ) : (
+                  colOrders.map(order => (
+                    <KotCard key={order.id} order={order} col={col} onAdvance={advance} onComplete={complete} onCancel={cancel} />
+                  ))
+                )}
+              </div>
+            );
+          })()}
+        </>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, padding: 14, height: 'calc(100vh - 120px)', boxSizing: 'border-box' }}>
           {COLS.map(col => {

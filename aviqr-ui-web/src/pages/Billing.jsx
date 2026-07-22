@@ -1,8 +1,8 @@
 import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
-import { Plus, Minus, Printer, CreditCard, Wallet, Banknote, X, Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, PanelLeftClose, PanelLeftOpen, Maximize2, Minimize2, QrCode as QrCodeIcon } from 'lucide-react';
+import { Plus, Minus, Printer, CreditCard, Wallet, Banknote, X, Search, ChevronDown, ChevronUp, CheckCircle, AlertCircle, PanelLeftClose, PanelLeftOpen, Maximize2, Minimize2, QrCode as QrCodeIcon, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
-import { menuApi, posApi, paymentApi, addonApi, variantApi, invoiceApi, shopApi } from '../api/index.js';
+import { menuApi, posApi, paymentApi, addonApi, variantApi, invoiceApi, shopApi, shortcodeApi, diningAreaApi } from '../api/index.js';
 import ConfirmCodeModal from '../components/shared/ConfirmCodeModal.jsx';
 
 const PAY_METHODS = [
@@ -28,6 +28,8 @@ export default function Billing() {
   const [placing,    setPlace]  = useState(false);
   const [success,    setSuccess]= useState(null);
   const [taxPct,     setTax]    = useState(5);
+  const [discount,   setDiscount]     = useState('');
+  const [serviceCharge, setServiceCharge] = useState('');
   const [addonModal, setAddonMod]= useState(null); // item being customised
   const [variants,   setVariants]= useState({});   // itemId → [variants]
   const [orderType,  setOrderType]= useState('DINE_IN');
@@ -37,11 +39,19 @@ export default function Billing() {
   const [shopName,   setShopName]= useState('');
   const [upiQrUrl,   setUpiQrUrl]= useState('');
   const [showCodeModal, setShowCodeModal] = useState(false);
+  const [shortcodeInput, setShortcodeInput] = useState('');
+  const [scLoading,  setScLoading]  = useState(false);
+  const [areas,      setAreas]      = useState([]);
+  const [selectedAreaId, setSelectedAreaId] = useState('');
+  const [areaPrices, setAreaPrices] = useState({}); // itemId -> overridden price for the selected area
 
   // Computed before the effects below since the UPI QR effect depends on `total`.
-  const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
-  const taxAmt   = +(subtotal * taxPct / 100).toFixed(2);
-  const total    = +(subtotal + taxAmt).toFixed(2);
+  const subtotal        = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const discountAmt     = Math.min(+discount || 0, subtotal); // can't discount more than the bill
+  const serviceChargeAmt= +serviceCharge || 0;
+  const taxableAmount   = Math.max(subtotal - discountAmt + serviceChargeAmt, 0);
+  const taxAmt   = +(taxableAmount * taxPct / 100).toFixed(2);
+  const total    = +(taxableAmount + taxAmt).toFixed(2);
 
   // useLayoutEffect (not useEffect) — this must apply before the browser paints,
   // otherwise the sidebar/topbar flash visible for a frame on load before
@@ -65,20 +75,36 @@ export default function Billing() {
   const load = useCallback(async () => {
     if (!shopId) { setLoad(false); return; }
     try {
-      const [cRes, iRes, aRes] = await Promise.all([
+      const [cRes, iRes, aRes, dRes] = await Promise.all([
         menuApi.getCategories(shopId),
         menuApi.getItems(shopId),
         addonApi.getByShop(shopId),
+        diningAreaApi.getByShop(shopId).catch(() => ({ data: { data: [] } })),
       ]);
       const cats  = cRes.data.data || [];
       const items = iRes.data.data?.content ?? iRes.data.data ?? [];
       setCats(cats.map(c => ({ ...c, items: items.filter(i => i.categoryId === c.id && i.available !== false) })));
       setAddons(aRes.data.data || []);
+      setAreas((dRes.data.data || []).filter(a => a.active !== false));
     } catch (e) { console.error('POS load error', e); }
     finally { setLoad(false); }
   }, [shopId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Per-area price overrides — refetched whenever the cashier switches dine-in area
+  useEffect(() => {
+    if (!selectedAreaId) { setAreaPrices({}); return; }
+    diningAreaApi.getPrices(selectedAreaId)
+      .then(res => {
+        const map = {};
+        (res.data.data || []).forEach(p => { map[p.menuItemId] = parseFloat(p.price); });
+        setAreaPrices(map);
+      })
+      .catch(() => setAreaPrices({}));
+  }, [selectedAreaId]);
+
+  const priceForItem = (item) => areaPrices[item.id] ?? parseFloat(item.price);
 
   // Non-critical: UPI ID, shop name, tax from settings. Runs independently; never blocks POS.
   useEffect(() => {
@@ -132,13 +158,34 @@ export default function Billing() {
       note:        '',
     };
     setCart(prev => {
-      // Try to merge if same item+variant+addons combo
-      const key = `${item.id}_${variant?.id || ''}_${selectedAddons.map(a=>a.id).join(',')}`;
+      // Try to merge if same item+variant+addons combo at the same unit price —
+      // keyed on price too so a dine-in area price change (or shortcode lookup
+      // resolving a different price) starts a new line instead of silently
+      // merging quantity at a stale price.
+      const key = `${item.id}_${variant?.id || ''}_${selectedAddons.map(a=>a.id).join(',')}_${price + addonPrice}`;
       const existing = prev.find(c => c._key === key);
       if (existing) return prev.map(c => c._key === key ? { ...c, qty: c.qty + 1 } : c);
       return [...prev, { ...cartItem, _key: key }];
     });
     setAddonMod(null);
+  };
+
+  // Quick-add a cart item by typing its shortcode (e.g. "P1") and pressing Enter
+  const handleShortcodeKey = async (e) => {
+    if (e.key !== 'Enter') return;
+    const code = shortcodeInput.trim();
+    if (!code) return;
+    setScLoading(true);
+    try {
+      const res = await shortcodeApi.lookup(shopId, code);
+      const d = res.data.data;
+      const fakeItem    = { id: d.itemId, name: d.itemName, price: d.price, veg: d.veg };
+      const fakeVariant = d.variantId ? { id: d.variantId, variantName: d.variantName, price: d.price } : null;
+      addToCart(fakeItem, fakeVariant, []);
+      setShortcodeInput('');
+    } catch {
+      alert(`Shortcode "${code}" not found`);
+    } finally { setScLoading(false); }
   };
 
   const changeQty = (id, delta) => {
@@ -166,6 +213,8 @@ export default function Billing() {
           notes:      c.note || null,
         })),
         subtotal: subtotal.toFixed(2),
+        discount: discountAmt.toFixed(2),
+        serviceCharge: serviceChargeAmt.toFixed(2),
         tax:      taxAmt.toFixed(2),
         totalAmount: total.toFixed(2),
       };
@@ -176,6 +225,8 @@ export default function Billing() {
       setTable('');
       setCust('Walk-in');
       setPhone('');
+      setDiscount('');
+      setServiceCharge('');
     } catch (e) {
       alert('Failed to create bill: ' + (e.response?.data?.message || e.message));
     } finally { setPlace(false); }
@@ -243,6 +294,27 @@ export default function Billing() {
           <input className="field-input" style={{ paddingLeft:32, height:36 }}
             placeholder="Search menu…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+
+        {/* Shortcode quick-add + dine-in area pricing */}
+        <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+          <div style={{ position:'relative', flex:1 }}>
+            <Zap size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--gray-400)', pointerEvents:'none' }} />
+            <input className="field-input" style={{ paddingLeft:32, height:32, fontSize:12 }}
+              placeholder="Shortcode + Enter (e.g. P1)"
+              value={shortcodeInput}
+              disabled={scLoading}
+              onChange={e => setShortcodeInput(e.target.value)}
+              onKeyDown={handleShortcodeKey} />
+          </div>
+          {areas.length > 0 && (
+            <select className="field-input" style={{ height:32, fontSize:12, width:160 }}
+              value={selectedAreaId} onChange={e => setSelectedAreaId(e.target.value)}
+              title="Dine-in area pricing">
+              <option value="">All areas (base price)</option>
+              {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          )}
+        </div>
         <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
           <button className={`chip${!selCat ? ' active' : ''}`} onClick={() => setSelCat(null)}>All</button>
           {categories.map(c => <button key={c.id} className={`chip${selCat===c.id ? ' active' : ''}`} onClick={() => setSelCat(c.id)}>{c.emoji} {c.name}</button>)}
@@ -256,10 +328,11 @@ export default function Billing() {
                 <button key={item.id} onClick={async () => {
                   await loadVariants(item.id);
                   const itemVariants = variants[item.id] || [];
+                  const priced = { ...item, price: priceForItem(item) };
                   if (itemVariants.length > 0 || allAddons.length > 0) {
-                    setAddonMod({ item, itemVariants });
+                    setAddonMod({ item: priced, itemVariants });
                   } else {
-                    addToCart(item);
+                    addToCart(priced);
                   }
                 }} style={{ background:'white', border:'1.5px solid var(--gray-200)', borderRadius:10, padding:'10px 12px', cursor:'pointer', textAlign:'left', transition:'all .15s', ':hover':{ borderColor:'var(--green)' } }}
                   onMouseEnter={e => e.currentTarget.style.borderColor='#1D9E75'}
@@ -271,7 +344,7 @@ export default function Billing() {
                     <span style={{ fontSize:13, fontWeight:600, color:'#111', lineHeight:1.3 }}>{item.name}</span>
                   </div>
                   {item.description && <p style={{ fontSize:11, color:'var(--gray-400)', margin:'0 0 6px', lineHeight:1.3, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{item.description}</p>}
-                  <div style={{ fontWeight:800, color:'var(--green-dark)', fontSize:14 }}>₹{item.price}</div>
+                  <div style={{ fontWeight:800, color:'var(--green-dark)', fontSize:14 }}>₹{priceForItem(item)}</div>
                 </button>
               ))}
             </div>
@@ -344,6 +417,24 @@ export default function Billing() {
             <div style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:12, fontSize:13 }}>
               <div style={{ display:'flex', justifyContent:'space-between' }}><span style={{ color:'var(--gray-500)' }}>Subtotal</span><span>₹{subtotal.toFixed(0)}</span></div>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ color:'var(--gray-500)' }}>Discount</span>
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <span>₹</span>
+                  <input type="number" value={discount} min={0} placeholder="0"
+                    onChange={e => setDiscount(e.target.value)}
+                    style={{ width:60, height:24, border:'1px solid var(--gray-200)', borderRadius:4, textAlign:'right', fontSize:12, padding:'0 4px' }} />
+                </div>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ color:'var(--gray-500)' }}>Service Charge</span>
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <span>₹</span>
+                  <input type="number" value={serviceCharge} min={0} placeholder="0"
+                    onChange={e => setServiceCharge(e.target.value)}
+                    style={{ width:60, height:24, border:'1px solid var(--gray-200)', borderRadius:4, textAlign:'right', fontSize:12, padding:'0 4px' }} />
+                </div>
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <span style={{ color:'var(--gray-500)' }}>GST ({taxPct}%)</span>
                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                   <input type="number" value={taxPct} min={0} max={28} step={0.5}
@@ -396,7 +487,7 @@ export default function Billing() {
             {/* Action buttons */}
             <div style={{ display:'flex', gap:8 }}>
               <button className="btn btn-secondary" style={{ flex:1, height:40 }}
-                onClick={() => success && window.open(invoiceApi.kotUrl(success.id || ''), 'kot', 'width=440,height=640')}>
+                onClick={() => success && invoiceApi.openKot(success.id || '')}>
                 <Printer size={14} /> Print KOT
               </button>
               <button className="btn btn-primary" style={{ flex:2, height:40, fontSize:14 }}
@@ -416,7 +507,7 @@ export default function Billing() {
               <div style={{ fontSize:11, marginTop:2 }}>Print receipt or KOT</div>
             </div>
             <button className="btn btn-secondary" style={{ height:28, fontSize:11, flexShrink:0 }}
-              onClick={() => window.open(invoiceApi.downloadUrl(success.id, {}), '_blank')}>
+              onClick={() => invoiceApi.openInvoice(success.id)}>
               Receipt
             </button>
             <button onClick={() => setSuccess(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'#065F46' }}><X size={14} /></button>

@@ -4,7 +4,7 @@ import {
   Search, X, ArrowRight,
   LayoutDashboard, ShoppingBag, BookOpen, QrCode, Users, BarChart3,
   Settings, Package, Gift, ChefHat, Receipt, FlaskConical, Clock,
-  Sparkles, TrendingUp, PlusCircle,
+  Sparkles, TrendingUp, PlusCircle, MessageSquare,
 } from 'lucide-react';
 import { useAuth, ROLE_PERMISSIONS } from '../context/AuthContext.jsx';
 import { orderApi, menuApi } from '../api/index.js';
@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { to: '/inventory',     label: 'Stock Levels',         icon: Package },
   { to: '/raw-materials', label: 'Raw Materials',        icon: FlaskConical },
   { to: '/loyalty',       label: 'Loyalty Program',      icon: Gift },
+  { to: '/campaigns',     label: 'SMS Campaigns',        icon: MessageSquare },
   { to: '/staff',         label: 'Staff',                icon: Users },
   { to: '/reports',       label: 'Reports',              icon: BarChart3 },
   { to: '/analytics',     label: 'Advanced Analytics',   icon: TrendingUp },

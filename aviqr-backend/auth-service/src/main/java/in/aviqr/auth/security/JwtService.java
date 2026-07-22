@@ -37,7 +37,8 @@ public class JwtService {
                         "role",   user.getRole().name(),
                         "email",  user.getEmail(),
                         "name",   user.getName(),
-                        "shopId", user.getShopId() != null ? user.getShopId() : ""
+                        "shopId", user.getShopId() != null ? user.getShopId() : "",
+                        "phone",  user.getPhone() != null ? user.getPhone() : ""
                 ))
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationMs))

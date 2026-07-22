@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Gift, Search, Users, TrendingUp, Plus, RefreshCw,
-  Award, Star, Clock, Phone, ChevronRight, Download, Bell, Settings
+  Award, Star, Clock, Phone, ChevronRight, Download, Bell, Settings,
+  User, Tag, X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
-import { loyaltyApi, orderApi, shopApi } from '../api/index.js';
+import { loyaltyApi, orderApi, shopApi, customerApi } from '../api/index.js';
 
 const TIERS = [
   { name:'Bronze',  min:0,    max:499,   color:'#CD7F32', bg:'#FDF3E7', emoji:'🥉' },
@@ -38,6 +39,11 @@ export default function Loyalty() {
   const [balRes,    setBalRes]  = useState(null);
   const [history,   setHistory] = useState([]);
   const [saving,    setSaving]  = useState(false);
+  const [profile,        setProfile]        = useState(null);
+  const [profileForm,    setProfileForm]    = useState({ email:'', birthday:'', anniversary:'', notes:'' });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileSaving,  setProfileSaving]  = useState(false);
+  const [newLabel,       setNewLabel]       = useState('');
 
   const load = useCallback(async () => {
     if (!shopId) { setLoad(false); return; }
@@ -75,6 +81,63 @@ export default function Loyalty() {
       const res = await loyaltyApi.getHistory(shopId, c.customerPhone);
       setHistory(res.data.data || []);
     } catch {}
+  };
+
+  const openProfile = async (c) => {
+    setSelCust(c);
+    setModal('profile');
+    setProfile(null);
+    setProfileLoading(true);
+    try {
+      const res = await customerApi.getProfile(shopId, c.customerPhone);
+      const p = res.data.data;
+      setProfile(p);
+      setProfileForm({
+        email: p.email || '',
+        birthday: p.birthday || '',
+        anniversary: p.anniversary || '',
+        notes: p.notes || '',
+      });
+    } catch {
+      setProfile({ labels: [] });
+    } finally { setProfileLoading(false); }
+  };
+
+  const saveProfile = async () => {
+    if (!selCust) return;
+    setProfileSaving(true);
+    try {
+      await customerApi.updateProfile(shopId, {
+        phone: selCust.customerPhone,
+        name: selCust.customerName,
+        email: profileForm.email || null,
+        birthday: profileForm.birthday || null,
+        anniversary: profileForm.anniversary || null,
+      });
+      await customerApi.updateNotes(shopId, { phone: selCust.customerPhone, notes: profileForm.notes || null });
+      setModal(null); setSelCust(null); setProfile(null);
+      load();
+    } catch (e) { alert(e.response?.data?.message || 'Failed to save profile'); }
+    finally { setProfileSaving(false); }
+  };
+
+  const addProfileLabel = async () => {
+    if (!newLabel.trim() || !selCust) return;
+    try {
+      await customerApi.addLabel(shopId, { phone: selCust.customerPhone, label: newLabel.trim() });
+      setNewLabel('');
+      const res = await customerApi.getProfile(shopId, selCust.customerPhone);
+      setProfile(res.data.data);
+    } catch (e) { alert(e.response?.data?.message || 'Failed to add label'); }
+  };
+
+  const removeProfileLabel = async (label) => {
+    if (!selCust) return;
+    try {
+      await customerApi.removeLabel(shopId, selCust.customerPhone, label);
+      const res = await customerApi.getProfile(shopId, selCust.customerPhone);
+      setProfile(res.data.data);
+    } catch (e) { alert(e.response?.data?.message || 'Failed to remove label'); }
   };
 
   const earn = async () => {
@@ -298,6 +361,10 @@ export default function Loyalty() {
                     onClick={() => openHistory(c)}>
                     History →
                   </button>
+                  <button style={{ background:'#FFFBEB', color:'#D97706', border:'none', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:11, fontWeight:600 }}
+                    onClick={() => openProfile(c)}>
+                    Profile
+                  </button>
                 </div>
               </div>
             );
@@ -387,6 +454,73 @@ export default function Loyalty() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Profile modal — birthday/anniversary/notes/labels (CRM foundation) */}
+      {modal === 'profile' && selCust && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
+          <div style={{ background:'white', borderRadius:16, width:'100%', maxWidth:440, maxHeight:'85vh', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'18px 22px', borderBottom:'1px solid var(--gray-100)' }}>
+              <div>
+                <h3 style={{ fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:6 }}><User size={15} /> {selCust.customerName || 'Customer'}</h3>
+                <p style={{ fontSize:12, color:'var(--gray-400)', marginTop:2 }}>{selCust.customerPhone}</p>
+              </div>
+              <button onClick={()=>{setModal(null);setSelCust(null);setProfile(null);}} style={{ background:'var(--gray-100)', border:'none', borderRadius:8, padding:'6px 10px', cursor:'pointer' }}>✕</button>
+            </div>
+            {profileLoading ? (
+              <div style={{ padding:'32px 0', textAlign:'center', color:'var(--gray-400)', fontSize:13 }}>Loading…</div>
+            ) : (
+              <div style={{ overflowY:'auto', padding:'16px 22px', flex:1 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:14 }}>
+                  <div className="field">
+                    <label className="field-label">Birthday</label>
+                    <input className="field-input" type="date" value={profileForm.birthday || ''}
+                      onChange={e => setProfileForm(f => ({ ...f, birthday: e.target.value }))} />
+                  </div>
+                  <div className="field">
+                    <label className="field-label">Anniversary</label>
+                    <input className="field-input" type="date" value={profileForm.anniversary || ''}
+                      onChange={e => setProfileForm(f => ({ ...f, anniversary: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="field" style={{ marginBottom:14 }}>
+                  <label className="field-label">Email</label>
+                  <input className="field-input" type="email" value={profileForm.email}
+                    onChange={e => setProfileForm(f => ({ ...f, email: e.target.value }))} placeholder="customer@email.com" />
+                </div>
+                <div className="field" style={{ marginBottom:14 }}>
+                  <label className="field-label">Notes</label>
+                  <textarea className="field-input" rows={3} value={profileForm.notes}
+                    onChange={e => setProfileForm(f => ({ ...f, notes: e.target.value }))}
+                    placeholder="Dietary notes, seating preference, special requests…" />
+                </div>
+                <div className="field" style={{ marginBottom:14 }}>
+                  <label className="field-label"><Tag size={11} /> Labels</label>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
+                    {(profile?.labels || []).map(l => (
+                      <span key={l} style={{ display:'flex', alignItems:'center', gap:4, background:'#F5F3FF', color:'#7C3AED', borderRadius:999, padding:'3px 10px', fontSize:11.5, fontWeight:600 }}>
+                        {l}
+                        <button onClick={() => removeProfileLabel(l)} style={{ background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', color:'#7C3AED' }}><X size={11} /></button>
+                      </span>
+                    ))}
+                    {(!profile?.labels || profile.labels.length === 0) && <span style={{ fontSize:12, color:'var(--gray-400)' }}>No labels yet</span>}
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <input className="field-input" style={{ flex:1 }} value={newLabel} onChange={e => setNewLabel(e.target.value)}
+                      placeholder="e.g. VIP, Corporate, Regular" onKeyDown={e => e.key === 'Enter' && addProfileLabel()} />
+                    <button className="btn btn-secondary" onClick={addProfileLabel}>Add</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div style={{ display:'flex', gap:10, padding:'16px 22px', borderTop:'1px solid var(--gray-100)' }}>
+              <button className="btn btn-secondary" style={{ flex:1 }} onClick={()=>{setModal(null);setSelCust(null);setProfile(null);}}>Close</button>
+              <button className="btn btn-primary" style={{ flex:1 }} disabled={profileSaving || profileLoading} onClick={saveProfile}>
+                {profileSaving ? 'Saving…' : 'Save profile'}
+              </button>
             </div>
           </div>
         </div>

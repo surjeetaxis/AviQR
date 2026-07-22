@@ -11,7 +11,8 @@ import {
   Coffee, UtensilsCrossed, ShoppingCart, Wifi, ScanLine,
   UploadCloud, PackageCheck, ChefHat, Receipt, Package,
   Landmark, CreditCard, Video, Sparkles, UserCog, Lock,
-  BadgeCheck
+  BadgeCheck, MessageSquare, Layers, Share2, Command, LayoutGrid,
+  Bell, Wallet, Bot, Play, RotateCw
 } from 'lucide-react';
 import './Landing.css';
 
@@ -22,22 +23,47 @@ const STATS = [
   { value: '99.9%',  label: 'Uptime SLA' },
 ];
 
-const FEATURES = [
+// What the diner / hotel guest / mall visitor sees and uses — no login, no app.
+const CUSTOMER_FEATURES = [
+  { icon: Smartphone, title: 'No App to Install',     desc: 'Scan with any phone camera. The menu opens straight in the browser — nothing to download.' },
+  { icon: Globe,      title: '9 Indian Languages',    desc: 'Every menu auto-translates — Hindi, Tamil, Telugu, Kannada, Bengali, Marathi and more.' },
+  { icon: Video,      title: 'Video & 3D Dish Previews', desc: 'See a short video or a rotatable 3D model of a dish before ordering it.' },
+  { icon: ScanLine,   title: 'Live Order Tracking',   desc: 'Watch your order move from Confirmed → Preparing → Ready in real time, with a pickup code.' },
+  { icon: Star,       title: 'Loyalty Rewards',       desc: 'Earn points on every order, see your tier, redeem for discounts on your next visit.' },
+  { icon: Bell,       title: 'In-Room Hotel Requests', desc: 'Housekeeping, laundry, spa or room service — request it from the QR in the room, no phone call.' },
+  { icon: Building2,  title: 'One QR, Whole Food Court', desc: 'Browse every vendor in a mall or food court from a single scan.' },
+  { icon: Wallet,     title: 'Pay Any Way',           desc: 'UPI, card, cash or wallet — checkout finishes in under 30 seconds.' },
+];
+
+// What the restaurant / hotel / mall owner runs the business with.
+const BUSINESS_FEATURES = [
   { icon: QrCode,        title: 'Permanent QR Code',      desc: 'One QR. Print once. Update menu forever — no reprinting needed when prices change.' },
+  { icon: Sparkles,      title: '11 AI Features',         desc: 'Admin assistant, demand forecasting, fraud detection, dynamic pricing and more — powered by Claude.' },
   { icon: Zap,           title: 'Dynamic Pricing',         desc: 'Weekend, festival, happy hour pricing that switches automatically by time and date.' },
   { icon: Globe,         title: 'OCR Menu Upload',         desc: 'Photograph your printed menu. AI reads it, builds your digital menu in under 5 minutes.' },
-  { icon: Video,         title: 'Video & 3D Dish Previews',desc: 'Show a short video or a rotatable 3D model for any dish — customers see exactly what they’re ordering.' },
-  { icon: Star,          title: 'Loyalty & Wallet',        desc: 'Silver → Diamond tiers. Cashback wallet. Reward regulars, retain customers.' },
-  { icon: BarChart2,     title: 'Analytics & CRM',         desc: 'Revenue trends, peak hours, top items, customer spend analysis in real time.' },
-  { icon: Smartphone,    title: 'No App for Customers',    desc: 'Customers scan with phone camera. Menu opens instantly in browser. No download required.' },
+  { icon: Layers,        title: 'Item-wise Customisation', desc: 'Create variations and add-ons with separate pricing for every menu item — sizes, portions, extras, your call.' },
+  { icon: Share2,        title: 'Aggregator Integration',  desc: 'Sync your menu to Zomato, Swiggy and other delivery apps, and flip any item ON/OFF from the POS the moment stock runs low.' },
+  { icon: Command,       title: 'Quick-Bill Shortcodes',   desc: 'Assign item-wise shortcodes for lightning-fast billing — faster checkout for staff and customers alike.' },
+  { icon: LayoutGrid,    title: 'Multiple Dine-in Areas',  desc: 'Create separate dine-in areas, each with its own menu and full pricing control — physical or online.' },
+  { icon: Star,          title: 'Loyalty & CRM',           desc: 'Bronze → Platinum tiers, points issued and redeemed automatically, member-level insight.' },
+  { icon: BarChart2,     title: 'Analytics & Reports',     desc: 'Revenue trends, peak hours, top items, customer spend analysis in real time.' },
+  { icon: MessageSquare, title: 'SMS Campaigns',           desc: 'Birthday & anniversary wishes, segment broadcasts — sent automatically, no manual follow-up.' },
   { icon: ChefHat,       title: 'Kitchen Display (KOT)',   desc: 'Orders hit the kitchen screen the instant they’re placed — no paper tickets, no shouting.' },
-  { icon: Receipt,       title: 'POS & Billing',           desc: 'Take counter orders, print bills, and settle payments without leaving the dashboard.' },
-  { icon: Package,       title: 'Inventory & Recipes',     desc: 'Track raw material stock and real ingredient cost per dish, down to the last gram.' },
+  { icon: Receipt,       title: 'POS & Billing',           desc: 'Take counter orders, print GST-ready bills, and settle payments without leaving the dashboard.' },
+  { icon: Package,       title: 'Inventory & Recipes',     desc: 'Track raw material stock and real ingredient cost per dish — with automatic low-stock alerts.' },
   { icon: CreditCard,    title: 'Real Payments',           desc: 'Razorpay-powered online payments plus cash — orders and settlements, not a mockup.' },
   { icon: UserCog,       title: 'Staff Roles',             desc: 'Owner, manager, kitchen and cashier logins — everyone sees only what their role needs.' },
-  { icon: Hotel,         title: 'Hotel Operations',        desc: 'Room service, housekeeping, laundry and spa booking — all from the QR in the room.' },
-  { icon: Building2,     title: 'Mall & Food-Court Mode',  desc: 'Onboard vendors, track revenue share, and run one QR for the whole food court.' },
+  { icon: Hotel,         title: 'Hotel Operations',        desc: 'A full front-desk dashboard: rooms, bookings, housekeeping, laundry, spa and room-charge billing.' },
+  { icon: Building2,     title: 'Mall & Food-Court Mode',  desc: 'Onboard vendors, track revenue share per stall, and run one QR for the whole food court.' },
   { icon: Landmark,      title: 'Multi-Outlet Brands',     desc: 'Suppliers and franchises manage every outlet’s menu and orders from one login.' },
+];
+
+// The 11 features inside the AI Hub — shown as its own strip since it's the
+// single biggest block of BUSINESS_FEATURES ("11 AI Features") condensed to one card.
+const AI_FEATURES = [
+  'Admin Assistant', 'Recommendations', 'Smart Menu Search', 'Support Chatbot',
+  'AI Analytics', 'Description Writer', 'Review Sentiment', 'Fraud Detection',
+  'Demand Forecast', 'Dynamic Pricing', 'Voice Ordering',
 ];
 
 const HOW_IT_WORKS = [
@@ -48,11 +74,26 @@ const HOW_IT_WORKS = [
 ];
 
 // Real product screenshots, captured live from the running app (not mockups) —
-// see aviqr-ui-web/public/demo/.
-const SHOWCASE = [
+// see aviqr-ui-web/public/demo/. Split to mirror CUSTOMER_FEATURES / BUSINESS_FEATURES
+// above so "what you see" lines up with "what it's called".
+const SHOWCASE_CUSTOMER = [
+  { src: '/demo/customer-menu.png', alt: 'Customer-facing QR menu with real dish photos and a 3D preview badge', title: 'QR menu', desc: 'Real dish photos, videos and 3D previews — no app, opens straight in the browser.' },
+  { src: '/demo/order-code-qr.png', alt: 'Order confirmation screen with a pickup QR code and status', title: 'Order confirmed', desc: 'A QR + numeric code the customer shows to pay and start the order.' },
+  { src: '/demo/live-tracking.png', alt: 'Live order tracking screen showing Confirmed, Preparing, Ready, Served steps', title: 'Live tracking', desc: 'Confirmed → Preparing → Ready → Served, updating in real time.' },
+];
+
+const SHOWCASE_BUSINESS = [
   { src: '/demo/owner-dashboard.png', alt: 'AviQR owner dashboard showing live orders, revenue and top-selling items', title: 'Owner dashboard', desc: 'Live orders, revenue and top items — updated in real time.', wide: true },
-  { src: '/demo/customer-menu.png',   alt: 'Customer-facing QR menu with real dish photos and a 3D preview badge', title: 'Customer menu', desc: 'Real dish photos, videos and 3D previews your customers actually see.' },
-  { src: '/demo/qr-designer.png',     alt: 'Print-ready QR code poster designer with live preview', title: 'QR poster designer', desc: 'Table tents, wall posters, counter cards — designed and printed in one click.' },
+  { src: '/demo/ai-hub.png', alt: 'AI Hub showing all 11 AI features and the admin assistant chat', title: 'AI Hub', desc: 'All 11 AI features in one place — this is the admin assistant, powered by Claude.', wide: true },
+  { src: '/demo/hotel-dashboard.png', alt: 'Hotel front-desk dashboard showing room occupancy, guests in-house and active requests', title: 'Hotel front desk', desc: 'Room occupancy, guests in-house, housekeeping and room-service requests, live.' },
+  { src: '/demo/mall-dashboard.png', alt: 'Mall food-court dashboard showing vendor revenue and commission', title: 'Mall / food court', desc: 'Every vendor’s orders, revenue and commission share, tracked centrally.' },
+  { src: '/demo/loyalty-crm.png', alt: 'Loyalty and CRM dashboard showing member tiers and points issued', title: 'Loyalty & CRM', desc: 'Bronze to Platinum tiers, points issued and redeemed, per-member history.' },
+  { src: '/demo/inventory.png', alt: 'Inventory dashboard showing stock quantity and low-stock threshold for a menu item', title: 'Inventory & stock', desc: 'Track stock per item — auto-disables when it hits zero, alerts before it does.' },
+  { src: '/demo/campaigns.png', alt: 'SMS campaign creation screen for a restaurant promotion', title: 'SMS campaigns', desc: 'Birthday wishes, segment broadcasts and offers, sent without manual follow-up.' },
+  { src: '/demo/qr-designer.png', alt: 'Print-ready QR code poster designer with live preview', title: 'QR poster designer', desc: 'Table tents, wall posters, counter cards — designed and printed in one click.' },
+  { src: '/demo/pos-confirm-code.png', alt: 'POS screen for looking up and confirming a customer order code', title: 'POS: confirm order', desc: 'Staff type or scan the customer’s code to confirm payment and fire it to the kitchen.' },
+  { src: '/demo/pos-bill-breakup.png', alt: 'POS billing screen showing subtotal, discount, service charge and GST breakup', title: 'POS: bill breakup', desc: 'Discount, service charge and GST calculated automatically on every bill.' },
+  { src: '/demo/receipt.png', alt: 'GST-compliant tax invoice generated after an order', title: 'GST tax invoice', desc: 'A compliant invoice generated and downloadable for every single order.' },
 ];
 
 const VERTICALS = [
@@ -77,7 +118,7 @@ const FALLBACK_PLANS = [
   {
     planKey: 'GROWTH', name: 'Growth', price: 999, tag: 'Most popular',
     desc: 'For growing restaurants that need more.',
-    features: ['Unlimited items & orders', 'Dynamic pricing', 'OCR menu upload', 'Staff roles (10)', 'Loyalty & wallet', 'WhatsApp campaigns'],
+    features: ['Unlimited items & orders', 'Dynamic pricing', 'OCR menu upload', 'Staff roles (10)', 'Loyalty & wallet', 'SMS campaigns', 'WhatsApp campaigns'],
     cta: 'Start 14-day trial', primary: true,
   },
   {
@@ -173,7 +214,7 @@ export default function Landing() {
             <span className="hero-accent">restaurant OS.</span>
           </h1>
           <p className="hero-sub">
-            Menu. Orders. Payments. Loyalty. CRM. Staff. Reports.
+            Menu. Orders. Payments. Loyalty. CRM. Campaigns. Staff. Reports.
             All running through a single permanent QR code your customers scan with any phone camera.
           </p>
           <div className="hero-actions">
@@ -212,23 +253,100 @@ export default function Landing() {
         ))}
       </section>
 
-      {/* ── Features ── */}
+      {/* ── Features — split by who actually uses each one ── */}
       <section className="features-section" id="features">
         <div className="section-header">
           <div className="section-eyebrow">Platform</div>
-          <h2 className="section-title">Everything your business needs</h2>
-          <p className="section-sub">AviQR isn't a menu app. It's the operating system for restaurants, hotels, malls and multi-outlet brands.</p>
+          <h2 className="section-title">Two sides. One QR.</h2>
+          <p className="section-sub">Everything your customers experience, and everything you run the business with — all through the same permanent QR code.</p>
         </div>
-        <div className="features-grid">
-          {FEATURES.map(f => (
-            <div key={f.title} className="feature-card">
-              <div className="feature-icon">
-                <f.icon size={20} />
+
+        <div className="feature-group">
+          <div className="feature-group-header">
+            <span className="feature-group-badge feature-group-badge-customer"><Users size={14} /> For your customers</span>
+            <p>What a diner, hotel guest or mall visitor sees the moment they scan — no login, no app.</p>
+          </div>
+          <div className="features-grid features-grid-customer">
+            {CUSTOMER_FEATURES.map(f => (
+              <div key={f.title} className="feature-card feature-card-customer">
+                <div className="feature-icon feature-icon-customer">
+                  <f.icon size={20} />
+                </div>
+                <h3 className="feature-title">{f.title}</h3>
+                <p className="feature-desc">{f.desc}</p>
               </div>
-              <h3 className="feature-title">{f.title}</h3>
-              <p className="feature-desc">{f.desc}</p>
+            ))}
+          </div>
+
+          {/* Dish preview spotlight — the one customer feature visual enough to earn its own block */}
+          <div className="dish-spotlight">
+            <div className="dish-spotlight-copy">
+              <span className="dish-spotlight-badge"><Video size={14} /> Dish previews</span>
+              <h3 className="dish-spotlight-title">Let the dish sell itself</h3>
+              <p className="dish-spotlight-desc">
+                A static photo only tells half the story. Add a short video or a rotatable 3D model to
+                any menu item, and customers see exactly what's coming to the table before they order.
+              </p>
+              <ul className="dish-spotlight-points">
+                <li><CheckCircle size={14} /> Short video clips — plated, garnished, ready to eat</li>
+                <li><CheckCircle size={14} /> Rotatable 3D models customers can spin with a swipe</li>
+                <li><CheckCircle size={14} /> Falls back to the photo automatically — no dead ends</li>
+              </ul>
             </div>
-          ))}
+            <div className="dish-spotlight-visual">
+              <div className="dish-preview-card">
+                <div className="dish-preview-media">
+                  <UtensilsCrossed size={36} className="dish-preview-icon" />
+                  <button className="dish-preview-play" aria-label="Play video preview" tabIndex={-1}>
+                    <Play size={16} fill="currentColor" />
+                  </button>
+                  <span className="dish-preview-badge-3d"><RotateCw size={11} /> 360° 3D</span>
+                </div>
+                <div className="dish-preview-info">
+                  <div>
+                    <div className="dish-preview-name">Butter Chicken</div>
+                    <div className="dish-preview-sub">Chef's special · ★ 4.8</div>
+                  </div>
+                  <div className="dish-preview-price">₹320</div>
+                </div>
+                <div className="dish-preview-tabs">
+                  <span className="dish-tab dish-tab-active">Photo</span>
+                  <span className="dish-tab">Video</span>
+                  <span className="dish-tab">3D</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="feature-group">
+          <div className="feature-group-header">
+            <span className="feature-group-badge feature-group-badge-business"><UserCog size={14} /> For your business</span>
+            <p>What you and your staff run the shop, hotel or mall with, behind the login.</p>
+          </div>
+          <div className="features-grid">
+            {BUSINESS_FEATURES.map(f => (
+              <div key={f.title} className="feature-card">
+                <div className="feature-icon">
+                  <f.icon size={20} />
+                </div>
+                <h3 className="feature-title">{f.title}</h3>
+                <p className="feature-desc">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="ai-strip">
+            <div className="ai-strip-head">
+              <Bot size={18} />
+              <span>The 11 AI features, unpacked</span>
+            </div>
+            <div className="ai-strip-pills">
+              {AI_FEATURES.map(name => (
+                <span key={name} className="ai-pill">{name}</span>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -271,10 +389,25 @@ export default function Landing() {
         <div className="section-header">
           <div className="section-eyebrow">See it in action</div>
           <h2 className="section-title">Real screens. Real product.</h2>
-          <p className="section-sub">No mockups here — these are live screenshots of exactly what you and your customers see.</p>
+          <p className="section-sub">No mockups here — every screenshot below is captured live from the running app.</p>
         </div>
+
+        <h3 className="showcase-subhead">What your customers see</h3>
+        <div className="showcase-grid showcase-grid-phones">
+          {SHOWCASE_CUSTOMER.map(s => (
+            <figure key={s.src} className="showcase-card showcase-card-phone">
+              <img src={s.src} alt={s.alt} loading="lazy" />
+              <figcaption>
+                <div className="showcase-title">{s.title}</div>
+                <div className="showcase-desc">{s.desc}</div>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+
+        <h3 className="showcase-subhead">What you run the business with</h3>
         <div className="showcase-grid">
-          {SHOWCASE.map(s => (
+          {SHOWCASE_BUSINESS.map(s => (
             <figure key={s.src} className={`showcase-card ${s.wide ? 'showcase-wide' : ''}`}>
               <img src={s.src} alt={s.alt} loading="lazy" />
               <figcaption>

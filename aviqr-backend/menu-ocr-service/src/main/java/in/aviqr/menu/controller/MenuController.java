@@ -21,6 +21,8 @@ public class MenuController {
     private final CategoryRepository catRepo;
     private final MenuItemRepository itemRepo;
     private final PricingRuleRepository ruleRepo;
+    private final MenuVariantRepository variantRepo;
+    private final MenuAddonRepository addonRepo;
     private final DynamicPricingService pricingService;
     private final RestTemplate restTemplate;
 
@@ -52,6 +54,14 @@ public class MenuController {
                 dto.setVeg(item.getVeg()); dto.setSpicy(item.getSpicy());
                 dto.setPopular(item.getPopular()); dto.setAvailable(item.getAvailable());
                 dto.setTag(item.getTag());
+                dto.setVariants(variantRepo.findByMenuItemIdOrderBySortOrderAsc(item.getId()).stream()
+                    .filter(MenuVariant::getActive)
+                    .map(v -> {
+                        MenuResponse.VariantDto vd = new MenuResponse.VariantDto();
+                        vd.setId(v.getId()); vd.setVariantName(v.getVariantName());
+                        vd.setPrice(v.getPrice()); vd.setIsDefault(v.getIsDefault());
+                        return vd;
+                    }).toList());
                 return dto;
             }).toList();
 
@@ -66,6 +76,11 @@ public class MenuController {
         MenuResponse resp = new MenuResponse();
         resp.setShopId(shopId); resp.setLang(lang); resp.setCategories(catDtos);
         resp.setShop(fetchShopInfo(shopId));
+        resp.setAddons(addonRepo.findByShopIdAndActiveTrue(shopId).stream().map(a -> {
+            MenuResponse.AddonDto ad = new MenuResponse.AddonDto();
+            ad.setId(a.getId()); ad.setName(a.getName()); ad.setPrice(a.getPrice()); ad.setVeg(a.getVeg());
+            return ad;
+        }).toList());
         return ResponseEntity.ok(ApiResponse.ok(resp));
     }
 
@@ -211,6 +226,49 @@ public class MenuController {
         ruleRepo.deleteById(id);
         return ResponseEntity.ok(ApiResponse.ok("Deleted", null));
     }
+
+    // ── Head-office: copy a shop's full menu (categories + items) to other outlets ──
+    @PostMapping("/api/v1/menu/copy")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> copyMenu(
+            @RequestBody MenuCopyRequest req,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if ("CUSTOMER".equals(role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        List<Category> sourceCategories = catRepo.findByShopIdAndActiveTrueOrderBySortOrder(req.fromShopId());
+        List<MenuItem> sourceItems = itemRepo.findByShopIdOrderBySortOrder(req.fromShopId());
+
+        int categoriesCopied = 0, itemsCopied = 0;
+        for (String toShopId : req.toShopIds()) {
+            if (toShopId.equals(req.fromShopId())) continue;
+            Map<UUID, UUID> categoryIdMap = new HashMap<>();
+            for (Category c : sourceCategories) {
+                Category copy = Category.builder()
+                    .name(c.getName()).nameHi(c.getNameHi()).nameTa(c.getNameTa()).nameTe(c.getNameTe())
+                    .nameKn(c.getNameKn()).nameMl(c.getNameMl()).nameBn(c.getNameBn()).nameMr(c.getNameMr()).nameGu(c.getNameGu())
+                    .emoji(c.getEmoji()).shopId(toShopId).sortOrder(c.getSortOrder()).active(true)
+                    .build();
+                categoryIdMap.put(c.getId(), catRepo.save(copy).getId());
+                categoriesCopied++;
+            }
+            for (MenuItem item : sourceItems) {
+                UUID newCategoryId = categoryIdMap.get(item.getCategoryId());
+                if (newCategoryId == null) continue; // source category was inactive/skipped
+                MenuItem copy = MenuItem.builder()
+                    .name(item.getName()).nameHi(item.getNameHi()).nameTa(item.getNameTa()).nameTe(item.getNameTe())
+                    .description(item.getDescription()).descriptionHi(item.getDescriptionHi())
+                    .categoryId(newCategoryId).shopId(toShopId).price(item.getPrice())
+                    .imageUrl(item.getImageUrl()).videoUrl(item.getVideoUrl()).modelUrl(item.getModelUrl())
+                    .mediaType(item.getMediaType()).veg(item.getVeg()).spicy(item.getSpicy())
+                    .popular(item.getPopular()).available(true).tag(item.getTag()).sortOrder(item.getSortOrder())
+                    .build();
+                itemRepo.save(copy);
+                itemsCopied++;
+            }
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Menu copied",
+            Map.of("categoriesCopied", categoriesCopied, "itemsCopied", itemsCopied, "outletsUpdated", req.toShopIds().size())));
+    }
+
+    record MenuCopyRequest(String fromShopId, List<String> toShopIds) {}
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     private String getLangName(MenuItem m, String lang) {

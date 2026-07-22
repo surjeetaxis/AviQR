@@ -11,6 +11,7 @@ public class ShopRequest {
     String address;
     String city;
     String state;
+    String zone;
     String pincode;
     String logoUrl;
     String gstin;
