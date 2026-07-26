@@ -9,7 +9,7 @@ import {
   ScanLine, MessageCircle, FileText, UserCheck, LogOut,
   Menu as MenuIcon, Search, Bell, AlertCircle, CheckCircle2,
   XCircle, Clock, Eye, RefreshCw, Filter,
-  TrendingUp, Activity, Shield, ExternalLink, Layers, Gift
+  TrendingUp, Activity, Shield, ExternalLink, Layers, Gift, Zap
 } from 'lucide-react';
 import '../admin/Admin.css';
 import './Support.css';
@@ -639,27 +639,111 @@ function AuditPanel({ logs }) {
 function SupportBillingPanel() {
   const [plans, setPlans] = useState([]);
   const [offers, setOffers] = useState([]);
+  const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState('');
 
-  useEffect(() => {
-    Promise.all([planApi.listAdmin(), offerApi.listAdmin()])
-      .then(([pRes, oRes]) => {
+  const load = () => {
+    setLoading(true);
+    Promise.all([planApi.listAdmin(), offerApi.listAdmin(), shopApi.list({ size: 200 })])
+      .then(([pRes, oRes, sRes]) => {
         setPlans(pRes.data?.data || []);
         setOffers(oRes.data?.data || []);
+        const d = sRes.data?.data;
+        setShops(Array.isArray(d) ? d : d?.content || []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+
+  const SUB_STATUS_CFG = {
+    ACTIVE:        { label: 'Active',        color: '#059669', bg: '#DCFCE7' },
+    TRIALING:      { label: 'Trialing',      color: '#2563EB', bg: '#DBEAFE' },
+    TRIAL_EXPIRED: { label: 'Trial expired', color: '#DC2626', bg: '#FEE2E2' },
+    CANCELED:      { label: 'Canceled',      color: '#6B7280', bg: '#F3F4F6' },
+  };
+
+  const setSubscriptionStatus = async (shop, status) => {
+    try {
+      await shopApi.updateSubscription(shop.id, status);
+      setShops(prev => prev.map(s => s.id !== shop.id ? s : { ...s, subscriptionStatus: status, ...(status === 'CANCELED' ? { subscriptionPlan: 'STARTER', trialEndsAt: null } : {}) }));
+      showToast(`${shop.name}'s subscription marked ${SUB_STATUS_CFG[status]?.label || status}`);
+    } catch (e) { showToast(e.response?.data?.message || 'Failed to update subscription'); }
+  };
+
+  const pendingCancellations = shops.filter(s => s.cancelRequestedAt && s.subscriptionStatus !== 'CANCELED');
 
   return (
     <div>
+      {toast && (
+        <div style={{ position:'fixed', bottom:24, right:24, background:'#1F2937', color:'white', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
+          ✓ {toast}
+        </div>
+      )}
       <div className="page-header">
-        <div><h1 className="page-title">Billing</h1><p className="page-subtitle">Plans & discount offers — read-only (managed by Admin)</p></div>
+        <div><h1 className="page-title">Billing</h1><p className="page-subtitle">Plans read-only (managed by Admin) — subscriptions manageable here</p></div>
+        <button className="btn-refresh" onClick={load}><RefreshCw size={13}/> Refresh</button>
       </div>
       {loading ? (
         <div className="support-empty">Loading…</div>
       ) : (
         <>
+          {pendingCancellations.length > 0 && (
+            <div className="support-alert-banner" style={{ marginBottom:16 }}>
+              <AlertCircle size={16} />
+              <span><strong>{pendingCancellations.length} shop{pendingCancellations.length>1?'s':''}</strong> requested subscription cancellation — see the Tickets tab or act below.</span>
+            </div>
+          )}
+
+          <div className="support-panel" style={{ marginBottom:16 }}>
+            <div className="support-panel-header"><h3><Zap size={15} style={{ verticalAlign:'-2px', marginRight:6 }}/>Shop subscriptions</h3></div>
+            <div className="admin-table-card">
+              <table className="admin-table">
+                <thead><tr><th>Shop</th><th>Plan</th><th>Subscription</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {shops.map(s => {
+                    const subStatus = s.subscriptionStatus || 'ACTIVE';
+                    const sc = SUB_STATUS_CFG[subStatus] || SUB_STATUS_CFG.ACTIVE;
+                    const daysLeft = subStatus === 'TRIALING' && s.trialEndsAt
+                      ? Math.ceil((new Date(s.trialEndsAt) - new Date()) / 86400000) : null;
+                    return (
+                      <tr key={s.id}>
+                        <td style={{ fontWeight:700, fontSize:13 }}>{s.name}</td>
+                        <td style={{ fontSize:12.5 }}>{s.subscriptionPlan || 'STARTER'}</td>
+                        <td>
+                          <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background:sc.bg, color:sc.color }}>{sc.label}</span>
+                          {daysLeft != null && <div style={{ fontSize:10.5, color:'var(--gray-400)', marginTop:3 }}>{daysLeft > 0 ? `${daysLeft}d left` : 'ends today'}</div>}
+                          {s.cancelRequestedAt && <div style={{ fontSize:10.5, color:'#D97706', marginTop:3 }}>Cancel requested</div>}
+                        </td>
+                        <td>
+                          <div style={{ display:'flex', gap:5 }}>
+                            {subStatus !== 'ACTIVE' && (
+                              <button className="admin-row-btn" onClick={() => setSubscriptionStatus(s, 'ACTIVE')}
+                                style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#059669' }}>
+                                <CheckCircle2 size={11}/> Mark Active
+                              </button>
+                            )}
+                            {subStatus !== 'CANCELED' && (
+                              <button className="admin-row-btn" onClick={() => setSubscriptionStatus(s, 'CANCELED')}
+                                style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#DC2626' }}>
+                                <XCircle size={11}/> Cancel
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {shops.length === 0 && <tr><td colSpan={4} className="support-empty">No shops found.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div className="support-panel" style={{ marginBottom:16 }}>
             <div className="support-panel-header"><h3><Layers size={15} style={{ verticalAlign:'-2px', marginRight:6 }}/>Plans</h3></div>
             <div className="admin-table-card">

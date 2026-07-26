@@ -1,13 +1,18 @@
 package in.aviqr.shop.controller;
 import in.aviqr.shop.dto.*;
+import in.aviqr.shop.entity.Shop;
 import in.aviqr.shop.entity.ShopStatus;
+import in.aviqr.shop.entity.SubscriptionStatus;
 import in.aviqr.shop.security.ShopTokenService;
 import in.aviqr.shop.service.ShopService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.ResolvableType;
 import org.springframework.data.domain.Page;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,6 +21,8 @@ import java.util.UUID;
 public class ShopController {
     private final ShopService service;
     private final ShopTokenService shopTokenService;
+    private final RestTemplate restTemplate;
+    private static final String TICKETS_URL = "http://support-service/api/v1/tickets";
 
     @PostMapping
     public ResponseEntity<ApiResponse<ShopResponse>> create(
@@ -78,6 +85,77 @@ public class ShopController {
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         String token = shopTokenService.mintShopToken(uid, shop.getId().toString());
         return ResponseEntity.ok(ApiResponse.ok(Map.of("accessToken", token, "shopId", shop.getId().toString())));
+    }
+
+    // ── Subscription (plan/trial/status) ───────────────────────────────────────
+    // Readable by ADMIN/SUPPORT (subscription management dashboards) or the
+    // shop's own owner (Settings > Plan & Billing trial countdown).
+    @GetMapping("/{id}/subscription")
+    public ResponseEntity<ApiResponse<ShopResponse>> getSubscription(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        var shop = service.findRaw(id).orElse(null);
+        if (shop == null) return ResponseEntity.notFound().build();
+        boolean isStaff = "ADMIN".equals(role) || "SUPPORT".equals(role);
+        if (!isStaff && !shop.getOwnerId().equals(uid))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return service.getById(id)
+            .map(s -> ResponseEntity.ok(ApiResponse.ok(s)))
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    // ADMIN+SUPPORT only — a day-to-day support operation (confirm manual
+    // payment / process a cancellation), not a plan-catalog edit (that stays
+    // ADMIN-only in PlanController).
+    @PutMapping("/{id}/subscription/status")
+    public ResponseEntity<ApiResponse<ShopResponse>> updateSubscriptionStatus(
+            @PathVariable UUID id, @RequestBody Map<String, String> body,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        SubscriptionStatus status;
+        try {
+            status = SubscriptionStatus.valueOf(String.valueOf(body.get("status")).toUpperCase());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid status"));
+        }
+        return service.updateSubscriptionStatus(id, status)
+            .map(s -> ResponseEntity.ok(ApiResponse.ok("Subscription updated", s)))
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    // Owner-triggered — records the request and files a support ticket so the
+    // (manual, support-mediated) cancellation shows up in the existing Tickets
+    // queue rather than requiring a new dedicated entity/UI.
+    @PostMapping("/{id}/subscription/cancel-request")
+    public ResponseEntity<ApiResponse<Void>> requestCancellation(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        Shop shop = service.findRaw(id).orElse(null);
+        if (shop == null) return ResponseEntity.notFound().build();
+        if (!"ADMIN".equals(role) && !shop.getOwnerId().equals(uid))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        service.requestCancellation(id);
+        try {
+            Map<String, Object> ticket = Map.of(
+                "subject", "Subscription cancellation request",
+                "description", "Shop \"" + shop.getName() + "\" (" + shop.getId() + ") on plan "
+                    + shop.getSubscriptionPlan() + " has requested to cancel their subscription.",
+                "priority", "MEDIUM"
+            );
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-User-Id", uid);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            restTemplate.exchange(TICKETS_URL, HttpMethod.POST, new HttpEntity<>(ticket, headers),
+                new ParameterizedTypeReference<ApiResponse<Object>>() {});
+        } catch (Exception ignored) {
+            // Cancellation request is recorded on the shop either way; the
+            // support ticket is a best-effort notification, same tolerance
+            // as MenuController's shop-info lookup.
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Cancellation request submitted", null));
     }
 
     @PostMapping("/admin/recalculate-tiers")

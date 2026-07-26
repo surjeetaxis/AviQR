@@ -30,6 +30,13 @@ public class Shop {
     private Double longitude;
     private String gstin;
     private String subscriptionPlan;
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default private SubscriptionStatus subscriptionStatus = SubscriptionStatus.ACTIVE;
+    private LocalDateTime trialEndsAt;
+    private LocalDateTime planStartedAt;
+    private LocalDateTime cancelRequestedAt;
+
     private Integer minOrderAmount;
     private Integer tableCount;
 

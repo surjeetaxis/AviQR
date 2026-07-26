@@ -81,6 +81,19 @@ export default function Settings() {
 
   useEffect(() => { load(); }, [load]);
 
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const requestCancellation = () => {
+    if (!shopId || shop?.cancelRequestedAt) return;
+    confirmAction('Request cancellation?', 'Our support team will follow up.', async () => {
+      setCancelSubmitting(true);
+      try {
+        await shopApi.requestCancellation(shopId);
+        setShop(s => ({ ...s, cancelRequestedAt: new Date().toISOString() }));
+      } catch (e) { Alert.alert('Failed to submit cancellation request', e.response?.data?.message); }
+      finally { setCancelSubmitting(false); }
+    }, 'Request cancellation');
+  };
+
   const toggle = k => setSettings(s=>({...s,[k]:!s[k]}));
   const save = async () => {
     try { await shopApi.saveSettings(shopId, settings); Alert.alert('Saved','Settings updated!'); }
@@ -252,6 +265,24 @@ export default function Settings() {
 
       <Section title="💎 Plan & Billing">
         <View style={{ padding: 14 }}>
+          {shop?.subscriptionStatus === 'TRIALING' && shop?.trialEndsAt && (
+            <View style={ss.trialBanner}>
+              <Text style={ss.trialBannerTxt}>
+                🎁 Free trial — {Math.max(0, Math.ceil((new Date(shop.trialEndsAt) - new Date()) / 86400000))} day(s) left.
+                Contact support before it ends to continue on this plan.
+              </Text>
+            </View>
+          )}
+          {shop?.subscriptionStatus === 'TRIAL_EXPIRED' && (
+            <View style={[ss.trialBanner, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }]}>
+              <Text style={[ss.trialBannerTxt, { color: '#991B1B' }]}>⚠ Your free trial has ended. Contact support@aviqr.in to continue, or you'll be moved back to Starter.</Text>
+            </View>
+          )}
+          {shop?.cancelRequestedAt && shop?.subscriptionStatus !== 'CANCELED' && (
+            <View style={[ss.trialBanner, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}>
+              <Text style={[ss.trialBannerTxt, { color: '#92400E' }]}>Your cancellation request is being processed by support.</Text>
+            </View>
+          )}
           <View style={ss.planRow}>
             <View>
               <Text style={ss.rowLabel}>Current plan</Text>
@@ -260,6 +291,13 @@ export default function Settings() {
             <Text style={ss.planPrice}>{planInfo.price > 0 ? `₹${planInfo.price}/mo` : 'Free'}</Text>
           </View>
           <Text style={ss.planHint}>To upgrade or change your plan, contact support@aviqr.in</Text>
+          {planInfo.price > 0 && shop?.subscriptionStatus !== 'CANCELED' && !shop?.cancelRequestedAt && (
+            <TouchableOpacity onPress={requestCancellation} disabled={cancelSubmitting} style={{ marginTop: 10 }}>
+              <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: Colors.error }}>
+                {cancelSubmitting ? 'Submitting…' : 'Request subscription cancellation'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </Section>
 
@@ -359,6 +397,8 @@ const ss=StyleSheet.create({
   planName:{fontSize:FontSize.xl,fontWeight:'800',marginTop:2},
   planPrice:{fontSize:FontSize.base,fontWeight:'700',color:Colors.gray700},
   planHint:{fontSize:FontSize.xs,color:Colors.gray400,marginTop:10},
+  trialBanner:{backgroundColor:'#DBEAFE',borderWidth:1,borderColor:'#93C5FD',borderRadius:Radius.md,padding:12,marginBottom:12},
+  trialBannerTxt:{fontSize:FontSize.xs,color:'#1E40AF',lineHeight:16},
   sheetTitle:{fontSize:FontSize.lg,fontWeight:'800',color:Colors.gray900,marginBottom:12},
   fieldLabel:{fontSize:FontSize.sm,fontWeight:'600',color:Colors.gray700,marginBottom:6,marginTop:2},
   chipRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:12},

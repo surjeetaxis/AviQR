@@ -12,6 +12,7 @@ public interface ShopRepository extends JpaRepository<Shop, UUID> {
     @Query("SELECT s FROM Shop s WHERE LOWER(s.name) LIKE LOWER(CONCAT('%',:q,'%')) OR LOWER(s.city) LIKE LOWER(CONCAT('%',:q,'%'))")
     Page<Shop> search(String q, Pageable pageable);
     long countByStatus(ShopStatus status);
+    List<Shop> findBySubscriptionStatusAndTrialEndsAtBefore(SubscriptionStatus status, java.time.LocalDateTime cutoff);
 
     // Haversine distance in km. Wrapped in a subquery because the computed
     // distance_km column can't be filtered with WHERE in the same SELECT it's

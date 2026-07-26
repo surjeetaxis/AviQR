@@ -5,6 +5,7 @@ import {
   Store, Clock, CreditCard, Bell, Shield, Tag, Save, Globe, Check, AlertTriangle,
   ExternalLink, Plus, Trash2, X, Link2, Lock, Eye, EyeOff, Palette, ShoppingBag,
   Printer, ChevronRight, Wifi, WifiOff, RefreshCw, Info, Key, QrCode, Image as ImageIcon,
+  MapPin, Loader2,
 } from 'lucide-react';
 
 // Converts an uploaded file to a data URL — same pattern as menu item image
@@ -121,7 +122,10 @@ export default function Settings() {
   // ── State ────────────────────────────────────────────────────────────────
   const [shopForm, setShopForm] = useState({
     name:'', phone:'', email:'', address:'', city:'', gstin:'', description:'', website:'', logoUrl:'',
+    latitude: null, longitude: null,
   });
+  const [locating, setLocating] = useState(false);
+  const [locErr, setLocErr] = useState('');
   const logoInputRef = useRef(null);
   const [hours, setHours] = useState(
     DAYS.reduce((a, d) => ({ ...a, [d]:{ open: d !== 'Sunday', from:'09:00', to:'22:00' } }), {})
@@ -168,6 +172,10 @@ export default function Settings() {
 
   // Plan
   const [shopPlan, setShopPlan]   = useState('STARTER');
+  const [subStatus, setSubStatus] = useState('ACTIVE');
+  const [trialEndsAt, setTrialEndsAt] = useState(null);
+  const [cancelRequestedAt, setCancelRequestedAt] = useState(null);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [livePlans, setLivePlans] = useState([]);
   const [liveOffers, setLiveOffers] = useState([]);
 
@@ -197,8 +205,11 @@ export default function Settings() {
     shopApi.getById(shopId).then(r => {
       const d = r.data.data;
       if (d) {
-        setShopForm(f => ({ ...f, name:d.name||'', phone:d.phone||'', email:d.email||'', address:d.address||'', city:d.city||'', gstin:d.gstin||'', description:d.description||'', website:d.website||'', logoUrl:d.logoUrl||'' }));
+        setShopForm(f => ({ ...f, name:d.name||'', phone:d.phone||'', email:d.email||'', address:d.address||'', city:d.city||'', gstin:d.gstin||'', description:d.description||'', website:d.website||'', logoUrl:d.logoUrl||'', latitude:d.latitude ?? null, longitude:d.longitude ?? null }));
         setShopPlan((d.subscriptionPlan || 'STARTER').toUpperCase());
+        setSubStatus(d.subscriptionStatus || 'ACTIVE');
+        setTrialEndsAt(d.trialEndsAt || null);
+        setCancelRequestedAt(d.cancelRequestedAt || null);
       }
     }).catch(() => {});
     shopApi.getSettings(shopId).then(r => {
@@ -211,6 +222,15 @@ export default function Settings() {
   const set  = k => v  => setSettings(s => ({ ...s, [k]: v }));
   const tog  = k => () => setSettings(s => ({ ...s, [k]: !s[k] }));
   const setS = k => e  => setShopForm(f => ({ ...f, [k]: e.target.value }));
+  const useCurrentLocation = () => {
+    if (!('geolocation' in navigator)) { setLocErr('Location not available in this browser'); return; }
+    setLocating(true); setLocErr('');
+    navigator.geolocation.getCurrentPosition(
+      pos => { setShopForm(f => ({ ...f, latitude: pos.coords.latitude, longitude: pos.coords.longitude })); setLocating(false); },
+      () => { setLocErr('Could not get your location'); setLocating(false); },
+      { timeout: 8000 }
+    );
+  };
   const handleLogoFile = async e => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -232,6 +252,18 @@ export default function Settings() {
   };
 
   const saveShop = () => saveSection([shopApi.update(shopId, shopForm)]);
+
+  const requestCancellation = async () => {
+    if (!shopId || cancelRequestedAt) return;
+    if (!confirm('Request cancellation of your subscription? Our support team will follow up.')) return;
+    setCancelSubmitting(true);
+    try {
+      await shopApi.requestCancellation(shopId);
+      setCancelRequestedAt(new Date().toISOString());
+    } catch (e) {
+      alert(e.response?.data?.message || 'Failed to submit cancellation request');
+    } finally { setCancelSubmitting(false); }
+  };
 
   const saveIntegrations = async () => {
     setIntgSave(true);
@@ -495,6 +527,14 @@ export default function Settings() {
               <Field label="Address">
                 <input className="field-input" value={shopForm.address} onChange={setS('address')} placeholder="123 MG Road"/>
               </Field>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
+                <button type="button" className="btn btn-secondary" onClick={useCurrentLocation} disabled={locating}
+                  style={{ display:'flex', alignItems:'center', gap:6, fontSize:12.5 }}>
+                  {locating ? <Loader2 size={14} style={{ animation:'spin 1s linear infinite' }} /> : <MapPin size={14} />}
+                  {locating ? 'Getting location…' : shopForm.latitude != null ? 'Location captured ✓' : 'Use current location'}
+                </button>
+                {locErr && <span style={{ color:'#DC2626', fontSize:12 }}>{locErr}</span>}
+              </div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
                 <Field label="City">
                   <input className="field-input" value={shopForm.city} onChange={setS('city')} placeholder="Bengaluru"/>
@@ -995,6 +1035,24 @@ export default function Settings() {
             {/* Current plan card */}
             <div style={{ background:'white', borderRadius:12, border:'1px solid var(--gray-200)', padding:24 }}>
               <SectionHeader title="Current Plan" subtitle="Your active subscription and features"/>
+
+              {subStatus === 'TRIALING' && trialEndsAt && (
+                <div style={{ background:'#DBEAFE', border:'1px solid #93C5FD', color:'#1E40AF', borderRadius:10, padding:'12px 16px', marginBottom:14, fontSize:13 }}>
+                  🎁 You're on a free trial — {Math.max(0, Math.ceil((new Date(trialEndsAt) - new Date()) / 86400000))} day(s) left.
+                  Contact support before it ends to continue on this plan.
+                </div>
+              )}
+              {subStatus === 'TRIAL_EXPIRED' && (
+                <div style={{ background:'#FEE2E2', border:'1px solid #FCA5A5', color:'#991B1B', borderRadius:10, padding:'12px 16px', marginBottom:14, fontSize:13 }}>
+                  ⚠ Your free trial has ended. Contact support@aviqr.in to continue on this plan, or you'll be moved back to the free Starter plan.
+                </div>
+              )}
+              {cancelRequestedAt && subStatus !== 'CANCELED' && (
+                <div style={{ background:'#FEF3C7', border:'1px solid #FCD34D', color:'#92400E', borderRadius:10, padding:'12px 16px', marginBottom:14, fontSize:13 }}>
+                  Your cancellation request is being processed by our support team.
+                </div>
+              )}
+
               <div style={{ background:`linear-gradient(135deg, ${plan.color}14, ${plan.color}06)`, border:`1.5px solid ${plan.color}44`, borderRadius:12, padding:20, marginBottom:20, display:'flex', alignItems:'center', gap:16 }}>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:11, fontWeight:700, color:plan.color, textTransform:'uppercase', letterSpacing:.5, marginBottom:6 }}>Active plan</div>
@@ -1011,6 +1069,16 @@ export default function Settings() {
                   </div>
                 ))}
               </div>
+
+              {shopPlan !== 'STARTER' && subStatus !== 'CANCELED' && !cancelRequestedAt && (
+                <button
+                  onClick={requestCancellation}
+                  disabled={cancelSubmitting}
+                  style={{ fontSize:12.5, fontWeight:600, color:'#DC2626', background:'none', border:'none', cursor:'pointer', padding:0 }}
+                >
+                  {cancelSubmitting ? 'Submitting…' : 'Request subscription cancellation'}
+                </button>
+              )}
             </div>
 
             {/* Upgrade cards — live plans + any active discount offer */}

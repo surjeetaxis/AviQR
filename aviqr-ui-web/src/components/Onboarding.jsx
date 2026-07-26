@@ -1,14 +1,21 @@
-import { useState } from 'react';
-import { CheckCircle, ArrowRight, Store, UtensilsCrossed, QrCode, Rocket, Loader2, MapPin } from 'lucide-react';
-import { shopApi, menuApi, qrApi, api } from '../api/index.js';
+import { useState, useEffect } from 'react';
+import { CheckCircle, ArrowRight, Sparkles, Store, UtensilsCrossed, QrCode, Rocket, Loader2, MapPin, ScanLine } from 'lucide-react';
+import { shopApi, menuApi, qrApi, planApi, api } from '../api/index.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import MenuOcrStep from './shared/MenuOcrStep.jsx';
 
 const STEPS = [
-  { id: 1, icon: Store,           label: 'Create shop',    desc: 'Set up your restaurant profile' },
-  { id: 2, icon: UtensilsCrossed, label: 'Add a dish',     desc: 'Add your first menu item'       },
-  { id: 3, icon: QrCode,          label: 'Get QR code',    desc: 'Generate your table QR'         },
-  { id: 4, icon: Rocket,          label: 'Go live!',       desc: 'Your restaurant is ready'       },
+  { id: 1, icon: Sparkles,        label: 'Choose plan',    desc: 'Pick what fits your restaurant' },
+  { id: 2, icon: Store,           label: 'Create shop',    desc: 'Set up your restaurant profile' },
+  { id: 3, icon: UtensilsCrossed, label: 'Add menu',       desc: 'Scan a photo or add a dish'      },
+  { id: 4, icon: QrCode,          label: 'Get QR code',    desc: 'Generate your table QR'         },
+  { id: 5, icon: Rocket,          label: 'Go live!',       desc: 'Your restaurant is ready'       },
 ];
+
+// Only the real, curated shop-vertical plans — the live catalog can also
+// contain ad-hoc test entries created via the admin Plan editor, which
+// shouldn't surface to a real signup flow.
+const KNOWN_PLAN_KEYS = ['STARTER', 'GROWTH', 'BUSINESS', 'ENTERPRISE'];
 
 export default function Onboarding({ onComplete }) {
   const { user, linkShop } = useAuth();
@@ -17,7 +24,24 @@ export default function Onboarding({ onComplete }) {
   const [err,  setErr]      = useState('');
   const [shopId, setShopId] = useState(null);
 
-  // Step 1 — shop form
+  // Step 1 — plan selection
+  const [plans, setPlans]           = useState([]);
+  const [selectedPlan, setSelectedPlan] = useState('STARTER');
+  const [ocrDone, setOcrDone]       = useState(false);
+  const [addedCount, setAddedCount] = useState(0);
+  const [menuMode, setMenuMode]     = useState('ocr'); // 'ocr' | 'manual'
+
+  useEffect(() => {
+    planApi.listPublic('SHOP')
+      .then(res => {
+        const all = (res.data?.data || []).filter(p => KNOWN_PLAN_KEYS.includes(p.planKey));
+        all.sort((a, b) => a.sortOrder - b.sortOrder);
+        setPlans(all);
+      })
+      .catch(() => setPlans([]));
+  }, []);
+
+  // Step 2 — shop form
   const [shop, setShop] = useState({ name: '', phone: '', city: '', address: '', latitude: null, longitude: null });
   const [locating, setLocating] = useState(false);
   const [locErr, setLocErr] = useState('');
@@ -35,15 +59,15 @@ export default function Onboarding({ onComplete }) {
     );
   };
 
-  // Step 2 — menu item form
+  // Step 3 — menu item form (manual mode)
   const [item, setItem] = useState({ categoryName: '', name: '', price: '' });
 
-  // Step 3 — QR result
+  // Step 4 — QR result
   const [qrDone, setQrDone] = useState(false);
 
   const go = (n) => { setErr(''); setStep(n); };
 
-  /* ── Step 1: create shop ─────────────────────────────────────────────────── */
+  /* ── Step 2: create shop ─────────────────────────────────────────────────── */
   async function handleCreateShop(e) {
     e.preventDefault();
     if (!shop.name.trim()) { setErr('Restaurant name is required'); return; }
@@ -56,6 +80,7 @@ export default function Onboarding({ onComplete }) {
         address: shop.address.trim(),
         latitude: shop.latitude,
         longitude: shop.longitude,
+        subscriptionPlan: selectedPlan,
       });
       const newShopId = res.data?.data?.id;
       if (!newShopId) throw new Error('Shop created but no ID returned');
@@ -64,13 +89,13 @@ export default function Onboarding({ onComplete }) {
       await linkShop(newShopId);
       // Patch axios default header so subsequent calls in this wizard use the new shopId
       api.defaults.headers.common['X-Shop-Id'] = newShopId;
-      go(2);
+      go(3);
     } catch (e) {
       setErr(e.response?.data?.message || e.message || 'Failed to create shop');
     } finally { setBusy(false); }
   }
 
-  /* ── Step 2: add first menu item ─────────────────────────────────────────── */
+  /* ── Step 3: add menu items — manual mode ────────────────────────────────── */
   async function handleAddItem(e) {
     e.preventDefault();
     if (!item.name.trim() || !item.price) { setErr('Item name and price are required'); return; }
@@ -88,28 +113,31 @@ export default function Onboarding({ onComplete }) {
         price: Number(item.price),
         available: true,
       });
-      go(3);
+      go(4);
     } catch (e) {
       setErr(e.response?.data?.message || e.message || 'Failed to add item');
     } finally { setBusy(false); }
   }
 
-  /* ── Step 3: generate QR ─────────────────────────────────────────────────── */
+  /* ── Step 4: generate QR ─────────────────────────────────────────────────── */
   async function handleGenerateQR() {
     setBusy(true); setErr('');
     try {
       await qrApi.create(shopId, { type: 'TABLE', label: 'Table 1' });
       setQrDone(true);
-      go(4);
+      go(5);
     } catch (e) {
       setErr(e.response?.data?.message || e.message || 'Failed to generate QR code');
     } finally { setBusy(false); }
   }
 
-  /* ── Step 4: done ────────────────────────────────────────────────────────── */
+  /* ── Step 5: done ────────────────────────────────────────────────────────── */
   function handleFinish() {
     onComplete?.();
   }
+
+  const selectedPlanObj = plans.find(p => p.planKey === selectedPlan);
+  const isPaidPlan = selectedPlanObj && selectedPlanObj.price > 0;
 
   return (
     <div style={styles.wrap}>
@@ -134,8 +162,48 @@ export default function Onboarding({ onComplete }) {
       {/* Card */}
       <div style={styles.card}>
 
-        {/* ── STEP 1 ── */}
+        {/* ── STEP 1: choose plan ── */}
         {step === 1 && (
+          <div>
+            <div style={styles.cardHead}>
+              <div style={styles.iconBadge('✨')}>✨</div>
+              <h2 style={styles.h2}>Choose your plan</h2>
+              <p style={styles.sub}>Start free, or unlock more with a 3-month free trial. No card needed either way.</p>
+            </div>
+            <div style={styles.planGrid}>
+              {plans.map(p => {
+                const isFree = p.price === 0;
+                const selected = selectedPlan === p.planKey;
+                return (
+                  <button
+                    type="button"
+                    key={p.planKey}
+                    onClick={() => setSelectedPlan(p.planKey)}
+                    style={{ ...styles.planCard, ...(selected ? styles.planCardActive : {}) }}
+                  >
+                    <div style={styles.planName}>{p.label}</div>
+                    <div style={styles.planPrice}>
+                      {p.planKey === 'ENTERPRISE' ? 'Contact sales' : isFree ? 'Free forever' : `₹${p.price}/mo`}
+                    </div>
+                    {!isFree && p.planKey !== 'ENTERPRISE' && (
+                      <div style={styles.planTrial}>3 months free trial</div>
+                    )}
+                    <ul style={styles.planFeatures}>
+                      {p.features?.split(/\n|\|/).slice(0, 4).map((f, i) => <li key={i}>{f}</li>)}
+                    </ul>
+                  </button>
+                );
+              })}
+            </div>
+            {err && <p style={styles.errMsg}>{err}</p>}
+            <button type="button" style={{ ...styles.btnPrimary, marginTop: 8 }} onClick={() => go(2)}>
+              Continue with {plans.find(p => p.planKey === selectedPlan)?.label || selectedPlan} <ArrowRight size={15} />
+            </button>
+          </div>
+        )}
+
+        {/* ── STEP 2: create shop ── */}
+        {step === 2 && (
           <form onSubmit={handleCreateShop}>
             <div style={styles.cardHead}>
               <div style={styles.iconBadge('🏪')}>🏪</div>
@@ -163,34 +231,59 @@ export default function Onboarding({ onComplete }) {
           </form>
         )}
 
-        {/* ── STEP 2 ── */}
-        {step === 2 && (
-          <form onSubmit={handleAddItem}>
+        {/* ── STEP 3: add menu (OCR or manual) ── */}
+        {step === 3 && (
+          <div>
             <div style={styles.cardHead}>
               <div style={styles.iconBadge('🍽️')}>🍽️</div>
-              <h2 style={styles.h2}>Add your first dish</h2>
-              <p style={styles.sub}>Customers see your menu when they scan your QR code.</p>
+              <h2 style={styles.h2}>Add your menu</h2>
+              <p style={styles.sub}>Scan a photo of your printed menu, or add your first dish by hand.</p>
             </div>
-            <div style={styles.fields}>
-              <Field label="Category (optional)" value={item.categoryName} onChange={v => setItem(i => ({ ...i, categoryName: v }))} placeholder="e.g. Starters, Main Course" />
-              <div style={styles.row}>
-                <Field label="Dish name *"  value={item.name}  onChange={v => setItem(i => ({ ...i, name: v }))}  placeholder="e.g. Butter Chicken" />
-                <Field label="Price (₹) *" value={item.price} onChange={v => setItem(i => ({ ...i, price: v }))} placeholder="280" type="number" />
-              </div>
-            </div>
-            {err && <p style={styles.errMsg}>{err}</p>}
-            <div style={styles.btnRow}>
-              <button type="button" style={styles.btnGhost} onClick={() => go(3)}>Skip for now</button>
-              <button type="submit" style={styles.btnPrimary} disabled={busy}>
-                {busy ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
-                {busy ? 'Adding…' : 'Add dish'} <ArrowRight size={15} />
+
+            <div style={styles.menuModeRow}>
+              <button type="button" style={{ ...styles.modeTab, ...(menuMode === 'ocr' ? styles.modeTabActive : {}) }} onClick={() => setMenuMode('ocr')}>
+                <ScanLine size={14} /> Scan menu photo
+              </button>
+              <button type="button" style={{ ...styles.modeTab, ...(menuMode === 'manual' ? styles.modeTabActive : {}) }} onClick={() => setMenuMode('manual')}>
+                <UtensilsCrossed size={14} /> Add manually
               </button>
             </div>
-          </form>
+
+            {menuMode === 'ocr' ? (
+              ocrDone ? (
+                <div style={{ ...styles.errMsg, background: '#F0FDF4', borderColor: '#86EFAC', color: '#166534' }}>
+                  ✓ {addedCount} item{addedCount === 1 ? '' : 's'} added to your menu.
+                </div>
+              ) : (
+                <MenuOcrStep shopId={shopId} onApproved={(count) => { setAddedCount(count); setOcrDone(true); }} />
+              )
+            ) : (
+              <form onSubmit={handleAddItem}>
+                <div style={styles.fields}>
+                  <Field label="Category (optional)" value={item.categoryName} onChange={v => setItem(i => ({ ...i, categoryName: v }))} placeholder="e.g. Starters, Main Course" />
+                  <div style={styles.row}>
+                    <Field label="Dish name *"  value={item.name}  onChange={v => setItem(i => ({ ...i, name: v }))}  placeholder="e.g. Butter Chicken" />
+                    <Field label="Price (₹) *" value={item.price} onChange={v => setItem(i => ({ ...i, price: v }))} placeholder="280" type="number" />
+                  </div>
+                </div>
+                {err && <p style={styles.errMsg}>{err}</p>}
+                <button type="submit" style={styles.btnPrimary} disabled={busy}>
+                  {busy ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+                  {busy ? 'Adding…' : 'Add dish'} <ArrowRight size={15} />
+                </button>
+              </form>
+            )}
+
+            <div style={{ ...styles.btnRow, marginTop: 14 }}>
+              <button type="button" style={styles.btnGhost} onClick={() => go(4)}>
+                {ocrDone || item.name.trim() ? 'Continue' : 'Skip for now'} <ArrowRight size={15} />
+              </button>
+            </div>
+          </div>
         )}
 
-        {/* ── STEP 3 ── */}
-        {step === 3 && (
+        {/* ── STEP 4: generate QR ── */}
+        {step === 4 && (
           <div>
             <div style={styles.cardHead}>
               <div style={styles.iconBadge('📱')}>📱</div>
@@ -207,7 +300,7 @@ export default function Onboarding({ onComplete }) {
             </div>
             {err && <p style={styles.errMsg}>{err}</p>}
             <div style={styles.btnRow}>
-              <button type="button" style={styles.btnGhost} onClick={() => go(4)}>Skip for now</button>
+              <button type="button" style={styles.btnGhost} onClick={() => go(5)}>Skip for now</button>
               <button style={styles.btnPrimary} onClick={handleGenerateQR} disabled={busy}>
                 {busy ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
                 {busy ? 'Generating…' : 'Generate QR'} <ArrowRight size={15} />
@@ -216,18 +309,23 @@ export default function Onboarding({ onComplete }) {
           </div>
         )}
 
-        {/* ── STEP 4 ── */}
-        {step === 4 && (
+        {/* ── STEP 5: done ── */}
+        {step === 5 && (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>🎉</div>
             <h2 style={{ ...styles.h2, marginBottom: 8 }}>You're all set!</h2>
-            <p style={{ ...styles.sub, marginBottom: 24 }}>
+            <p style={{ ...styles.sub, marginBottom: isPaidPlan ? 8 : 24 }}>
               Your restaurant <strong>{shop.name || user?.businessName}</strong> is live on AviQR.
               Customers can now scan your QR code to browse your menu and place orders.
             </p>
+            {isPaidPlan && (
+              <p style={{ fontSize: 13, color: '#0F6E56', background: '#E1F5EE', borderRadius: 8, padding: '8px 12px', marginBottom: 24, display: 'inline-block' }}>
+                🎁 Your {selectedPlanObj.label} plan's 3-month free trial has started — no payment needed until it ends.
+              </p>
+            )}
             <div style={styles.checklist}>
               <CheckItem label="Restaurant profile created" done />
-              <CheckItem label="Menu item added" done={!!item.name.trim()} />
+              <CheckItem label="Menu items added" done={ocrDone || !!item.name.trim()} />
               <CheckItem label="QR code generated" done={qrDone} />
             </div>
             <button style={{ ...styles.btnPrimary, marginTop: 28, width: '100%', justifyContent: 'center' }} onClick={handleFinish}>
@@ -354,6 +452,39 @@ const styles = {
     gridTemplateColumns: '1fr 1fr',
     gap: 12,
   },
+  planGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: 12,
+    marginBottom: 20,
+  },
+  planCard: {
+    textAlign: 'left',
+    background: '#fff',
+    border: '1.5px solid #E5E7EB',
+    borderRadius: 12,
+    padding: 14,
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 4,
+  },
+  planCardActive: {
+    borderColor: '#1D9E75',
+    boxShadow: '0 0 0 3px rgba(29,158,117,.15)',
+  },
+  planName: { fontSize: 14, fontWeight: 700, color: '#111827' },
+  planPrice: { fontSize: 13, fontWeight: 600, color: '#1D9E75' },
+  planTrial: { fontSize: 11, fontWeight: 600, color: '#D97706', background: '#FEF3C7', borderRadius: 999, padding: '2px 8px', width: 'fit-content', marginTop: 2 },
+  planFeatures: { fontSize: 11.5, color: '#6B7280', margin: '8px 0 0', paddingLeft: 16, lineHeight: 1.6 },
+  menuModeRow: { display: 'flex', gap: 8, marginBottom: 18 },
+  modeTab: {
+    flex: 1,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+    padding: '10px 12px', background: '#F9FAFB', color: '#6B7280',
+    border: '1.5px solid #E5E7EB', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+  },
+  modeTabActive: { background: '#111827', color: '#fff', borderColor: '#111827' },
   input: {
     padding: '10px 12px',
     fontSize: 14,

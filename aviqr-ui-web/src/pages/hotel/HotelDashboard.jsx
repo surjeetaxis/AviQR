@@ -13,7 +13,7 @@ import {
   Bell, BarChart2, Settings, LogOut, Menu as MenuIcon, CheckCircle2,
   Clock, AlertCircle, Plus, Edit2, Trash2, ToggleLeft, ToggleRight,
   Star, Phone, Save, X, Coffee, Car, RefreshCw, Store, UserCog, QrCode,
-  Users, Flower2, TrendingUp, Eye, Download, Printer
+  Users, Flower2, TrendingUp, Eye, Download, Printer, MapPin, Loader2
 } from 'lucide-react';
 import '../admin/Admin.css';
 import './Hotel.css';
@@ -1299,9 +1299,11 @@ const SERVICE_OPTIONS = [
 ];
 
 function HotelSettings({user,lang,hotelId}) {
-  const [form,setForm] = useState({hotelName:user?.hotelName||'',phone:'',email:'',address:'',checkinTime:'14:00',checkoutTime:'12:00',currency:'INR',taxPercent:'18'});
+  const [form,setForm] = useState({hotelName:user?.hotelName||'',phone:'',email:'',address:'',checkinTime:'14:00',checkoutTime:'12:00',currency:'INR',taxPercent:'18',latitude:null,longitude:null});
   const [enabledServices,setEnabledServices] = useState([]);
   const [saving,setSaving] = useState(false);
+  const [locating,setLocating] = useState(false);
+  const [locErr,setLocErr] = useState('');
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
 
   useEffect(() => {
@@ -1309,12 +1311,22 @@ function HotelSettings({user,lang,hotelId}) {
     hotelApi.getMyHotels().then(res => {
       const hotel = (res.data.data||[]).find(h=>h.id===hotelId);
       if (!hotel) return;
-      setForm(f=>({...f,hotelName:hotel.name||f.hotelName,phone:hotel.phone||'',email:hotel.email||'',address:hotel.address||'',checkinTime:hotel.checkInTime||f.checkinTime,checkoutTime:hotel.checkOutTime||f.checkoutTime}));
+      setForm(f=>({...f,hotelName:hotel.name||f.hotelName,phone:hotel.phone||'',email:hotel.email||'',address:hotel.address||'',checkinTime:hotel.checkInTime||f.checkinTime,checkoutTime:hotel.checkOutTime||f.checkoutTime,latitude:hotel.latitude??null,longitude:hotel.longitude??null}));
       setEnabledServices(hotel.enabledServices||[]);
     }).catch(()=>{});
   }, [hotelId]);
 
   const toggleService = (v) => setEnabledServices(prev => prev.includes(v) ? prev.filter(s=>s!==v) : [...prev, v]);
+
+  const useCurrentLocation = () => {
+    if (!('geolocation' in navigator)) { setLocErr('Location not available in this browser'); return; }
+    setLocating(true); setLocErr('');
+    navigator.geolocation.getCurrentPosition(
+      pos => { setForm(f=>({...f,latitude:pos.coords.latitude,longitude:pos.coords.longitude})); setLocating(false); },
+      () => { setLocErr('Could not get your location'); setLocating(false); },
+      { timeout: 8000 }
+    );
+  };
 
   const save = async () => {
     if (!hotelId) return;
@@ -1322,6 +1334,7 @@ function HotelSettings({user,lang,hotelId}) {
     try {
       await hotelApi.update(hotelId, {
         name: form.hotelName, phone: form.phone, email: form.email, address: form.address,
+        latitude: form.latitude, longitude: form.longitude,
         checkInTime: form.checkinTime, checkOutTime: form.checkoutTime,
         enabledServices,
       });
@@ -1342,6 +1355,13 @@ function HotelSettings({user,lang,hotelId}) {
               <input className="form-input" value={form[k]} onChange={e=>set(k,e.target.value)}/>
             </div>
           ))}
+        </div>
+        <div style={{marginTop:14,display:'flex',alignItems:'center',gap:10}}>
+          <button className="btn btn-secondary" onClick={useCurrentLocation} disabled={locating} style={{display:'flex',alignItems:'center',gap:6,fontSize:12.5}}>
+            {locating ? <Loader2 size={14} style={{animation:'spin 1s linear infinite'}}/> : <MapPin size={14}/>}
+            {locating ? 'Getting location…' : form.latitude != null ? 'Location captured ✓' : 'Use current location'}
+          </button>
+          {locErr && <span style={{color:'#DC2626',fontSize:12}}>{locErr}</span>}
         </div>
         <div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}>
           <button className="btn btn-primary" onClick={save} disabled={saving}><Save size={14}/> {saving?'Saving…':t('save',lang)}</button>

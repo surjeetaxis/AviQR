@@ -33,6 +33,12 @@ public class CustomerAddress {
     private String pincode;
     private String phone;
 
+    // Exact device-reported coordinates at the time the address was saved (browser/app
+    // geolocation), not a geocode of the typed street address — lets delivery/nearby
+    // logic use the real pin rather than trusting free-text line1/line2.
+    private Double latitude;
+    private Double longitude;
+
     // Lombok would otherwise generate isDefault()/setDefault(boolean), which Jackson
     // binds to JSON property "default" — force it to serialize as "isDefault".
     @JsonProperty("isDefault")

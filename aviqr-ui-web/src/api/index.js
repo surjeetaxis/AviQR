@@ -119,6 +119,10 @@ export const shopApi = {
   enter:            (id)         => api.post(`/api/v1/shops/${id}/enter`),
   // Its own top-level path (not /api/v1/shops/nearby) — see NearbyShopController.
   nearby:           (lat, lng, radiusKm, sort) => api.get('/api/v1/nearby-shops', { params: { lat, lng, radiusKm, sort } }),
+  // ── Subscription (plan/trial/status) ────────────────────────────────────────
+  getSubscription:      (id)         => api.get(`/api/v1/shops/${id}/subscription`),
+  updateSubscription:   (id, status) => api.put(`/api/v1/shops/${id}/subscription/status`, { status }),
+  requestCancellation:  (id)         => api.post(`/api/v1/shops/${id}/subscription/cancel-request`),
 };
 
 // ── Menu ──────────────────────────────────────────────────────────────────────

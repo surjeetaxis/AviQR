@@ -47,6 +47,7 @@ public class MallController {
     public ResponseEntity<ApiResponse<Mall>> update(@PathVariable UUID id, @RequestBody Mall req) {
         return mallRepo.findById(id).map(m -> {
             m.setName(req.getName()); m.setCity(req.getCity()); m.setPhone(req.getPhone());
+            m.setLatitude(req.getLatitude()); m.setLongitude(req.getLongitude());
             if(req.getCommissionPercent()!=null) m.setCommissionPercent(req.getCommissionPercent());
             return ResponseEntity.ok(ApiResponse.ok("Updated", mallRepo.save(m)));
         }).orElse(ResponseEntity.notFound().build());

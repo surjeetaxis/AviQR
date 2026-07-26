@@ -36,6 +36,7 @@ public class AddressController {
             .userId(uid).label(req.getLabel()).line1(req.getLine1()).line2(req.getLine2())
             .city(req.getCity()).state(req.getState()).pincode(req.getPincode())
             .phone(req.getPhone()).isDefault(req.isDefault())
+            .latitude(req.getLatitude()).longitude(req.getLongitude())
             .build());
         return ResponseEntity.ok(ApiResponse.ok("Address added", saved));
     }
@@ -54,6 +55,7 @@ public class AddressController {
         addr.setLabel(req.getLabel()); addr.setLine1(req.getLine1()); addr.setLine2(req.getLine2());
         addr.setCity(req.getCity()); addr.setState(req.getState()); addr.setPincode(req.getPincode());
         addr.setPhone(req.getPhone()); addr.setDefault(req.isDefault());
+        addr.setLatitude(req.getLatitude()); addr.setLongitude(req.getLongitude());
         return ResponseEntity.ok(ApiResponse.ok("Address updated", addressRepo.save(addr)));
     }
 

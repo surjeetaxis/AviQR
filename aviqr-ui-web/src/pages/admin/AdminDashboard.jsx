@@ -1360,6 +1360,27 @@ function AdminSubscriptionManagement() {
     showToast(`Payment reminder sent to ${shop.name} (${shop.email || shop.phone || 'owner'})`);
   };
 
+  const SUB_STATUS_CFG = {
+    ACTIVE:        { label: 'Active',        color: '#059669', bg: '#DCFCE7' },
+    TRIALING:      { label: 'Trialing',      color: '#2563EB', bg: '#DBEAFE' },
+    TRIAL_EXPIRED: { label: 'Trial expired', color: '#DC2626', bg: '#FEE2E2' },
+    CANCELED:      { label: 'Canceled',      color: '#6B7280', bg: '#F3F4F6' },
+  };
+
+  const trialDaysLeft = (shop) => {
+    if (shop.subscriptionStatus !== 'TRIALING' || !shop.trialEndsAt) return null;
+    const days = Math.ceil((new Date(shop.trialEndsAt) - new Date()) / 86400000);
+    return days;
+  };
+
+  const setSubscriptionStatus = async (shop, status) => {
+    try {
+      await shopApi.updateSubscription(shop.id, status);
+      setShops(prev => prev.map(s => s.id !== shop.id ? s : { ...s, subscriptionStatus: status, ...(status === 'CANCELED' ? { subscriptionPlan: 'STARTER', trialEndsAt: null } : {}) }));
+      showToast(`${shop.name}'s subscription marked ${SUB_STATUS_CFG[status]?.label || status}`);
+    } catch (e) { showToast(e.response?.data?.message || 'Failed to update subscription'); }
+  };
+
   const filtered = shops.filter(s => {
     const plan = (s.subscriptionPlan || 'STARTER').toUpperCase();
     if (planFilter !== 'all' && plan !== planFilter) return false;
@@ -1457,14 +1478,17 @@ function AdminSubscriptionManagement() {
             <div className="admin-table-card">
               <table className="admin-table">
                 <thead>
-                  <tr><th>Shop</th><th>City</th><th>Plan</th><th>Status</th><th>Tables</th><th>Actions</th></tr>
+                  <tr><th>Shop</th><th>City</th><th>Plan</th><th>Subscription</th><th>Status</th><th>Tables</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                   {filtered.length === 0 && (
-                    <tr><td colSpan={6} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No shops found</td></tr>
+                    <tr><td colSpan={7} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No shops found</td></tr>
                   )}
                   {filtered.map(s => {
                     const pi = planInfo(s.subscriptionPlan);
+                    const subStatus = s.subscriptionStatus || 'ACTIVE';
+                    const sc = SUB_STATUS_CFG[subStatus] || SUB_STATUS_CFG.ACTIVE;
+                    const daysLeft = trialDaysLeft(s);
                     return (
                       <tr key={s.id}>
                         <td>
@@ -1480,6 +1504,20 @@ function AdminSubscriptionManagement() {
                           </span>
                         </td>
                         <td>
+                          <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, background:sc.bg, color:sc.color }}>
+                            {sc.label}
+                          </span>
+                          {daysLeft != null && (
+                            <div style={{ fontSize:10.5, color:'var(--gray-400)', marginTop:3 }}>
+                              <Clock size={9} style={{ verticalAlign:'middle', marginRight:2 }}/>
+                              {daysLeft > 0 ? `${daysLeft}d left` : 'ends today'}
+                            </div>
+                          )}
+                          {s.cancelRequestedAt && (
+                            <div style={{ fontSize:10.5, color:'#D97706', marginTop:3 }}>Cancel requested</div>
+                          )}
+                        </td>
+                        <td>
                           <span style={{ fontSize:11, fontWeight:700, color: shopStatusInfo(s.status).color }}>
                             ● {shopStatusInfo(s.status).label}
                           </span>
@@ -1492,6 +1530,20 @@ function AdminSubscriptionManagement() {
                               style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#2563EB' }}>
                               <Zap size={11}/> Plan
                             </button>
+                            {subStatus !== 'ACTIVE' && (
+                              <button className="admin-row-btn" title="Mark subscription Active (confirm manual payment)"
+                                onClick={() => setSubscriptionStatus(s, 'ACTIVE')}
+                                style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#059669' }}>
+                                <CheckCircle2 size={11}/> Mark Active
+                              </button>
+                            )}
+                            {subStatus !== 'CANCELED' && (
+                              <button className="admin-row-btn" title="Cancel subscription (reverts to Starter)"
+                                onClick={() => setSubscriptionStatus(s, 'CANCELED')}
+                                style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#DC2626' }}>
+                                <XCircle size={11}/> Cancel
+                              </button>
+                            )}
                             <button className="admin-row-btn" title="Send payment reminder"
                               onClick={() => sendReminder(s)}
                               style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 10px', fontSize:11, fontWeight:600, color:'#D97706' }}>

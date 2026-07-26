@@ -1,21 +1,35 @@
 package in.aviqr.shop.service;
 import in.aviqr.shop.dto.*;
 import in.aviqr.shop.entity.*;
+import in.aviqr.shop.repository.PlanRepository;
 import in.aviqr.shop.repository.ShopRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service @RequiredArgsConstructor
 public class ShopService {
     private final ShopRepository repo;
+    private final PlanRepository planRepo;
+
+    private static final int TRIAL_DAYS = 90;
 
     @Transactional
     public ShopResponse create(String ownerId, ShopRequest req) {
+        String requestedKey = (req.getSubscriptionPlan() == null || req.getSubscriptionPlan().isBlank())
+            ? "STARTER" : req.getSubscriptionPlan().toUpperCase();
+        Plan plan = planRepo.findByPlanKey(requestedKey)
+            .filter(p -> p.getVertical() == PlanVertical.SHOP && Boolean.TRUE.equals(p.getActive()))
+            .orElseGet(() -> planRepo.findByPlanKey("STARTER").orElse(null));
+        String planKey = plan != null ? plan.getPlanKey() : requestedKey;
+        boolean isPaid = plan != null && plan.getPrice() != null && plan.getPrice() > 0;
+        LocalDateTime now = LocalDateTime.now();
+
         Shop shop = Shop.builder()
             .name(req.getName()).tagline(req.getTagline())
             .ownerId(ownerId).phone(req.getPhone()).email(req.getEmail())
@@ -23,7 +37,11 @@ public class ShopService {
             .pincode(req.getPincode()).logoUrl(req.getLogoUrl()).gstin(req.getGstin())
             .minOrderAmount(req.getMinOrderAmount()).tableCount(req.getTableCount())
             .latitude(req.getLatitude()).longitude(req.getLongitude())
-            .subscriptionPlan("STARTER").build();
+            .subscriptionPlan(planKey)
+            .subscriptionStatus(isPaid ? SubscriptionStatus.TRIALING : SubscriptionStatus.ACTIVE)
+            .trialEndsAt(isPaid ? now.plusDays(TRIAL_DAYS) : null)
+            .planStartedAt(now)
+            .build();
         return toDto(repo.save(shop));
     }
 
@@ -58,6 +76,28 @@ public class ShopService {
     @Transactional
     public void updateStatus(UUID id, ShopStatus status) {
         repo.findById(id).ifPresent(s -> { s.setStatus(status); repo.save(s); });
+    }
+
+    @Transactional
+    public Optional<ShopResponse> updateSubscriptionStatus(UUID id, SubscriptionStatus status) {
+        return repo.findById(id).map(s -> {
+            s.setSubscriptionStatus(status);
+            if (status == SubscriptionStatus.CANCELED) {
+                s.setSubscriptionPlan("STARTER");
+                s.setTrialEndsAt(null);
+            } else if (status == SubscriptionStatus.ACTIVE) {
+                s.setTrialEndsAt(null);
+            }
+            return toDto(repo.save(s));
+        });
+    }
+
+    @Transactional
+    public Optional<Shop> requestCancellation(UUID id) {
+        return repo.findById(id).map(s -> {
+            s.setCancelRequestedAt(LocalDateTime.now());
+            return repo.save(s);
+        });
     }
 
     public Page<ShopResponse> search(String q, int page, int size) {
@@ -101,6 +141,8 @@ public class ShopService {
         r.setLatitude(s.getLatitude()); r.setLongitude(s.getLongitude());
         r.setStatus(s.getStatus()); r.setMinOrderAmount(s.getMinOrderAmount());
         r.setTableCount(s.getTableCount()); r.setSubscriptionPlan(s.getSubscriptionPlan());
+        r.setSubscriptionStatus(s.getSubscriptionStatus()); r.setTrialEndsAt(s.getTrialEndsAt());
+        r.setPlanStartedAt(s.getPlanStartedAt()); r.setCancelRequestedAt(s.getCancelRequestedAt());
         r.setRating(s.getRating()); r.setRatingCount(s.getRatingCount());
         r.setCreatedAt(s.getCreatedAt());
         return r;

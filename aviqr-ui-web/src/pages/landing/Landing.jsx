@@ -119,21 +119,21 @@ const FALLBACK_PLANS = [
     planKey: 'GROWTH', name: 'Growth', price: 999, tag: 'Most popular',
     desc: 'For growing restaurants that need more.',
     features: ['Unlimited items & orders', 'Dynamic pricing', 'OCR menu upload', 'Staff roles (10)', 'Loyalty & wallet', 'SMS campaigns', 'WhatsApp campaigns'],
-    cta: 'Start 14-day trial', primary: true,
+    cta: 'Start 3-month free trial', primary: true,
   },
   {
     planKey: 'BUSINESS', name: 'Business', price: 2499, tag: null,
     desc: 'Multi-outlet brands and cloud kitchens.',
     features: ['Everything in Growth', 'Multi-outlet dashboard', 'CRM & retention', 'AI recommendations', 'API access', 'Priority support'],
-    cta: 'Contact sales', primary: false,
+    cta: 'Start 3-month free trial', primary: false,
   },
 ];
 
 // Editorial copy that isn't part of the Plan record admin edits — keyed by planKey
 const PLAN_META = {
-  STARTER:    { desc: 'Perfect for food stalls and small shops.',           cta: 'Start free',         tag: null,           primary: false },
-  GROWTH:     { desc: 'For growing restaurants that need more.',           cta: 'Start 14-day trial', tag: 'Most popular', primary: true  },
-  BUSINESS:   { desc: 'Multi-outlet brands and cloud kitchens.',           cta: 'Contact sales',      tag: null,           primary: false },
+  STARTER:    { desc: 'Perfect for food stalls and small shops.',           cta: 'Start free',                tag: null,           primary: false },
+  GROWTH:     { desc: 'For growing restaurants that need more.',           cta: 'Start 3-month free trial',  tag: 'Most popular', primary: true  },
+  BUSINESS:   { desc: 'Multi-outlet brands and cloud kitchens.',           cta: 'Start 3-month free trial',  tag: null,           primary: false },
   ENTERPRISE: { desc: 'Custom contracts for large chains & franchises.',   cta: 'Contact sales',      tag: null,           primary: false },
 };
 
