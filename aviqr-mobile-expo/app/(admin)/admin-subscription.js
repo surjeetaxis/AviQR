@@ -16,6 +16,12 @@ const FALLBACK_PLANS = {
   BUSINESS:   { label: 'Business',   color: '#7C3AED', bg: '#EDE9FE', price: 2499 },
   ENTERPRISE: { label: 'Enterprise', color: '#D97706', bg: '#FEF3C7', price: 0 },
 };
+const SUB_STATUS_CFG = {
+  ACTIVE:        { label: 'Active',        color: '#059669', bg: '#DCFCE7' },
+  TRIALING:      { label: 'Trialing',      color: '#2563EB', bg: '#DBEAFE' },
+  TRIAL_EXPIRED: { label: 'Trial expired', color: '#DC2626', bg: '#FEE2E2' },
+  CANCELED:      { label: 'Canceled',      color: '#6B7280', bg: '#F3F4F6' },
+};
 const VERTICALS = ['SHOP', 'HOTEL', 'MALL', 'SUPPLIER'];
 const TABS = [
   { key: 'shops',  label: 'Shop Assignments' },
@@ -101,6 +107,13 @@ function ShopAssignmentsTab({ plans }) {
     finally { setSaving(false); }
   };
 
+  const setSubStatus = async (shop, status) => {
+    try {
+      await shopApi.updateSubscription(shop.id, status);
+      setShops(prev => prev.map(s => s.id !== shop.id ? s : { ...s, subscriptionStatus: status, ...(status === 'CANCELED' ? { subscriptionPlan: 'STARTER', trialEndsAt: null } : {}) }));
+    } catch { Alert.alert('Failed to update subscription'); }
+  };
+
   const filtered = shops.filter(s => !search || [s.name, s.city, s.email, s.phone].some(f => f?.toLowerCase().includes(search.toLowerCase())));
   const planChoices = plans.filter(p => p.vertical === 'SHOP' && p.active).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   const choices = planChoices.length > 0 ? planChoices.map(p => ({ key: p.planKey, ...planInfo(p.planKey) })) : Object.keys(FALLBACK_PLANS).map(key => ({ key, ...planInfo(key) }));
@@ -136,14 +149,30 @@ function ShopAssignmentsTab({ plans }) {
         ListEmptyComponent={!loading && <EmptyState icon="⭐" title="No shops found" />}
         renderItem={({ item }) => {
           const pi = planInfo(item.subscriptionPlan);
+          const subStatus = item.subscriptionStatus || 'ACTIVE';
+          const sc = SUB_STATUS_CFG[subStatus] || SUB_STATUS_CFG.ACTIVE;
+          const daysLeft = subStatus === 'TRIALING' && item.trialEndsAt
+            ? Math.ceil((new Date(item.trialEndsAt) - new Date()) / 86400000) : null;
           return (
-            <TouchableOpacity style={ss.card} onPress={() => setChangePlan(item)} activeOpacity={0.8}>
-              <View style={{ flex: 1 }}>
+            <View style={ss.card}>
+              <TouchableOpacity style={{ flex: 1 }} onPress={() => setChangePlan(item)} activeOpacity={0.8}>
                 <Text style={ss.name}>{item.name}</Text>
                 <Text style={ss.sub}>{item.city || '—'} · {item.email || item.phone || '—'}</Text>
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                  <View style={[ss.badge, { backgroundColor: pi.bg }]}><Text style={[ss.badgeTxt, { color: pi.color }]}>{pi.label}</Text></View>
+                  <View style={[ss.badge, { backgroundColor: sc.bg }]}><Text style={[ss.badgeTxt, { color: sc.color }]}>{sc.label}{daysLeft != null ? ` · ${daysLeft}d left` : ''}</Text></View>
+                </View>
+                {item.cancelRequestedAt && <Text style={{ fontSize: 10.5, color: '#D97706', marginTop: 4 }}>Cancel requested</Text>}
+              </TouchableOpacity>
+              <View style={{ gap: 6 }}>
+                {subStatus !== 'ACTIVE' && (
+                  <TouchableOpacity onPress={() => setSubStatus(item, 'ACTIVE')}><Text style={[ss.linkTxt, { color: '#059669' }]}>Mark Active</Text></TouchableOpacity>
+                )}
+                {subStatus !== 'CANCELED' && (
+                  <TouchableOpacity onPress={() => setSubStatus(item, 'CANCELED')}><Text style={[ss.linkTxt, { color: Colors.error }]}>Cancel</Text></TouchableOpacity>
+                )}
               </View>
-              <View style={[ss.badge, { backgroundColor: pi.bg }]}><Text style={[ss.badgeTxt, { color: pi.color }]}>{pi.label}</Text></View>
-            </TouchableOpacity>
+            </View>
           );
         }}
       />

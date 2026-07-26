@@ -38,6 +38,14 @@ export default function Dashboard() {
   const basePath = outletId ? `/(hotel)/outlets/${outletId}` : routeShopId ? `/(supplier)/shops/${routeShopId}` : '/(owner)';
   const shopId = useActiveShopId();
 
+  // An OWNER with no shop yet (fresh registration) has no in-app path to
+  // create one otherwise — send them through the setup wizard first.
+  useEffect(() => {
+    if (!shopId && !outletId && !routeShopId && user?.role === 'OWNER') {
+      router.replace('/(owner)/setup-shop');
+    }
+  }, [shopId, outletId, routeShopId, user?.role]);
+
   const [stats,     setStats]  = useState(null);
   const [orders,    setOrders] = useState([]);
   const [offline,   setOffline]= useState(false);

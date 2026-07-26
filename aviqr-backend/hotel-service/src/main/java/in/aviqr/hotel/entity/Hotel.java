@@ -11,6 +11,7 @@ public class Hotel {
     @Column(nullable=false) private String name;
     private String ownerId; private String phone; private String email;
     private String address; private String city; private String logoUrl;
+    private Double latitude; private Double longitude;
     private Integer totalRooms;
     private String checkInTime; private String checkOutTime;
     private String subscriptionPlan;

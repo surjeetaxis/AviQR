@@ -101,6 +101,7 @@ export const authApi = {
   // 405s against the real endpoint. Using PUT here so it actually works.
   changePassword: (d)   => api.put('/api/v1/auth/change-password', d),
   deactivateAccount: () => api.put('/api/v1/auth/deactivate', {}),
+  linkShop:      (shopId) => api.put('/api/v1/auth/link-shop', { shopId }),
   getUsers:      (p)    => api.get('/api/v1/auth/admin/users', { params: p }),
   updateStatus:  (id,s) => api.put(`/api/v1/auth/admin/users/${id}/status?status=${s}`),
   updateRole:    (id,r) => api.put(`/api/v1/auth/admin/users/${id}/role?role=${r}`),
@@ -131,6 +132,11 @@ export const shopApi = {
   enter:       (id)     => api.post(`/api/v1/shops/${id}/enter`),
   // Its own top-level path (not /api/v1/shops/nearby) — see NearbyShopController.
   nearby:      (lat, lng, radiusKm, sort) => api.get('/api/v1/nearby-shops', { params: { lat, lng, radiusKm, sort } }),
+  getById:     (id)     => api.get(`/api/v1/shops/${id}`),
+  // ── Subscription (plan/trial/status) ──────────────────────────────────────
+  getSubscription:     (id)         => api.get(`/api/v1/shops/${id}/subscription`),
+  updateSubscription:  (id, status) => api.put(`/api/v1/shops/${id}/subscription/status`, { status }),
+  requestCancellation: (id)         => api.post(`/api/v1/shops/${id}/subscription/cancel-request`),
 };
 
 // ── Menu ────────────────────────────────────────────────────────────────────

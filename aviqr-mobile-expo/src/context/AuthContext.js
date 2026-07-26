@@ -56,6 +56,13 @@ export function AuthProvider({ children }) {
     return saveSession(res.data.data);
   };
 
+  // Called right after creating a shop during onboarding — mints a fresh
+  // JWT with shopId baked in (mirrors web's AuthContext.linkShop).
+  const linkShop = async (shopId) => {
+    const res = await authApi.linkShop(shopId);
+    return saveSession(res.data.data);
+  };
+
   // Merges a profile update (e.g. from Settings/Profile screens) into the
   // persisted session so other screens reading `user` see it immediately,
   // without needing a full re-login.
@@ -86,7 +93,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, loading,
-      login, loginOtp, register, logout, updateUser,
+      login, loginOtp, register, logout, updateUser, linkShop,
       homeRoute: ROLE_HOME[role] || '/(owner)/dashboard',
       isOwner:   ['OWNER','MANAGER','CASHIER','KITCHEN'].includes(role),
       isAdmin:   role === 'ADMIN',

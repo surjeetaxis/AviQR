@@ -152,11 +152,19 @@ CREATE TABLE IF NOT EXISTS customer_addresses (
     state       VARCHAR(100),
     pincode     VARCHAR(10),
     phone       VARCHAR(15),
+    latitude    DECIMAL(10,8),
+    longitude   DECIMAL(11,8),
     is_default  BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at  TIMESTAMP    DEFAULT NOW(),
     updated_at  TIMESTAMP    DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_customer_addresses_user_id ON customer_addresses (user_id);
+
+-- ── Dummy data — customer addresses (with exact device-geolocation lat/long) ───
+INSERT INTO customer_addresses (id, user_id, label, line1, line2, city, state, pincode, phone, latitude, longitude, is_default) VALUES
+  ('b9f1c9a2-6b1d-4c1a-9a7a-3f8e7d2c1a01', '24e349fe-42b8-4ac1-b202-99261aac3165', 'Home', '221B, Indiranagar 100ft Road', 'Near Sony World Signal', 'Bengaluru', 'Karnataka', '560038', '9876543210', 12.97194000, 77.64115000, TRUE),
+  ('b9f1c9a2-6b1d-4c1a-9a7a-3f8e7d2c1a02', '223f40ff-4020-4baf-8d8e-44e347263bd1', 'Office', '4th Floor, Prestige Tech Park', 'Marathahalli Outer Ring Road', 'Bengaluru', 'Karnataka', '560103', '9123456789', 12.96700000, 77.71720000, TRUE)
+ON CONFLICT DO NOTHING;
 
 -- ── Sequence for order_number style references ────────────────
 CREATE SEQUENCE IF NOT EXISTS seq_user_ref START 1001 INCREMENT 1;
@@ -213,6 +221,10 @@ CREATE TABLE IF NOT EXISTS shops (
     longitude         DECIMAL(11,8),
     gstin             VARCHAR(20),
     subscription_plan VARCHAR(50)   DEFAULT 'STARTER',
+    subscription_status VARCHAR(20) DEFAULT 'ACTIVE',
+    trial_ends_at     TIMESTAMP,
+    plan_started_at   TIMESTAMP,
+    cancel_requested_at TIMESTAMP,
     min_order_amount  INTEGER,
     table_count       INTEGER,
     status            VARCHAR(20)   DEFAULT 'ACTIVE',
@@ -460,13 +472,17 @@ INSERT INTO shop_settings (shop_id, cash_enabled, online_enabled, wallet_enabled
 ON CONFLICT DO NOTHING;
 
 -- Ramesh Tea House outlets (SUPPLIER user — 3 linked shops)
-INSERT INTO shops (id, name, tagline, owner_id, phone, email, address, city, state, pincode, subscription_plan, min_order_amount, table_count, status, rating, rating_count, completion_rate, created_at) VALUES
-  ('117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'Ramesh Tea House — MG Road',     'Authentic filter coffee & South Indian snacks', '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776601', 'mgroad@rameshteas.in',  '23, MG Road',          'Bengaluru', 'Karnataka', '560001', 'GROWTH',  50, 8, 'ACTIVE', 4.20, 180, 91.00, NOW() - INTERVAL '60 days'),
-  ('da4440f6-1b19-48a4-8587-532474a3c258', 'Ramesh Tea House — Koramangala', 'South Indian tiffin & beverages',               '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776602', 'kora@rameshteas.in',    '7th Block, Koramangala','Bengaluru', 'Karnataka', '560095', 'GROWTH',  50, 6, 'ACTIVE', 4.10, 120, 88.00, NOW() - INTERVAL '55 days'),
-  ('79292444-6912-4336-9894-1d89c18894d4', 'Ramesh Tea House — Whitefield',  'Quick bites & refreshing beverages',            '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776603', 'wf@rameshteas.in',      'Whitefield Main Road',  'Bengaluru', 'Karnataka', '560066', 'STARTER', 30, 4, 'ACTIVE', 3.90,  60, 82.00, NOW() - INTERVAL '30 days'),
+-- Coordinates deliberately clustered within ~3km of central Bengaluru
+-- (12.9716, 77.5946) rather than their real-world addresses, so a single
+-- mock GPS fix during local/emulator testing returns all of them from the
+-- nearby-shops search instead of scattering them across the city.
+INSERT INTO shops (id, name, tagline, owner_id, phone, email, address, city, state, pincode, subscription_plan, min_order_amount, table_count, status, rating, rating_count, completion_rate, latitude, longitude, created_at) VALUES
+  ('117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'Ramesh Tea House — MG Road',     'Authentic filter coffee & South Indian snacks', '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776601', 'mgroad@rameshteas.in',  '23, MG Road',          'Bengaluru', 'Karnataka', '560001', 'GROWTH',  50, 8, 'ACTIVE', 4.20, 180, 91.00, 12.9758, 77.6045, NOW() - INTERVAL '60 days'),
+  ('da4440f6-1b19-48a4-8587-532474a3c258', 'Ramesh Tea House — Koramangala', 'South Indian tiffin & beverages',               '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776602', 'kora@rameshteas.in',    '7th Block, Koramangala','Bengaluru', 'Karnataka', '560095', 'GROWTH',  50, 6, 'ACTIVE', 4.10, 120, 88.00, 12.9550, 77.6100, NOW() - INTERVAL '55 days'),
+  ('79292444-6912-4336-9894-1d89c18894d4', 'Ramesh Tea House — Whitefield',  'Quick bites & refreshing beverages',            '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776603', 'wf@rameshteas.in',      'Whitefield Main Road',  'Bengaluru', 'Karnataka', '560066', 'STARTER', 30, 4, 'ACTIVE', 3.90,  60, 82.00, 12.9800, 77.6100, NOW() - INTERVAL '30 days'),
   -- Newly registered outlet, not yet opened — validates the Supplier Outlets
   -- page's Inactive badge / "Activate" action against a real non-ACTIVE row.
-  ('8a1f2e3d-4c5b-4a69-8d7e-6f5a4b3c2d1e', 'Ramesh Tea House — Electronic City', 'Opening soon',                              '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776604', 'ecity@rameshteas.in',   'Neeladri Road',        'Bengaluru', 'Karnataka', '560100', 'STARTER', 30, 4, 'INACTIVE', 0,  0, 0, NOW() - INTERVAL '2 days')
+  ('8a1f2e3d-4c5b-4a69-8d7e-6f5a4b3c2d1e', 'Ramesh Tea House — Electronic City', 'Opening soon',                              '3c34f672-3059-42f8-8bbb-613f517c8324', '9988776604', 'ecity@rameshteas.in',   'Neeladri Road',        'Bengaluru', 'Karnataka', '560100', 'STARTER', 30, 4, 'INACTIVE', 0,  0, 0, 12.9500, 77.5800, NOW() - INTERVAL '2 days')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO shop_opening_hours (shop_id, day_of_week, open, open_time, close_time) VALUES
@@ -1143,6 +1159,8 @@ CREATE TABLE IF NOT EXISTS hotels (
     email             VARCHAR(255),
     address           TEXT,
     city              VARCHAR(100),
+    latitude          DECIMAL(10,8),
+    longitude         DECIMAL(11,8),
     logo_url          VARCHAR(1000),
     total_rooms       INTEGER,
     check_in_time     VARCHAR(10),
@@ -1204,10 +1222,10 @@ CREATE INDEX IF NOT EXISTS idx_requests_created_at ON room_requests (created_at 
 CREATE SEQUENCE IF NOT EXISTS seq_hotel_request_ref START 1001 INCREMENT 1;
 
 -- ── Dummy data — hotels ───────────────────────────────────────
-INSERT INTO hotels (id, name, owner_id, phone, email, address, city, total_rooms, check_in_time, check_out_time, subscription_plan, active) VALUES
-  ('ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Grand Palace Hotel', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', '08011223344', 'gm@grandpalace.in', '45, Anna Salai, Teynampet', 'Chennai',   120, '14:00', '12:00', 'HOTEL_PRO',     TRUE),
-  ('0a035141-82b3-4e32-ae79-024ff06dba3f', 'The Leela Resort',   '640e1946-5ffe-41cb-8be5-8ba499c08bd2', '08322445566', 'gm@leela.in',       'Calangute Beach Road',      'Goa',       280, '15:00', '11:00', 'RESORT_SUITE',  TRUE),
-  ('2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Budget Inn Jaipur',  '640e1946-5ffe-41cb-8be5-8ba499c08bd2', '01412223344', 'gm@budgetinn.in',   '12, MI Road',               'Jaipur',     40, '12:00', '10:00', 'HOTEL_BASIC',   TRUE)
+INSERT INTO hotels (id, name, owner_id, phone, email, address, city, latitude, longitude, total_rooms, check_in_time, check_out_time, subscription_plan, active) VALUES
+  ('ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Grand Palace Hotel', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', '08011223344', 'gm@grandpalace.in', '45, Anna Salai, Teynampet', 'Chennai',   13.03475000, 80.24234000, 120, '14:00', '12:00', 'HOTEL_PRO',     TRUE),
+  ('0a035141-82b3-4e32-ae79-024ff06dba3f', 'The Leela Resort',   '640e1946-5ffe-41cb-8be5-8ba499c08bd2', '08322445566', 'gm@leela.in',       'Calangute Beach Road',      'Goa',       15.54970000, 73.75130000, 280, '15:00', '11:00', 'RESORT_SUITE',  TRUE),
+  ('2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Budget Inn Jaipur',  '640e1946-5ffe-41cb-8be5-8ba499c08bd2', '01412223344', 'gm@budgetinn.in',   '12, MI Road',               'Jaipur',     26.91240000, 75.78730000,  40, '12:00', '10:00', 'HOTEL_BASIC',   TRUE)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO hotel_enabled_services (hotel_id, enabled_services) VALUES
@@ -1420,6 +1438,8 @@ CREATE TABLE IF NOT EXISTS malls (
     admin_id           VARCHAR(100),
     city               VARCHAR(100),
     address            TEXT,
+    latitude           DECIMAL(10,8),
+    longitude          DECIMAL(11,8),
     phone              VARCHAR(20),
     email              VARCHAR(255),
     logo_url           VARCHAR(1000),
@@ -1462,10 +1482,10 @@ CREATE SEQUENCE IF NOT EXISTS seq_vendor_ref START 1001 INCREMENT 1;
 -- INSERT, which would tie all three) so mall-service's findByAdminIdOrderByCreatedAtAsc
 -- deterministically surfaces Forum Mall Bengaluru — the one with a full vendor
 -- roster and a real shop-linked vendor — as this admin's default/first mall.
-INSERT INTO malls (id, name, admin_id, city, address, phone, email, commission_percent, subscription_plan, active, created_at) VALUES
-  ('f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Forum Mall Bengaluru',  'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Bengaluru', 'Hosur Road, Koramangala', '08041234567', 'admin@forummall.in',   10.00, 'MALL_PRO',     TRUE, NOW() - INTERVAL '2 minutes'),
-  ('c81747a6-c29f-422b-a241-ba50883cf76a', 'Phoenix Market City',   'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Mumbai',    'LBS Marg, Kurla',         '02261234567', 'admin@phoenixmc.in',  10.00, 'ENTERPRISE',   TRUE, NOW() - INTERVAL '1 minute'),
-  ('4c22330a-7173-4937-bfd1-1499a24effc9', 'Elante Mall',           'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Chandigarh','Industrial Area Phase I',  '01726543210', 'admin@elante.in',     12.00, 'MALL_BASIC',   TRUE, NOW())
+INSERT INTO malls (id, name, admin_id, city, address, latitude, longitude, phone, email, commission_percent, subscription_plan, active, created_at) VALUES
+  ('f35f1a27-5632-43fe-aa8d-1db992097e4e', 'Forum Mall Bengaluru',  'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Bengaluru', 'Hosur Road, Koramangala', 12.93460000, 77.61010000, '08041234567', 'admin@forummall.in',   10.00, 'MALL_PRO',     TRUE, NOW() - INTERVAL '2 minutes'),
+  ('c81747a6-c29f-422b-a241-ba50883cf76a', 'Phoenix Market City',   'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Mumbai',    'LBS Marg, Kurla',         19.08650000, 72.88860000, '02261234567', 'admin@phoenixmc.in',  10.00, 'ENTERPRISE',   TRUE, NOW() - INTERVAL '1 minute'),
+  ('4c22330a-7173-4937-bfd1-1499a24effc9', 'Elante Mall',           'e3e551fa-0ede-4317-b7b1-015648bcdb94', 'Chandigarh','Industrial Area Phase I',  30.70460000, 76.80170000, '01726543210', 'admin@elante.in',     12.00, 'MALL_BASIC',   TRUE, NOW())
 ON CONFLICT DO NOTHING;
 
 INSERT INTO vendors (id, mall_id, name, category, floor, contact, shop_id, active, qr_active, status) VALUES

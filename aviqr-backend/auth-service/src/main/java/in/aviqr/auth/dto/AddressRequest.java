@@ -15,6 +15,8 @@ public class AddressRequest {
     String state;
     String pincode;
     String phone;
+    Double latitude;
+    Double longitude;
     // Lombok would otherwise generate isDefault()/setDefault(boolean), which Jackson
     // binds to JSON property "default" — force it to match the frontend's "isDefault".
     @JsonProperty("isDefault")

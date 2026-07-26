@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addressApi } from '../../api/index.js';
 import { useCustomerAuth } from '../../context/CustomerAuthContext.jsx';
-import { ArrowLeft, MapPin, Pencil, Trash2, Plus, X, Star } from 'lucide-react';
+import { ArrowLeft, MapPin, Pencil, Trash2, Plus, X, Star, Loader2 } from 'lucide-react';
 import '../customer/CustomerMenu.css';
 
 const LABELS = ['Home', 'Work', 'Other'];
-const EMPTY_FORM = { label: 'Home', line1: '', line2: '', city: '', state: '', pincode: '', phone: '', isDefault: false };
+const EMPTY_FORM = { label: 'Home', line1: '', line2: '', city: '', state: '', pincode: '', phone: '', latitude: null, longitude: null, isDefault: false };
 
 export default function PortalAddresses() {
   const navigate = useNavigate();
@@ -18,6 +18,18 @@ export default function PortalAddresses() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [locating, setLocating] = useState(false);
+  const [locErr, setLocErr] = useState('');
+
+  const useCurrentLocation = () => {
+    if (!('geolocation' in navigator)) { setLocErr('Location not available in this browser'); return; }
+    setLocating(true); setLocErr('');
+    navigator.geolocation.getCurrentPosition(
+      pos => { setForm(f => ({ ...f, latitude: pos.coords.latitude, longitude: pos.coords.longitude })); setLocating(false); },
+      () => { setLocErr('Could not get your location'); setLocating(false); },
+      { timeout: 8000 }
+    );
+  };
 
   const load = () => {
     setLoading(true);
@@ -35,7 +47,8 @@ export default function PortalAddresses() {
     setForm({
       label: addr.label || 'Home', line1: addr.line1 || '', line2: addr.line2 || '',
       city: addr.city || '', state: addr.state || '', pincode: addr.pincode || '',
-      phone: addr.phone || '', isDefault: !!addr.isDefault,
+      phone: addr.phone || '', latitude: addr.latitude ?? null, longitude: addr.longitude ?? null,
+      isDefault: !!addr.isDefault,
     });
     setError(''); setShowForm(true);
   };
@@ -141,6 +154,11 @@ export default function PortalAddresses() {
                 <input type="tel" value={form.phone}
                   onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))} />
               </div>
+              <button type="button" style={sx.locBtn} onClick={useCurrentLocation} disabled={locating}>
+                {locating ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MapPin size={14} />}
+                {locating ? 'Getting location…' : form.latitude != null ? 'Location captured ✓' : 'Use current location'}
+              </button>
+              {locErr && <div style={{color:'#DC2626',fontSize:12.5,marginBottom:8}}>{locErr}</div>}
               <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:'#374151' }}>
                 <input type="checkbox" checked={form.isDefault}
                   onChange={e => setForm(f => ({ ...f, isDefault: e.target.checked }))} />
@@ -167,4 +185,5 @@ const sx = {
   defaultBadge: { display:'flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, color:'#D97706' },
   iconBtn: { background:'#F9FAFB', border:'1px solid #F0F0F0', borderRadius:8, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' },
   addBtn: { display:'flex', alignItems:'center', justifyContent:'center', gap:8, width:'100%', marginTop:14, marginBottom:24, padding:'12px', background:'#fff', border:'1.5px dashed #D1D5DB', borderRadius:12, color:'#1D9E75', fontWeight:700, fontSize:13.5, cursor:'pointer' },
+  locBtn: { display:'flex', alignItems:'center', justifyContent:'center', gap:6, width:'100%', marginBottom:12, padding:'10px', background:'#F9FAFB', border:'1px solid #E5E7EB', borderRadius:10, color:'#374151', fontWeight:600, fontSize:12.5, cursor:'pointer' },
 };

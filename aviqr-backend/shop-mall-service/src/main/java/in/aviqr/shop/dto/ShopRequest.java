@@ -15,6 +15,7 @@ public class ShopRequest {
     String pincode;
     String logoUrl;
     String gstin;
+    String subscriptionPlan;
     Integer minOrderAmount;
     Integer tableCount;
     Double latitude;

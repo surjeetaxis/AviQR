@@ -12,7 +12,7 @@ import {
   Building2, Store, ShoppingBag, CreditCard, BarChart2, Settings,
   LogOut, Menu as MenuIcon, TrendingUp, QrCode, CheckCircle2,
   XCircle, Plus, Edit2, Trash2, Eye,
-  Phone, Save, Bell, Users, Star, Clock, Download, Printer, Sparkles
+  Phone, Save, Bell, Users, Star, Clock, Download, Printer, Sparkles, MapPin, Loader2
 } from 'lucide-react';
 import '../admin/Admin.css';
 
@@ -582,16 +582,30 @@ function MallSettings({mall,lang}) {
   const [form,setForm] = useState({
     name: mall?.name || '', city: mall?.city || '', phone: mall?.phone || '',
     commissionPercent: mall?.commissionPercent ?? '', contactEmail: '', openingHours: '',
+    latitude: mall?.latitude ?? null, longitude: mall?.longitude ?? null,
   });
   const [saving,setSaving] = useState(false);
   const [saved,setSaved] = useState(false);
+  const [locating,setLocating] = useState(false);
+  const [locErr,setLocErr] = useState('');
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const useCurrentLocation = () => {
+    if (!('geolocation' in navigator)) { setLocErr('Location not available in this browser'); return; }
+    setLocating(true); setLocErr('');
+    navigator.geolocation.getCurrentPosition(
+      pos => { setForm(f=>({...f,latitude:pos.coords.latitude,longitude:pos.coords.longitude})); setLocating(false); },
+      () => { setLocErr('Could not get your location'); setLocating(false); },
+      { timeout: 8000 }
+    );
+  };
 
   const save = () => {
     if (!mall?.id) return;
     setSaving(true);
     mallApi.update(mall.id, {
       name: form.name, city: form.city, phone: form.phone,
+      latitude: form.latitude, longitude: form.longitude,
       commissionPercent: form.commissionPercent === '' ? null : Number(form.commissionPercent),
     })
       .then(() => { setSaved(true); setTimeout(()=>setSaved(false), 2000); })
@@ -611,6 +625,13 @@ function MallSettings({mall,lang}) {
           {MALL_LOCAL_ONLY_FIELDS.map(f=>(
             <div key={f.key} className="form-field"><label className="form-label">{f.label} <span style={{fontWeight:400,color:'var(--gray-400)'}}>(not saved yet)</span></label><input className="form-input" value={form[f.key]} onChange={e=>set(f.key,e.target.value)} placeholder={f.label}/></div>
           ))}
+        </div>
+        <div style={{marginTop:14,display:'flex',alignItems:'center',gap:10}}>
+          <button className="btn btn-secondary" onClick={useCurrentLocation} disabled={locating} style={{display:'flex',alignItems:'center',gap:6,fontSize:12.5}}>
+            {locating ? <Loader2 size={14} style={{animation:'spin 1s linear infinite'}}/> : <MapPin size={14}/>}
+            {locating ? 'Getting location…' : form.latitude != null ? 'Location captured ✓' : 'Use current location'}
+          </button>
+          {locErr && <span style={{color:'#DC2626',fontSize:12}}>{locErr}</span>}
         </div>
         <div style={{marginTop:14,display:'flex',alignItems:'center',gap:12,justifyContent:'flex-end'}}>
           {saved && <span style={{color:'var(--green-darker)',fontSize:13,fontWeight:600}}>Saved!</span>}

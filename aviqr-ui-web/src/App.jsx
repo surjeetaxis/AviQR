@@ -81,6 +81,18 @@ function AdminRoute({ children }) {
   return children;
 }
 
+// ADMIN or SUPPORT only — the support console (tickets, subscriptions, etc.)
+function SupportRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  const role = (user?.role || '').toUpperCase();
+  if (role !== 'SUPPORT' && role !== 'ADMIN') {
+    return <Navigate to={ROLE_DEFAULT_ROUTE[role] || '/dashboard'} replace />;
+  }
+  return children;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -171,7 +183,7 @@ export default function App() {
 
       {/* Role-specific dashboards — standalone (no owner sidebar) */}
       <Route path="/admin"    element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-      <Route path="/support"  element={<ProtectedRoute><SupportDashboard /></ProtectedRoute>} />
+      <Route path="/support"  element={<SupportRoute><SupportDashboard /></SupportRoute>} />
       <Route path="/supplier" element={<ProtectedRoute><SupplierDashboard /></ProtectedRoute>} />
       {/* Mall admin managing a specific vendor's QR codes — reuses the shop-owner QR
           designer, scoped to the vendor's linked shop (same idea as hotel outlets,

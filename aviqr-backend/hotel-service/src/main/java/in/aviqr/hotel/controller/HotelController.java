@@ -72,6 +72,7 @@ public class HotelController {
             if (!accessService.hasAccess(id, uid, role))
                 return ResponseEntity.status(403).<ApiResponse<Hotel>>body(ApiResponse.error("Forbidden"));
             h.setName(req.getName()); h.setPhone(req.getPhone()); h.setEmail(req.getEmail()); h.setAddress(req.getAddress());
+            h.setLatitude(req.getLatitude()); h.setLongitude(req.getLongitude());
             h.setCheckInTime(req.getCheckInTime()); h.setCheckOutTime(req.getCheckOutTime());
             if(req.getEnabledServices()!=null) h.setEnabledServices(req.getEnabledServices());
             return ResponseEntity.ok(ApiResponse.ok("Updated", hotelRepo.save(h)));
