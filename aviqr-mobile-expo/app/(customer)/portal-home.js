@@ -77,7 +77,8 @@ export default function PortalHomeScreen() {
   const handleTabChange = (key) => {
     if (key === 'search') { setSearchFocused(true); searchInputRef.current?.focus(); }
     else if (key === 'home') searchInputRef.current?.blur();
-    else if (key === 'cart' || key === 'orders' || key === 'profile') {
+    else if (key === 'profile') router.push('/(customer)/shop/profile');
+    else if (key === 'cart' || key === 'orders') {
       Alert.alert('Pick a restaurant first', 'Scan a QR code or search for a restaurant to continue.');
     }
   };
