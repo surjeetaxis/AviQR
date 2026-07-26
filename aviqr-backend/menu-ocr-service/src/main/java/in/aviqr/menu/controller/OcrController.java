@@ -22,7 +22,11 @@ public class OcrController {
     public ResponseEntity<ApiResponse<OcrJob>> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam String shopId,
-            @RequestHeader("X-User-Id") String uid) {
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId) {
+        if ("OWNER".equals(role) && !callerShopId.isBlank() && !callerShopId.equals(shopId))
+            return ResponseEntity.status(403).body(ApiResponse.error("Shop mismatch"));
         OcrJob job = ocrService.startJob(shopId, uid, file);
         return ResponseEntity.ok(ApiResponse.ok("OCR job started", job));
     }
@@ -52,8 +56,15 @@ public class OcrController {
     }
 
     @PostMapping("/jobs/{id}/approve")
-    public ResponseEntity<ApiResponse<Void>> approve(@PathVariable String id,
-                                                      @RequestHeader("X-User-Id") String uid) {
+    public ResponseEntity<ApiResponse<Void>> approve(
+            @PathVariable String id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId) {
+        OcrJob job = repo.findById(id).orElse(null);
+        if (job == null) return ResponseEntity.notFound().build();
+        if ("OWNER".equals(role) && !callerShopId.isBlank() && !callerShopId.equals(job.getShopId()))
+            return ResponseEntity.status(403).body(ApiResponse.error("Shop mismatch"));
         ocrService.approveJob(id);
         return ResponseEntity.ok(ApiResponse.ok("Items sent to menu", null));
     }
