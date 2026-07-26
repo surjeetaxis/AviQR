@@ -6,7 +6,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service @RequiredArgsConstructor
 public class ShopService {
@@ -20,6 +22,7 @@ public class ShopService {
             .address(req.getAddress()).city(req.getCity()).state(req.getState()).zone(req.getZone())
             .pincode(req.getPincode()).logoUrl(req.getLogoUrl()).gstin(req.getGstin())
             .minOrderAmount(req.getMinOrderAmount()).tableCount(req.getTableCount())
+            .latitude(req.getLatitude()).longitude(req.getLongitude())
             .subscriptionPlan("STARTER").build();
         return toDto(repo.save(shop));
     }
@@ -45,6 +48,8 @@ public class ShopService {
         if(req.getGstin()!=null)          shop.setGstin(req.getGstin());
         if(req.getMinOrderAmount()!=null) shop.setMinOrderAmount(req.getMinOrderAmount());
         if(req.getTableCount()!=null)     shop.setTableCount(req.getTableCount());
+        if(req.getLatitude()!=null)       shop.setLatitude(req.getLatitude());
+        if(req.getLongitude()!=null)      shop.setLongitude(req.getLongitude());
         return toDto(repo.save(shop));
     }
 
@@ -61,6 +66,30 @@ public class ShopService {
 
     public Page<ShopResponse> listAll(int page, int size) {
         return repo.findAll(PageRequest.of(page, size, Sort.by("createdAt").descending())).map(this::toDto);
+    }
+
+    // Optional re-sort by rating (native query already sorts by distance, the
+    // default) since "nearest first" and "best rated first" are the two
+    // orderings a customer actually wants — anything else can be added later.
+    public List<NearbyShopResponse> nearby(double lat, double lng, double radiusKm, String sort) {
+        List<NearbyShopResponse> results = repo.findNearby(lat, lng, radiusKm).stream().map(row -> {
+            NearbyShopResponse r = new NearbyShopResponse();
+            r.setId((UUID) row[0]);
+            r.setName((String) row[1]);
+            r.setTagline((String) row[2]);
+            r.setCity((String) row[3]);
+            r.setLogoUrl((String) row[4]);
+            r.setRating((BigDecimal) row[5]);
+            r.setRatingCount((Integer) row[6]);
+            r.setLatitude((Double) row[7]);
+            r.setLongitude((Double) row[8]);
+            r.setDistanceKm(((Number) row[9]).doubleValue());
+            return r;
+        }).collect(Collectors.toList());
+        if ("rating".equalsIgnoreCase(sort)) {
+            results.sort(Comparator.comparing((NearbyShopResponse r) -> r.getRating() == null ? BigDecimal.ZERO : r.getRating()).reversed());
+        }
+        return results;
     }
 
     private ShopResponse toDto(Shop s) {

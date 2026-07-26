@@ -8,8 +8,10 @@ package in.aviqr.order.service;
 
 import com.itextpdf.html2pdf.ConverterProperties;
 import com.itextpdf.html2pdf.HtmlConverter;
+import in.aviqr.order.entity.Bill;
 import in.aviqr.order.entity.Order;
 import in.aviqr.order.entity.OrderItem;
+import in.aviqr.order.repository.BillRepository;
 import in.aviqr.order.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,7 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -46,6 +49,7 @@ import java.util.stream.Collectors;
 public class InvoiceService {
 
     private final OrderRepository orderRepo;
+    private final BillRepository billRepo;
     private final RestTemplate restTemplate;
 
     @Value("${shop.service.url:http://shop-mall-service}")
@@ -57,13 +61,28 @@ public class InvoiceService {
     public byte[] generateInvoicePdf(UUID orderId) {
         Order order = orderRepo.findById(orderId)
             .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
-        return renderPdf(order, fetchShopInfo(order.getShopId()));
+        return renderPdf(buildHtml(order, fetchShopInfo(order.getShopId())));
     }
 
     public String generateInvoiceHtml(UUID orderId) {
         Order order = orderRepo.findById(orderId)
             .orElseThrow(() -> new RuntimeException("Order not found: " + orderId));
         return buildHtml(order, fetchShopInfo(order.getShopId()));
+    }
+
+    /** Consolidated invoice for a table Bill — same layout as a single-order invoice, but the
+     *  item rows span every order folded into the bill and totals come from the Bill itself
+     *  (already the sum of its orders — see BillService.generate). */
+    public byte[] generateBillInvoicePdf(UUID billId) {
+        Bill bill = billRepo.findById(billId).orElseThrow(() -> new RuntimeException("Bill not found: " + billId));
+        List<Order> orders = orderRepo.findByBillId(billId);
+        return renderPdf(buildBillHtml(bill, orders, fetchShopInfo(bill.getShopId())));
+    }
+
+    public String generateBillInvoiceHtml(UUID billId) {
+        Bill bill = billRepo.findById(billId).orElseThrow(() -> new RuntimeException("Bill not found: " + billId));
+        List<Order> orders = orderRepo.findByBillId(billId);
+        return buildBillHtml(bill, orders, fetchShopInfo(bill.getShopId()));
     }
 
     /** Real shop name/address/GSTIN/logo for the invoice header — looked up server-side
@@ -98,14 +117,13 @@ public class InvoiceService {
         return v != null ? v.toString() : fallback;
     }
 
-    private byte[] renderPdf(Order order, ShopInfoDto shop) {
-        String html = buildHtml(order, shop);
+    private byte[] renderPdf(String html) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             ConverterProperties props = new ConverterProperties();
             HtmlConverter.convertToPdf(html, baos, props);
             return baos.toByteArray();
         } catch (Exception e) {
-            log.error("Invoice PDF generation failed for order {}", order.getId(), e);
+            log.error("Invoice PDF generation failed", e);
             throw new RuntimeException("Failed to generate invoice PDF", e);
         }
     }
@@ -276,6 +294,181 @@ public class InvoiceService {
             escHtml(order.getCustomerPhone() != null ? order.getCustomerPhone() : "Walk-in"),
             escHtml(order.getTableNumber() != null ? "Table " + order.getTableNumber() : "Takeaway"),
             escHtml(order.getPaymentMethod() != null ? order.getPaymentMethod().name() : "CASH"),
+            rows.toString(),
+            totals.toString(),
+            HSN_CODE,
+            escHtml(shop.getEmail() != null ? shop.getEmail() : shop.getPhone())
+        );
+    }
+
+    /** Same layout as {@link #buildHtml}, but the item rows span every order folded into the
+     *  bill and the totals come from the Bill itself (already the sum across those orders). */
+    private String buildBillHtml(Bill bill, List<Order> orders, ShopInfoDto shop) {
+        BigDecimal subtotal      = bill.getSubtotal();
+        BigDecimal discount      = bill.getDiscount()      != null ? bill.getDiscount()      : BigDecimal.ZERO;
+        BigDecimal serviceCharge = bill.getServiceCharge() != null ? bill.getServiceCharge() : BigDecimal.ZERO;
+        BigDecimal tax           = bill.getTax()           != null ? bill.getTax()           : BigDecimal.ZERO;
+        BigDecimal total         = bill.getTotalAmount();
+        BigDecimal cgst = tax.divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP);
+        BigDecimal sgst = tax.subtract(cgst);
+
+        StringBuilder rows = new StringBuilder();
+        int sno = 1;
+        for (Order order : orders) {
+            for (OrderItem item : order.getItems()) {
+                BigDecimal itemTotal = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
+                rows.append("""
+                    <tr>
+                      <td class="center">%d</td>
+                      <td>%s</td>
+                      <td class="center">%s</td>
+                      <td class="right">%d</td>
+                      <td class="right">₹%.2f</td>
+                      <td class="right">₹%.2f</td>
+                    </tr>
+                    """.formatted(
+                        sno++,
+                        itemDescription(item),
+                        HSN_CODE,
+                        item.getQuantity(),
+                        item.getUnitPrice(),
+                        itemTotal
+                    )
+                );
+            }
+        }
+
+        StringBuilder totals = new StringBuilder();
+        totals.append("<tr><td>Subtotal</td><td class=\"right\">₹%.2f</td></tr>".formatted(subtotal));
+        if (discount.signum() > 0)
+            totals.append("<tr><td>Discount</td><td class=\"right\">− ₹%.2f</td></tr>".formatted(discount));
+        if (serviceCharge.signum() > 0)
+            totals.append("<tr><td>Service Charge</td><td class=\"right\">₹%.2f</td></tr>".formatted(serviceCharge));
+        if (tax.signum() > 0) {
+            totals.append("<tr><td>CGST</td><td class=\"right\">₹%.2f</td></tr>".formatted(cgst));
+            totals.append("<tr><td>SGST</td><td class=\"right\">₹%.2f</td></tr>".formatted(sgst));
+        }
+        totals.append("<tr class=\"grand\"><td>TOTAL</td><td class=\"right\">₹%.2f</td></tr>".formatted(total));
+
+        String logoHtml = (shop.getLogoUrl() != null && !shop.getLogoUrl().isBlank())
+            ? "<img src=\"%s\" alt=\"logo\" style=\"max-height:48px;max-width:120px;margin-bottom:6px;\"/><br/>".formatted(escHtml(shop.getLogoUrl()))
+            : "";
+
+        String billDate = bill.getCreatedAt() != null ? bill.getCreatedAt().format(DATE_FMT) : "N/A";
+        String orderNumbers = orders.stream().map(Order::getOrderNumber).collect(Collectors.joining(", "));
+        Order first = orders.get(0);
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="UTF-8"/>
+        <style>
+          body  { font-family: Arial, sans-serif; font-size: 11px; color: #1a1a1a; margin: 24px; }
+          h1    { font-size: 18px; margin: 0; color: #1A56DB; }
+          .header { display: flex; justify-content: space-between; margin-bottom: 16px; }
+          .header-left { max-width: 60%%; }
+          .header-right { text-align: right; }
+          .badge { background: #1A56DB; color: white; font-size: 12px; font-weight: bold;
+                   padding: 4px 12px; border-radius: 4px; display: inline-block; margin-bottom: 8px; }
+          .divider { border-top: 2px solid #1A56DB; margin: 12px 0; }
+          .meta { display: flex; justify-content: space-between; margin-bottom: 12px; }
+          .meta-box { background: #f5f7ff; padding: 8px 12px; border-radius: 4px; min-width: 160px; }
+          .meta-box .lbl { color: #666; font-size: 10px; margin-bottom: 2px; }
+          .meta-box .val { font-weight: bold; font-size: 12px; }
+          table  { width: 100%%; border-collapse: collapse; margin: 12px 0; }
+          th     { background: #1A56DB; color: white; padding: 7px 6px; text-align: left; font-size: 10px; }
+          td     { padding: 6px; border-bottom: 1px solid #e5e7eb; font-size: 10px; }
+          tr:nth-child(even) td { background: #f9fafb; }
+          .right  { text-align: right; }
+          .center { text-align: center; }
+          .totals { width: 300px; margin-left: auto; margin-top: 8px; }
+          .totals tr td { border: none; padding: 3px 6px; }
+          .totals .grand { font-weight: bold; font-size: 12px; border-top: 2px solid #1A56DB; }
+          .footer { margin-top: 20px; font-size: 9px; color: #999; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 8px; }
+          .gst-note { font-size: 10px; color: #555; margin-top: 8px; }
+        </style>
+        </head>
+        <body>
+
+        <div class="header">
+          <div class="header-left">
+            %s
+            <h1>%s</h1>
+            <p style="margin:4px 0; color:#555;">%s</p>
+            <p style="margin:2px 0; color:#555;">%s</p>
+            <p style="margin:2px 0;">GSTIN: <strong>%s</strong></p>
+          </div>
+          <div class="header-right">
+            <div class="badge">TAX INVOICE — TABLE BILL</div><br/>
+            <p style="margin:4px 0;"><strong>Bill No:</strong> BILL-%s</p>
+            <p style="margin:2px 0;"><strong>Date &amp; Time:</strong> %s</p>
+            <p style="margin:2px 0;"><strong>Orders:</strong> %s</p>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="meta">
+          <div class="meta-box">
+            <div class="lbl">BILLED TO</div>
+            <div class="val">%s</div>
+            <div style="font-size:10px; color:#555;">%s</div>
+          </div>
+          <div class="meta-box">
+            <div class="lbl">TABLE</div>
+            <div class="val">%s</div>
+          </div>
+          <div class="meta-box">
+            <div class="lbl">PAYMENT METHOD</div>
+            <div class="val">%s</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th class="center" style="width:30px">S.No</th>
+              <th>Item Description</th>
+              <th class="center">HSN</th>
+              <th class="right">Qty</th>
+              <th class="right">Rate (₹)</th>
+              <th class="right">Amount (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            %s
+          </tbody>
+        </table>
+
+        <table class="totals">
+          %s
+        </table>
+
+        <p class="gst-note">
+          HSN Code: %s (Restaurant Services)
+        </p>
+
+        <div class="footer">
+          This is a computer-generated invoice and does not require a physical signature.<br/>
+          Thank you for dining with us! For queries: %s
+        </div>
+
+        </body>
+        </html>
+        """.formatted(
+            logoHtml,
+            escHtml(shop.getBusinessName()),
+            escHtml(shop.getAddress()),
+            escHtml(shop.getCity() + ", " + shop.getState()),
+            escHtml(shop.getGstin() != null ? shop.getGstin() : "Pending registration"),
+            escHtml(bill.getId().toString().substring(0, 8).toUpperCase()),
+            billDate,
+            escHtml(orderNumbers),
+            escHtml(first.getCustomerName()),
+            escHtml(first.getCustomerPhone() != null ? first.getCustomerPhone() : "Walk-in"),
+            escHtml("Table " + bill.getTableNumber()),
+            escHtml(bill.getPaymentMethod() != null ? bill.getPaymentMethod().name() : (first.getPaymentMethod() != null ? first.getPaymentMethod().name() : "CASH")),
             rows.toString(),
             totals.toString(),
             HSN_CODE,

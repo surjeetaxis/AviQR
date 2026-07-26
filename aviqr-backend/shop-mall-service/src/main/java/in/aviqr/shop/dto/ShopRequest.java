@@ -17,4 +17,6 @@ public class ShopRequest {
     String gstin;
     Integer minOrderAmount;
     Integer tableCount;
+    Double latitude;
+    Double longitude;
 }
