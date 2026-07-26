@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Edit2, Trash2, X, Video, Box, Image as ImageIcon } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Video, Box, Image as ImageIcon, ScanLine } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
@@ -367,6 +367,7 @@ export default function Menu() {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
+          <button className="btn btn-secondary" onClick={() => nav('/menu/scan')}><ScanLine size={14} /> Scan Menu</button>
           <button className="btn btn-secondary" onClick={openAddCat}><Plus size={14} /> Add category</button>
         </div>
       </div>

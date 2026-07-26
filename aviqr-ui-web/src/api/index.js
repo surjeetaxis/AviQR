@@ -117,6 +117,8 @@ export const shopApi = {
   getSettings:      (shopId)     => api.get(`/api/v1/settings/shop/${shopId}`),
   saveSettings:     (sId, d)     => api.put(`/api/v1/settings/shop/${sId}`, d),
   enter:            (id)         => api.post(`/api/v1/shops/${id}/enter`),
+  // Its own top-level path (not /api/v1/shops/nearby) — see NearbyShopController.
+  nearby:           (lat, lng, radiusKm, sort) => api.get('/api/v1/nearby-shops', { params: { lat, lng, radiusKm, sort } }),
 };
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
@@ -152,6 +154,13 @@ export const orderApi = {
   listAll:      (p)         => api.get('/api/v1/orders/admin/all', { params: p }),
 };
 
+// ── Reviews (guest ratings/feedback) ─────────────────────────────────────────
+export const reviewApi = {
+  submit:         (d, config={})   => api.post('/api/v1/reviews', d, config),
+  getShopSummary: (shopId)         => api.get(`/api/v1/reviews/public/shop/${shopId}/summary`),
+  getShopReviews: (shopId, p)      => api.get(`/api/v1/reviews/public/shop/${shopId}`, { params: p }),
+};
+
 // ── Order confirmation code / QR — pay-at-counter gate & pickup handover ───────
 // getCodeImage returns a blob, not a URL: the endpoint sits behind the gateway's
 // AuthenticationFilter (like every other /api/v1/orders/** route), and a plain
@@ -173,10 +182,20 @@ export const paymentApi = {
   listAll:        (p)        => api.get('/api/v1/payments', { params: p }),
 };
 
-// ── OCR jobs (admin/support visibility) ───────────────────────────────────────
+// ── OCR jobs (menu-scan upload, owner-facing + admin/support visibility) ──────
 export const ocrApi = {
   listAllJobs:  (p)          => api.get('/api/v1/ocr/jobs/admin/all', { params: p }),
   getByShop:    (shopId)     => api.get(`/api/v1/ocr/jobs/shop/${shopId}`),
+  upload:       (shopId, file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post('/api/v1/ocr/upload', fd, {
+      params: { shopId },
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  getJob:       (id)         => api.get(`/api/v1/ocr/jobs/${id}`),
+  approve:      (id)         => api.post(`/api/v1/ocr/jobs/${id}/approve`),
 };
 
 // ── Audit logs (admin/support visibility) ─────────────────────────────────────
@@ -441,6 +460,16 @@ async function openPrintable(path, target, features) {
 export const invoiceApi = {
   openInvoice: (orderId) => openPrintable(`/api/v1/orders/${orderId}/invoice`, '_blank'),
   openKot:     (orderId) => openPrintable(`/api/v1/orders/${orderId}/kot`, 'kot', 'width=440,height=640'),
+};
+
+// ── Table Bills — consolidates a table's unbilled orders, customer pays it, staff settles it ──
+export const billApi = {
+  generate:    (shopId, tableNumber) => api.post(`/api/v1/bills/shop/${shopId}/table/${encodeURIComponent(tableNumber)}/generate`),
+  getCurrent:  (shopId, tableNumber) => api.get(`/api/v1/bills/shop/${shopId}/table/${encodeURIComponent(tableNumber)}/current`),
+  getOpenBills:(shopId)              => api.get(`/api/v1/bills/shop/${shopId}/open`),
+  getById:     (id)                  => api.get(`/api/v1/bills/${id}`),
+  settle:      (id)                  => api.post(`/api/v1/bills/${id}/settle`),
+  openInvoice: (id) => openPrintable(`/api/v1/bills/${id}/invoice`, '_blank'),
 };
 
 // ── Aggregator (Zomato/Swiggy mapping) ───────────────────────────────────────

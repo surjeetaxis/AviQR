@@ -129,6 +129,8 @@ export const shopApi = {
   // Mints a shop-scoped token (a supplier's own login JWT has no shopId, so
   // a direct order/report-service call would 403).
   enter:       (id)     => api.post(`/api/v1/shops/${id}/enter`),
+  // Its own top-level path (not /api/v1/shops/nearby) — see NearbyShopController.
+  nearby:      (lat, lng, radiusKm, sort) => api.get('/api/v1/nearby-shops', { params: { lat, lng, radiusKm, sort } }),
 };
 
 // ── Menu ────────────────────────────────────────────────────────────────────
@@ -221,6 +223,20 @@ export const orderApi = {
   getById:      (id)     => api.get(`/api/v1/orders/${id}`),
 };
 
+// ── Reviews (guest ratings/feedback) ─────────────────────────────────────────
+export const reviewApi = {
+  submit:         (d)          => api.post('/api/v1/reviews', d),
+  getShopSummary: (shopId)     => api.get(`/api/v1/reviews/public/shop/${shopId}/summary`),
+  getShopReviews: (shopId, p)  => api.get(`/api/v1/reviews/public/shop/${shopId}`, { params: p }),
+};
+
+// ── Table Bills — consolidated bill for a dine-in table, paid by the customer ────
+export const billApi = {
+  getCurrent: (shopId, tableNumber) => api.get(`/api/v1/bills/shop/${shopId}/table/${encodeURIComponent(tableNumber)}/current`),
+  getById:    (id) => api.get(`/api/v1/bills/${id}`),
+  generate:   (shopId, tableNumber) => api.post(`/api/v1/bills/shop/${shopId}/table/${encodeURIComponent(tableNumber)}/generate`),
+};
+
 // ── Menu Variants & Add-ons (POS) ────────────────────────────────────────────
 export const variantApi = {
   getVariants:   (itemId)       => api.get(`/api/v1/items/${itemId}/variants`),
@@ -274,10 +290,20 @@ export const paymentApi = {
   refund:      (paymentId) => api.post(`/api/v1/payments/${paymentId}/refund`),
 };
 
-// ── OCR jobs (admin/support visibility) ──────────────────────────────────────
+// ── OCR jobs (menu-scan upload, owner-facing + admin/support visibility) ─────
 export const ocrApi = {
   listAllJobs: (p) => api.get('/api/v1/ocr/jobs/admin/all', { params: p }),
   getByShop:   (shopId) => api.get(`/api/v1/ocr/jobs/shop/${shopId}`),
+  upload:      (shopId, asset) => {
+    const fd = new FormData();
+    fd.append('file', { uri: asset.uri, name: asset.fileName || 'menu.jpg', type: asset.mimeType || 'image/jpeg' });
+    return api.post('/api/v1/ocr/upload', fd, {
+      params: { shopId },
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  getJob:      (id) => api.get(`/api/v1/ocr/jobs/${id}`),
+  approve:     (id) => api.post(`/api/v1/ocr/jobs/${id}/approve`),
 };
 
 // ── Audit logs (admin/support visibility) ────────────────────────────────────

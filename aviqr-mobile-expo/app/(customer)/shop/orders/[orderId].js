@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { orderApi } from '../../../../src/api/index.js';
+import { orderApi, reviewApi } from '../../../../src/api/index.js';
+import { useAuth } from '../../../../src/context/AuthContext.js';
 import { PageHeader } from '../../../../src/components/common/PageHeader.js';
 import { OrderCodePanel } from '../../../../src/components/common/OrderCodePanel.js';
+import { BottomSheet } from '../../../../src/components/common/BottomSheet.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../../../src/theme/index.js';
 
 const STATUS_COLOR = { PENDING_PAYMENT: '#D97706', NEW: '#F59E0B', ACCEPTED: '#2563EB', PREPARING: '#2563EB', READY: '#059669', COMPLETED: '#6B7280', CANCELLED: '#DC2626', REJECTED: '#DC2626' };
@@ -11,9 +13,15 @@ const PROGRESS_STEPS = ['ACCEPTED', 'PREPARING', 'READY', 'COMPLETED'];
 
 export default function CustomerOrderDetailScreen() {
   const { orderId } = useLocalSearchParams();
+  const { user } = useAuth();
   const [order, setOrder]     = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
+  const [rateOpen, setRateOpen]   = useState(false);
+  const [rating, setRating]       = useState(0);
+  const [comment, setComment]     = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [myReview, setMyReview]   = useState(null); // { rating } once submitted this session
 
   const load = useCallback(() => {
     return orderApi.getById(orderId)
@@ -27,6 +35,24 @@ export default function CustomerOrderDetailScreen() {
     const iv = setInterval(load, 5000);
     return () => clearInterval(iv);
   }, [load]);
+
+  const submitReview = async () => {
+    if (rating < 1) return Alert.alert('Pick a rating', 'Tap a star to rate your order.');
+    setSubmitting(true);
+    try {
+      await reviewApi.submit({
+        shopId: order.shopId,
+        orderId: order.id,
+        customerName: user?.name || 'Guest',
+        rating,
+        comment: comment.trim() || undefined,
+      });
+      setMyReview({ rating });
+      setRateOpen(false);
+    } catch (e) {
+      Alert.alert('Could not submit rating', e.response?.data?.message || 'Please try again.');
+    } finally { setSubmitting(false); }
+  };
 
   if (loading) return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
@@ -86,11 +112,52 @@ export default function CustomerOrderDetailScreen() {
           <View style={[ss.billRow, ss.billTotal]}><Text style={ss.totalLabel}>Total</Text><Text style={ss.totalVal}>₹{order.totalAmount}</Text></View>
         </View>
 
+        {order.type === 'DINE_IN' && order.tableNumber && (
+          <TouchableOpacity style={ss.menuLink} onPress={() => router.push({ pathname: `/(customer)/shop/bill/${order.tableNumber}`, params: { shopId: order.shopId } })}>
+            <Text style={ss.menuLinkTxt}>View & pay table bill</Text>
+            <Text style={{ fontSize: 16, color: Colors.gray400 }}>›</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity style={ss.menuLink} onPress={() => router.push({ pathname: '/(customer)/shop/menu', params: { shopId: order.shopId } })}>
           <Text style={ss.menuLinkTxt}>View shop menu</Text>
           <Text style={{ fontSize: 16, color: Colors.gray400 }}>›</Text>
         </TouchableOpacity>
+
+        {order.status === 'COMPLETED' && (
+          myReview ? (
+            <View style={ss.ratedBanner}>
+              <Text style={ss.ratedTxt}>Thanks for your feedback — you rated this order {'★'.repeat(myReview.rating)}{'☆'.repeat(5 - myReview.rating)}</Text>
+            </View>
+          ) : (
+            <TouchableOpacity style={ss.rateBtn} onPress={() => setRateOpen(true)}>
+              <Text style={ss.rateBtnTxt}>⭐ Rate this order</Text>
+            </TouchableOpacity>
+          )
+        )}
       </ScrollView>
+
+      <BottomSheet visible={rateOpen} onClose={() => setRateOpen(false)} height={340}>
+        <Text style={ss.sheetTitle}>Rate your order</Text>
+        <View style={ss.starRow}>
+          {[1, 2, 3, 4, 5].map(n => (
+            <TouchableOpacity key={n} onPress={() => setRating(n)}>
+              <Text style={ss.starIcon}>{n <= rating ? '★' : '☆'}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TextInput
+          style={ss.commentInput}
+          placeholder="Tell us more (optional)…"
+          placeholderTextColor={Colors.gray400}
+          value={comment}
+          onChangeText={setComment}
+          multiline
+        />
+        <TouchableOpacity style={ss.submitBtn} onPress={submitReview} disabled={submitting}>
+          <Text style={ss.submitBtnTxt}>{submitting ? 'Submitting…' : 'Submit rating'}</Text>
+        </TouchableOpacity>
+      </BottomSheet>
     </View>
   );
 }
@@ -118,4 +185,14 @@ const ss = StyleSheet.create({
   totalVal: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900 },
   menuLink: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.white, borderRadius: Radius.md, padding: 14, marginTop: 12, ...Shadow.sm },
   menuLinkTxt: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray700 },
+  rateBtn: { alignItems: 'center', backgroundColor: Colors.primary, borderRadius: Radius.md, padding: 14, marginTop: 12 },
+  rateBtnTxt: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.white },
+  ratedBanner: { backgroundColor: '#F0FDF4', borderRadius: Radius.md, padding: 14, marginTop: 12, borderWidth: 1, borderColor: '#BBF7D0' },
+  ratedTxt: { fontSize: FontSize.sm, fontWeight: '600', color: '#166534', textAlign: 'center' },
+  sheetTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900, marginBottom: 16, textAlign: 'center' },
+  starRow: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginBottom: 16 },
+  starIcon: { fontSize: 34, color: '#F59E0B' },
+  commentInput: { height: 80, borderWidth: 1, borderColor: Colors.gray200, borderRadius: Radius.md, padding: 12, fontSize: FontSize.sm, color: Colors.gray900, textAlignVertical: 'top', marginBottom: 16 },
+  submitBtn: { alignItems: 'center', backgroundColor: Colors.primary, borderRadius: Radius.md, padding: 14 },
+  submitBtnTxt: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.white },
 });

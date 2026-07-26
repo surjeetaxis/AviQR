@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, ArrowRight, Store, UtensilsCrossed, QrCode, Rocket, Loader2 } from 'lucide-react';
+import { CheckCircle, ArrowRight, Store, UtensilsCrossed, QrCode, Rocket, Loader2, MapPin } from 'lucide-react';
 import { shopApi, menuApi, qrApi, api } from '../api/index.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -18,7 +18,22 @@ export default function Onboarding({ onComplete }) {
   const [shopId, setShopId] = useState(null);
 
   // Step 1 — shop form
-  const [shop, setShop] = useState({ name: '', phone: '', city: '', address: '' });
+  const [shop, setShop] = useState({ name: '', phone: '', city: '', address: '', latitude: null, longitude: null });
+  const [locating, setLocating] = useState(false);
+  const [locErr, setLocErr] = useState('');
+
+  // First use of browser geolocation in this codebase — feeds the "nearby
+  // shops" discovery feature, which otherwise has no way to learn a shop's
+  // coordinates (ShopRequest previously had no lat/lng fields at all).
+  const useCurrentLocation = () => {
+    if (!('geolocation' in navigator)) { setLocErr('Location not available in this browser'); return; }
+    setLocating(true); setLocErr('');
+    navigator.geolocation.getCurrentPosition(
+      pos => { setShop(s => ({ ...s, latitude: pos.coords.latitude, longitude: pos.coords.longitude })); setLocating(false); },
+      () => { setLocErr('Could not get your location'); setLocating(false); },
+      { timeout: 8000 }
+    );
+  };
 
   // Step 2 — menu item form
   const [item, setItem] = useState({ categoryName: '', name: '', price: '' });
@@ -39,6 +54,8 @@ export default function Onboarding({ onComplete }) {
         phone: shop.phone.trim(),
         city: shop.city.trim(),
         address: shop.address.trim(),
+        latitude: shop.latitude,
+        longitude: shop.longitude,
       });
       const newShopId = res.data?.data?.id;
       if (!newShopId) throw new Error('Shop created but no ID returned');
@@ -132,6 +149,11 @@ export default function Onboarding({ onComplete }) {
                 <Field label="City" value={shop.city} onChange={v => setShop(s => ({ ...s, city: v }))} placeholder="Bengaluru" />
                 <Field label="Address" value={shop.address} onChange={v => setShop(s => ({ ...s, address: v }))} placeholder="123 MG Road" />
               </div>
+              <button type="button" style={styles.btnGhost} onClick={useCurrentLocation} disabled={locating}>
+                {locating ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MapPin size={14} />}
+                {locating ? 'Getting location…' : shop.latitude != null ? 'Location captured ✓' : 'Use current location'}
+              </button>
+              {locErr && <p style={styles.errMsg}>{locErr}</p>}
             </div>
             {err && <p style={styles.errMsg}>{err}</p>}
             <button type="submit" style={styles.btnPrimary} disabled={busy}>

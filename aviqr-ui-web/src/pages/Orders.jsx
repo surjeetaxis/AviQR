@@ -7,7 +7,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
-import { orderApi, invoiceApi } from '../api/index.js';
+import { orderApi, invoiceApi, billApi } from '../api/index.js';
 import ConfirmCodeModal from '../components/shared/ConfirmCodeModal.jsx';
 import './Orders.css';
 
@@ -114,13 +114,24 @@ export default function Orders() {
   const [showCodeModal, setShowCodeModal] = useState(false);
   const prevNew = useRef(0);
 
+  // ── Table bills ────────────────────────────────────────────────────────────
+  const [openBills,  setOpenBills]  = useState({}); // tableNumber -> open Bill
+  const [justSettled, setJustSettled] = useState([]); // bills that just left the open list — settlement toast
+  const [busyTable,  setBusyTable]  = useState(null); // table currently generating/settling (disables its button)
+  const prevBillsById = useRef({});
+
   const load = useCallback(async (showRef = false) => {
     if (!shopId) { setError('No shop linked to your account'); setLoading(false); return; }
     if (showRef) setRef(true);
     setError(null);
     try {
-      const res  = await orderApi.getLiveOrders(shopId);
-      const data = res.data.data || [];
+      const [ordersRes, billsRes] = await Promise.all([
+        orderApi.getLiveOrders(shopId),
+        billApi.getOpenBills(shopId).catch(() => ({ data: { data: [] } })),
+      ]);
+      const data  = ordersRes.data.data || [];
+      const bills = billsRes.data.data || [];
+
       const newCount = data.filter(o => o.status === 'NEW').length;
       if (newCount > prevNew.current && prevNew.current >= 0) {
         document.title = `🔔 ${newCount} New Order${newCount > 1 ? 's' : ''} — AviQR`;
@@ -131,6 +142,29 @@ export default function Orders() {
       }
       prevNew.current = newCount;
       setOrders(data);
+
+      // A bill that dropped out of the open list since the last poll was just paid/settled
+      // (by the customer online, or by staff marking cash settled from another screen/device).
+      const newIds = new Set(bills.map(b => b.id));
+      const settledBills = Object.values(prevBillsById.current).filter(b => !newIds.has(b.id));
+      if (settledBills.length) {
+        document.title = `💰 Bill Settled — AviQR`;
+        setTimeout(() => { document.title = 'AviQR'; }, 6000);
+        if ('Notification' in window && Notification.permission === 'granted') {
+          settledBills.forEach(b => new Notification('Bill Settled', {
+            body: `Table ${b.tableNumber} — ₹${parseFloat(b.totalAmount).toFixed(0)}`,
+          }));
+        }
+        setJustSettled(prev => [...prev, ...settledBills].slice(-5));
+        setTimeout(() => {
+          setJustSettled(prev => prev.filter(b => !settledBills.some(s => s.id === b.id)));
+        }, 20000);
+      }
+      const byId = {}; bills.forEach(b => { byId[b.id] = b; });
+      prevBillsById.current = byId;
+
+      const byTable = {}; bills.forEach(b => { byTable[b.tableNumber] = b; });
+      setOpenBills(byTable);
     } catch (e) {
       setError(e.response?.data?.message || 'Failed to load orders — check backend connection');
     } finally { setLoading(false); setRef(false); }
@@ -159,6 +193,21 @@ export default function Orders() {
 
   const openInvoice = (order) => {
     invoiceApi.openInvoice(order.id);
+  };
+
+  const generateBill = async (tableNumber) => {
+    setBusyTable(tableNumber);
+    try { await billApi.generate(shopId, tableNumber); await load(true); }
+    catch (e) { alert(e.response?.data?.message || 'Could not generate bill'); }
+    finally { setBusyTable(null); }
+  };
+
+  const settleBill = async (bill) => {
+    if (!confirm(`Mark Table ${bill.tableNumber}'s bill (₹${parseFloat(bill.totalAmount).toFixed(0)}) as settled?`)) return;
+    setBusyTable(bill.tableNumber);
+    try { await billApi.settle(bill.id); await load(true); }
+    catch (e) { alert(e.response?.data?.message || 'Could not settle bill'); }
+    finally { setBusyTable(null); }
   };
 
   // Filtering
@@ -244,6 +293,17 @@ export default function Orders() {
             onClick={() => { setStatus('NEW'); setTypeFilter('ALL'); }}>
             View now →
           </button>
+        </div>
+      )}
+
+      {/* Bill settled banner */}
+      {justSettled.length > 0 && (
+        <div style={{ background:'#ECFDF5', border:'1.5px solid #A7F3D0', borderRadius:10, padding:'12px 16px', marginBottom:14, display:'flex', alignItems:'center', gap:10 }}>
+          <CheckCircle2 size={16} color="#059669" />
+          <div style={{ flex:1, fontSize:13, color:'#047857' }}>
+            <strong>Bill settled</strong> — {justSettled.map(b => `Table ${b.tableNumber} (₹${parseFloat(b.totalAmount).toFixed(0)})`).join(', ')}
+          </div>
+          <button onClick={() => setJustSettled([])} style={{ background:'none', border:'none', cursor:'pointer', color:'#047857' }}>✕</button>
         </div>
       )}
 
@@ -405,6 +465,22 @@ export default function Orders() {
                   <button className="action-btn action-btn--ghost" onClick={() => openInvoice(order)}>
                     <FileText size={13} /> Invoice
                   </button>
+                )}
+
+                {/* Table bill — generate once, or show the pending amount with a settle action */}
+                {order.type === 'DINE_IN' && order.tableNumber && (
+                  openBills[order.tableNumber] ? (
+                    <button className="action-btn action-btn--ghost" disabled={busyTable === order.tableNumber}
+                      onClick={() => settleBill(openBills[order.tableNumber])}
+                      title="Mark this table's bill as settled">
+                      🧾 ₹{parseFloat(openBills[order.tableNumber].totalAmount).toFixed(0)} pending — Settle
+                    </button>
+                  ) : (!order.billId && !['CANCELLED','REJECTED','PENDING_PAYMENT'].includes(order.status)) ? (
+                    <button className="action-btn action-btn--ghost" disabled={busyTable === order.tableNumber}
+                      onClick={() => generateBill(order.tableNumber)}>
+                      🧾 Generate Bill
+                    </button>
+                  ) : null
                 )}
 
                 {/* Cancel */}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Switch, Alert, TextInput, Modal, ScrollView } from 'react-native';
+import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { menuApi } from '../../src/api/index.js';
@@ -109,9 +110,14 @@ export default function MenuScreen() {
     <View style={ss.screen}>
       <View style={ss.header}>
         <Text style={ss.title}>Menu</Text>
-        <TouchableOpacity style={ss.addBtn} onPress={() => { setEdit(null); setForm(EMPTY_ITEM); setShowAdd(true); }}>
-          <Text style={ss.addBtnTxt}>+ Add Item</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity style={ss.scanBtn} onPress={() => router.push('/(owner)/scan-menu')}>
+            <Text style={ss.scanBtnTxt}>📷 Scan Menu</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={ss.addBtn} onPress={() => { setEdit(null); setForm(EMPTY_ITEM); setShowAdd(true); }}>
+            <Text style={ss.addBtnTxt}>+ Add Item</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       {offline && <OfflineBadge onRetry={loadMenu}/>}
       <TextInput style={ss.search} placeholder="Search items…" value={search} onChangeText={setSearch} placeholderTextColor={Colors.gray400}/>
@@ -223,6 +229,8 @@ const ss = StyleSheet.create({
   title:{fontSize:FontSize['2xl'],fontWeight:'800',color:Colors.gray900},
   addBtn:{backgroundColor:Colors.primary,paddingHorizontal:14,paddingVertical:7,borderRadius:Radius.md},
   addBtnTxt:{color:Colors.white,fontWeight:'700',fontSize:FontSize.sm},
+  scanBtn:{backgroundColor:Colors.gray100,paddingHorizontal:14,paddingVertical:7,borderRadius:Radius.md,borderWidth:1,borderColor:Colors.border},
+  scanBtnTxt:{color:Colors.gray700,fontWeight:'700',fontSize:FontSize.sm},
   search:{height:40,backgroundColor:Colors.gray100,borderRadius:Radius.full,paddingHorizontal:14,margin:12,fontSize:FontSize.base,color:Colors.gray900},
   catList:{paddingHorizontal:12,paddingBottom:8},
   catChip:{flexDirection:'row',alignItems:'center',height:34,paddingHorizontal:14,borderRadius:Radius.full,backgroundColor:Colors.white,borderWidth:1,borderColor:Colors.border,marginRight:8},
