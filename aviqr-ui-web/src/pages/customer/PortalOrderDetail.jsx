@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { orderApi } from '../../api/index.js';
+import { orderApi, reviewApi } from '../../api/index.js';
 import { useCustomerAuth } from '../../context/CustomerAuthContext.jsx';
-import { ArrowLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ChevronRight, RefreshCw, Star } from 'lucide-react';
 import OrderCodePanel from '../../components/shared/OrderCodePanel.jsx';
 import OrderProgressTrack from '../../components/shared/OrderProgressTrack.jsx';
 
@@ -11,11 +11,17 @@ const STATUS_COLOR = { PENDING_PAYMENT:'#d97706', NEW:'#f59e0b', ACCEPTED:'#3b82
 export default function PortalOrderDetail() {
   const { orderId } = useParams();
   const navigate = useNavigate();
-  const { authHeader, customerToken } = useCustomerAuth();
+  const { authHeader, customerToken, customer } = useCustomerAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [rateOpen, setRateOpen] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [myReview, setMyReview] = useState(null); // { rating } once submitted this session
 
   // customerToken (not authHeader) is the dependency here on purpose: authHeader
   // is a fresh object literal every render, so using it directly would recreate
@@ -39,6 +45,25 @@ export default function PortalOrderDetail() {
     const iv = setInterval(load, 5000);
     return () => clearInterval(iv);
   }, [load]);
+
+  const submitReview = async () => {
+    if (rating < 1) { setSubmitError('Tap a star to rate your order.'); return; }
+    setSubmitError('');
+    setSubmitting(true);
+    try {
+      await reviewApi.submit({
+        shopId: order.shopId,
+        orderId: order.id,
+        customerName: customer?.name || 'Guest',
+        rating,
+        comment: comment.trim() || undefined,
+      }, authHeader);
+      setMyReview({ rating });
+      setRateOpen(false);
+    } catch (e) {
+      setSubmitError(e?.response?.data?.message || 'Could not submit rating. Please try again.');
+    } finally { setSubmitting(false); }
+  };
 
   if (loading) return <div style={sx.center}><p style={{fontSize:13,color:'#9CA3AF'}}>Loading order…</p></div>;
   if (error || !order) return <div style={sx.center}><p style={{fontSize:13,color:'#DC2626'}}>{error || 'Order not found.'}</p></div>;
@@ -106,7 +131,44 @@ export default function PortalOrderDetail() {
           <span>View shop menu</span>
           <ChevronRight size={16} color="#9CA3AF" />
         </button>
+
+        {order.status === 'COMPLETED' && (
+          myReview ? (
+            <div style={sx.ratedBanner}>
+              Thanks for your feedback — you rated this order {'★'.repeat(myReview.rating)}{'☆'.repeat(5 - myReview.rating)}
+            </div>
+          ) : (
+            <button style={sx.rateBtn} onClick={() => setRateOpen(true)}>
+              <Star size={15} /> Rate this order
+            </button>
+          )
+        )}
       </div>
+
+      {rateOpen && (
+        <div style={sx.backdrop} onClick={() => setRateOpen(false)}>
+          <div style={sx.sheet} onClick={e => e.stopPropagation()}>
+            <div style={sx.sheetTitle}>Rate your order</div>
+            <div style={sx.starRow}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <button key={n} style={sx.starBtn} onClick={() => setRating(n)}>
+                  <Star size={30} color="#F59E0B" fill={n <= rating ? '#F59E0B' : 'none'} />
+                </button>
+              ))}
+            </div>
+            <textarea
+              style={sx.commentInput}
+              placeholder="Tell us more (optional)…"
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+            />
+            {!!submitError && <div style={sx.errorTxt}>{submitError}</div>}
+            <button style={sx.submitBtn} onClick={submitReview} disabled={submitting}>
+              {submitting ? 'Submitting…' : 'Submit rating'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -124,4 +186,14 @@ const sx = {
   itemRow: { display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid #F9FAFB' },
   billRow: { display:'flex', justifyContent:'space-between', fontSize:13, color:'#374151', padding:'2px 0' },
   menuLink: { display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', background:'#fff', border:'1px solid #F0F0F0', borderRadius:12, padding:'12px 14px', fontSize:13.5, fontWeight:600, color:'#374151', cursor:'pointer', marginBottom:24 },
+  rateBtn: { display:'flex', alignItems:'center', justifyContent:'center', gap:8, width:'100%', background:'#111827', border:'none', borderRadius:12, padding:'13px 14px', fontSize:13.5, fontWeight:700, color:'#fff', cursor:'pointer', marginBottom:24 },
+  ratedBanner: { background:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:12, padding:'12px 14px', fontSize:13, fontWeight:600, color:'#166534', textAlign:'center', marginBottom:24 },
+  backdrop: { position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'flex-end', justifyContent:'center', zIndex:1000 },
+  sheet: { width:'100%', maxWidth:480, background:'#fff', borderTopLeftRadius:20, borderTopRightRadius:20, padding:20, paddingBottom:28 },
+  sheetTitle: { fontSize:16, fontWeight:800, textAlign:'center', marginBottom:16 },
+  starRow: { display:'flex', justifyContent:'center', gap:8, marginBottom:16 },
+  starBtn: { background:'none', border:'none', cursor:'pointer', padding:4, display:'flex' },
+  commentInput: { width:'100%', minHeight:80, border:'1px solid #E5E7EB', borderRadius:10, padding:12, fontSize:13, fontFamily:'inherit', color:'#111827', boxSizing:'border-box', resize:'vertical', marginBottom:12 },
+  errorTxt: { fontSize:12, color:'#DC2626', marginBottom:12 },
+  submitBtn: { width:'100%', background:'#111827', border:'none', borderRadius:10, padding:'13px 14px', fontSize:13.5, fontWeight:700, color:'#fff', cursor:'pointer' },
 };

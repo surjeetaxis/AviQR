@@ -2,6 +2,10 @@ package in.aviqr.menu.ocr;
 
 
 
+import in.aviqr.menu.entity.Category;
+import in.aviqr.menu.entity.MenuItem;
+import in.aviqr.menu.repository.CategoryRepository;
+import in.aviqr.menu.repository.MenuItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -12,6 +16,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -36,9 +41,11 @@ import java.util.regex.*;
 @Service @RequiredArgsConstructor @Slf4j
 public class OcrService {
 
-    private final OcrJobRepository repo;
-    private final RabbitTemplate   rabbit;
-    private final ObjectMapper     mapper = new ObjectMapper();
+    private final OcrJobRepository    repo;
+    private final RabbitTemplate      rabbit;
+    private final CategoryRepository  categoryRepo;
+    private final MenuItemRepository  itemRepo;
+    private final ObjectMapper        mapper = new ObjectMapper();
 
     @Value("${google.vision.api.key:}") private String visionApiKey;
 
@@ -168,6 +175,9 @@ public class OcrService {
         repo.findById(jobId).ifPresent(j -> {
             j.setOwnerApproved(true);
             repo.save(j);
+            if ("COMPLETED".equals(j.getStatus()) && j.getExtractedItems() != null) {
+                createMenuItemsFromJob(j);
+            }
             try {
                 rabbit.convertAndSend("aviqr.ocr", "menu.items.approved",
                     Map.of("jobId", jobId, "shopId", j.getShopId(),
@@ -175,6 +185,43 @@ public class OcrService {
                 log.info("OCR job {} approved — items published to menu-service", jobId);
             } catch (Exception e) { log.warn("Failed to publish OCR approval: {}", e.getMessage()); }
         });
+    }
+
+    /** Creates real Category/MenuItem rows from an approved OCR job's extracted items. */
+    private void createMenuItemsFromJob(OcrJob job) {
+        String shopId = job.getShopId();
+        Map<String, UUID> categoryIdByName = new HashMap<>();
+        for (Category c : categoryRepo.findByShopIdAndActiveTrueOrderBySortOrder(shopId)) {
+            categoryIdByName.put(c.getName().toLowerCase(), c.getId());
+        }
+
+        for (OcrJob.ExtractedItem extracted : job.getExtractedItems()) {
+            String categoryName = extracted.getCategory() != null && !extracted.getCategory().isBlank()
+                ? extracted.getCategory() : "Uncategorised";
+            UUID categoryId = categoryIdByName.computeIfAbsent(categoryName.toLowerCase(), key -> {
+                Category created = categoryRepo.save(Category.builder()
+                    .shopId(shopId).name(categoryName).active(true).build());
+                return created.getId();
+            });
+
+            itemRepo.save(MenuItem.builder()
+                .name(extracted.getName())
+                .description(extracted.getDescription())
+                .shopId(shopId)
+                .categoryId(categoryId)
+                .price(parsePrice(extracted.getPrice()))
+                .available(true)
+                .build());
+        }
+        log.info("OCR job {} approved — created {} menu items for shop {}",
+            job.getId(), job.getExtractedItems().size(), shopId);
+    }
+
+    private BigDecimal parsePrice(String raw) {
+        if (raw == null) return BigDecimal.ZERO;
+        String cleaned = raw.replaceAll("[^0-9.]", "");
+        if (cleaned.isBlank()) return BigDecimal.ZERO;
+        try { return new BigDecimal(cleaned); } catch (NumberFormatException e) { return BigDecimal.ZERO; }
     }
 
     private void markFailed(String jobId) {

@@ -31,6 +31,7 @@ public class Order {
     private String notes;
     @Column(length=6) private String confirmationCode;
     private LocalDateTime paymentConfirmedAt;
+    private UUID billId; // set once this order is folded into a consolidated table Bill
     @OneToMany(mappedBy="order", cascade=CascadeType.ALL, orphanRemoval=true, fetch=FetchType.EAGER)
     @Builder.Default private List<OrderItem> items = new ArrayList<>();
     @CreationTimestamp private LocalDateTime createdAt;

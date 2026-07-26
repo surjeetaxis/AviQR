@@ -20,7 +20,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "AviQR uses your camera to scan QR codes and upload menu images for text recognition.",
         "NSPhotoLibraryUsageDescription": "AviQR accesses your photo library to upload menu images for automatic menu creation.",
-        "NSUserNotificationsUsageDescription": "AviQR sends notifications for new orders, order status updates, and low-stock alerts."
+        "NSUserNotificationsUsageDescription": "AviQR sends notifications for new orders, order status updates, and low-stock alerts.",
+        "NSLocationWhenInUseUsageDescription": "AviQR uses your location to show restaurants near you."
       }
     },
     "android": {
@@ -36,7 +37,9 @@
         "android.permission.VIBRATE",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.RECEIVE_BOOT_COMPLETED"
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {
@@ -51,6 +54,12 @@
         "expo-camera",
         {
           "cameraPermission": "Allow AviQR to access your camera to scan QR codes and capture menu images."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow AviQR to access your location to show restaurants near you."
         }
       ]
     ],

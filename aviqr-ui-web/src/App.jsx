@@ -9,6 +9,7 @@ import ForgotPassword    from './pages/auth/ForgotPassword.jsx';
 import Dashboard         from './pages/Dashboard.jsx';
 import Orders            from './pages/Orders.jsx';
 import Menu              from './pages/Menu.jsx';
+import MenuOcrScan       from './pages/MenuOcrScan.jsx';
 import QRCodes           from './pages/QRCodes.jsx';
 import Staff             from './pages/Staff.jsx';
 import Reports           from './pages/Reports.jsx';
@@ -35,6 +36,7 @@ import FoodCourtHome     from './pages/customer/FoodCourtHome.jsx';
 import BrandHome         from './pages/customer/BrandHome.jsx';
 import CustomerPortalShell from './layouts/CustomerPortalShell.jsx';
 import PortalHome        from './pages/customer/PortalHome.jsx';
+import QrScan            from './pages/customer/QrScan.jsx';
 import PortalOrders      from './pages/customer/PortalOrders.jsx';
 import PortalOrderDetail from './pages/customer/PortalOrderDetail.jsx';
 import PortalProfile     from './pages/customer/PortalProfile.jsx';
@@ -106,6 +108,7 @@ export default function App() {
         <Route path="/food-court/:mallId"      element={<FoodCourtHome />} />
         <Route path="/brand/:brandId"          element={<BrandHome />} />
         <Route path="/portal/home"             element={<PortalHome />} />
+        <Route path="/portal/scan"             element={<QrScan />} />
         <Route path="/portal/orders"           element={<PortalOrders />} />
         <Route path="/portal/orders/:orderId"  element={<PortalOrderDetail />} />
         <Route path="/portal/profile"          element={<PortalProfile />} />
@@ -126,6 +129,7 @@ export default function App() {
         <Route path="kot"          element={<RoleRoute path="kot"><KOT /></RoleRoute>} />
         {/* Menu — OWNER MANAGER MENU_EDITOR */}
         <Route path="menu"         element={<RoleRoute path="menu"><Menu /></RoleRoute>} />
+        <Route path="menu/scan"    element={<RoleRoute path="menu"><MenuOcrScan /></RoleRoute>} />
         <Route path="variations"   element={<RoleRoute path="variations"><MenuVariations /></RoleRoute>} />
         <Route path="shortcodes"   element={<RoleRoute path="shortcodes"><Shortcodes /></RoleRoute>} />
         <Route path="dining-areas" element={<RoleRoute path="dining-areas"><DiningAreas /></RoleRoute>} />

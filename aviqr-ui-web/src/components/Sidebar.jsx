@@ -3,7 +3,7 @@ import {
   LayoutDashboard, ShoppingBag, BookOpen, QrCode, Users, BarChart3,
   Settings, LogOut, X, Sparkles, Package, Gift, ShieldCheck,
   TrendingUp, Utensils, PlusCircle, Receipt, FlaskConical, Clock, ChefHat,
-  MessageSquare, Zap, LayoutGrid
+  MessageSquare, Zap, LayoutGrid, ScanLine
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS, ROLE_PERMISSIONS } from '../context/AuthContext.jsx';
 import { useLang } from './shared/LangPicker.jsx';
@@ -24,6 +24,7 @@ const NAV_GROUPS = [
     labelKey: 'menu',
     items: [
       { to:'/menu',         labelKey:'navMenuItems',    icon:BookOpen },
+      { to:'/menu/scan',    labelKey:'navScanMenu', icon:ScanLine },
       { to:'/variations',   labelKey:'navVariants', icon:PlusCircle },
       { to:'/dining-areas', labelKey:'navDineInAreas', icon:LayoutGrid },
       { to:'/shortcodes',   labelKey:'navShortcodes', icon:Zap },

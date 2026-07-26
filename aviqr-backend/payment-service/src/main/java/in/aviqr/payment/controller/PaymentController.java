@@ -22,6 +22,15 @@ import java.util.*;
 @RestController @RequestMapping("/api/v1/payments") @RequiredArgsConstructor @Slf4j
 public class PaymentController {
 
+    // Payment records (amount, customerId, gateway response) are financial data — CASHIER can
+    // view them (reconciliation is part of the role) but narrower shop roles (KITCHEN,
+    // MENU_EDITOR, ORDER_VIEWER) and non-staff roles (CUSTOMER, SUPPLIER, HOTEL, MALL) cannot,
+    // even when their JWT carries a matching X-Shop-Id.
+    private static final Set<String> SHOP_VIEW_ROLES = Set.of("OWNER", "MANAGER", "CASHIER");
+    // Refunds reverse money already captured — reserved for shop management, not front-line staff.
+    private static final Set<String> SHOP_FINANCE_ROLES = Set.of("OWNER", "MANAGER");
+    private static final Set<String> PLATFORM_ROLES = Set.of("ADMIN", "SUPPORT");
+
     private final PaymentRepository repo;
     private final RestTemplate restTemplate;
 
@@ -37,19 +46,22 @@ public class PaymentController {
     @Value("${internal.sync.secret:}")
     private String internalSyncSecret;
 
-    /** Notifies order-qr-service once a payment is captured so a pay-at-counter-gated
-     *  order is released straight to the kitchen without a manual cashier step. Never
-     *  allowed to block or fail the payment response — sync issues are logged only. */
-    private void syncOrderPaymentCaptured(String orderId) {
+    /** Notifies order-qr-service once a payment is captured — for an ORDER this releases a
+     *  pay-at-counter-gated order straight to the kitchen without a manual cashier step; for
+     *  a BILL (consolidated table bill) it marks the bill (and its orders) PAID/settled so the
+     *  staff Kanban board picks it up on its next poll. Never allowed to block or fail the
+     *  payment response — sync issues are logged only. */
+    private void syncOrderPaymentCaptured(String orderId, PaymentTargetType targetType) {
         if (orderId == null || orderId.isBlank()) return;
+        String path = targetType == PaymentTargetType.BILL
+            ? "http://order-qr-service/api/v1/bills/" + orderId + "/payment-sync"
+            : "http://order-qr-service/api/v1/orders/" + orderId + "/payment-sync";
         try {
             HttpHeaders headers = new HttpHeaders();
             if (!internalSyncSecret.isBlank()) headers.set("X-Internal-Secret", internalSyncSecret);
-            restTemplate.exchange(
-                "http://order-qr-service/api/v1/orders/" + orderId + "/payment-sync",
-                HttpMethod.POST, new HttpEntity<>(headers), Void.class);
+            restTemplate.exchange(path, HttpMethod.POST, new HttpEntity<>(headers), Void.class);
         } catch (Exception e) {
-            log.warn("Failed to sync payment capture to order-qr-service for orderId={}: {}", orderId, e.getMessage());
+            log.warn("Failed to sync payment capture to order-qr-service for orderId={} targetType={}: {}", orderId, targetType, e.getMessage());
         }
     }
 
@@ -82,6 +94,7 @@ public class PaymentController {
                 .paymentId("pay_pending_" + System.currentTimeMillis())
                 .razorpayOrderId(rzpOrderId)
                 .orderId(req.getOrderId())
+                .targetType(req.getTargetType() != null ? PaymentTargetType.valueOf(req.getTargetType().toUpperCase()) : PaymentTargetType.ORDER)
                 .shopId(req.getShopId())
                 .customerId(req.getCustomerId())
                 .amount(req.getAmount())
@@ -120,13 +133,14 @@ public class PaymentController {
             String generated = HexFormat.of().formatHex(hash);
             boolean valid = generated.equals(req.getRazorpaySignature());
 
-            repo.findByOrderId(req.getOrderId()).ifPresent(p -> {
+            var paymentOpt = repo.findByOrderId(req.getOrderId());
+            paymentOpt.ifPresent(p -> {
                 p.setPaymentId(req.getRazorpayPaymentId());
                 p.setStatus(valid ? PaymentStatus.CAPTURED : PaymentStatus.FAILED);
                 p.setPaidAt(valid ? LocalDateTime.now() : null);
                 repo.save(p);
             });
-            if (valid) syncOrderPaymentCaptured(req.getOrderId());
+            if (valid) paymentOpt.ifPresent(p -> syncOrderPaymentCaptured(p.getOrderId(), p.getTargetType()));
 
             Map<String,Object> res = new HashMap<>();
             res.put("verified",  valid);
@@ -191,7 +205,7 @@ public class PaymentController {
                         p.setPaidAt(LocalDateTime.now());
                         repo.save(p);
                         log.info("Webhook: payment.captured for orderId={}", rzpOrderId);
-                        syncOrderPaymentCaptured(p.getOrderId());
+                        syncOrderPaymentCaptured(p.getOrderId(), p.getTargetType());
                     });
                     case "payment.failed" -> repo.findByRazorpayOrderId(rzpOrderId).ifPresent(p -> {
                         p.setStatus(PaymentStatus.FAILED);
@@ -223,9 +237,10 @@ public class PaymentController {
             @RequestHeader("X-User-Id") String uid,
             @RequestHeader(value="X-User-Role", defaultValue="") String role,
             @RequestHeader(value="X-Shop-Id", defaultValue="") String callerShopId) {
-        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role)) {
-            if (!shopId.equals(callerShopId))
-                return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        boolean allowed = PLATFORM_ROLES.contains(role)
+            || (SHOP_VIEW_ROLES.contains(role) && shopId.equals(callerShopId));
+        if (!allowed) {
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         }
         Pageable pg = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Payment> payments = status != null
@@ -250,17 +265,36 @@ public class PaymentController {
     }
 
     @GetMapping("/{paymentId}")
-    public ResponseEntity<ApiResponse<Payment>> getByPaymentId(@PathVariable String paymentId) {
+    public ResponseEntity<ApiResponse<Payment>> getByPaymentId(
+            @PathVariable String paymentId,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role,
+            @RequestHeader(value="X-Shop-Id", defaultValue="") String callerShopId) {
         return repo.findByPaymentId(paymentId)
-            .map(p -> ResponseEntity.ok(ApiResponse.ok(p)))
+            .map(p -> {
+                boolean allowed = PLATFORM_ROLES.contains(role)
+                    || uid.equals(p.getCustomerId())
+                    || (SHOP_VIEW_ROLES.contains(role) && p.getShopId().equals(callerShopId));
+                if (!allowed) {
+                    return ResponseEntity.status(403).body(ApiResponse.<Payment>error("Forbidden"));
+                }
+                return ResponseEntity.ok(ApiResponse.ok(p));
+            })
             .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/{paymentId}/refund")
     public ResponseEntity<ApiResponse<Map<String,Object>>> refund(
             @PathVariable String paymentId,
-            @RequestHeader("X-User-Id") String uid) {
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role,
+            @RequestHeader(value="X-Shop-Id", defaultValue="") String callerShopId) {
         return repo.findByPaymentId(paymentId).map(p -> {
+            boolean allowed = PLATFORM_ROLES.contains(role)
+                || (SHOP_FINANCE_ROLES.contains(role) && p.getShopId().equals(callerShopId));
+            if (!allowed) {
+                return ResponseEntity.status(403).body(ApiResponse.<Map<String,Object>>error("Forbidden"));
+            }
             try {
                 if (!razorpaySecret.startsWith("rzp_test_placeholder")) {
                     RazorpayClient rzp = new RazorpayClient(razorpayKeyId, razorpaySecret);

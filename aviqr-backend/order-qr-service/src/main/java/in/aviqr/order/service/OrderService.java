@@ -286,7 +286,7 @@ public class OrderService {
         return repo.findAll(pg).map(this::toDto);
     }
 
-    private OrderResponse toDto(Order o) {
+    public OrderResponse toDto(Order o) {
         return OrderResponse.builder()
             .id(o.getId()).orderNumber(o.getOrderNumber()).shopId(o.getShopId())
             .customerId(o.getCustomerId()).customerName(o.getCustomerName())

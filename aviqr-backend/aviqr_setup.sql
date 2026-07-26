@@ -232,6 +232,9 @@ CREATE INDEX IF NOT EXISTS idx_shops_owner_id ON shops (owner_id);
 CREATE INDEX IF NOT EXISTS idx_shops_city     ON shops (city);
 CREATE INDEX IF NOT EXISTS idx_shops_status   ON shops (status);
 CREATE INDEX IF NOT EXISTS idx_shops_tier     ON shops (tier);
+-- Plain B-tree (not a geo index — no PostGIS/earthdistance extension enabled)
+-- to at least narrow the Haversine nearby-shops scan to non-null coordinates.
+CREATE INDEX IF NOT EXISTS idx_shops_lat_lng  ON shops (latitude, longitude);
 
 -- ── brands (a Supplier's public brand identity, grouping all shops owned by
 --    the same supplier under one shareable QR/customer-facing page) ──

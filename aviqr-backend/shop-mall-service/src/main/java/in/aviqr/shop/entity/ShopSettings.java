@@ -35,4 +35,9 @@ public class ShopSettings {
     private Double taxPercent;
     private String gstin;
     private String businessName;
+
+    // Settlement — nightly auto-settlement of captured payments into a reconciliation
+    // batch (payment-service). Null is treated as enabled, matching the market-standard
+    // default of auto-settlement being opt-out rather than opt-in.
+    private Boolean autoSettlementEnabled;
 }

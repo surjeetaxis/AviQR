@@ -33,7 +33,7 @@ describe('ROLE_HOME routing map', () => {
     ['HOTEL',    '/(hotel)/hotel-home'],
     ['MALL',     '/(mall)/mall-home'],
     ['SUPPLIER', '/(supplier)/supplier-home'],
-    ['CUSTOMER', '/(customer)/shop/menu'],
+    ['CUSTOMER', '/(customer)/portal-home'],
   ];
 
   it.each(cases)('%s lands on %s', (role, expected) => {

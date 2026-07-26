@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import { menuApi, orderApi, paymentApi } from '../../../src/api/index.js';
+import { menuApi, orderApi, paymentApi, reviewApi } from '../../../src/api/index.js';
 import { useAuth } from '../../../src/context/AuthContext.js';
 import { Button } from '../../../src/components/common/Button.js';
 import { BottomSheet } from '../../../src/components/common/BottomSheet.js';
@@ -29,6 +29,10 @@ const LANGUAGES = [
   { code:'gu', label:'Gujarati',  native:'ગુજરાતી' },
 ];
 
+// Quick-select special-request chips shown per cart item, in addition to
+// free text — kept short since these are the most commonly requested tweaks.
+const QUICK_NOTES = ['No sugar', 'Less sugar', 'No oil', 'No spicy (for baby)', 'Extra spicy'];
+
 export default function CustomerMenuScreen() {
   // expo-router passes route params via useLocalSearchParams(), not a `route`
   // prop (that's React Navigation) — this previously always fell through to
@@ -39,6 +43,8 @@ export default function CustomerMenuScreen() {
   const [menu, setMenu]         = useState([]);
   const [shop, setShop]         = useState({ name: 'Restaurant', tagline: '', emoji: '🍽', rating: 4.5, reviews: 0, timing: '9 AM – 11 PM', location: '', color: Colors.primary });
   const [cart, setCart]         = useState({});
+  const [itemNotes, setItemNotes] = useState({}); // menuItemId -> special request text
+  const [noteOpenFor, setNoteOpenFor] = useState(null); // menuItemId whose note editor is expanded
   const [cartOpen, setCartOpen] = useState(false);
   const [orderOpen, setOrderOpen]= useState(false);
   const [search, setSearch]     = useState('');
@@ -52,6 +58,7 @@ export default function CustomerMenuScreen() {
   const [showLang, setShowLang] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [detailItem, setDetailItem] = useState(null);
+  const [ratingSummary, setRatingSummary] = useState(null); // { averageRating, ratingCount } from the real review API
   const searchInputRef = useRef(null);
   const sectionListRef = useRef(null);
 
@@ -64,6 +71,14 @@ export default function CustomerMenuScreen() {
   };
 
   useEffect(() => { loadMenu(); }, [shopId, lang]);
+
+  // Real, live rating (Shop.rating is only nightly-synced — this reads the
+  // review-service summary directly instead).
+  useEffect(() => {
+    reviewApi.getShopSummary(shopId)
+      .then(res => setRatingSummary(res.data.data))
+      .catch(() => {});
+  }, [shopId]);
 
   const loadMenu = async () => {
     try {
@@ -107,6 +122,15 @@ export default function CustomerMenuScreen() {
   const cartTotal = cartItems.reduce((sum, i) => sum + i.effectivePrice * i.qty, 0);
   const cartCount = cartItems.reduce((sum, i) => sum + i.qty, 0);
 
+  // Toggles a quick-select request chip inside an item's free-text notes
+  // (comma-joined) — tapping an already-selected chip removes it.
+  const toggleQuickNote = (itemId, label) => setItemNotes(prev => {
+    const parts = (prev[itemId] || '').split(',').map(s => s.trim()).filter(Boolean);
+    const idx = parts.indexOf(label);
+    if (idx >= 0) parts.splice(idx, 1); else parts.push(label);
+    return { ...prev, [itemId]: parts.join(', ') };
+  });
+
   const placeOrder = async () => {
     if (!customerInfo.name) return Alert.alert('Name required', 'Please enter your name');
     if (cartItems.length === 0) return;
@@ -118,11 +142,16 @@ export default function CustomerMenuScreen() {
         tableNumber:   customerInfo.orderType === 'DINE_IN' ? (customerInfo.table || tableNumber) : null,
         paymentMethod: customerInfo.paymentMethod,
         type: customerInfo.orderType,
-        items: cartItems.map(i => ({ menuItemId: i.id, itemName: i.name, quantity: i.qty, unitPrice: i.effectivePrice })),
+        items: cartItems.map(i => ({
+          menuItemId: i.id, itemName: i.name, quantity: i.qty, unitPrice: i.effectivePrice,
+          notes: itemNotes[i.id]?.trim() || undefined,
+        })),
       };
       const res = await orderApi.placeOrder(shopId, orderData);
       setPlaced(res.data.data);
       setCart({});
+      setItemNotes({});
+      setNoteOpenFor(null);
       setCartOpen(false);
       setOrderOpen(true);
     } catch (e) {
@@ -326,7 +355,7 @@ export default function CustomerMenuScreen() {
         </View>
         {!!shop.tagline && <Text style={styles.shopTagline}>{shop.tagline}</Text>}
         <View style={styles.shopMeta}>
-          <View style={styles.metaChip}><Text style={styles.metaChipText}>⭐ {shop.rating} ({shop.reviews})</Text></View>
+          <View style={styles.metaChip}><Text style={styles.metaChipText}>⭐ {ratingSummary?.ratingCount > 0 ? Number(ratingSummary.averageRating).toFixed(1) : shop.rating} ({ratingSummary?.ratingCount > 0 ? ratingSummary.ratingCount : shop.reviews})</Text></View>
           <View style={styles.metaChip}><Text style={styles.metaChipText}>🕐 {shop.timing}</Text></View>
           {!!shop.location && <View style={styles.metaChip}><Text style={styles.metaChipText} numberOfLines={1}>📍 {shop.location}</Text></View>}
         </View>
@@ -391,20 +420,55 @@ export default function CustomerMenuScreen() {
       )}
 
       {/* Cart Bottom Sheet */}
-      <BottomSheet visible={cartOpen} onClose={() => setCartOpen(false)} height={520}>
+      <BottomSheet visible={cartOpen} onClose={() => setCartOpen(false)} height={580}>
         <Text style={styles.sheetTitle}>Your order</Text>
-        <ScrollView style={{ maxHeight: 200 }}>
-          {cartItems.map(item => (
-            <View key={item.id} style={styles.cartRow}>
-              <View style={styles.cartQtyControl}>
-                <TouchableOpacity onPress={() => removeItem(item)} style={styles.qtyBtn}><MinusIcon size={12} color={Colors.primary} /></TouchableOpacity>
-                <Text style={styles.cartQtyText}>{item.qty}</Text>
-                <TouchableOpacity onPress={() => addItem(item)} style={styles.qtyBtn}><PlusIcon size={12} color={Colors.primary} /></TouchableOpacity>
+        <ScrollView style={{ maxHeight: 260 }}>
+          {cartItems.map(item => {
+            const note = itemNotes[item.id] || '';
+            const noteOpen = noteOpenFor === item.id;
+            const selectedChips = note.split(',').map(s => s.trim());
+            return (
+              <View key={item.id} style={styles.cartItemBlock}>
+                <View style={styles.cartRow}>
+                  <View style={styles.cartQtyControl}>
+                    <TouchableOpacity onPress={() => removeItem(item)} style={styles.qtyBtn}><MinusIcon size={12} color={Colors.primary} /></TouchableOpacity>
+                    <Text style={styles.cartQtyText}>{item.qty}</Text>
+                    <TouchableOpacity onPress={() => addItem(item)} style={styles.qtyBtn}><PlusIcon size={12} color={Colors.primary} /></TouchableOpacity>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cartItemName} numberOfLines={1}>{item.name}</Text>
+                    <TouchableOpacity onPress={() => setNoteOpenFor(noteOpen ? null : item.id)}>
+                      <Text style={[styles.cartNoteToggle, !!note && styles.cartNoteToggleActive]} numberOfLines={1}>
+                        {note ? `⚠ ${note}` : '+ Add request (no sugar, no oil…)'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.cartItemPrice}>₹{(item.effectivePrice * item.qty).toFixed(0)}</Text>
+                </View>
+                {noteOpen && (
+                  <View style={styles.noteEditor}>
+                    <View style={styles.noteChipsRow}>
+                      {QUICK_NOTES.map(q => {
+                        const active = selectedChips.includes(q);
+                        return (
+                          <TouchableOpacity key={q} style={[styles.noteChip, active && styles.noteChipActive]} onPress={() => toggleQuickNote(item.id, q)}>
+                            <Text style={[styles.noteChipText, active && styles.noteChipTextActive]}>{q}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <TextInput
+                      style={styles.noteInput}
+                      placeholder="Other request (optional)…"
+                      placeholderTextColor={Colors.gray400}
+                      value={note}
+                      onChangeText={v => setItemNotes(prev => ({ ...prev, [item.id]: v }))}
+                    />
+                  </View>
+                )}
               </View>
-              <Text style={styles.cartItemName} numberOfLines={1}>{item.name}</Text>
-              <Text style={styles.cartItemPrice}>₹{(item.effectivePrice * item.qty).toFixed(0)}</Text>
-            </View>
-          ))}
+            );
+          })}
         </ScrollView>
         <View style={styles.cartTotal}>
           <Text style={styles.cartTotalLabel}>Total</Text>
@@ -562,11 +626,21 @@ const styles = StyleSheet.create({
   cartFabText:    { flex: 1, color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
   cartFabTotal:   { color: Colors.white, fontWeight: '800', fontSize: FontSize.base },
   sheetTitle:     { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900, marginBottom: Spacing.base },
-  cartRow:        { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, gap: 10 },
+  cartItemBlock:  { borderBottomWidth: 1, borderBottomColor: Colors.borderLight, paddingBottom: 6 },
+  cartRow:        { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 10 },
   cartQtyControl: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: Colors.primary, borderRadius: Radius.full },
   cartQtyText:    { fontSize: FontSize.sm, fontWeight: '800', color: Colors.primary, paddingHorizontal: 8 },
-  cartItemName:   { flex: 1, fontSize: FontSize.sm, fontWeight: '600' },
+  cartItemName:   { fontSize: FontSize.sm, fontWeight: '600' },
   cartItemPrice:  { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray900 },
+  cartNoteToggle: { fontSize: 11, color: Colors.gray400, marginTop: 2 },
+  cartNoteToggleActive: { color: '#B45309', fontWeight: '700' },
+  noteEditor:     { paddingBottom: 10, gap: 8 },
+  noteChipsRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  noteChip:       { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99, borderWidth: 1.5, borderColor: Colors.gray200, backgroundColor: Colors.white },
+  noteChipActive: { borderColor: '#D97706', backgroundColor: '#FFFBEB' },
+  noteChipText:   { fontSize: 11.5, fontWeight: '600', color: Colors.gray600 },
+  noteChipTextActive: { color: '#92400E' },
+  noteInput:      { height: 38, borderWidth: 1, borderColor: Colors.gray200, borderRadius: Radius.md, paddingHorizontal: 12, fontSize: 12.5, color: Colors.gray900 },
   cartTotal:      { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderTopWidth: 1.5, borderTopColor: Colors.gray900, marginBottom: 12 },
   cartTotalLabel: { fontSize: FontSize.lg, fontWeight: '800' },
   cartTotalValue: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.primary },

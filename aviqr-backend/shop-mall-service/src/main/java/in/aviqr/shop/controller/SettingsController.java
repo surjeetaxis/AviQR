@@ -49,6 +49,7 @@ public class SettingsController {
         if (req.getTwilioToken()              != null) existing.setTwilioToken(req.getTwilioToken());
         if (req.getWhatsappApiKey()           != null) existing.setWhatsappApiKey(req.getWhatsappApiKey());
         if (req.getFcmServerKey()             != null) existing.setFcmServerKey(req.getFcmServerKey());
+        if (req.getAutoSettlementEnabled()    != null) existing.setAutoSettlementEnabled(req.getAutoSettlementEnabled());
         return ResponseEntity.ok(ApiResponse.ok("Settings saved", repo.save(existing)));
     }
 }

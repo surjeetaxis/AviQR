@@ -28,6 +28,9 @@ function homeRoute(role) {
   if (r==='HOTEL')    return '/(hotel)/hotel-home';
   if (r==='MALL')     return '/(mall)/mall-home';
   if (r==='SUPPLIER') return '/(supplier)/supplier-home';
-  if (r==='CUSTOMER') return '/(customer)/shop/menu';
+  // A direct app open (no QR-scan context) lands on the nearby-shops list;
+  // a QR-scan deep link (e.g. aviqr://shop/menu?shopId=...) routes straight
+  // to that shop's menu on its own, without ever passing through here.
+  if (r==='CUSTOMER') return '/(customer)/portal-home';
   return '/(owner)/dashboard';
 }

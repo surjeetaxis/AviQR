@@ -10,7 +10,7 @@ export const ROLE_HOME = {
   CASHIER:'/(owner)/dashboard', KITCHEN:'/(owner)/dashboard',
   ADMIN:'/(admin)/admin-home', SUPPORT:'/(support)/support-home',
   HOTEL:'/(hotel)/hotel-home', MALL:'/(mall)/mall-home',
-  SUPPLIER:'/(supplier)/supplier-home', CUSTOMER:'/(customer)/shop/menu',
+  SUPPLIER:'/(supplier)/supplier-home', CUSTOMER:'/(customer)/portal-home',
 };
 
 export function AuthProvider({ children }) {

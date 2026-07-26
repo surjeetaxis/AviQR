@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { menuApi, orderApi, paymentApi, favoritesApi } from '../../api/index.js';
+import { menuApi, orderApi, paymentApi, favoritesApi, reviewApi } from '../../api/index.js';
 import { useCart } from '../../context/CartContext.jsx';
 import { useCustomerAuth } from '../../context/CustomerAuthContext.jsx';
 import { setCustomerContext } from '../../context/customerContext.js';
@@ -333,6 +333,10 @@ const t = (key, lang) => T[key]?.[lang] || T[key]?.['en'] || key;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Quick-select special-request chips shown per cart item, in addition to
+// free text — kept short since these are the most commonly requested tweaks.
+const QUICK_NOTES = ['No sugar', 'Less sugar', 'No oil', 'No spicy (for baby)', 'Extra spicy'];
+
 // ─── Shop data — keyed by shopId ──────────────────────────────────────────────
 const SHOPS = {
   spiceroute: {
@@ -470,6 +474,9 @@ export default function CustomerMenu() {
   const [placingOrder, setPlacingOrder] = useState(false);
   const [orderError, setOrderError] = useState('');
   const [placedOrder, setPlacedOrder] = useState(null);
+  const [itemNotes, setItemNotes] = useState({}); // menuItemId -> special request text
+  const [noteOpenFor, setNoteOpenFor] = useState(null); // menuItemId whose note editor is expanded
+  const [ratingSummary, setRatingSummary] = useState(null); // { averageRating, ratingCount } from the real review API
 
   // Resolve shop: prefer API data, fall back to mock
   const shop = apiShop || SHOPS[shopId] || SHOPS.spiceroute;
@@ -487,6 +494,16 @@ export default function CustomerMenu() {
       .catch(() => {})
       .finally(() => setMenuLoading(false));
   }, [shopId]);
+
+  // Real, live rating (Shop.rating is only nightly-synced — this reads the
+  // review-service summary directly instead). Only fetched for real shops;
+  // the bundled offline preview (SHOPS.spiceroute/demo) keeps its mock number.
+  useEffect(() => {
+    if (!apiShop?.id) return;
+    reviewApi.getShopSummary(apiShop.id)
+      .then(res => setRatingSummary(res.data.data))
+      .catch(() => {});
+  }, [apiShop?.id]);
   const [detailItem, setDetailItem]     = useState(null); // { item, startIndex }
   const [showCart, setShowCart]         = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -508,6 +525,15 @@ export default function CustomerMenu() {
     return a + (item?.price || 0) * qty;
   }, 0);
   const cartItems = Object.entries(cart).map(([id, qty]) => ({ ...allItems.find(i=>i.id===id), qty }));
+
+  // Toggles a quick-select request chip inside an item's free-text notes
+  // (comma-joined) — tapping an already-selected chip removes it.
+  const toggleQuickNote = (itemId, label) => setItemNotes(prev => {
+    const parts = (prev[itemId] || '').split(',').map(s => s.trim()).filter(Boolean);
+    const idx = parts.indexOf(label);
+    if (idx >= 0) parts.splice(idx, 1); else parts.push(label);
+    return { ...prev, [itemId]: parts.join(', ') };
+  });
 
   // Keep the shared cart context's catalog snapshot in sync so the shell's
   // Cart/Home tabs can still render item names/prices after this page unmounts.
@@ -634,6 +660,7 @@ export default function CustomerMenu() {
         paymentMethod: checkoutForm.payment === 'online' ? 'ONLINE' : 'CASH',
         items: cartItems.map(i => ({
           menuItemId: i.id, itemName: getItemName(i), quantity: i.qty, unitPrice: i.price,
+          notes: itemNotes[i.id]?.trim() || undefined,
         })),
       };
       const orderRes = await orderApi.placeOrder(shop.id, orderReq, authHeader);
@@ -666,6 +693,8 @@ export default function CustomerMenu() {
               } catch { /* verification failure surfaces via order status, not blocking here */ }
               setPlacedOrder(order);
               clearCart();
+              setItemNotes({});
+              setNoteOpenFor(null);
               setShowCheckout(false);
             },
             modal: { ondismiss: () => setPlacingOrder(false) },
@@ -678,6 +707,8 @@ export default function CustomerMenu() {
       // Cash orders (or if Razorpay failed to load) complete immediately.
       setPlacedOrder(order);
       clearCart();
+      setItemNotes({});
+      setNoteOpenFor(null);
       setShowCheckout(false);
     } catch (e) {
       setOrderError(e?.response?.data?.message || 'Could not place order. Please try again.');
@@ -759,7 +790,7 @@ export default function CustomerMenu() {
           <p className="cm-shop-tagline">{shop.tagline}</p>
           <div className="cm-shop-meta">
             <span className="cm-meta-chip">
-              <Star size={11} className="cm-star" /> {shop.rating} ({shop.reviews})
+              <Star size={11} className="cm-star" /> {ratingSummary?.ratingCount > 0 ? Number(ratingSummary.averageRating).toFixed(1) : shop.rating} ({ratingSummary?.ratingCount > 0 ? ratingSummary.ratingCount : shop.reviews})
             </span>
             <span className="cm-meta-chip"><Clock size={11} /> {shop.timing}</span>
             <span className="cm-meta-chip"><MapPin size={11} /> {shop.location}</span>
@@ -1002,17 +1033,56 @@ export default function CustomerMenu() {
             <button className="cm-sheet-close" onClick={() => setShowCart(false)}><X size={18} /></button>
           </div>
           <div className="cm-cart-list">
-            {cartItems.map(item => (
-              <div key={item.id} className="cm-cart-row">
-                <div className="cm-cart-qty-ctrl">
-                  <button onClick={() => remItem(item.id)}><Minus size={12} /></button>
-                  <span>{item.qty}</span>
-                  <button onClick={() => addItem(item.id)}><Plus size={12} /></button>
+            {cartItems.map(item => {
+              const note = itemNotes[item.id] || '';
+              const noteOpen = noteOpenFor === item.id;
+              const selectedChips = note.split(',').map(s => s.trim());
+              return (
+                <div key={item.id} className="cm-cart-item-block">
+                  <div className="cm-cart-row">
+                    <div className="cm-cart-qty-ctrl">
+                      <button onClick={() => remItem(item.id)}><Minus size={12} /></button>
+                      <span>{item.qty}</span>
+                      <button onClick={() => addItem(item.id)}><Plus size={12} /></button>
+                    </div>
+                    <div className="cm-cart-name-col">
+                      <span className="cm-cart-name">{getItemName(item)}</span>
+                      <button
+                        type="button"
+                        className={`cm-cart-note-toggle${note ? ' cm-cart-note-toggle--active' : ''}`}
+                        onClick={() => setNoteOpenFor(noteOpen ? null : item.id)}
+                      >
+                        {note ? `⚠ ${note}` : '+ Add request (no sugar, no oil…)'}
+                      </button>
+                    </div>
+                    <span className="cm-cart-price">₹{item.price * item.qty}</span>
+                  </div>
+                  {noteOpen && (
+                    <div className="cm-cart-note-editor">
+                      <div className="cm-cart-note-chips">
+                        {QUICK_NOTES.map(q => (
+                          <button
+                            type="button"
+                            key={q}
+                            className={`cm-cart-note-chip${selectedChips.includes(q) ? ' cm-cart-note-chip--active' : ''}`}
+                            onClick={() => toggleQuickNote(item.id, q)}
+                          >
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="text"
+                        className="cm-cart-note-input"
+                        placeholder="Other request (optional)…"
+                        value={note}
+                        onChange={e => setItemNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
+                      />
+                    </div>
+                  )}
                 </div>
-                <span className="cm-cart-name">{getItemName(item)}</span>
-                <span className="cm-cart-price">₹{item.price * item.qty}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="cm-cart-divider" />
           <div className="cm-cart-summary-row">
@@ -1093,7 +1163,10 @@ export default function CustomerMenu() {
               {cartItems.map(item => (
                 <div key={item.id} className="cm-sum-row">
                   <span className="cm-sum-qty">{item.qty}×</span>
-                  <span className="cm-sum-name">{getItemName(item)}</span>
+                  <span className="cm-sum-name">
+                    {getItemName(item)}
+                    {!!itemNotes[item.id] && <span className="cm-sum-note">⚠ {itemNotes[item.id]}</span>}
+                  </span>
                   <span className="cm-sum-price">₹{item.price * item.qty}</span>
                 </div>
               ))}

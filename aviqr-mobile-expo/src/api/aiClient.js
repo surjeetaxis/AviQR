@@ -12,20 +12,48 @@ import { BASE_URL } from './index.js';
 const MODEL = 'claude-sonnet-4-6';
 const API_URL = `${BASE_URL}/api/v1/ai/messages`;
 
+// Fallback provider — mirrors aviqr-ui-web's aiClient.js. Used only when the
+// primary Anthropic call fails; if OPENAI_API_KEY isn't configured server-side
+// this fails closed straight through to aiFallback.js like before.
+const OPENAI_MODEL = 'gpt-4o-mini';
+const OPENAI_API_URL = `${BASE_URL}/api/v1/ai-openai/chat/completions`;
+
 async function authHeaders() {
   const token = await SecureStore.getItemAsync('aviqr_token');
   return token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } : { 'Content-Type': 'application/json' };
 }
 
-export async function callAI(systemPrompt, userMessage, maxTokens = 1000) {
-  const res = await fetch(API_URL, {
+async function callOpenAI(systemPrompt, userMessage, maxTokens) {
+  const res = await fetch(OPENAI_API_URL, {
     method: 'POST',
     headers: await authHeaders(),
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] }),
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      max_tokens: maxTokens,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+    }),
   });
-  if (!res.ok) throw new Error(`AI API error: ${res.status}`);
+  if (!res.ok) throw new Error(`OpenAI fallback error: ${res.status}`);
   const data = await res.json();
-  return data.content?.[0]?.text || '';
+  return data.choices?.[0]?.message?.content || '';
+}
+
+export async function callAI(systemPrompt, userMessage, maxTokens = 1000) {
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] }),
+    });
+    if (!res.ok) throw new Error(`AI API error: ${res.status}`);
+    const data = await res.json();
+    return data.content?.[0]?.text || '';
+  } catch (err) {
+    return callOpenAI(systemPrompt, userMessage, maxTokens);
+  }
 }
 
 export async function callAIJson(systemPrompt, userMessage, maxTokens = 1000) {

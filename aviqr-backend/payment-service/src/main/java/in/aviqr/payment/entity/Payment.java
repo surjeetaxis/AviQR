@@ -10,7 +10,8 @@ import java.util.UUID;
 public class Payment {
     @Id @GeneratedValue(strategy=GenerationType.UUID) private UUID id;
     @Column(unique=true, nullable=false) private String paymentId; // Razorpay payment ID
-    private String orderId;
+    private String orderId; // either an Order id or a Bill id — see targetType
+    @Enumerated(EnumType.STRING) @Builder.Default private PaymentTargetType targetType = PaymentTargetType.ORDER;
     private String razorpayOrderId;
     @Column(nullable=false) private String shopId;
     private String customerId;
@@ -23,4 +24,8 @@ public class Payment {
     @CreationTimestamp private LocalDateTime createdAt;
     private LocalDateTime paidAt;
     private LocalDateTime refundedAt;
+
+    // Set once this payment has been folded into a nightly/manual settlement batch —
+    // null means "captured but not yet settled".
+    private UUID settlementId;
 }
