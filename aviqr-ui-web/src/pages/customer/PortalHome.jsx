@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { QrCode, Search, Star, MapPin, Clock, X } from 'lucide-react';
+import { QrCode, Search, Star, MapPin, Clock, X, PackageSearch } from 'lucide-react';
 import { shopApi } from '../../api/index.js';
 import { getRecentSearches, addRecentSearch, removeRecentSearch } from '../../utils/recentSearches.js';
 
@@ -83,6 +83,10 @@ export default function PortalHome() {
             <div style={sx.scanSub}>Point your camera at a table or menu code</div>
           </div>
           <span style={sx.scanArrow}>›</span>
+        </button>
+
+        <button style={sx.trackLink} onClick={() => navigate('/track-order')}>
+          <PackageSearch size={14} /> Track an order
         </button>
 
         <div style={sx.searchBox}>
@@ -179,6 +183,7 @@ const sx = {
   scanTitle: { fontSize: 15, fontWeight: 800, color: '#0F6E56' },
   scanSub: { fontSize: 11.5, color: '#4B5563', marginTop: 2 },
   scanArrow: { fontSize: 22, color: '#0F6E56', fontWeight: 700 },
+  trackLink: { display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#4B5563', fontSize: 12.5, fontWeight: 600, padding: '0 2px 10px', cursor: 'pointer', fontFamily: 'inherit' },
   searchBox: { display: 'flex', alignItems: 'center', gap: 8, background: '#F3F4F6', borderRadius: 99, padding: '0 14px', height: 42 },
   searchInput: { flex: 1, border: 'none', background: 'none', outline: 'none', fontSize: 14, fontFamily: 'inherit' },
   sortChip: { padding: '0 12px', height: 32, borderRadius: 99, background: '#F3F4F6', border: '1.5px solid transparent', fontSize: 12.5, fontWeight: 600, color: '#4B5563', cursor: 'pointer', fontFamily: 'inherit' },

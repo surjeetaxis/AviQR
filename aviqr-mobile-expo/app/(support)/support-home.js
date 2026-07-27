@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { icon: '📋', label: 'Audit Logs',  href: '/(support)/audit' },
   { icon: '📊', label: 'Reports',     href: '/(admin)/admin-reports' },
   { icon: '⭐', label: 'Billing',     href: '/(support)/support-billing' },
+  { icon: '🛡️', label: 'Permissions', href: '/(support)/support-permissions' },
   { icon: '🕵️', label: 'Impersonate', href: '/(support)/impersonate' },
 ];
 

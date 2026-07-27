@@ -9,10 +9,11 @@ import {
   ScanLine, MessageCircle, FileText, UserCheck, LogOut,
   Menu as MenuIcon, Search, Bell, AlertCircle, CheckCircle2,
   XCircle, Clock, Eye, RefreshCw, Filter,
-  TrendingUp, Activity, Shield, ExternalLink, Layers, Gift, Zap
+  TrendingUp, Activity, Shield, ExternalLink, Layers, Gift, Zap, UserCog
 } from 'lucide-react';
 import '../admin/Admin.css';
 import './Support.css';
+import PermissionMatrixView from '../../components/shared/PermissionMatrixView.jsx';
 
 // ─── mock data (initial placeholder only — overwritten by real fetches below) ──
 const MOCK_TICKETS = [
@@ -44,6 +45,7 @@ const NAV = [
   { key:'audit',       label:'Audit Logs',     icon:FileText },
   { key:'reports',     label:'Reports',        icon:TrendingUp },
   { key:'billing',     label:'Billing',        icon:Layers },
+  { key:'permissions', label:'Permissions',    icon:UserCog },
   { key:'impersonate', label:'Impersonation',  icon:UserCheck },
 ];
 
@@ -166,6 +168,7 @@ export default function SupportDashboard() {
           {tab === 'audit'       && <AuditPanel logs={auditLogs} />}
           {tab === 'reports'     && <AdminReports/>}
           {tab === 'billing'     && <SupportBillingPanel />}
+          {tab === 'permissions' && <PermissionMatrixView />}
           {tab === 'impersonate' && <ImpersonatePanel users={users} agent={user} />}
         </main>
       </div>

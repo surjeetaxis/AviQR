@@ -41,6 +41,9 @@ export default function PortalOrders() {
       <div style={sx.center}>
         <LogIn size={28} color="#9CA3AF" />
         <p style={{ fontSize:13.5, color:'#6B7280', marginTop:10 }}>Log in from your cart or checkout to see your orders here.</p>
+        <p style={{ fontSize:13.5, color:'#6B7280', marginTop:6 }}>
+          Ordered as a guest? <button style={sx.trackLinkInline} onClick={() => navigate('/track-order')}>Track your order</button>
+        </p>
       </div>
     );
   }
@@ -90,5 +93,6 @@ const sx = {
   header: { display:'flex', alignItems:'center', padding: '10px 16px 14px' },
   refreshBtn: { marginLeft:'auto', background:'#F9FAFB', border:'1px solid #F0F0F0', borderRadius:10, width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#374151' },
   center: { display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'60vh', textAlign:'center', padding:'0 30px' },
+  trackLinkInline: { background:'none', border:'none', padding:0, color:'#1D9E75', fontWeight:700, fontSize:13.5, cursor:'pointer', fontFamily:'inherit', textDecoration:'underline' },
   card: { display:'flex', alignItems:'center', gap:10, background:'#fff', border:'1px solid #F0F0F0', borderRadius:14, padding:'12px 14px', boxShadow:'0 1px 3px rgba(0,0,0,.04)', cursor:'pointer', width:'100%', fontFamily:'inherit' },
 };

@@ -8,19 +8,11 @@ import { BottomSheet } from '../../src/components/common/BottomSheet.js';
 import { Input } from '../../src/components/common/Input.js';
 import { Button } from '../../src/components/common/Button.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
+import { rolePermissionPreview } from '../../src/data/permissionMatrix.js';
 import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 
 const ROLES = ['OWNER','MANAGER','CASHIER','KITCHEN','MENU_EDITOR','ORDER_VIEWER'];
 const ROLE_COLORS = { OWNER: '#1D9E75', MANAGER: '#2563EB', CASHIER: '#7C3AED', KITCHEN: '#D97706', MENU_EDITOR: '#059669', ORDER_VIEWER: '#6B7280' };
-// Mirrors web's ROLE_PERMISSIONS (AuthContext.jsx) — null means full access.
-const ROLE_PERMISSIONS_PREVIEW = {
-  OWNER:        'Full access to every screen',
-  MANAGER:      'Full access to every screen',
-  CASHIER:      ['Dashboard', 'Orders', 'Billing', 'Reports', 'Order History'],
-  KITCHEN:      ['Dashboard', 'Orders', 'Kitchen (KOT)'],
-  MENU_EDITOR:  ['Dashboard', 'Menu', 'Variants', 'Shortcodes', 'Dine-in Areas'],
-  ORDER_VIEWER: ['Dashboard', 'Orders', 'Order History'],
-};
 
 export default function StaffScreen() {
   const { user } = useAuth();
@@ -125,15 +117,18 @@ export default function StaffScreen() {
         </View>
         <View style={styles.permPreview}>
           <Text style={styles.permPreviewLabel}>Can access:</Text>
-          {Array.isArray(ROLE_PERMISSIONS_PREVIEW[form.role]) ? (
-            <View style={styles.permChipRow}>
-              {ROLE_PERMISSIONS_PREVIEW[form.role].map(p => (
-                <View key={p} style={styles.permChip}><Text style={styles.permChipText}>{p}</Text></View>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.permFullText}>{ROLE_PERMISSIONS_PREVIEW[form.role]}</Text>
-          )}
+          {(() => {
+            const preview = rolePermissionPreview(form.role);
+            return Array.isArray(preview) ? (
+              <View style={styles.permChipRow}>
+                {preview.map(p => (
+                  <View key={p} style={styles.permChip}><Text style={styles.permChipText}>{p}</Text></View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.permFullText}>{preview}</Text>
+            );
+          })()}
         </View>
         <Button title={editing ? 'Update' : 'Add Staff'} onPress={saveStaff} loading={saving} style={{ marginTop: Spacing.md }} />
       </BottomSheet>

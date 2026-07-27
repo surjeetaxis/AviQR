@@ -41,6 +41,7 @@ import PortalOrders      from './pages/customer/PortalOrders.jsx';
 import PortalOrderDetail from './pages/customer/PortalOrderDetail.jsx';
 import PortalProfile     from './pages/customer/PortalProfile.jsx';
 import PortalAddresses   from './pages/customer/PortalAddresses.jsx';
+import TrackOrder        from './pages/customer/TrackOrder.jsx';
 import Onboarding        from './components/shared/Onboarding.jsx';
 import TermsPage         from './pages/legal/TermsPage.jsx';
 import PrivacyPage       from './pages/legal/PrivacyPage.jsx';
@@ -108,6 +109,7 @@ export default function App() {
       <Route path="/features"        element={<FeaturesPage />} />
       <Route path="/contact"         element={<ContactPage />} />
       <Route path="/faq"             element={<FAQPage />} />
+      <Route path="/track-order"     element={<TrackOrder />} />
       <Route path="/onboarding"      element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
       {/* Customer Portal — persistent bottom-nav shell (Home/Search/Cart/Orders/Profile)

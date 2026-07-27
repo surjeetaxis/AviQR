@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { authApi, reportApi, shopApi, hotelApi, mallApi, orderApi, paymentApi, qrApi, planApi, offerApi } from '../../api/index.js';
 import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
+import PermissionMatrixView from '../../components/shared/PermissionMatrixView.jsx';
 import '../admin/Admin.css';
 import './AdminExtra.css';
 
@@ -60,6 +61,7 @@ const NAV = [
   {key:'payments',      labelKey:'navPayments',      icon:CreditCard},
   {key:'qrcodes',       labelKey:'qrCodes',      icon:QrCode},
   {key:'subscription',  labelKey:'navSubscriptions', icon:Star},
+  {key:'permissions',   labelKey:'navPermissions', icon:UserCog},
   {key:'reports',       labelKey:'reports',       icon:TrendingUp},
   {key:'settings',      labelKey:'settings',      icon:Settings},
 ];
@@ -152,6 +154,7 @@ export default function AdminDashboard() {
           {tab === 'payments'     && <AdminPaymentsPage/>}
           {tab === 'qrcodes'      && <AdminQRCodesPage/>}
           {tab === 'subscription' && <AdminSubscriptionManagement/>}
+          {tab === 'permissions'  && <PermissionMatrixView/>}
           {tab === 'reports'      && <AdminReports/>}
           {tab === 'settings'     && <AdminSettings/>}
         </main>
