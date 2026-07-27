@@ -41,6 +41,7 @@ export default function AdminHomeScreen() {
     { icon: '💳', label: 'Payments',    href: '/(admin)/admin-payments',     color: '#7C3AED' },
     { icon: '📱', label: 'QR Codes',    href: '/(admin)/admin-qrcodes',      color: '#D97706' },
     { icon: '⭐', label: 'Subscription',href: '/(admin)/admin-subscription', color: '#059669' },
+    { icon: '🛡️', label: 'Permissions', href: '/(admin)/admin-permissions',  color: '#7C3AED' },
     { icon: '📊', label: 'Reports',     href: '/(admin)/admin-reports',      color: Colors.gray600 },
   ];
 

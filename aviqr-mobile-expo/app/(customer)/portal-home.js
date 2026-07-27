@@ -107,6 +107,10 @@ export default function PortalHomeScreen() {
           <Text style={ss.scanArrow}>›</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={ss.trackLink} onPress={() => router.push('/track-order')}>
+          <Text style={ss.trackLinkTxt}>📦 Track an order</Text>
+        </TouchableOpacity>
+
         <View style={ss.searchBox}>
           <SearchIcon size={16} color={Colors.gray400} />
           <TextInput
@@ -214,6 +218,8 @@ const ss = StyleSheet.create({
   scanTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.primaryDark },
   scanSub: { fontSize: FontSize.xs, color: Colors.gray600, marginTop: 2 },
   scanArrow: { fontSize: 22, color: Colors.primaryDark, fontWeight: '700' },
+  trackLink: { alignSelf: 'flex-start' },
+  trackLinkTxt: { fontSize: 12.5, fontWeight: '600', color: Colors.gray600 },
   searchBox: { flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: Colors.gray100, borderRadius: Radius.full, paddingHorizontal: 14, height: 42, gap: 8 },
   searchInput: { flex: 1, fontSize: FontSize.base, color: Colors.gray900 },
   sortRow: { flexDirection: 'row', gap: 8 },

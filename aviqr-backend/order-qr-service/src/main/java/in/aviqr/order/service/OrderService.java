@@ -281,6 +281,17 @@ public class OrderService {
         return repo.findById(id).map(this::toDto);
     }
 
+    // Anonymous "track my order" lookup — requires BOTH orderNumber and the
+    // exact phone number used at checkout to match. Returns empty (→ 404,
+    // never a distinguishable 403) on any mismatch so this can't be used to
+    // enumerate whether a given order number exists.
+    public Optional<OrderResponse> lookupPublic(String orderNumber, String phone) {
+        if (orderNumber == null || phone == null) return Optional.empty();
+        return repo.findByOrderNumber(orderNumber.trim())
+            .filter(o -> phone.trim().equals(o.getCustomerPhone()))
+            .map(this::toDto);
+    }
+
     public Page<OrderResponse> listAll(int page, int size) {
         Pageable pg = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return repo.findAll(pg).map(this::toDto);

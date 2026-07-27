@@ -156,6 +156,8 @@ export const orderApi = {
   getById:      (id, config={}) => api.get(`/api/v1/orders/${id}`, config),
   getHistory:   (p, config={})  => api.get('/api/v1/orders/customer/history', { ...config, params: p }),
   listAll:      (p)         => api.get('/api/v1/orders/admin/all', { params: p }),
+  // Anonymous "track my order" — no auth header, gateway routes this publicly.
+  lookupPublic: (orderNumber, phone) => api.get('/api/v1/orders/public/lookup', { params: { orderNumber, phone } }),
 };
 
 // ── Reviews (guest ratings/feedback) ─────────────────────────────────────────

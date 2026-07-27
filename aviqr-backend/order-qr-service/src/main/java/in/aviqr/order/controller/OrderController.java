@@ -25,6 +25,20 @@ public class OrderController {
     private static final Set<String> PAYMENT_CONFIRM_ROLES = Set.of("CASHIER", "MANAGER", "OWNER");
     private static final Set<String> PICKUP_CONFIRM_ROLES  = Set.of("CASHIER", "MANAGER", "OWNER", "KITCHEN");
 
+    // ── Anonymous "track my order" — no auth, gateway-routed as /api/v1/orders/public/**
+    // (route ordering matters: this must be registered ahead of the general
+    // /api/v1/orders/** AuthenticationFilter route — see api-gateway config). Requires
+    // BOTH orderNumber and the exact checkout phone number to match; generic 404
+    // either way so this can't be used to probe whether an order number exists.
+    @GetMapping("/public/lookup")
+    public ResponseEntity<ApiResponse<OrderResponse>> lookupPublic(
+            @RequestParam String orderNumber,
+            @RequestParam String phone) {
+        return service.lookupPublic(orderNumber, phone)
+            .map(o -> ResponseEntity.ok(ApiResponse.ok(o)))
+            .orElse(ResponseEntity.notFound().build());
+    }
+
     // Customer places order
     @PostMapping("/shop/{shopId}")
     public ResponseEntity<ApiResponse<OrderResponse>> create(
