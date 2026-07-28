@@ -178,6 +178,7 @@ export default function PortalHomeScreen() {
         </View>
       ) : (
         <FlatList
+          style={{ width: '100%' }}
           data={shops}
           keyExtractor={s => s.id}
           keyboardShouldPersistTaps="handled"
@@ -195,7 +196,7 @@ function ShopCard({ shop, onPress }) {
   return (
     <TouchableOpacity style={ss.card} onPress={onPress} activeOpacity={0.85}>
       <View style={ss.cardEmojiWrap}><Text style={ss.cardEmoji}>🍽</Text></View>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={ss.cardName} numberOfLines={1}>{shop.name}</Text>
         {!!shop.tagline && <Text style={ss.cardTagline} numberOfLines={1}>{shop.tagline}</Text>}
         <View style={ss.cardMetaRow}>
@@ -233,8 +234,8 @@ const ss = StyleSheet.create({
   recentIcon: { fontSize: 15 },
   recentText: { fontSize: FontSize.base, color: Colors.gray900 },
   recentRemove: { fontSize: 14, color: Colors.gray400, paddingHorizontal: 6 },
-  card: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.white, borderRadius: Radius.lg, padding: 12, marginBottom: 10, ...Shadow.sm },
-  cardEmojiWrap: { width: 52, height: 52, borderRadius: Radius.md, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: Radius.lg, padding: 12, marginBottom: 10, ...Shadow.sm },
+  cardEmojiWrap: { width: 52, height: 52, borderRadius: Radius.md, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   cardEmoji: { fontSize: 24 },
   cardName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.gray900 },
   cardTagline: { fontSize: FontSize.xs, color: Colors.gray400, marginTop: 1 },
