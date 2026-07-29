@@ -10,7 +10,11 @@ import { Button } from '../../src/components/common/Button.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
 
 const STEPS = ['Choose plan', 'Create shop', 'Add menu', 'Get QR code', 'Go live!'];
-const KNOWN_PLAN_KEYS = ['STARTER', 'GROWTH', 'BUSINESS', 'ENTERPRISE'];
+// Mobile onboarding only ever offers the free Starter plan — Growth/Business/
+// Enterprise are web-only, so new shops created in-app always start free and
+// upgrade later on the web (aviqr.in), same as web's Onboarding.jsx which
+// still offers the full KNOWN_PLAN_KEYS set.
+const KNOWN_PLAN_KEYS = ['STARTER'];
 
 // Mobile has no shop-creation wizard today — owners who register in-app have
 // no path to create their first shop. This mirrors the web's real, API-wired
@@ -185,7 +189,7 @@ export default function SetupShopScreen() {
           {step === 1 && (
             <>
               <Text style={ss.h2}>Choose your plan</Text>
-              <Text style={ss.sub}>Start free, or unlock more with a 3-month free trial.</Text>
+              <Text style={ss.sub}>You start free on Starter. Upgrade to Growth or Business anytime from the web.</Text>
               {plans.map(p => {
                 const isFree = p.price === 0;
                 const selected = selectedPlan === p.planKey;

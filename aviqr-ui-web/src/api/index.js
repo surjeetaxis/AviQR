@@ -228,6 +228,7 @@ export const planApi = {
   create:       (body)         => api.post('/api/v1/plans', body),
   update:       (id, body)     => api.put(`/api/v1/plans/${id}`, body),
   toggleActive: (id, active)   => api.put(`/api/v1/plans/${id}/active?active=${active}`),
+  remove:       (id)           => api.delete(`/api/v1/plans/${id}`),
 };
 
 // ── Discount Offers ──────────────────────────────────────────────────────────────

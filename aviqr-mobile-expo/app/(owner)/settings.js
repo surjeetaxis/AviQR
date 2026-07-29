@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Linking } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
@@ -290,7 +290,10 @@ export default function Settings() {
             </View>
             <Text style={ss.planPrice}>{planInfo.price > 0 ? `₹${planInfo.price}/mo` : 'Free'}</Text>
           </View>
-          <Text style={ss.planHint}>To upgrade or change your plan, contact support@aviqr.in</Text>
+          <Text style={ss.planHint}>Plans are managed on the web — subscribe or change plans there and it reflects here automatically.</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://aviqr.in/#pricing')} style={{ marginTop: 6 }}>
+            <Text style={{ fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary }}>Manage subscription on web →</Text>
+          </TouchableOpacity>
           {planInfo.price > 0 && shop?.subscriptionStatus !== 'CANCELED' && !shop?.cancelRequestedAt && (
             <TouchableOpacity onPress={requestCancellation} disabled={cancelSubmitting} style={{ marginTop: 10 }}>
               <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: Colors.error }}>

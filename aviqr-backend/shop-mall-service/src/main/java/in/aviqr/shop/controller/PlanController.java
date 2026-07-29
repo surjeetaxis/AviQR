@@ -75,4 +75,15 @@ public class PlanController {
         repo.findById(id).ifPresent(p -> { p.setActive(active); repo.save(p); });
         return ResponseEntity.ok(ApiResponse.ok("Updated", null));
     }
+
+    // Permanently remove a plan (e.g. test/junk plans). Shop.subscriptionPlan stores the
+    // planKey as a plain string, not a foreign key, so this can't orphan a shop assignment.
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable UUID id,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!"ADMIN".equals(role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        repo.deleteById(id);
+        return ResponseEntity.ok(ApiResponse.ok("Deleted", null));
+    }
 }

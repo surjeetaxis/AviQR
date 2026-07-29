@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { planApi, offerApi } from '../../api/index.js';
@@ -97,14 +97,17 @@ const TRUST = [
 ];
 
 export default function LandingScreen() {
-  const [plans, setPlans]   = useState(FALLBACK_PLANS);
+  // Mobile only ever offers the free Starter plan — paid tiers (Growth,
+  // Business, Enterprise) are web-only so the app never runs a subscription
+  // purchase flow. Full pricing/upgrade lives at aviqr.in/#pricing.
+  const [plans, setPlans]   = useState(FALLBACK_PLANS.filter(p => p.planKey === 'STARTER'));
   const [offers, setOffers] = useState([]);
 
   useEffect(() => {
     (async () => {
       try {
         const [planRes, offerRes] = await Promise.all([planApi.listPublic('SHOP'), offerApi.listActive()]);
-        const live = (planRes.data?.data || []).filter(p => p.planKey !== 'ENTERPRISE');
+        const live = (planRes.data?.data || []).filter(p => p.planKey === 'STARTER');
         if (live.length > 0) {
           setPlans([...live].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)).map(p => {
             const meta = PLAN_META[p.planKey] || {};
@@ -248,7 +251,7 @@ export default function LandingScreen() {
       <View style={ss.section}>
         <Text style={ss.eyebrowLabel}>PRICING</Text>
         <Text style={ss.sectionTitle}>Simple, transparent pricing</Text>
-        <Text style={ss.sectionSub}>Start free. Scale as you grow. No hidden charges.</Text>
+        <Text style={ss.sectionSub}>Start free right here. Growth and Business plans are available on the web.</Text>
         {plans.map(plan => {
           const offer = offers.find(o => o.applicablePlans === 'ALL' || (o.applicablePlans || '').split(',').map(s => s.trim()).includes(plan.planKey));
           const discounted = offer ? Math.round(plan.price * (1 - offer.discountPercent / 100)) : null;
@@ -270,6 +273,9 @@ export default function LandingScreen() {
             </View>
           );
         })}
+        <TouchableOpacity style={ss.webPricingLink} onPress={() => Linking.openURL('https://aviqr.in/#pricing')}>
+          <Text style={ss.webPricingLinkTxt}>See Growth & Business plans on the web →</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Testimonials */}
@@ -406,6 +412,8 @@ const ss = StyleSheet.create({
   priceBtnPrimary: { backgroundColor: Colors.primary },
   priceBtnTxt: { fontWeight: '700', color: Colors.gray700 },
   priceBtnTxtPrimary: { color: Colors.white },
+  webPricingLink: { marginTop: 8, alignItems: 'center', paddingVertical: 10 },
+  webPricingLinkTxt: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
   testimonialCard: { backgroundColor: Colors.white, borderRadius: Radius.md, padding: 14, marginBottom: 10, ...Shadow.sm },
   testimonialText: { fontSize: FontSize.sm, color: Colors.gray700, marginTop: 6, fontStyle: 'italic', lineHeight: 20 },
   avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },

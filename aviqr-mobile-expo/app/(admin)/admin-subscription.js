@@ -226,6 +226,9 @@ function PlansTab({ plans, loading, reload }) {
   const toggle = async (p) => {
     try { await planApi.toggleActive(p.id, !p.active); await reload(); } catch { Alert.alert('Failed to toggle plan'); }
   };
+  const remove = (p) => confirmAction('Delete plan?', `"${p.label}" will be removed permanently. Shops already on this plan keep their assignment, but it will no longer be selectable.`, async () => {
+    try { await planApi.remove(p.id); await reload(); } catch { Alert.alert('Failed to delete plan'); }
+  }, 'Delete');
 
   return (
     <>
@@ -241,9 +244,12 @@ function PlansTab({ plans, loading, reload }) {
               <Text style={ss.name}>{item.label} <Text style={ss.planKeyTxt}>({item.planKey})</Text></Text>
               <Text style={ss.sub}>{item.vertical} · {item.price > 0 ? `₹${item.price}/mo` : 'Free'} · order {item.sortOrder ?? 0}</Text>
             </View>
-            <TouchableOpacity onPress={() => toggle(item)} style={[ss.badge, { backgroundColor: item.active ? '#DCFCE7' : '#F3F4F6' }]}>
-              <Text style={[ss.badgeTxt, { color: item.active ? '#059669' : '#6B7280' }]}>{item.active ? 'Active' : 'Hidden'}</Text>
-            </TouchableOpacity>
+            <View style={{ alignItems: 'flex-end', gap: 6 }}>
+              <TouchableOpacity onPress={() => toggle(item)} style={[ss.badge, { backgroundColor: item.active ? '#DCFCE7' : '#F3F4F6' }]}>
+                <Text style={[ss.badgeTxt, { color: item.active ? '#059669' : '#6B7280' }]}>{item.active ? 'Active' : 'Hidden'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => remove(item)}><Text style={[ss.linkTxt, { color: Colors.error }]}>Delete</Text></TouchableOpacity>
+            </View>
           </TouchableOpacity>
         )}
       />
