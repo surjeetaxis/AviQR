@@ -1651,6 +1651,12 @@ function AdminPlansManager({ plans, loading, onChanged }) {
     } catch { showToast('Failed to update plan'); }
   };
 
+  const remove = async (p) => {
+    if (!confirm(`Delete plan "${p.label}"? This cannot be undone.`)) return;
+    try { await planApi.remove(p.id); onChanged(); showToast('Plan deleted'); }
+    catch { showToast('Failed to delete plan'); }
+  };
+
   const filtered = verticalFilter === 'all' ? plans : plans.filter(p => p.vertical === verticalFilter);
 
   return (
@@ -1713,6 +1719,7 @@ function AdminPlansManager({ plans, loading, onChanged }) {
                           onClick={() => toggleActive(p)} style={{ color: p.active ? '#DC2626' : '#059669' }}>
                           {p.active ? <ToggleRight size={14}/> : <ToggleLeft size={14}/>}
                         </button>
+                        <button className="admin-row-btn admin-row-btn-danger" title="Delete" onClick={() => remove(p)}><Trash2 size={12}/></button>
                       </div>
                     </td>
                   </tr>

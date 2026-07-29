@@ -465,6 +465,7 @@ export const planApi = {
   create:       (d)        => api.post('/api/v1/plans', d),
   update:       (id, d)    => api.put(`/api/v1/plans/${id}`, d),
   toggleActive: (id, a)    => api.put(`/api/v1/plans/${id}/active?active=${a}`),
+  remove:       (id)       => api.delete(`/api/v1/plans/${id}`),
 };
 
 // ── Discount Offers (public listing + ADMIN management) ─────────────────────
