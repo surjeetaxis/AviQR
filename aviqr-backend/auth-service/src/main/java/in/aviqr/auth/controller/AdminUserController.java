@@ -4,6 +4,7 @@ import in.aviqr.auth.dto.*;
 import in.aviqr.auth.entity.*;
 import in.aviqr.auth.repository.UserRepository;
 import in.aviqr.auth.service.AuditLogService;
+import in.aviqr.auth.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,11 @@ public class AdminUserController {
 
     private final UserRepository userRepo;
     private final AuditLogService auditService;
+    private final AuthService authService;
+
+    private boolean forbidden(String callerRole) {
+        return !"ADMIN".equals(callerRole) && !"SUPPORT".equals(callerRole);
+    }
 
     // GET /api/v1/auth/admin/users
     @GetMapping
@@ -50,10 +56,67 @@ public class AdminUserController {
 
     // GET /api/v1/auth/admin/users/{id}
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<UserDto>> getUser(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<UserDto>> getUser(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
+        if (forbidden(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return userRepo.findById(id)
                 .map(u -> ResponseEntity.ok(ApiResponse.ok(toDto(u))))
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    // PATCH /api/v1/auth/admin/users/{id} — support/admin editing a customer's own
+    // data directly (name/email/phone/avatar/language), e.g. to fix a typo that's
+    // blocking their login, regardless of which platform (web/android/ios) they use.
+    @PatchMapping("/{id}")
+    public ResponseEntity<ApiResponse<UserDto>> updateUser(
+            @PathVariable UUID id,
+            @RequestBody AdminUpdateUserRequest req,
+            @RequestHeader("X-User-Id") String callerId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
+        if (forbidden(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return ResponseEntity.ok(ApiResponse.ok("User updated", authService.adminUpdateUser(id, req, callerId)));
+    }
+
+    // ── Session management ───────────────────────────────────────────────────
+    // GET /api/v1/auth/admin/users/{id}/sessions
+    @GetMapping("/{id}/sessions")
+    public ResponseEntity<ApiResponse<Page<SessionDto>>> listSessions(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
+        if (forbidden(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return ResponseEntity.ok(ApiResponse.ok(authService.listSessions(id, PageRequest.of(page, size))));
+    }
+
+    // POST /api/v1/auth/admin/users/{id}/sessions/{sessionId}/revoke — e.g. force-log-out
+    // a user's Android app remotely without touching their other sessions.
+    @PostMapping("/{id}/sessions/{sessionId}/revoke")
+    public ResponseEntity<ApiResponse<Void>> revokeSession(
+            @PathVariable UUID id,
+            @PathVariable UUID sessionId,
+            @RequestHeader("X-User-Id") String callerId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
+        if (forbidden(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        authService.revokeSession(id, sessionId, callerId);
+        return ResponseEntity.ok(ApiResponse.ok("Session revoked", null));
+    }
+
+    // POST /api/v1/auth/admin/users/{id}/sessions/revoke-all
+    @PostMapping("/{id}/sessions/revoke-all")
+    public ResponseEntity<ApiResponse<Void>> revokeAllSessions(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String callerId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
+        if (forbidden(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        authService.revokeAllSessions(id, callerId);
+        return ResponseEntity.ok(ApiResponse.ok("All sessions revoked", null));
     }
 
     // PUT /api/v1/auth/admin/users/{id}/status
@@ -105,7 +168,10 @@ public class AdminUserController {
 
     // GET /api/v1/auth/admin/users/stats
     @GetMapping("/stats")
-    public ResponseEntity<ApiResponse<?>> stats() {
+    public ResponseEntity<ApiResponse<?>> stats(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
+        if (forbidden(callerRole))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         var data = new java.util.HashMap<String, Long>();
         data.put("total", userRepo.count());
         for (UserRole r : UserRole.values()) data.put(r.name().toLowerCase(), userRepo.countByRole(r));

@@ -20,20 +20,41 @@ operation described below — run `./aviqr.sh help` at any time.
 |---|---|---|
 | `service-registry` | 8761 | Eureka service discovery — every other service registers here |
 | `api-gateway` | 8080 | Spring Cloud Gateway — routing, JWT validation, CORS, rate limiting |
-| `auth-service` | dynamic* | Register/login, OTP login, JWT issue/refresh, profile, admin user management |
+| `auth-service` | dynamic* | Register/login, OTP login, JWT issue/refresh, profile, admin user + session management |
 | `shop-mall-service` | dynamic* | Shop/restaurant profile, staff, settings, mall + vendor management |
 | `menu-ocr-service` | dynamic* | Menu items, categories, dynamic pricing rules, OCR menu import |
 | `order-qr-service` | dynamic* | Order lifecycle: create, accept, prepare, complete; QR generation + scan logging |
 | `payment-service` | dynamic* | Razorpay payment orders + webhook verification |
 | `hotel-service` | dynamic* | Hotel, room, and room-service request management |
-| `support-service` | dynamic* | Support tickets, audit logs, admin impersonation logs |
-| `notification-report-service` | dynamic* | SMS/Email notifications, consumes RabbitMQ events; reports and analytics |
+| `support-service` | dynamic* | Support tickets, real impersonation (mints a live token via auth-service), cross-platform analytics |
+| `notification-report-service` | dynamic* | SMS/Email notifications, consumes RabbitMQ events; per-shop/platform revenue reports |
 
 \* picks a random free port and registers it with Eureka; the gateway routes
 to it by service name, so you never call these ports directly.
 
 **Storage:** PostgreSQL (one database per service), MongoDB (audit/logs),
 Redis (gateway rate limiting), RabbitMQ (async notifications/order events).
+
+`auth-service` and `support-service` run Liquibase migrations automatically
+on startup (alongside Hibernate `ddl-auto`, which still manages pre-existing
+tables) — no manual migration step needed; it just runs as part of normal
+service startup.
+
+---
+
+## Sessions, impersonation & analytics
+
+- **Sessions**: every login (email or OTP) captures platform (web/android/ios),
+  device, IP, and user-agent onto a session record. Support/admin can list
+  a user's sessions and revoke one or all of them — see `API_REFERENCE.md`.
+- **Impersonation**: `support-service`'s "log in as this customer" flow mints
+  a real, short-lived access token via an internal call to `auth-service`
+  (trusted via `INTERNAL_SYNC_SECRET`), instead of just writing a log row.
+- **Analytics**: `support-service` exposes `/api/v1/support/analytics/*`,
+  a cross-cutting admin/support view (users, sessions, tickets, revenue) built
+  by reading auth-service's and order-qr-service's databases read-only —
+  same multi-datasource pattern `notification-report-review-service` already
+  uses for its own reports.
 
 ---
 

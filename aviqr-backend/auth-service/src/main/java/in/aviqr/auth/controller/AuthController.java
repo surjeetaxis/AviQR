@@ -1,7 +1,9 @@
 package in.aviqr.auth.controller;
 
 import in.aviqr.auth.dto.*;
+import in.aviqr.auth.entity.Platform;
 import in.aviqr.auth.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,8 +26,15 @@ public class AuthController {
 
     // POST /api/v1/auth/login
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Login successful", authService.login(req)));
+    public ResponseEntity<ApiResponse<AuthResponse>> login(
+            @Valid @RequestBody LoginRequest req,
+            @RequestHeader(value = "X-Platform", required = false) String platform,
+            @RequestHeader(value = "X-Device-Id", required = false) String deviceId,
+            @RequestHeader(value = "X-Device-Model", required = false) String deviceModel,
+            @RequestHeader(value = "X-App-Version", required = false) String appVersion,
+            HttpServletRequest httpReq) {
+        return ResponseEntity.ok(ApiResponse.ok("Login successful",
+                authService.login(req, deviceInfo(platform, deviceId, deviceModel, appVersion, httpReq))));
     }
 
     // POST /api/v1/auth/otp/send
@@ -36,8 +45,15 @@ public class AuthController {
 
     // POST /api/v1/auth/otp/login
     @PostMapping("/otp/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> otpLogin(@Valid @RequestBody OtpLoginRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Login successful", authService.loginWithOtp(req)));
+    public ResponseEntity<ApiResponse<AuthResponse>> otpLogin(
+            @Valid @RequestBody OtpLoginRequest req,
+            @RequestHeader(value = "X-Platform", required = false) String platform,
+            @RequestHeader(value = "X-Device-Id", required = false) String deviceId,
+            @RequestHeader(value = "X-Device-Model", required = false) String deviceModel,
+            @RequestHeader(value = "X-App-Version", required = false) String appVersion,
+            HttpServletRequest httpReq) {
+        return ResponseEntity.ok(ApiResponse.ok("Login successful",
+                authService.loginWithOtp(req, deviceInfo(platform, deviceId, deviceModel, appVersion, httpReq))));
     }
 
     // POST /api/v1/auth/refresh
@@ -46,11 +62,30 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(authService.refreshToken(req)));
     }
 
-    // POST /api/v1/auth/logout
+    // POST /api/v1/auth/logout — body is optional; pass {"refreshToken": "..."} to
+    // end just that session, or omit it to keep the old "log out everywhere" behavior.
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(@RequestHeader("X-User-Id") String userId) {
-        authService.logout(UUID.fromString(userId));
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestBody(required = false) Map<String, String> body) {
+        authService.logout(UUID.fromString(userId), body != null ? body.get("refreshToken") : null);
         return ResponseEntity.ok(ApiResponse.ok("Logged out", null));
+    }
+
+    private DeviceInfo deviceInfo(String platform, String deviceId, String deviceModel,
+                                  String appVersion, HttpServletRequest httpReq) {
+        String forwardedFor = httpReq.getHeader("X-Forwarded-For");
+        String ip = (forwardedFor != null && !forwardedFor.isBlank())
+                ? forwardedFor.split(",")[0].trim()
+                : httpReq.getRemoteAddr();
+        return DeviceInfo.builder()
+                .platform(Platform.from(platform))
+                .deviceId(deviceId)
+                .deviceModel(deviceModel)
+                .appVersion(appVersion)
+                .ipAddress(ip)
+                .userAgent(httpReq.getHeader("User-Agent"))
+                .build();
     }
 
     // GET /api/v1/auth/profile

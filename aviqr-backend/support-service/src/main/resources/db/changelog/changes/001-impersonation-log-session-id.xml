@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Tracks the auth-service session/refresh-token id minted for a real
+         impersonation, so "end impersonation" can revoke that exact session. -->
+    <changeSet id="001-impersonation-log-session-id" author="aviqr">
+        <addColumn tableName="impersonation_logs">
+            <column name="session_id" type="VARCHAR(64)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

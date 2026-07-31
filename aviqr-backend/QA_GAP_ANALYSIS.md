@@ -48,7 +48,11 @@ Scope: compares the current AviQR codebase (backend: `aviqr-backend`, web: `aviq
 
 ## 9. Support system
 
-**Partial.** `support-service/entity/SupportTicket.java` + `TicketStatus` (`OPEN, PENDING, RESOLVED, CLOSED`) — missing `ASSIGNED, IN_PROGRESS, WAITING_CUSTOMER`. No escalation level or internal-notes field on the entity (web `SupportDashboard.jsx` has assign/reply UI but backed by mock data, not the real ticket fields). `ImpersonationLog` exists and is audited.
+**Partial, but impersonation is now real.** `support-service/entity/SupportTicket.java` + `TicketStatus` (`OPEN, PENDING, RESOLVED, CLOSED`) — missing `ASSIGNED, IN_PROGRESS, WAITING_CUSTOMER`. No escalation level or internal-notes field on the entity (web `SupportDashboard.jsx` has assign/reply UI but backed by mock data, not the real ticket fields).
+
+Previously `ImpersonationLog` only recorded that an impersonation was requested — it never actually let support log in as the target user. `POST /api/v1/support/impersonate` now mints a real, short-lived (30 min) access token for the target user via an internal auth-service call, tagged with an `impersonatedBy` claim, and `POST /api/v1/support/impersonate/{logId}/end` revokes it. This also gave every user a **session table** (login history + platform/device/IP, revocable per-session or all-at-once by admin/support — `GET/POST /api/v1/auth/admin/users/{id}/sessions*`), and a new cross-cutting **analytics** endpoint (`/api/v1/support/analytics/*`: users/sessions/tickets/revenue in one view) — see `API_REFERENCE.md`.
+
+Still missing vs. the enterprise spec: no per-organization scoping of impersonation (any SUPPORT/ADMIN can impersonate any user platform-wide — there's no "only within my assigned org" boundary, consistent with gap #1's lack of an org hierarchy to scope against).
 
 ## 10. Notifications
 
@@ -65,6 +69,8 @@ Scope: compares the current AviQR codebase (backend: `aviqr-backend`, web: `aviq
 ## 13. Database schema
 
 Current tables (`aviqr_setup.sql`): `users, otp_records, refresh_tokens, shops, shop_opening_hours, shop_staff, staff_permissions, shop_settings, categories, menu_items, pricing_rules, orders, order_items, payments, qr_codes, qr_scan_logs, hotels, hotel_enabled_services, rooms, room_requests, malls, vendors, support_tickets, impersonation_logs, report_snapshots, reviews`.
+
+`refresh_tokens` now doubles as a session table (`platform, device_id, device_model, app_version, ip_address, user_agent, last_active_at, revoked_at, revoked_by` — added via Liquibase, not in `aviqr_setup.sql`'s base `CREATE TABLE` yet). `impersonation_logs` gained `session_id`, linking a log entry to the actual auth-service session it minted. `auth-service` and `support-service` now run Liquibase on startup for schema changes going forward (previously neither had a migration framework — production ran `ddl-auto=none` with no way to apply new columns/tables safely).
 
 **Entirely absent from schema:** `organizations, business_units, locations, outlets, departments, suppliers, warehouses, products, product_categories (generic), product_variants, inventories, invoices, subscriptions, notifications (relational), activity_logs, qr_payments`.
 

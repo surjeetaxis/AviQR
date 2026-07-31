@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- refresh_tokens doubles as the session table: adds device/platform/IP
+         tracking so support/admin can see and revoke a user's sessions. -->
+    <changeSet id="001-refresh-token-session-columns" author="aviqr">
+        <addColumn tableName="refresh_tokens">
+            <column name="platform" type="VARCHAR(20)" defaultValue="UNKNOWN">
+                <constraints nullable="false"/>
+            </column>
+            <column name="device_id" type="VARCHAR(255)"/>
+            <column name="device_model" type="VARCHAR(255)"/>
+            <column name="app_version" type="VARCHAR(50)"/>
+            <column name="ip_address" type="VARCHAR(64)"/>
+            <column name="user_agent" type="VARCHAR(512)"/>
+            <column name="last_active_at" type="TIMESTAMP"/>
+            <column name="revoked_at" type="TIMESTAMP"/>
+            <column name="revoked_by" type="VARCHAR(255)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>

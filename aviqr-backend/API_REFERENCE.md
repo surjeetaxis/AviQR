@@ -6,25 +6,43 @@
 
 ## 🔐 Auth Service — `/api/v1/auth`
 
+Login/OTP-login accept optional client-identity headers, captured onto the
+session (see **Sessions** below) — send these from web/Android/iOS so
+support/admin can see which platform a login came from:
+
+| Header | Example | Notes |
+|---|---|---|
+| `X-Platform` | `WEB` / `ANDROID` / `IOS` | Falls back to `UNKNOWN` if omitted or unrecognized |
+| `X-Device-Id` | `a1b2c3...` | Stable per-install identifier, client-generated |
+| `X-Device-Model` | `Pixel 8` / `iPhone 15` | Free text |
+| `X-App-Version` | `1.4.2` | Free text |
+
+IP address and `User-Agent` are captured automatically from the request — no
+header needed for those.
+
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/auth/register` | ❌ | Register new user (owner/hotel/mall/supplier/customer) |
-| POST | `/auth/login` | ❌ | Login with email + password |
+| POST | `/auth/login` | ❌ | Login with email + password (device headers above, optional) |
 | POST | `/auth/otp/send` | ❌ | Send OTP to phone |
-| POST | `/auth/otp/login` | ❌ | Login with phone + OTP |
-| POST | `/auth/refresh` | ❌ | Refresh access token |
-| POST | `/auth/logout` | ✅ | Logout + revoke refresh token |
+| POST | `/auth/otp/login` | ❌ | Login with phone + OTP (device headers above, optional) |
+| POST | `/auth/refresh` | ❌ | Refresh access token — rotates the session (old refresh token revoked, device info carried forward) |
+| POST | `/auth/logout` | ✅ | Body `{"refreshToken": "..."}` ends just that session; omit body to log out everywhere (unchanged default) |
 | GET  | `/auth/profile` | ✅ | Get logged-in user profile |
 | PUT  | `/auth/profile` | ✅ | Update name/phone/language/FCM token |
 | PUT  | `/auth/change-password` | ✅ | Change password |
 | POST | `/auth/forgot-password` | ❌ | Send password reset email |
 | PUT  | `/auth/language` | ✅ | Update preferred language |
-| GET  | `/auth/admin/users` | ✅ ADMIN | List all users (paginated, search, filter) |
-| GET  | `/auth/admin/users/{id}` | ✅ ADMIN | Get single user |
+| GET  | `/auth/admin/users` | ✅ ADMIN/SUPPORT | List all users (paginated, search, filter) |
+| GET  | `/auth/admin/users/{id}` | ✅ ADMIN/SUPPORT | Get single user |
+| PATCH | `/auth/admin/users/{id}` | ✅ ADMIN/SUPPORT | Edit a user's name/email/phone/avatar/preferredLanguage directly — e.g. support fixing a typo blocking a customer's login |
 | PUT  | `/auth/admin/users/{id}/status` | ✅ ADMIN | Activate/suspend/deactivate user |
 | PUT  | `/auth/admin/users/{id}/role` | ✅ ADMIN | Change user role |
 | DELETE | `/auth/admin/users/{id}` | ✅ ADMIN | Delete user |
-| GET  | `/auth/admin/users/stats` | ✅ ADMIN | User count by role |
+| GET  | `/auth/admin/users/stats` | ✅ ADMIN/SUPPORT | User count by role |
+| GET  | `/auth/admin/users/{id}/sessions` | ✅ ADMIN/SUPPORT | List a user's login sessions (platform, device, IP, timestamps, revoked state) |
+| POST | `/auth/admin/users/{id}/sessions/{sessionId}/revoke` | ✅ ADMIN/SUPPORT | Force-end one session (e.g. remote-logout their Android app) |
+| POST | `/auth/admin/users/{id}/sessions/revoke-all` | ✅ ADMIN/SUPPORT | Force-end every session for a user |
 
 **Register request:**
 ```json
@@ -52,8 +70,43 @@
     "name": "Sujeet Narayanan",
     "role": "OWNER",
     "shopId": null,
-    "isOnboardingComplete": false
+    "isOnboardingComplete": false,
+    "sessionId": "uuid",
+    "platform": "ANDROID",
+    "accountStatus": "ACTIVE",
+    "emailVerified": false,
+    "phoneVerified": true
   }
+}
+```
+
+**Session entry** (`GET /auth/admin/users/{id}/sessions`):
+```json
+{
+  "id": "uuid",
+  "platform": "ANDROID",
+  "deviceId": "a1b2c3...",
+  "deviceModel": "Pixel 8",
+  "appVersion": "1.4.2",
+  "ipAddress": "203.0.113.7",
+  "userAgent": "aviqr-mobile-expo/1.4.2",
+  "createdAt": "2026-07-30T10:15:00",
+  "lastActiveAt": "2026-07-30T10:15:00",
+  "expiresAt": "2026-08-06T10:15:00",
+  "revoked": false,
+  "revokedAt": null,
+  "revokedBy": null
+}
+```
+
+**Update-user request** (`PATCH /auth/admin/users/{id}`, all fields optional):
+```json
+{
+  "name": "Corrected Name",
+  "email": "fixed@example.com",
+  "phone": "9800000000",
+  "avatar": "https://...",
+  "preferredLanguage": "hi"
 }
 ```
 
@@ -267,8 +320,72 @@ or menu category.
 | PUT  | `/tickets/{id}/status?status=RESOLVED&resolution=...` | ✅ SUPPORT | Update ticket status |
 | PUT  | `/tickets/{id}/assign?agentId=...` | ✅ SUPPORT | Assign ticket to agent |
 | GET  | `/tickets/stats` | ✅ SUPPORT | Ticket counts by status |
-| POST | `/support/impersonate` | ✅ SUPPORT/ADMIN | Start impersonation session |
+| POST | `/support/impersonate` | ✅ SUPPORT/ADMIN | **Real** "log in as this customer" — mints a live 30-minute access token (see below), not just a log entry |
+| POST | `/support/impersonate/{logId}/end` | ✅ SUPPORT/ADMIN | End an impersonation session and revoke its token immediately |
 | GET  | `/support/impersonation-logs` | ✅ SUPPORT | My impersonation history |
+
+**Impersonation is now functional, not just logged.** `POST /support/impersonate`
+calls an internal auth-service endpoint to mint a real, short-lived (30 min)
+access token for the target user, tagged with an `impersonatedBy` JWT claim,
+and tracked as one of that user's sessions (so it also shows up in
+`GET /auth/admin/users/{id}/sessions` and can be revoked from there).
+
+**Start impersonation request:**
+```json
+{
+  "targetUserId": "uuid",
+  "targetUserName": "Anjali Singh",
+  "agentName": "Arjun Nair",
+  "reason": "Investigating TKT-10005 — order not received"
+}
+```
+
+**Start impersonation response:**
+```json
+{
+  "success": true,
+  "data": {
+    "impersonationLogId": "uuid",
+    "accessToken": "eyJ...",
+    "expiresIn": 1800,
+    "targetUserId": "uuid",
+    "targetUserName": "Anjali Singh",
+    "targetUserRole": "CUSTOMER"
+  }
+}
+```
+
+---
+
+## 📈 Support Analytics — `/api/v1/support/analytics`
+
+Unified cross-cutting view for support/admin — users, sessions, tickets, and
+revenue in one place, instead of the fragmented per-service `/stats`
+endpoints. Reads auth-service and order-qr-service's databases read-only
+(same pattern as Report Service below), plus support-service's own ticket/
+impersonation data.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/support/analytics/overview` | ✅ ADMIN/SUPPORT | Users by role/status, active sessions by platform, tickets by status/priority, impersonation count, platform revenue |
+| GET | `/support/analytics/logins?days=7` | ✅ ADMIN/SUPPORT | Login volume over time, broken down by platform (web/android/ios) |
+| GET | `/support/analytics/tickets` | ✅ ADMIN/SUPPORT | Ticket volume/breakdown by status and priority |
+
+**Overview response:**
+```json
+{
+  "success": true,
+  "data": {
+    "usersByRole": { "customer": 1200, "owner": 85, "support": 4, "admin": 2 },
+    "usersByStatus": { "active": 1250, "inactive": 30, "suspended": 11 },
+    "activeSessionsByPlatform": { "web": 40, "android": 310, "ios": 95, "unknown": 2 },
+    "ticketsByStatus": { "open": 12, "pending": 5, "resolved": 200, "closed": 180 },
+    "ticketsByPriority": { "low": 40, "medium": 120, "high": 30, "urgent": 3 },
+    "impersonationCount": 57,
+    "platformRevenue": { "totalOrders": 4820, "totalRevenue": 1834250.00 }
+  }
+}
+```
 
 ---
 
@@ -356,3 +473,12 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
 - Email: `admin@aviqr.in`
 - Password: `Admin@1234`
 - Role: `ADMIN`
+
+## 🔒 Internal service-to-service calls
+
+`support-service` → `auth-service` for impersonation-token minting (and a few
+other cross-service calls elsewhere in the platform) go directly over Eureka,
+bypassing the gateway, and are trusted via a shared `X-Internal-Secret`
+header plus the caller's own `X-User-Role`. Set `INTERNAL_SYNC_SECRET` in
+`.env` in any environment where this should actually be enforced — if unset,
+the secret check is skipped (dev-only default; **must** be set in staging/prod).

@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,7 +67,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse login(LoginRequest req) {
+    public AuthResponse login(LoginRequest req, DeviceInfo device) {
         User user = userRepo.findByEmail(req.getEmail())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
 
@@ -76,9 +78,10 @@ public class AuthService {
 
         user.setLastLoginAt(LocalDateTime.now());
         userRepo.save(user);
-        auditService.log("USER_LOGIN", user.getId().toString(), "Login via email: " + user.getEmail());
+        auditService.log("USER_LOGIN", user.getId().toString(),
+                "Login via email: " + user.getEmail() + " [" + device.getPlatform() + "]");
 
-        return buildAuthResponse(user);
+        return buildAuthResponse(user, device);
     }
 
     @Transactional
@@ -105,7 +108,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse loginWithOtp(OtpLoginRequest req) {
+    public AuthResponse loginWithOtp(OtpLoginRequest req, DeviceInfo device) {
         boolean devBypass = otpDevMode && otpFixedCode.equals(req.getOtp());
 
         if (!devBypass) {
@@ -144,9 +147,10 @@ public class AuthService {
         user.setLastLoginAt(LocalDateTime.now());
         user.setPhoneVerified(true);
         userRepo.save(user);
-        auditService.log("USER_LOGIN_OTP", user.getId().toString(), "Login via OTP: " + req.getPhone());
+        auditService.log("USER_LOGIN_OTP", user.getId().toString(),
+                "Login via OTP: " + req.getPhone() + " [" + device.getPlatform() + "]");
 
-        return buildAuthResponse(user);
+        return buildAuthResponse(user, device);
     }
 
     @Transactional
@@ -163,13 +167,138 @@ public class AuthService {
         User user = userRepo.findById(stored.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        return buildAuthResponse(user);
+        // Carry the session's device info forward onto the new row, and revoke
+        // the old one — otherwise every silent token refresh would leave behind
+        // a stale-but-still-"active" session row, multiplying forever.
+        DeviceInfo device = DeviceInfo.builder()
+                .platform(stored.getPlatform())
+                .deviceId(stored.getDeviceId())
+                .deviceModel(stored.getDeviceModel())
+                .appVersion(stored.getAppVersion())
+                .ipAddress(stored.getIpAddress())
+                .userAgent(stored.getUserAgent())
+                .build();
+
+        stored.setRevoked(true);
+        stored.setRevokedAt(LocalDateTime.now());
+        stored.setRevokedBy("ROTATED");
+        refreshRepo.save(stored);
+
+        return buildAuthResponse(user, device);
     }
 
+    // Backward-compatible "kill everything" logout — still used by
+    // changePassword()/deactivateAccount(), and by clients that don't send a
+    // specific refreshToken to end just their own session.
     @Transactional
     public void logout(UUID userId) {
         refreshRepo.deleteByUserId(userId);
-        auditService.log("USER_LOGOUT", userId.toString(), "User logged out");
+        auditService.log("USER_LOGOUT", userId.toString(), "User logged out (all sessions)");
+    }
+
+    @Transactional
+    public void logout(UUID userId, String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            logout(userId);
+            return;
+        }
+        refreshRepo.findByTokenAndRevokedFalse(refreshToken)
+                .filter(rt -> rt.getUserId().equals(userId))
+                .ifPresentOrElse(rt -> {
+                    rt.setRevoked(true);
+                    rt.setRevokedAt(LocalDateTime.now());
+                    rt.setRevokedBy("SELF");
+                    refreshRepo.save(rt);
+                    auditService.log("USER_LOGOUT", userId.toString(), "User logged out (single session)");
+                }, () -> auditService.log("USER_LOGOUT", userId.toString(), "Logout called with unknown/already-revoked session"));
+    }
+
+    // ── Session management (used by AdminUserController for support/admin visibility) ──
+    public Page<SessionDto> listSessions(UUID userId, Pageable pageable) {
+        return refreshRepo.findByUserIdOrderByCreatedAtDesc(userId, pageable).map(this::toSessionDto);
+    }
+
+    @Transactional
+    public void revokeSession(UUID userId, UUID sessionId, String revokedBy) {
+        RefreshToken session = refreshRepo.findByIdAndUserId(sessionId, userId)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+        session.setRevoked(true);
+        session.setRevokedAt(LocalDateTime.now());
+        session.setRevokedBy(revokedBy);
+        refreshRepo.save(session);
+        auditService.log("SESSION_REVOKED", revokedBy, "Revoked session " + sessionId + " for user " + userId);
+    }
+
+    @Transactional
+    public void revokeAllSessions(UUID userId, String revokedBy) {
+        refreshRepo.revokeAllByUserId(userId, revokedBy, LocalDateTime.now());
+        auditService.log("ALL_SESSIONS_REVOKED", revokedBy, "Revoked all sessions for user " + userId);
+    }
+
+    private SessionDto toSessionDto(RefreshToken rt) {
+        return SessionDto.builder()
+                .id(rt.getId())
+                .platform(rt.getPlatform())
+                .deviceId(rt.getDeviceId())
+                .deviceModel(rt.getDeviceModel())
+                .appVersion(rt.getAppVersion())
+                .ipAddress(rt.getIpAddress())
+                .userAgent(rt.getUserAgent())
+                .createdAt(rt.getCreatedAt())
+                .lastActiveAt(rt.getLastActiveAt())
+                .expiresAt(rt.getExpiresAt())
+                .revoked(rt.getRevoked())
+                .revokedAt(rt.getRevokedAt())
+                .revokedBy(rt.getRevokedBy())
+                .build();
+    }
+
+    // ── Admin/support account management ────────────────────────────────────
+    @Transactional
+    public UserDto adminUpdateUser(UUID userId, AdminUpdateUserRequest req, String callerId) {
+        User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        if (req.getName()  != null) user.setName(req.getName());
+        if (req.getEmail() != null) user.setEmail(req.getEmail());
+        if (req.getPhone() != null) user.setPhone(req.getPhone());
+        if (req.getAvatar() != null) user.setAvatar(req.getAvatar());
+        if (req.getPreferredLanguage() != null) user.setPreferredLanguage(req.getPreferredLanguage());
+        userRepo.save(user);
+        auditService.log("USER_UPDATED_BY_STAFF", callerId, "Updated user " + userId + " via support/admin");
+        return toDto(user);
+    }
+
+    // Mints a short-lived (30 min) access token for targetUserId, carrying an
+    // "impersonatedBy" claim, plus a session row so it shows up in that user's
+    // sessions and can be revoked/ended like any other session. Called only via
+    // the internal-trust endpoint in AuthInternalController (support-service → here).
+    @Transactional
+    public ImpersonationTokenResponse mintImpersonationToken(UUID targetUserId, String agentId) {
+        User target = userRepo.findById(targetUserId)
+                .orElseThrow(() -> new RuntimeException("Target user not found"));
+
+        long impersonationExpiryMs = 30 * 60 * 1000L;
+        String token = jwtService.generateAccessToken(target, Map.of("impersonatedBy", agentId), impersonationExpiryMs);
+        LocalDateTime now = LocalDateTime.now();
+
+        RefreshToken session = refreshRepo.save(RefreshToken.builder()
+                .token("impersonation:" + UUID.randomUUID())
+                .userId(target.getId())
+                .platform(Platform.UNKNOWN)
+                .createdAt(now)
+                .lastActiveAt(now)
+                .expiresAt(now.plusSeconds(impersonationExpiryMs / 1000))
+                .build());
+
+        auditService.log("IMPERSONATION_TOKEN_ISSUED", agentId, "Issued impersonation token for user " + targetUserId);
+
+        return ImpersonationTokenResponse.builder()
+                .accessToken(token)
+                .expiresIn(impersonationExpiryMs / 1000)
+                .sessionId(session.getId())
+                .targetUserId(target.getId())
+                .targetUserName(target.getName())
+                .targetUserRole(target.getRole())
+                .build();
     }
 
     @Transactional
@@ -216,15 +345,26 @@ public class AuthService {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     private AuthResponse buildAuthResponse(User user) {
+        return buildAuthResponse(user, DeviceInfo.builder().build());
+    }
+
+    private AuthResponse buildAuthResponse(User user, DeviceInfo device) {
         String accessToken  = jwtService.generateAccessToken(user);
         String refreshToken = jwtService.generateRefreshToken(user.getId());
+        LocalDateTime now = LocalDateTime.now();
 
-        // Save refresh token
-        refreshRepo.save(RefreshToken.builder()
+        RefreshToken session = refreshRepo.save(RefreshToken.builder()
                 .token(refreshToken)
                 .userId(user.getId())
-                .expiresAt(LocalDateTime.now().plusSeconds(jwtService.getRefreshExpirationMs() / 1000))
-                .createdAt(LocalDateTime.now())
+                .expiresAt(now.plusSeconds(jwtService.getRefreshExpirationMs() / 1000))
+                .createdAt(now)
+                .lastActiveAt(now)
+                .platform(device.getPlatform() != null ? device.getPlatform() : Platform.UNKNOWN)
+                .deviceId(device.getDeviceId())
+                .deviceModel(device.getDeviceModel())
+                .appVersion(device.getAppVersion())
+                .ipAddress(device.getIpAddress())
+                .userAgent(device.getUserAgent())
                 .build());
 
         return AuthResponse.builder()
@@ -241,6 +381,11 @@ public class AuthService {
                 .avatar(user.getAvatar())
                 .preferredLanguage(user.getPreferredLanguage())
                 .isOnboardingComplete(user.getShopId() != null)
+                .sessionId(session.getId())
+                .platform(session.getPlatform())
+                .accountStatus(user.getStatus())
+                .emailVerified(user.getEmailVerified())
+                .phoneVerified(user.getPhoneVerified())
                 .build();
     }
 

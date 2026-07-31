@@ -1,18 +1,22 @@
 package in.aviqr.support.controller;
+import in.aviqr.support.client.AuthInternalClient;
 import in.aviqr.support.dto.ApiResponse;
+import in.aviqr.support.dto.ImpersonationTokenResponse;
 import in.aviqr.support.entity.*;
 import in.aviqr.support.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.*;
 
-@RestController @RequiredArgsConstructor
+@RestController @RequiredArgsConstructor @Slf4j
 public class SupportController {
     private final TicketRepository ticketRepo;
     private final ImpersonationLogRepository impersonationRepo;
+    private final AuthInternalClient authInternalClient;
 
     // ── Tickets ───────────────────────────────────────────────────────────────
     @PostMapping("/api/v1/tickets")
@@ -86,22 +90,69 @@ public class SupportController {
     }
 
     // ── Impersonation ─────────────────────────────────────────────────────────
+    // Real "log in as this customer": mints an actual short-lived access token via
+    // auth-service (previously this only wrote a log row with no functional effect).
     @PostMapping("/api/v1/support/impersonate")
-    public ResponseEntity<ApiResponse<ImpersonationLog>> startImpersonation(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> startImpersonation(
             @RequestBody Map<String,String> body,
             @RequestHeader("X-User-Id") String agentId,
             @RequestHeader("X-User-Role") String role) {
         if (!"SUPPORT".equals(role) && !"ADMIN".equals(role))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
 
-        ImpersonationLog log = ImpersonationLog.builder()
+        String targetUserId = body.get("targetUserId");
+        if (targetUserId == null || targetUserId.isBlank())
+            return ResponseEntity.badRequest().body(ApiResponse.error("targetUserId is required"));
+
+        ImpersonationTokenResponse tokenResp;
+        try {
+            tokenResp = authInternalClient.mintImpersonationToken(targetUserId, agentId, role);
+        } catch (Exception e) {
+            log.warn("Failed to mint impersonation token for user {}: {}", targetUserId, e.getMessage());
+            return ResponseEntity.status(502).body(ApiResponse.error("Could not start impersonation session"));
+        }
+
+        ImpersonationLog entry = impersonationRepo.save(ImpersonationLog.builder()
             .agentId(agentId)
             .agentName(body.getOrDefault("agentName", ""))
-            .targetUserId(body.get("targetUserId"))
-            .targetUserName(body.getOrDefault("targetUserName", ""))
+            .targetUserId(targetUserId)
+            .targetUserName(tokenResp.getTargetUserName() != null ? tokenResp.getTargetUserName() : body.getOrDefault("targetUserName", ""))
             .reason(body.get("reason"))
-            .build();
-        return ResponseEntity.ok(ApiResponse.ok("Impersonation session started", impersonationRepo.save(log)));
+            .sessionId(tokenResp.getSessionId())
+            .build());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("impersonationLogId", entry.getId());
+        response.put("accessToken", tokenResp.getAccessToken());
+        response.put("expiresIn", tokenResp.getExpiresIn());
+        response.put("targetUserId", entry.getTargetUserId());
+        response.put("targetUserName", entry.getTargetUserName());
+        response.put("targetUserRole", tokenResp.getTargetUserRole());
+        return ResponseEntity.ok(ApiResponse.ok("Impersonation session started", response));
+    }
+
+    // Ends an impersonation session: marks the log and revokes the minted session
+    // on auth-service so the token stops working immediately rather than just expiring.
+    @PostMapping("/api/v1/support/impersonate/{logId}/end")
+    public ResponseEntity<ApiResponse<Void>> endImpersonation(
+            @PathVariable UUID logId,
+            @RequestHeader("X-User-Id") String agentId,
+            @RequestHeader("X-User-Role") String role) {
+        if (!"SUPPORT".equals(role) && !"ADMIN".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+
+        return impersonationRepo.findById(logId).map(entry -> {
+            if (!agentId.equals(entry.getAgentId()) && !"ADMIN".equals(role))
+                return ResponseEntity.status(403).<ApiResponse<Void>>body(ApiResponse.error("Forbidden"));
+
+            entry.setEndedAt(LocalDateTime.now());
+            impersonationRepo.save(entry);
+
+            if (entry.getSessionId() != null)
+                authInternalClient.revokeSession(entry.getTargetUserId(), entry.getSessionId(), agentId, role);
+
+            return ResponseEntity.ok(ApiResponse.ok("Impersonation ended", (Void) null));
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/api/v1/support/impersonation-logs")

@@ -15,4 +15,7 @@ public class ImpersonationLog {
     @Column(nullable=false, length=1000) private String reason;
     @CreationTimestamp private LocalDateTime createdAt;
     private LocalDateTime endedAt;
+    // auth-service RefreshToken/session id minted for this impersonation, so
+    // "end impersonation" can revoke that exact session.
+    private String sessionId;
 }
