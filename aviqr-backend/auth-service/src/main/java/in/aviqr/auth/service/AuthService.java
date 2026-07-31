@@ -67,6 +67,11 @@ public class AuthService {
     }
 
     @Transactional
+    public AuthResponse login(LoginRequest req) {
+        return login(req, DeviceInfo.builder().build());
+    }
+
+    @Transactional
     public AuthResponse login(LoginRequest req, DeviceInfo device) {
         User user = userRepo.findByEmail(req.getEmail())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
@@ -105,6 +110,11 @@ public class AuthService {
         // In production: send via Twilio / SMS gateway
         log.info("OTP for {}: {} (send via SMS in production)", req.getPhone(), otp);
         return "OTP sent to " + req.getPhone().substring(0, 6) + "****";
+    }
+
+    @Transactional
+    public AuthResponse loginWithOtp(OtpLoginRequest req) {
+        return loginWithOtp(req, DeviceInfo.builder().build());
     }
 
     @Transactional
