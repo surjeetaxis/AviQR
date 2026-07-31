@@ -9,4 +9,5 @@ public interface TicketRepository extends JpaRepository<SupportTicket, UUID> {
     Page<SupportTicket> findByPriority(TicketPriority p, Pageable pg);
     Page<SupportTicket> findByUserId(String userId, Pageable pg);
     long countByStatus(TicketStatus s);
+    long countByPriority(TicketPriority p);
 }

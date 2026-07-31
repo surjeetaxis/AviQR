@@ -158,6 +158,11 @@ CREATE TABLE IF NOT EXISTS customer_addresses (
     created_at  TIMESTAMP    DEFAULT NOW(),
     updated_at  TIMESTAMP    DEFAULT NOW()
 );
+
+-- Geolocation columns (run on existing DBs — table pre-dates lat/long being added above)
+ALTER TABLE customer_addresses ADD COLUMN IF NOT EXISTS latitude  DECIMAL(10,8);
+ALTER TABLE customer_addresses ADD COLUMN IF NOT EXISTS longitude DECIMAL(11,8);
+
 CREATE INDEX IF NOT EXISTS idx_customer_addresses_user_id ON customer_addresses (user_id);
 
 -- ── Dummy data — customer addresses (with exact device-geolocation lat/long) ───
@@ -1169,6 +1174,10 @@ CREATE TABLE IF NOT EXISTS hotels (
     active            BOOLEAN      DEFAULT TRUE,
     created_at        TIMESTAMP    DEFAULT NOW()
 );
+
+-- Geolocation columns (run on existing DBs — table pre-dates lat/long being added above)
+ALTER TABLE hotels ADD COLUMN IF NOT EXISTS latitude  DECIMAL(10,8);
+ALTER TABLE hotels ADD COLUMN IF NOT EXISTS longitude DECIMAL(11,8);
 
 CREATE INDEX IF NOT EXISTS idx_hotels_owner_id ON hotels (owner_id);
 CREATE INDEX IF NOT EXISTS idx_hotels_city     ON hotels (city);

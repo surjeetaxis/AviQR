@@ -27,4 +27,21 @@ public class RefreshToken {
     private Boolean revoked = false;
 
     private LocalDateTime createdAt;
+
+    // This row doubles as the session record: one per login, carrying the
+    // device/platform info captured at login time so support/admin can see
+    // and revoke a user's sessions per platform (web/android/ios).
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private Platform platform = Platform.UNKNOWN;
+
+    private String deviceId;
+    private String deviceModel;
+    private String appVersion;
+    private String ipAddress;
+    private String userAgent;
+    private LocalDateTime lastActiveAt;
+    private LocalDateTime revokedAt;
+    private String revokedBy;
 }
