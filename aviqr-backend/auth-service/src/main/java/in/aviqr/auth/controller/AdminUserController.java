@@ -182,7 +182,9 @@ public class AdminUserController {
         UserDto dto = new UserDto();
         dto.setId(u.getId()); dto.setName(u.getName()); dto.setEmail(u.getEmail());
         dto.setPhone(u.getPhone()); dto.setRole(u.getRole()); dto.setStatus(u.getStatus());
+        dto.setAvatar(u.getAvatar()); dto.setShopId(u.getShopId());
         dto.setEmailVerified(u.getEmailVerified()); dto.setPhoneVerified(u.getPhoneVerified());
+        dto.setPreferredLanguage(u.getPreferredLanguage());
         dto.setCreatedAt(u.getCreatedAt()); dto.setLastLoginAt(u.getLastLoginAt());
         return dto;
     }

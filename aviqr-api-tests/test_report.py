@@ -33,8 +33,10 @@ def test_report_history_paginated_real_snapshots(owner):
 
 
 def test_platform_stats_admin_only(owner, admin):
+    # Was previously undocumented/ungated; ReportController now restricts this
+    # to ADMIN/SUPPORT, so a shop OWNER correctly gets 403.
     r = get("/api/v1/reports/admin/platform", token=owner["accessToken"])
-    assert r.status_code == 200  # report-service itself doesn't gate this — documented gap, not a 403
+    assert r.status_code == 403
 
     r2 = get("/api/v1/reports/admin/platform", token=admin["accessToken"])
     assert r2.status_code == 200

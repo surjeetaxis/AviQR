@@ -24,5 +24,9 @@ def put(path, token=None, json=None, headers=None, **kwargs):
     return requests.put(f"{BASE_URL}{path}", headers=_headers(token, headers), json=json, timeout=TIMEOUT, **kwargs)
 
 
+def patch(path, token=None, json=None, headers=None, **kwargs):
+    return requests.patch(f"{BASE_URL}{path}", headers=_headers(token, headers), json=json, timeout=TIMEOUT, **kwargs)
+
+
 def delete(path, token=None, headers=None, **kwargs):
     return requests.delete(f"{BASE_URL}{path}", headers=_headers(token, headers), timeout=TIMEOUT, **kwargs)
