@@ -6,7 +6,35 @@ import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { ocrApi } from '../../src/api/index.js';
 import { PageHeader } from '../../src/components/common/PageHeader.js';
 import { Button } from '../../src/components/common/Button.js';
+import { MenuItemModal, EMPTY_MENU_ITEM } from '../../src/components/common/MenuItemModal.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
+
+// OcrJob.ExtractedItem (backend) <-> MenuItemModal's form shape.
+function extractedItemToForm(item) {
+  return {
+    ...EMPTY_MENU_ITEM,
+    name: item.name || '',
+    description: item.description || '',
+    price: String(item.price ?? ''),
+    veg: item.veg !== false,
+    spicy: !!item.spicy,
+    popular: !!item.popular,
+    nameHi: item.nameHi || '', nameTa: item.nameTa || '', nameTe: item.nameTe || '',
+    imageUrl: item.imageUrl || '', videoUrl: item.videoUrl || '', modelUrl: item.modelUrl || '',
+    mediaType: item.mediaType || 'NONE',
+  };
+}
+
+function formToExtractedItem(form, original) {
+  return {
+    ...original,
+    name: form.name, description: form.description, price: String(form.price),
+    veg: form.veg, spicy: !!form.spicy, popular: !!form.popular,
+    nameHi: form.nameHi, nameTa: form.nameTa, nameTe: form.nameTe,
+    imageUrl: form.imageUrl, videoUrl: form.videoUrl, modelUrl: form.modelUrl,
+    mediaType: form.mediaType,
+  };
+}
 
 const STATUS_CFG = {
   COMPLETED:  { color: '#059669', bg: '#DCFCE7', label: 'Completed' },
@@ -22,8 +50,16 @@ export default function ScanMenuScreen() {
   const [asset, setAsset]     = useState(null);
   const [uploading, setUploading] = useState(false);
   const [job, setJob]         = useState(null);
+  const [editedItems, setEditedItems] = useState([]);
+  const [editIdx, setEditIdx] = useState(null);
   const [approving, setApproving] = useState(false);
   const [approved, setApproved]   = useState(false);
+
+  // Seed the editable copy once a scan lands on COMPLETED — polling stops right after,
+  // so this doesn't re-run and clobber in-progress edits on later ticks.
+  useEffect(() => {
+    if (job?.status === 'COMPLETED') setEditedItems(job.extractedItems || []);
+  }, [job?.id, job?.status]);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
@@ -77,7 +113,7 @@ export default function ScanMenuScreen() {
     if (!job) return;
     setApproving(true);
     try {
-      await ocrApi.approve(job.id);
+      await ocrApi.approve(job.id, editedItems);
       setApproved(true);
     } catch (err) {
       Alert.alert('Approve failed', err.response?.data?.message || 'Could not add items to your menu.');
@@ -86,9 +122,14 @@ export default function ScanMenuScreen() {
     }
   };
 
-  const groupedItems = (job?.extractedItems || []).reduce((acc, item) => {
+  const saveEditedItem = (form) => {
+    setEditedItems(prev => prev.map((it, i) => (i === editIdx ? formToExtractedItem(form, it) : it)));
+    setEditIdx(null);
+  };
+
+  const groupedItems = editedItems.reduce((acc, item, idx) => {
     const cat = item.category || 'Uncategorised';
-    (acc[cat] ||= []).push(item);
+    (acc[cat] ||= []).push({ ...item, _idx: idx });
     return acc;
   }, {});
 
@@ -155,14 +196,18 @@ export default function ScanMenuScreen() {
                   {Object.entries(groupedItems).map(([category, items]) => (
                     <View key={category} style={{ marginBottom: 12 }}>
                       <Text style={ss.categoryLabel}>{category}</Text>
-                      {items.map((item, idx) => (
-                        <View key={idx} style={ss.itemRow}>
+                      {items.map((item) => (
+                        <View key={item._idx} style={ss.itemRow}>
+                          <View style={[ss.vegDot, { backgroundColor: item.veg !== false ? '#1D9E75' : '#DC2626' }]} />
                           <View style={{ flex: 1 }}>
                             <Text style={ss.itemName}>{item.name}</Text>
                             {!!item.description && <Text style={ss.itemDesc}>{item.description}</Text>}
                           </View>
                           <Text style={ss.confidence}>{Math.round((item.confidence || 0) * 100)}%</Text>
                           <Text style={ss.itemPrice}>₹{item.price}</Text>
+                          <TouchableOpacity onPress={() => setEditIdx(item._idx)}>
+                            <Text style={{ color: Colors.gray400, fontSize: 16 }}>✏️</Text>
+                          </TouchableOpacity>
                         </View>
                       ))}
                     </View>
@@ -179,6 +224,17 @@ export default function ScanMenuScreen() {
           </View>
         )}
       </ScrollView>
+
+      {editIdx !== null && (
+        <MenuItemModal
+          visible={editIdx !== null}
+          title="Edit scanned item"
+          submitLabel="Save changes"
+          initialForm={extractedItemToForm(editedItems[editIdx])}
+          onSave={saveEditedItem}
+          onClose={() => setEditIdx(null)}
+        />
+      )}
     </View>
   );
 }
@@ -202,6 +258,7 @@ const ss = StyleSheet.create({
   successTxt: { fontSize: FontSize.sm, color: '#059669', fontWeight: '700' },
   categoryLabel: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray700, marginBottom: 6 },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
+  vegDot: { width: 10, height: 10, borderRadius: 2, flexShrink: 0 },
   itemName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.gray900 },
   itemDesc: { fontSize: FontSize.xs, color: Colors.gray400, marginTop: 1 },
   confidence: { fontSize: 10, fontWeight: '700', color: Colors.gray400, backgroundColor: Colors.gray100, paddingHorizontal: 6, paddingVertical: 2, borderRadius: Radius.full },

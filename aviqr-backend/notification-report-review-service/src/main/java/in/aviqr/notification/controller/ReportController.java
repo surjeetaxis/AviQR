@@ -1,6 +1,7 @@
 package in.aviqr.notification.controller;
 
 import in.aviqr.notification.dto.ApiResponse;
+import in.aviqr.notification.service.ElasticEmailService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.*;
@@ -29,9 +30,11 @@ import java.util.*;
 public class ReportController {
 
     private final JdbcTemplate jdbc;
+    private final ElasticEmailService emailService;
 
-    public ReportController(@Qualifier("reportJdbcTemplate") JdbcTemplate jdbc) {
+    public ReportController(@Qualifier("reportJdbcTemplate") JdbcTemplate jdbc, ElasticEmailService emailService) {
         this.jdbc = jdbc;
+        this.emailService = emailService;
     }
 
     private <T> ResponseEntity<ApiResponse<T>> forbidden() {
@@ -473,5 +476,198 @@ public class ReportController {
                 "todayOrders", 0, "todayRevenue", 0, "avgOrderValue", 0
             )));
         }
+    }
+
+    // ── Platform revenue trend (admin only) ───────────────────────────────────
+    @GetMapping("/admin/platform/revenue-trend")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> platformRevenueTrend(
+            @RequestParam(defaultValue = "30") int days,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role)) return forbidden();
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(fetchPlatformRevenueTrend(days)));
+        } catch (Exception e) {
+            log.warn("Platform revenue trend error: {}", e.getMessage());
+            return ResponseEntity.ok(ApiResponse.ok(List.of()));
+        }
+    }
+
+    // ── Platform order-type breakdown (admin only) ────────────────────────────
+    @GetMapping("/admin/platform/order-types")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> platformOrderTypes(
+            @RequestParam(defaultValue = "30") int days,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role)) return forbidden();
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(fetchPlatformOrderTypes(days)));
+        } catch (Exception e) {
+            log.warn("Platform order-types error: {}", e.getMessage());
+            return ResponseEntity.ok(ApiResponse.ok(List.of()));
+        }
+    }
+
+    // ── Top shops by revenue (admin only) ─────────────────────────────────────
+    @GetMapping("/admin/platform/top-shops")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> platformTopShops(
+            @RequestParam(defaultValue = "30") int days,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role)) return forbidden();
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(fetchPlatformTopShops(days, limit)));
+        } catch (Exception e) {
+            log.warn("Platform top-shops error: {}", e.getMessage());
+            return ResponseEntity.ok(ApiResponse.ok(List.of()));
+        }
+    }
+
+    // ── CSV export of the platform report (admin only) ────────────────────────
+    @GetMapping("/admin/platform/export")
+    public ResponseEntity<byte[]> exportPlatformReport(
+            @RequestParam(defaultValue = "30") int days,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role)) return ResponseEntity.status(403).build();
+        byte[] body = buildPlatformReportCsv(days).getBytes(StandardCharsets.UTF_8);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv"));
+        headers.setContentDisposition(org.springframework.http.ContentDisposition
+            .attachment().filename("platform-report-" + LocalDate.now() + ".csv").build());
+        return ResponseEntity.ok().headers(headers).body(body);
+    }
+
+    // ── Email the platform report to an admin-chosen recipient ───────────────
+    @PostMapping("/admin/platform/email")
+    public ResponseEntity<ApiResponse<Void>> emailPlatformReport(
+            @RequestBody Map<String, Object> body,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role) && !"SUPPORT".equals(role)) return forbidden();
+        String to = body.get("to") != null ? body.get("to").toString().trim() : "";
+        if (to.isEmpty() || !to.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"))
+            return ResponseEntity.badRequest().body(ApiResponse.error("A valid recipient email is required"));
+        int days = body.get("days") != null ? Integer.parseInt(body.get("days").toString()) : 30;
+        emailService.send(to, "AviQR Platform Report — " + LocalDate.now(), buildPlatformReportHtml(days));
+        return ResponseEntity.ok(ApiResponse.ok("Report emailed to " + to, null));
+    }
+
+    private List<Map<String, Object>> fetchPlatformRevenueTrend(int days) {
+        String sql = ("""
+            SELECT
+              d.date::date                      AS date,
+              COALESCE(SUM(o.total_amount), 0)  AS revenue,
+              COUNT(o.id)                        AS orders
+            FROM generate_series(
+                CURRENT_DATE - INTERVAL '%d days',
+                CURRENT_DATE,
+                INTERVAL '1 day'
+            ) AS d(date)
+            LEFT JOIN orders o
+              ON DATE(o.created_at) = d.date::date
+             AND o.status NOT IN ('CANCELLED','REJECTED')
+            GROUP BY d.date
+            ORDER BY d.date
+            """).formatted(days - 1);
+        return jdbc.queryForList(sql);
+    }
+
+    private List<Map<String, Object>> fetchPlatformOrderTypes(int days) {
+        String sql = """
+            SELECT type,
+              COUNT(*)                        AS orders,
+              COALESCE(SUM(total_amount), 0) AS revenue
+            FROM orders
+            WHERE created_at >= CURRENT_DATE - INTERVAL '%d days'
+              AND status NOT IN ('CANCELLED','REJECTED')
+            GROUP BY type
+            ORDER BY revenue DESC
+            """.formatted(days);
+        return jdbc.queryForList(sql);
+    }
+
+    private List<Map<String, Object>> fetchPlatformTopShops(int days, int limit) {
+        String sql = """
+            SELECT shop_id                          AS "shopId",
+              COUNT(*)                               AS orders,
+              COALESCE(SUM(total_amount), 0)        AS revenue
+            FROM orders
+            WHERE created_at >= CURRENT_DATE - INTERVAL '%d days'
+              AND status NOT IN ('CANCELLED','REJECTED')
+            GROUP BY shop_id
+            ORDER BY revenue DESC
+            LIMIT ?
+            """.formatted(days);
+        return jdbc.queryForList(sql, limit);
+    }
+
+    private String buildPlatformReportCsv(int days) {
+        Map<String, Object> summary = jdbc.queryForMap("""
+            SELECT
+              COUNT(DISTINCT shop_id)                                                        AS "activeShops",
+              COUNT(*)                                                                        AS "totalOrders",
+              COALESCE(SUM(total_amount), 0)                                                 AS "totalRevenue",
+              ROUND(COALESCE(AVG(total_amount), 0), 2)                                       AS "avgOrderValue"
+            FROM orders
+            WHERE status NOT IN ('CANCELLED','REJECTED') AND created_at >= CURRENT_DATE - INTERVAL '%d days'
+            """.formatted(days));
+
+        StringBuilder csv = new StringBuilder();
+        csv.append("AviQR Platform Report — last ").append(days).append(" days\n\n");
+        csv.append("Active shops,Total orders,Total revenue,Avg order value\n");
+        csv.append(summary.get("activeShops")).append(',')
+           .append(summary.get("totalOrders")).append(',')
+           .append(summary.get("totalRevenue")).append(',')
+           .append(summary.get("avgOrderValue")).append('\n');
+
+        csv.append("\nDate,Orders,Revenue\n");
+        for (Map<String, Object> row : fetchPlatformRevenueTrend(days)) {
+            csv.append(row.get("date")).append(',').append(row.get("orders")).append(',').append(row.get("revenue")).append('\n');
+        }
+
+        csv.append("\nOrder type,Orders,Revenue\n");
+        for (Map<String, Object> row : fetchPlatformOrderTypes(days)) {
+            csv.append(row.get("type")).append(',').append(row.get("orders")).append(',').append(row.get("revenue")).append('\n');
+        }
+
+        csv.append("\nShop ID,Orders,Revenue\n");
+        for (Map<String, Object> row : fetchPlatformTopShops(days, 10)) {
+            csv.append(row.get("shopId")).append(',').append(row.get("orders")).append(',').append(row.get("revenue")).append('\n');
+        }
+        return csv.toString();
+    }
+
+    private String buildPlatformReportHtml(int days) {
+        Map<String, Object> summary = jdbc.queryForMap("""
+            SELECT
+              COUNT(DISTINCT shop_id)                                                        AS "activeShops",
+              COUNT(*)                                                                        AS "totalOrders",
+              COALESCE(SUM(total_amount), 0)                                                 AS "totalRevenue",
+              ROUND(COALESCE(AVG(total_amount), 0), 2)                                       AS "avgOrderValue"
+            FROM orders
+            WHERE status NOT IN ('CANCELLED','REJECTED') AND created_at >= CURRENT_DATE - INTERVAL '%d days'
+            """.formatted(days));
+
+        StringBuilder rows = new StringBuilder();
+        for (Map<String, Object> r : fetchPlatformOrderTypes(days)) {
+            rows.append("<tr><td>").append(r.get("type")).append("</td><td>").append(r.get("orders"))
+                .append("</td><td>₹").append(r.get("revenue")).append("</td></tr>");
+        }
+
+        return """
+            <div style="font-family:Arial,sans-serif;max-width:600px">
+              <h2>AviQR Platform Report</h2>
+              <p>Last %d days, generated %s</p>
+              <table style="border-collapse:collapse;width:100%%;margin-bottom:16px">
+                <tr><td style="padding:6px 12px;border:1px solid #ddd">Active shops</td><td style="padding:6px 12px;border:1px solid #ddd">%s</td></tr>
+                <tr><td style="padding:6px 12px;border:1px solid #ddd">Total orders</td><td style="padding:6px 12px;border:1px solid #ddd">%s</td></tr>
+                <tr><td style="padding:6px 12px;border:1px solid #ddd">Total revenue</td><td style="padding:6px 12px;border:1px solid #ddd">₹%s</td></tr>
+                <tr><td style="padding:6px 12px;border:1px solid #ddd">Avg order value</td><td style="padding:6px 12px;border:1px solid #ddd">₹%s</td></tr>
+              </table>
+              <h3>Order types</h3>
+              <table style="border-collapse:collapse;width:100%%">
+                <tr><th style="padding:6px 12px;border:1px solid #ddd;text-align:left">Type</th><th style="padding:6px 12px;border:1px solid #ddd;text-align:left">Orders</th><th style="padding:6px 12px;border:1px solid #ddd;text-align:left">Revenue</th></tr>
+                %s
+              </table>
+            </div>
+            """.formatted(days, LocalDate.now(), summary.get("activeShops"), summary.get("totalOrders"),
+                summary.get("totalRevenue"), summary.get("avgOrderValue"), rows);
     }
 }

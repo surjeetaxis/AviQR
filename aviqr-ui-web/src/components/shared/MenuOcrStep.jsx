@@ -1,6 +1,34 @@
 import { useState, useEffect, useRef } from 'react';
-import { Upload, CheckCircle2, Loader2 } from 'lucide-react';
+import { Upload, CheckCircle2, Loader2, Edit2 } from 'lucide-react';
 import { ocrApi } from '../../api/index.js';
+import MenuItemModal, { EMPTY_MENU_ITEM } from './MenuItemModal.jsx';
+
+// OcrJob.ExtractedItem (backend) <-> MenuItemModal's form shape.
+function extractedItemToForm(item) {
+  return {
+    ...EMPTY_MENU_ITEM,
+    name: item.name || '',
+    desc: item.description || '',
+    price: String(item.price ?? ''),
+    veg: item.veg !== false,
+    spicy: !!item.spicy,
+    popular: !!item.popular,
+    nameHi: item.nameHi || '', nameTa: item.nameTa || '', nameTe: item.nameTe || '',
+    imageUrl: item.imageUrl || '', videoUrl: item.videoUrl || '', modelUrl: item.modelUrl || '',
+    mediaType: item.mediaType || 'NONE',
+  };
+}
+
+function formToExtractedItem(payload, original) {
+  return {
+    ...original,
+    name: payload.name, description: payload.desc, price: String(payload.price),
+    veg: payload.veg, spicy: !!payload.spicy, popular: !!payload.popular,
+    nameHi: payload.nameHi, nameTa: payload.nameTa, nameTe: payload.nameTe,
+    imageUrl: payload.imageUrl, videoUrl: payload.videoUrl, modelUrl: payload.modelUrl,
+    mediaType: payload.mediaType,
+  };
+}
 
 // Embeddable "scan menu with OCR" step, used inside the onboarding wizard.
 // Deliberately a separate, simpler component from pages/MenuOcrScan.jsx
@@ -14,7 +42,15 @@ export default function MenuOcrStep({ shopId, onApproved }) {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [job, setJob] = useState(null);
+  const [editedItems, setEditedItems] = useState([]);
+  const [editIdx, setEditIdx] = useState(null);
   const [approving, setApproving] = useState(false);
+
+  // Seed the editable copy once — polling stops right after COMPLETED, so this
+  // won't re-fire and clobber in-progress edits on later ticks.
+  useEffect(() => {
+    if (job?.status === 'COMPLETED') setEditedItems(job.extractedItems || []);
+  }, [job?.id, job?.status]);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
@@ -59,8 +95,8 @@ export default function MenuOcrStep({ shopId, onApproved }) {
     if (!job) return;
     setApproving(true);
     try {
-      await ocrApi.approve(job.id);
-      onApproved?.(job.extractedItems?.length || 0);
+      await ocrApi.approve(job.id, editedItems);
+      onApproved?.(editedItems.length || 0);
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to add items to your menu.');
     } finally {
@@ -68,9 +104,14 @@ export default function MenuOcrStep({ shopId, onApproved }) {
     }
   };
 
-  const groupedItems = (job?.extractedItems || []).reduce((acc, item) => {
+  const saveEditedItem = (payload) => {
+    setEditedItems(prev => prev.map((it, i) => (i === editIdx ? formToExtractedItem(payload, it) : it)));
+    setEditIdx(null);
+  };
+
+  const groupedItems = editedItems.reduce((acc, item, idx) => {
     const cat = item.category || 'Uncategorised';
-    (acc[cat] ||= []).push(item);
+    (acc[cat] ||= []).push({ ...item, _idx: idx });
     return acc;
   }, {});
 
@@ -126,14 +167,20 @@ export default function MenuOcrStep({ shopId, onApproved }) {
 
       {job?.status === 'COMPLETED' && (
         <>
-          <div style={{ maxHeight: 220, overflowY: 'auto', marginBottom: 14 }}>
+          <div style={{ maxHeight: 320, overflowY: 'auto', marginBottom: 14 }}>
             {Object.entries(groupedItems).map(([category, items]) => (
               <div key={category} style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 4 }}>{category}</div>
-                {items.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: 10, padding: '5px 0', borderBottom: '1px solid #F3F4F6' }}>
+                {items.map((item) => (
+                  <div key={item._idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #F3F4F6' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 2, border: `2px solid ${item.veg !== false ? '#1D9E75' : '#DC2626'}`, flexShrink: 0 }} />
                     <div style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{item.name}</div>
                     <div style={{ fontSize: 13, fontWeight: 700 }}>₹{item.price}</div>
+                    <button type="button" title="Edit item"
+                      style={{ width: 26, height: 26, borderRadius: 6, border: 'none', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                      onClick={() => setEditIdx(item._idx)}>
+                      <Edit2 size={12} />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -143,6 +190,16 @@ export default function MenuOcrStep({ shopId, onApproved }) {
             {approving ? 'Adding…' : <><CheckCircle2 size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} />Approve & add to menu</>}
           </button>
         </>
+      )}
+
+      {editIdx !== null && (
+        <MenuItemModal
+          title="Edit scanned item"
+          submitLabel="Save changes"
+          initialForm={extractedItemToForm(editedItems[editIdx])}
+          onSave={saveEditedItem}
+          onClose={() => setEditIdx(null)}
+        />
       )}
     </div>
   );

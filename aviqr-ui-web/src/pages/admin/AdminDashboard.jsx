@@ -15,6 +15,7 @@ import {
   Percent, Gift, Layers, BedDouble, UserCog, ClipboardList, UtensilsCrossed, Sparkles
 } from 'lucide-react';
 import { authApi, reportApi, shopApi, hotelApi, mallApi, orderApi, paymentApi, qrApi, planApi, offerApi } from '../../api/index.js';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
 import PermissionMatrixView from '../../components/shared/PermissionMatrixView.jsx';
 import '../admin/Admin.css';
@@ -74,6 +75,12 @@ export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [platformStats, setPlatformStats] = useState(null);
   const [userStats, setUserStats] = useState(null);
+  const [usersRoleFilter, setUsersRoleFilter] = useState('all');
+
+  const goTo = useCallback((tabKey, role) => {
+    if (tabKey === 'users') setUsersRoleFilter(role || 'all');
+    setTab(tabKey);
+  }, []);
 
   const loadPlatform = useCallback(async () => {
     try {
@@ -144,8 +151,8 @@ export default function AdminDashboard() {
         </header>
 
         <main className="admin-content">
-          {tab === 'overview'     && <AdminOverview ps={platformStats} us={userStats} onNav={setTab} onRefresh={loadPlatform}/>}
-          {tab === 'users'        && <LiveUsersPage/>}
+          {tab === 'overview'     && <AdminOverview ps={platformStats} us={userStats} onNav={goTo} onRefresh={loadPlatform}/>}
+          {tab === 'users'        && <LiveUsersPage initialRole={usersRoleFilter}/>}
           {tab === 'shops'        && <AdminShopsPage/>}
           {tab === 'hotels'       && <AdminHotelsPage/>}
           {tab === 'malls'        && <AdminMallsPage/>}
@@ -164,18 +171,32 @@ export default function AdminDashboard() {
 }
 
 // ── Overview ─────────────────────────────────────────────────────────────────
+const ROLE_PIE_COLORS = ['#059669','#2563EB','#7C3AED','#D97706','#DC2626','#0EA5E9','#F59E0B','#10B981','#8B5CF6','#6B7280','#EC4899'];
+
 function AdminOverview({ ps, us, onNav, onRefresh }) {
   const { lang } = useLang();
   const fmt = n => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const [trend, setTrend] = useState([]);
+  const [trendLoad, setTrendLoad] = useState(true);
+
+  useEffect(() => {
+    reportApi.getPlatformRevenueTrend(14)
+      .then(r => setTrend(r.data?.data || []))
+      .catch(() => {})
+      .finally(() => setTrendLoad(false));
+  }, []);
 
   const KPIs = [
     { label: 'Active shops',     value: ps ? fmt(ps.activeShops || 0)     : '—', icon: Store,       color: 'green',  key: 'shops' },
+    { label: 'Customers',        value: us ? fmt(us.customer || 0)        : '—', icon: Users,       color: 'purple', key: 'users', role: 'customer' },
     { label: "Today's orders",   value: ps ? fmt(ps.todayOrders || 0)     : '—', icon: ShoppingBag, color: 'purple', key: 'orders' },
     { label: "Today's revenue",  value: ps ? `₹${fmt(ps.todayRevenue||0)}`: '—', icon: CreditCard,  color: 'amber',  key: 'payments' },
     { label: 'Total orders',     value: ps ? fmt(ps.totalOrders || 0)     : '—', icon: TrendingUp,  color: 'blue',   key: 'reports' },
     { label: 'Total revenue',    value: ps ? `₹${fmt(ps.totalRevenue||0)}`: '—', icon: BarChart2,   color: 'green',  key: 'reports' },
     { label: 'Avg order value',  value: ps ? `₹${fmt(ps.avgOrderValue||0)}`: '—',icon: Shield,      color: 'blue',   key: 'reports' },
   ];
+
+  const roleData = us ? Object.entries(us).filter(([role]) => role !== 'total').map(([role, count]) => ({ role, count: Number(count || 0) })) : [];
 
   return (
     <div className="admin-overview">
@@ -192,7 +213,7 @@ function AdminOverview({ ps, us, onNav, onRefresh }) {
 
       <div className="admin-kpi-grid">
         {KPIs.map(k => (
-          <button key={k.label} className="admin-kpi-card" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => onNav(k.key)}>
+          <button key={k.label} className="admin-kpi-card" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => onNav(k.key, k.role)}>
             <div className={`admin-kpi-icon icon-${k.color}`}><k.icon size={18}/></div>
             <div className="admin-kpi-value">{k.value}</div>
             <div className="admin-kpi-label">{k.label}</div>
@@ -200,29 +221,64 @@ function AdminOverview({ ps, us, onNav, onRefresh }) {
         ))}
       </div>
 
-      {us && (
-        <div className="admin-chart-card" style={{ marginTop: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginTop: 16 }}>
+        <div className="admin-chart-card">
+          <h3 style={{ marginBottom: 12 }}>Revenue trend — last 14 days</h3>
+          {trendLoad ? (
+            <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gray-400)', fontSize: 13 }}>Loading…</div>
+          ) : trend.length === 0 ? (
+            <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gray-400)', fontSize: 13 }}>No data for this period</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={trend} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
+                <defs><linearGradient id="overviewRevGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1D9E75" stopOpacity={0.15}/><stop offset="95%" stopColor="#1D9E75" stopOpacity={0}/></linearGradient></defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false}/>
+                <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v/1000}k`}/>
+                <Tooltip formatter={v => [`₹${Number(v).toLocaleString('en-IN')}`, 'Revenue']} contentStyle={{ borderRadius: 8, fontSize: 12 }}/>
+                <Area type="monotone" dataKey="revenue" stroke="#1D9E75" strokeWidth={2.5} fill="url(#overviewRevGrad)" dot={false}/>
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+          <button className="btn btn-secondary" style={{ marginTop: 10 }} onClick={() => onNav('reports')}>View full reports →</button>
+        </div>
+
+        <div className="admin-chart-card">
           <h3 style={{ marginBottom: 12 }}>Users by role</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {Object.entries(us).map(([role, count]) => (
-              <div key={role} style={{ background: 'var(--gray-50)', borderRadius: 8, padding: '8px 14px', minWidth: 90 }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--gray-900)' }}>{Number(count || 0).toLocaleString()}</div>
-                <div style={{ fontSize: 11, color: 'var(--gray-500)', textTransform: 'capitalize' }}>{role}</div>
-              </div>
+          {roleData.length === 0 ? (
+            <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gray-400)', fontSize: 13 }}>No data</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={roleData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3} dataKey="count" nameKey="role">
+                  {roleData.map((_, i) => <Cell key={i} fill={ROLE_PIE_COLORS[i % ROLE_PIE_COLORS.length]}/>)}
+                </Pie>
+                <Tooltip formatter={(v, n) => [v, n]} contentStyle={{ borderRadius: 8, fontSize: 12 }}/>
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+            {roleData.map((r, i) => (
+              <button key={r.role} className="admin-row-btn" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, padding: '4px 8px' }}
+                onClick={() => onNav('users', r.role)}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: ROLE_PIE_COLORS[i % ROLE_PIE_COLORS.length], display: 'inline-block' }}/>
+                <span style={{ textTransform: 'capitalize' }}>{r.role}</span>
+                <strong>{r.count.toLocaleString()}</strong>
+              </button>
             ))}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
 // ── Live Users Page ───────────────────────────────────────────────────────────
-function LiveUsersPage() {
+function LiveUsersPage({ initialRole }) {
   const { lang } = useLang();
   const [users, setUsers]   = useState([]);
   const [search, setSearch] = useState('');
-  const [roleF, setRoleF]   = useState('all');
+  const [roleF, setRoleF]   = useState(initialRole || 'all');
   const [statF, setStatF]   = useState('all');
   const [loading, setLoad]  = useState(true);
   const [error, setErr]     = useState('');
@@ -1999,17 +2055,43 @@ function AdminOffersManager({ plans }) {
 }
 
 // ── Admin Reports ─────────────────────────────────────────────────────────────
+const REPORT_TYPE_COLORS = ['#1D9E75','#2563EB','#7C3AED','#D97706','#DC2626'];
+const REPORT_RANGES = [{v:7,l:'7d'},{v:30,l:'30d'},{v:90,l:'90d'}];
+
 export function AdminReports() {
   const { lang } = useLang();
-  const [stats, setStats]  = useState(null);
-  const [loading, setLoad] = useState(true);
+  const [stats, setStats]   = useState(null);
+  const [trend, setTrend]   = useState([]);
+  const [types, setTypes]   = useState([]);
+  const [topShops, setTopShops] = useState([]);
+  const [loading, setLoad]  = useState(true);
+  const [days, setDays]     = useState(30);
+  const [exporting, setExporting] = useState(false);
+  const [mailOpen, setMailOpen]   = useState(false);
+  const [mailTo, setMailTo]       = useState('');
+  const [mailing, setMailing]     = useState(false);
+  const [mailErr, setMailErr]     = useState('');
+  const [toast, setToast]         = useState('');
+  const shopNames = useShopNameMap();
 
-  useEffect(() => {
-    reportApi.getPlatform()
-      .then(r => setStats(r.data?.data))
-      .catch(() => {})
-      .finally(() => setLoad(false));
-  }, []);
+  const showToast = (m) => { setToast(m); setTimeout(() => setToast(''), 2500); };
+
+  const load = useCallback(() => {
+    setLoad(true);
+    Promise.all([
+      reportApi.getPlatform(),
+      reportApi.getPlatformRevenueTrend(days),
+      reportApi.getPlatformOrderTypes(days),
+      reportApi.getPlatformTopShops(days, 8),
+    ]).then(([s, tr, ty, top]) => {
+      setStats(s.data?.data);
+      setTrend(tr.data?.data || []);
+      setTypes(ty.data?.data || []);
+      setTopShops(top.data?.data || []);
+    }).catch(() => {}).finally(() => setLoad(false));
+  }, [days]);
+
+  useEffect(() => { load(); }, [load]);
 
   const fmt  = n => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
   // Crore-only formatting rounded every sub-crore amount down to "₹0.00Cr" — fall
@@ -2030,22 +2112,135 @@ export function AdminReports() {
     { label: 'Avg order value',        value: `₹${fmt(stats.avgOrderValue || 0)}` },
   ] : [];
 
+  const handleExport = async () => {
+    setExporting(true);
+    try { await reportApi.exportPlatformReport(days); showToast('Report downloaded'); }
+    catch { showToast('Failed to download report'); }
+    finally { setExporting(false); }
+  };
+
+  const handleEmail = async () => {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mailTo.trim())) { setMailErr('Enter a valid email address'); return; }
+    setMailing(true); setMailErr('');
+    try {
+      await reportApi.emailPlatformReport(mailTo.trim(), days);
+      showToast(`Report sent to ${mailTo.trim()}`);
+      setMailOpen(false); setMailTo('');
+    } catch (e) { setMailErr(e.response?.data?.message || 'Failed to send email'); }
+    finally { setMailing(false); }
+  };
+
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">{t('platformReports', lang)}</h1></div>
+      {toast && (
+        <div style={{ position:'fixed', bottom:24, right:24, background:'#1F2937', color:'#fff', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
+          ✓ {toast}
+        </div>
+      )}
+
+      <div className="page-header">
+        <h1 className="page-title">{t('platformReports', lang)}</h1>
+        <div className="page-header-actions" style={{ display:'flex', gap:10, alignItems:'center' }}>
+          <select className="admin-filter-select" value={days} onChange={e => setDays(Number(e.target.value))}>
+            {REPORT_RANGES.map(r => <option key={r.v} value={r.v}>Last {r.l}</option>)}
+          </select>
+          <button className="btn btn-secondary" onClick={load}><RefreshCw size={13}/> Refresh</button>
+          <button className="btn btn-secondary" onClick={handleExport} disabled={exporting}><Download size={13}/> {exporting ? 'Downloading…' : 'Download CSV'}</button>
+          <button className="btn btn-primary" onClick={() => { setMailOpen(true); setMailErr(''); }}><Send size={13}/> Email report</button>
+        </div>
+      </div>
+
       {loading ? (
         <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading…</div>
       ) : stats ? (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
-          {CARDS.map(c => (
-            <div key={c.label} className="admin-chart-card" style={{ textAlign:'center' }}>
-              <div style={{ fontSize:26, fontWeight:700, color:'var(--gray-900)' }}>{c.value}</div>
-              <div style={{ fontSize:13, color:'var(--gray-500)', marginTop:4 }}>{c.label}</div>
+        <>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:16 }}>
+            {CARDS.map(c => (
+              <div key={c.label} className="admin-chart-card" style={{ textAlign:'center' }}>
+                <div style={{ fontSize:26, fontWeight:700, color:'var(--gray-900)' }}>{c.value}</div>
+                <div style={{ fontSize:13, color:'var(--gray-500)', marginTop:4 }}>{c.label}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:14, marginBottom:16 }}>
+            <div className="admin-chart-card">
+              <h3>Revenue trend — last {days} days</h3>
+              {trend.length === 0
+                ? <div style={{ height:220, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--gray-400)', fontSize:13 }}>No data for this period</div>
+                : <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={trend} margin={{top:4,right:4,bottom:0,left:-16}}>
+                      <defs><linearGradient id="adminRevGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1D9E75" stopOpacity={0.15}/><stop offset="95%" stopColor="#1D9E75" stopOpacity={0}/></linearGradient></defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
+                      <XAxis dataKey="date" tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
+                      <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={v=>`₹${v/1000}k`}/>
+                      <Tooltip formatter={v=>[`₹${Number(v).toLocaleString('en-IN')}`, 'Revenue']} contentStyle={{borderRadius:8,fontSize:12}}/>
+                      <Area type="monotone" dataKey="revenue" stroke="#1D9E75" strokeWidth={2.5} fill="url(#adminRevGrad)" dot={false}/>
+                    </AreaChart>
+                  </ResponsiveContainer>
+              }
             </div>
-          ))}
-        </div>
+
+            <div className="admin-chart-card">
+              <h3>Order type split</h3>
+              {types.length === 0
+                ? <div style={{ height:220, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--gray-400)', fontSize:13 }}>No data</div>
+                : <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie data={types} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3} dataKey="revenue" nameKey="type">
+                        {types.map((_,i) => <Cell key={i} fill={REPORT_TYPE_COLORS[i % REPORT_TYPE_COLORS.length]}/>)}
+                      </Pie>
+                      <Legend iconType="circle" iconSize={8} formatter={v=><span style={{fontSize:11}}>{v}</span>}/>
+                      <Tooltip formatter={(v,n)=>[`₹${fmt(v)}`, n]} contentStyle={{borderRadius:8,fontSize:12}}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+              }
+            </div>
+          </div>
+
+          <div className="admin-chart-card">
+            <h3>Top shops by revenue — last {days} days</h3>
+            {topShops.length === 0
+              ? <div style={{ padding:'20px 0', textAlign:'center', color:'var(--gray-400)', fontSize:13 }}>No order data yet</div>
+              : <ResponsiveContainer width="100%" height={Math.max(180, topShops.length * 34)}>
+                  <BarChart data={topShops.map(s => ({ ...s, name: shopNames[s.shopId] || `Shop ${String(s.shopId).slice(0,8)}` }))}
+                    layout="vertical" margin={{top:4,right:24,bottom:0,left:8}}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false}/>
+                    <XAxis type="number" tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={v=>`₹${v/1000}k`}/>
+                    <YAxis type="category" dataKey="name" width={140} tick={{fontSize:12,fill:'var(--gray-700)'}} axisLine={false} tickLine={false}/>
+                    <Tooltip formatter={(v,n)=>[n==='revenue'?`₹${fmt(v)}`:v, n==='revenue'?'Revenue':'Orders']} contentStyle={{borderRadius:8,fontSize:12}}/>
+                    <Bar dataKey="revenue" fill="#2563EB" radius={[0,4,4,0]}/>
+                  </BarChart>
+                </ResponsiveContainer>
+            }
+          </div>
+        </>
       ) : (
         <div className="demo-notice">Connect backend to see live platform analytics.</div>
+      )}
+
+      {mailOpen && (
+        <div className="modal-backdrop" onClick={() => setMailOpen(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth:420 }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Email platform report</h2>
+              <button className="modal-close" onClick={() => setMailOpen(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-field">
+                <label className="form-label">Recipient email</label>
+                <input className="form-input" type="email" placeholder="name@example.com"
+                  value={mailTo} onChange={e => setMailTo(e.target.value)} autoFocus/>
+              </div>
+              <p style={{ fontSize:12, color:'var(--gray-500)', marginTop:4 }}>Sends the last {days}-day summary (revenue, orders, order-type split).</p>
+              {mailErr && <p style={{ fontSize:12.5, color:'var(--red)', marginTop:6 }}>{mailErr}</p>}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setMailOpen(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleEmail} disabled={mailing}>{mailing ? 'Sending…' : 'Send'}</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

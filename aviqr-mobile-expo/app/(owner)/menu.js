@@ -1,14 +1,25 @@
 import { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Switch, Alert, TextInput, Modal, ScrollView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Switch, Alert, TextInput, Modal } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { menuApi } from '../../src/api/index.js';
 import { Button } from '../../src/components/common/Button.js';
 import { Input } from '../../src/components/common/Input.js';
+import { MenuItemModal, EMPTY_MENU_ITEM } from '../../src/components/common/MenuItemModal.js';
 import { EmptyState } from '../../src/components/common/EmptyState.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
+
+function itemToForm(item) {
+  return item ? {
+    name: item.name, price: String(item.price), description: item.description || '',
+    veg: item.veg, spicy: item.spicy, popular: item.popular,
+    imageUrl: item.imageUrl || '', videoUrl: item.videoUrl || '', modelUrl: item.modelUrl || '',
+    mediaType: item.mediaType || 'NONE',
+    nameHi: item.nameHi || '', nameTa: item.nameTa || '', nameTe: item.nameTe || '',
+  } : EMPTY_MENU_ITEM;
+}
 
 export default function MenuScreen() {
   const { user } = useAuth();
@@ -19,18 +30,13 @@ export default function MenuScreen() {
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEdit] = useState(null);
-  const EMPTY_ITEM = { name:'', price:'', description:'', veg:true, spicy:false, popular:false, imageUrl:'', videoUrl:'', modelUrl:'', mediaType:'NONE', nameHi:'', nameTa:'', nameTe:'' };
-  const [form, setForm]     = useState(EMPTY_ITEM);
-  const [saving, setSaving] = useState(false);
   const [offline, setOffline] = useState(false);
   const [catSheet, setCatSheet] = useState(false);
   const [editCat, setEditCat] = useState(null);
   const [catForm, setCatForm] = useState({ name: '', emoji: '' });
   const [savingCat, setSavingCat] = useState(false);
-  const [showTranslations, setShowTranslations] = useState(false);
 
   useEffect(() => { if(shopId) loadMenu(); }, [shopId]);
-  const set = (k,v) => setForm(f => ({...f,[k]:v}));
 
   const loadMenu = async () => {
     try {
@@ -46,9 +52,7 @@ export default function MenuScreen() {
     try { await menuApi.toggleAvail(item.id, !item.available); } catch {}
   };
 
-  const saveItem = async () => {
-    if(!form.name || !form.price) return Alert.alert('Required','Name and price are required');
-    setSaving(true);
+  const saveItem = async (form) => {
     const data = { ...form, price: parseFloat(form.price), shopId, categoryId: selCat?.id };
     try {
       if(editItem) {
@@ -60,7 +64,7 @@ export default function MenuScreen() {
       }
     } catch {
       setItems(prev => editItem ? prev.map(i=>i.id===editItem.id?{...i,...data}:i) : [...prev,{...data,id:Date.now().toString()}]);
-    } finally { setSaving(false); setShowAdd(false); setEdit(null); setForm(EMPTY_ITEM); }
+    } finally { setShowAdd(false); setEdit(null); }
   };
 
   const deleteItem = (item) => Alert.alert('Delete','Remove "'+item.name+'"?',[
@@ -114,7 +118,7 @@ export default function MenuScreen() {
           <TouchableOpacity style={ss.scanBtn} onPress={() => router.push('/(owner)/scan-menu')}>
             <Text style={ss.scanBtnTxt}>📷 Scan Menu</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={ss.addBtn} onPress={() => { setEdit(null); setForm(EMPTY_ITEM); setShowAdd(true); }}>
+          <TouchableOpacity style={ss.addBtn} onPress={() => { setEdit(null); setShowAdd(true); }}>
             <Text style={ss.addBtnTxt}>+ Add Item</Text>
           </TouchableOpacity>
         </View>
@@ -152,7 +156,7 @@ export default function MenuScreen() {
             </View>
             <View style={ss.itemActions}>
               <Switch value={!!item.available} onValueChange={()=>toggleAvail(item)} trackColor={{true:Colors.primary}} thumbColor={Colors.white}/>
-              <TouchableOpacity onPress={()=>{setEdit(item);setForm({name:item.name,price:String(item.price),description:item.description||'',veg:item.veg,spicy:item.spicy,popular:item.popular,imageUrl:item.imageUrl||'',videoUrl:item.videoUrl||'',modelUrl:item.modelUrl||'',mediaType:item.mediaType||'NONE',nameHi:item.nameHi||'',nameTa:item.nameTa||'',nameTe:item.nameTe||''});setShowAdd(true);}}>
+              <TouchableOpacity onPress={()=>{setEdit(item);setShowAdd(true);}}>
                 <Text style={{color:Colors.gray400,fontSize:16}}>✏️</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={()=>deleteItem(item)}>
@@ -162,51 +166,14 @@ export default function MenuScreen() {
           </View>
         )}
       />
-      <Modal visible={showAdd} animationType="slide" presentationStyle="pageSheet" onRequestClose={()=>setShowAdd(false)}>
-        <ScrollView style={ss.modal} contentContainerStyle={{padding:24}} keyboardShouldPersistTaps="handled">
-          <View style={ss.modalHeader}>
-            <Text style={ss.modalTitle}>{editItem?'Edit Item':'Add New Item'}</Text>
-            <TouchableOpacity onPress={()=>setShowAdd(false)}><Text style={{fontSize:20,color:Colors.gray500}}>✕</Text></TouchableOpacity>
-          </View>
-          <Input label="Item Name *" placeholder="Paneer Tikka" value={form.name} onChangeText={v=>set('name',v)}/>
-          <Input label="Price (₹) *" placeholder="280" value={form.price} onChangeText={v=>set('price',v)} keyboardType="decimal-pad"/>
-          <Input label="Description" placeholder="Brief description" value={form.description} onChangeText={v=>set('description',v)} multiline/>
-          <View style={ss.switches}>
-            {[['Vegetarian','veg'],['Spicy','spicy'],['Popular','popular']].map(([l,k])=>(
-              <View key={k} style={ss.switchRow}>
-                <Text style={ss.switchLabel}>{l}</Text>
-                <Switch value={!!form[k]} onValueChange={v=>set(k,v)} trackColor={{true:Colors.primary}}/>
-              </View>
-            ))}
-          </View>
-
-          <Text style={ss.sectionLabel}>Media</Text>
-          <View style={ss.mediaTypeRow}>
-            {['NONE','VIDEO','MODEL_3D'].map(mt => (
-              <TouchableOpacity key={mt} style={[ss.mediaChip, form.mediaType===mt && ss.mediaChipActive]} onPress={()=>set('mediaType',mt)}>
-                <Text style={[ss.mediaChipTxt, form.mediaType===mt && ss.mediaChipTxtActive]}>{mt==='NONE'?'Photo':mt==='VIDEO'?'Video':'3D Model'}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Input label="Image URL" placeholder="https://…jpg" value={form.imageUrl} onChangeText={v=>set('imageUrl',v)} autoCapitalize="none"/>
-          {form.mediaType==='VIDEO' && <Input label="Video URL" placeholder="https://…mp4 or YouTube link" value={form.videoUrl} onChangeText={v=>set('videoUrl',v)} autoCapitalize="none"/>}
-          {form.mediaType==='MODEL_3D' && <Input label="3D Model URL (.glb/.gltf)" placeholder="https://…glb" value={form.modelUrl} onChangeText={v=>set('modelUrl',v)} autoCapitalize="none"/>}
-
-          <TouchableOpacity onPress={()=>setShowTranslations(s=>!s)}>
-            <Text style={ss.translationsToggle}>{showTranslations?'▾':'▸'} Translated names (optional)</Text>
-          </TouchableOpacity>
-          {showTranslations && (
-            <>
-              <Input label="Hindi name" value={form.nameHi} onChangeText={v=>set('nameHi',v)}/>
-              <Input label="Tamil name" value={form.nameTa} onChangeText={v=>set('nameTa',v)}/>
-              <Input label="Telugu name" value={form.nameTe} onChangeText={v=>set('nameTe',v)}/>
-            </>
-          )}
-
-          <Button title={saving?'Saving…':editItem?'Update Item':'Add Item'} onPress={saveItem} loading={saving} style={{marginTop:16}}/>
-          <Button title="Cancel" onPress={()=>setShowAdd(false)} variant="ghost" style={{marginTop:8}}/>
-        </ScrollView>
-      </Modal>
+      <MenuItemModal
+        visible={showAdd}
+        title={editItem ? 'Edit Item' : 'Add New Item'}
+        submitLabel={editItem ? 'Update Item' : 'Add Item'}
+        initialForm={itemToForm(editItem)}
+        onSave={saveItem}
+        onClose={() => { setShowAdd(false); setEdit(null); }}
+      />
 
       <Modal visible={catSheet} transparent animationType="slide" onRequestClose={()=>setCatSheet(false)}>
         <View style={ss.catModalOverlay}>
@@ -246,22 +213,10 @@ const ss = StyleSheet.create({
   itemPrice:{fontSize:FontSize.md,fontWeight:'800',color:Colors.primary},
   tag:{fontSize:12},
   itemActions:{flexDirection:'row',alignItems:'center',gap:12},
-  modal:{flex:1,backgroundColor:Colors.background},
-  modalHeader:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:20},
   modalTitle:{fontSize:FontSize.xl,fontWeight:'800',color:Colors.gray900},
-  switches:{flexDirection:'row',gap:10,marginTop:4},
-  switchRow:{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'space-between',backgroundColor:Colors.gray50,borderRadius:Radius.md,padding:10},
-  switchLabel:{fontSize:FontSize.sm,fontWeight:'600',color:Colors.gray700},
   catAddChip:{borderStyle:'dashed',borderColor:Colors.primary},
   catAddTxt:{fontSize:FontSize.xs,fontWeight:'700',color:Colors.primary},
   catHint:{fontSize:10,color:Colors.gray400,paddingHorizontal:12,marginBottom:6},
-  sectionLabel:{fontSize:FontSize.sm,fontWeight:'700',color:Colors.gray700,marginTop:12,marginBottom:8},
-  mediaTypeRow:{flexDirection:'row',gap:8,marginBottom:10},
-  mediaChip:{paddingHorizontal:12,paddingVertical:6,borderRadius:Radius.full,backgroundColor:Colors.gray100,borderWidth:1.5,borderColor:'transparent'},
-  mediaChipActive:{backgroundColor:Colors.primary},
-  mediaChipTxt:{fontSize:FontSize.xs,fontWeight:'700',color:Colors.gray700},
-  mediaChipTxtActive:{color:Colors.white},
-  translationsToggle:{fontSize:FontSize.sm,fontWeight:'700',color:Colors.primary,marginTop:14,marginBottom:8},
   catModalOverlay:{flex:1,backgroundColor:'rgba(0,0,0,0.45)',justifyContent:'flex-end'},
   catModalCard:{backgroundColor:Colors.white,borderTopLeftRadius:Radius.xl,borderTopRightRadius:Radius.xl,padding:20},
 });

@@ -201,7 +201,7 @@ export const ocrApi = {
     });
   },
   getJob:       (id)         => api.get(`/api/v1/ocr/jobs/${id}`),
-  approve:      (id)         => api.post(`/api/v1/ocr/jobs/${id}/approve`),
+  approve:      (id, items)  => api.post(`/api/v1/ocr/jobs/${id}/approve`, items ? { items } : undefined),
 };
 
 // ── Audit logs (admin/support visibility) ─────────────────────────────────────
@@ -262,6 +262,18 @@ export const reportApi = {
   getTopItems:  (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/top-items`),
   getPeakHours: (shopId)     => api.get(`/api/v1/reports/shop/${shopId}/peak-hours`),
   getPlatform:  ()           => api.get('/api/v1/reports/admin/platform'),
+  getPlatformRevenueTrend: (days) => api.get('/api/v1/reports/admin/platform/revenue-trend', { params: { days } }),
+  getPlatformOrderTypes:   (days) => api.get('/api/v1/reports/admin/platform/order-types', { params: { days } }),
+  getPlatformTopShops:     (days, limit) => api.get('/api/v1/reports/admin/platform/top-shops', { params: { days, limit } }),
+  emailPlatformReport:     (to, days) => api.post('/api/v1/reports/admin/platform/email', { to, days }),
+  exportPlatformReport: async (days) => {
+    const res = await api.get('/api/v1/reports/admin/platform/export', { params: { days }, responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement('a');
+    a.href = url; a.download = `platform-report-${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
   getTaxReport: (shopId, startDate, endDate) => api.get(`/api/v1/reports/shop/${shopId}/tax`, { params: { startDate, endDate } }),
   // Server-generated CSV — authenticated blob download (mirrors invoiceApi's openPrintable
   // pattern below, adapted for a file download instead of an in-place HTML render).

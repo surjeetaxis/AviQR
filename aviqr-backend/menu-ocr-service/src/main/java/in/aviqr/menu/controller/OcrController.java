@@ -58,14 +58,25 @@ public class OcrController {
     @PostMapping("/jobs/{id}/approve")
     public ResponseEntity<ApiResponse<Void>> approve(
             @PathVariable String id,
+            @RequestBody(required = false) ApproveRequest body,
             @RequestHeader("X-User-Id") String uid,
             @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
             @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId) {
         OcrJob job = repo.findById(id).orElse(null);
-        if (job == null) return ResponseEntity.notFound().build();
-        if ("OWNER".equals(role) && !callerShopId.isBlank() && !callerShopId.equals(job.getShopId()))
+        if (job == null) {
+            log.warn("OCR approve failed — job {} not found (caller uid={}, role={})", id, uid, role);
+            return ResponseEntity.notFound().build();
+        }
+        if ("OWNER".equals(role) && !callerShopId.isBlank() && !callerShopId.equals(job.getShopId())) {
+            log.warn("OCR approve rejected — job {} belongs to shop {} but caller (uid={}) sent X-Shop-Id={}",
+                id, job.getShopId(), uid, callerShopId);
             return ResponseEntity.status(403).body(ApiResponse.error("Shop mismatch"));
-        ocrService.approveJob(id);
+        }
+        ocrService.approveJob(id, body != null ? body.items() : null);
         return ResponseEntity.ok(ApiResponse.ok("Items sent to menu", null));
     }
+
+    // Owner-edited items from the scan-review screen, replacing the raw OCR extraction
+    // when present — lets the owner fix a misread name/price/category before import.
+    public record ApproveRequest(List<OcrJob.ExtractedItem> items) {}
 }

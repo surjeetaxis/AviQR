@@ -360,9 +360,10 @@ public class OcrService {
         return s.charAt(0) + s.substring(1).toLowerCase();
     }
 
-    public void approveJob(String jobId) {
+    public void approveJob(String jobId, List<OcrJob.ExtractedItem> editedItems) {
         repo.findById(jobId).ifPresent(j -> {
             j.setOwnerApproved(true);
+            if (editedItems != null && !editedItems.isEmpty()) j.setExtractedItems(editedItems);
             repo.save(j);
             if ("COMPLETED".equals(j.getStatus()) && j.getExtractedItems() != null) {
                 createMenuItemsFromJob(j);
@@ -399,6 +400,16 @@ public class OcrService {
                 .shopId(shopId)
                 .categoryId(categoryId)
                 .price(parsePrice(extracted.getPrice()))
+                .veg(extracted.getVeg() == null || extracted.getVeg())
+                .spicy(Boolean.TRUE.equals(extracted.getSpicy()))
+                .popular(Boolean.TRUE.equals(extracted.getPopular()))
+                .imageUrl(extracted.getImageUrl())
+                .videoUrl(extracted.getVideoUrl())
+                .modelUrl(extracted.getModelUrl())
+                .mediaType(extracted.getMediaType() != null ? extracted.getMediaType() : "NONE")
+                .nameHi(extracted.getNameHi())
+                .nameTa(extracted.getNameTa())
+                .nameTe(extracted.getNameTe())
                 .available(true)
                 .build());
         }

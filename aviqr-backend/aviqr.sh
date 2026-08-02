@@ -26,6 +26,19 @@ BASE=$(cd "$(dirname "$0")" && pwd)
 LOG_DIR="$BASE/logs"
 mkdir -p "$LOG_DIR"
 
+# ── Load aviqr-backend/.env into the environment ──────────────────────────────
+# Every service reads its secrets via ${VAR_NAME} placeholders in application.properties,
+# which only resolve if VAR_NAME is an actual OS environment variable at JVM start. Nothing
+# sourced .env before this — so keys/passwords sitting in .env were silently never reaching
+# any service, and every optional-integration feature (OCR Vision API, email, SMS, AI
+# fallback, etc.) always ran on its no-credentials fallback regardless of what was in .env.
+if [ -f "$BASE/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$BASE/.env"
+  set +a
+fi
+
 # ── Spring profile: defaults to local dev, override with SPRING_PROFILES_ACTIVE=production ──
 SPRING_PROFILES_ACTIVE="${SPRING_PROFILES_ACTIVE:-local}"
 
