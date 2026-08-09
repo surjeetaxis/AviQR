@@ -55,8 +55,10 @@ export default function Login() {
   return (
     <ScrollView style={ss.screen} contentContainerStyle={ss.scroll} keyboardShouldPersistTaps="handled">
       <LinearGradient colors={['#0F6E56','#1D9E75']} style={ss.hero}>
-        <Logo size={48} />
-        <Text style={ss.brand}>Avi<Text style={ss.accent}>QR</Text></Text>
+        <TouchableOpacity onPress={() => router.push('/landing')} activeOpacity={0.8} style={{alignItems:'center'}}>
+          <Logo size={48} />
+          <Text style={ss.brand}>Avi<Text style={ss.accent}>QR</Text></Text>
+        </TouchableOpacity>
         <Text style={ss.tagline}>Restaurant · Hotel · Mall OS</Text>
         <Text style={ss.sub}>Scan · Order · Pay</Text>
       </LinearGradient>

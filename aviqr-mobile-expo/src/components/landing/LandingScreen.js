@@ -129,8 +129,15 @@ export default function LandingScreen() {
     <ScrollView style={ss.screen} showsVerticalScrollIndicator={false}>
       {/* Hero */}
       <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.hero}>
-        <View style={{ marginBottom: 10 }}><Logo size={40} /></View>
-        <Text style={ss.brand}>Avi<Text style={ss.accent}>QR</Text></Text>
+        <View style={ss.topBar}>
+          <View style={ss.topBarBrand}>
+            <Logo size={22} />
+            <Text style={ss.topBarBrandTxt}>Avi<Text style={ss.accent}>QR</Text></Text>
+          </View>
+          <TouchableOpacity style={ss.topBarLogin} onPress={() => router.push('/login')}>
+            <Text style={ss.topBarLoginTxt}>Log in</Text>
+          </TouchableOpacity>
+        </View>
         <Text style={ss.eyebrow}>India's multilingual QR menu & order platform</Text>
         <Text style={ss.headline}>One QR code.{'\n'}Your entire restaurant OS.</Text>
         <Text style={ss.heroSub}>Menu · Orders · Payments · Loyalty · CRM · Campaigns · Staff · Reports — all through one permanent QR code.</Text>
@@ -342,8 +349,12 @@ export default function LandingScreen() {
 
 const ss = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
-  hero: { padding: Spacing.lg, paddingTop: 64, paddingBottom: 32 },
-  brand: { fontSize: FontSize['3xl'], fontWeight: '800', color: Colors.white, marginBottom: 8 },
+  hero: { padding: Spacing.lg, paddingTop: 56, paddingBottom: 32 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
+  topBarBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  topBarBrandTxt: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.white },
+  topBarLogin: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', borderRadius: Radius.full, paddingVertical: 6, paddingHorizontal: 16 },
+  topBarLoginTxt: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
   accent: { color: '#A7F3D0' },
   eyebrow: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.75)', fontWeight: '600', marginBottom: 12 },
   headline: { fontSize: FontSize['3xl'], fontWeight: '800', color: Colors.white, lineHeight: 36, marginBottom: 12 },

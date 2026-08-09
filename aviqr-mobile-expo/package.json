@@ -6,6 +6,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "android:staging": "EXPO_PUBLIC_APP_ENV=staging expo run:android",
+    "ios:staging": "EXPO_PUBLIC_APP_ENV=staging expo run:ios",
     "web": "expo start --web",
     "test": "jest --config jest.logic.config.js --no-coverage",
     "test:watch": "jest --config jest.logic.config.js --watch",

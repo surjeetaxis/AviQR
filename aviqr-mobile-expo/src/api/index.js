@@ -38,9 +38,22 @@ const DEV_URL = Platform.OS === 'web'
   ? 'http://localhost:8080'
   : `http://${resolveDevHost()}:8080`;
 
+// Shared staging box (bm) — same gateway the web dashboard hits, reachable
+// over the public internet so it works on physical devices too, not just
+// simulators/emulators on the dev machine's LAN.
+const STAGING_URL = 'http://65.109.133.21:8080';
+
 const PROD_URL = 'https://api.aviqr.in';
 
-export const BASE_URL = __DEV__ ? DEV_URL : PROD_URL;
+// EXPO_PUBLIC_ vars are inlined at bundle time by Expo/Metro, so this works
+// the same in Expo Go, a dev client, and a standalone release build.
+// Usage: EXPO_PUBLIC_APP_ENV=staging npx expo run:android|ios
+const APP_ENV = process.env.EXPO_PUBLIC_APP_ENV;
+
+export const BASE_URL =
+  APP_ENV === 'staging' ? STAGING_URL :
+  APP_ENV === 'production' ? PROD_URL :
+  __DEV__ ? DEV_URL : PROD_URL;
 
 // ── Axios instance ──────────────────────────────────────────────────────────
 const api = axios.create({ baseURL: BASE_URL, timeout: 10000 });

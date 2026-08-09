@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useAuth } from '../src/context/AuthContext.js';
 import { Button } from '../src/components/common/Button.js';
 import { Input } from '../src/components/common/Input.js';
+import { Logo } from '../src/components/common/Logo.js';
 import { Colors, Radius, FontSize } from '../src/theme/index.js';
 
 const TYPES = [
@@ -41,9 +42,14 @@ export default function Register() {
 
   return (
     <ScrollView style={ss.screen} contentContainerStyle={{padding:24,paddingTop:60}} keyboardShouldPersistTaps="handled">
-      <TouchableOpacity onPress={()=>step>0?setStep(0):router.back()} style={ss.back}>
-        <Text style={ss.backTxt}>← {step>0?'Back':'Login'}</Text>
-      </TouchableOpacity>
+      <View style={ss.topRow}>
+        <TouchableOpacity onPress={()=>router.push('/landing')}>
+          <Logo size={28} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={()=>step>0?setStep(0):router.back()}>
+          <Text style={ss.backTxt}>← {step>0?'Back':'Login'}</Text>
+        </TouchableOpacity>
+      </View>
 
       {step===0?(
         <View>
@@ -95,7 +101,8 @@ export default function Register() {
 }
 const ss=StyleSheet.create({
   screen:{flex:1,backgroundColor:Colors.background},
-  back:{marginBottom:24}, backTxt:{color:Colors.primary,fontWeight:'600',fontSize:FontSize.base},
+  topRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:24},
+  backTxt:{color:Colors.primary,fontWeight:'600',fontSize:FontSize.base},
   title:{fontSize:26,fontWeight:'800',color:Colors.gray900,marginBottom:6},
   sub:{fontSize:FontSize.base,color:Colors.gray500,marginBottom:20},
   typeCard:{flexDirection:'row',alignItems:'center',gap:14,padding:16,backgroundColor:Colors.white,borderRadius:Radius.lg,borderWidth:1.5,borderColor:Colors.border,marginBottom:10},

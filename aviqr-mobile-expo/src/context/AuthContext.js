@@ -37,6 +37,10 @@ export function AuthProvider({ children }) {
     await storage.set('aviqr_token',   accessToken);
     await storage.set('aviqr_refresh', refreshToken || '');
     await storage.set('aviqr_user',    JSON.stringify(userData));
+    // Sticks around after logout — once a device has signed in/up at least
+    // once, `/` should open straight to Login instead of the marketing
+    // Landing page again (Landing stays reachable by tapping the logo).
+    await storage.set('aviqr_has_authenticated', 'true');
     setUser(userData);
     return userData;
   };
