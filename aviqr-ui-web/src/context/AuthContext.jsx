@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { authApi } from '../api/index.js';
+import { authApi, shopApi } from '../api/index.js';
 
 const AuthContext = createContext(null);
 
@@ -112,6 +112,18 @@ export function AuthProvider({ children }) {
       return updated;
     });
   };
+
+  // The shop's logo isn't part of the login payload (it can change any time from
+  // Settings), so it's fetched once per session and cached on `user` — Sidebar/Topbar
+  // read it from there instead of each re-fetching the shop. Settings.jsx calls
+  // updateUser({ shopLogoUrl }) directly after a save so both update immediately
+  // without waiting for this effect to re-run.
+  useEffect(() => {
+    if (!user?.shopId || user.shopLogoUrl !== undefined) return;
+    shopApi.getById(user.shopId)
+      .then(res => updateUser({ shopLogoUrl: res.data?.data?.logoUrl || '' }))
+      .catch(() => {});
+  }, [user?.shopId, user?.shopLogoUrl]);
 
   const role = (user?.role || '').toLowerCase();
 

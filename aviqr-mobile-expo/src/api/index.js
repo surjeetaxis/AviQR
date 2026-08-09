@@ -311,7 +311,19 @@ export const ocrApi = {
     });
   },
   getJob:      (id) => api.get(`/api/v1/ocr/jobs/${id}`),
-  approve:     (id) => api.post(`/api/v1/ocr/jobs/${id}/approve`),
+  approve:     (id, items) => api.post(`/api/v1/ocr/jobs/${id}/approve`, items ? { items } : undefined),
+};
+
+// ── Media (image upload — menu item photos) ────────────────────────────────────
+export const mediaApi = {
+  upload: (asset, folder = 'misc') => {
+    const fd = new FormData();
+    fd.append('file', { uri: asset.uri, name: asset.fileName || 'photo.jpg', type: asset.mimeType || 'image/jpeg' });
+    return api.post('/api/v1/media/upload', fd, {
+      params: { folder },
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // ── Audit logs (admin/support visibility) ────────────────────────────────────

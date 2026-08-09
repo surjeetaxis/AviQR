@@ -142,6 +142,21 @@ export const menuApi = {
   createRule:     (d)            => api.post('/api/v1/pricing-rules', d),
   deleteRule:     (id)           => api.delete(`/api/v1/pricing-rules/${id}`),
   copyToShops:    (fromShopId, toShopIds) => api.post('/api/v1/menu/copy', { fromShopId, toShopIds }),
+  // ── Bulk import from CSV/Excel ─────────────────────────────────────────────
+  importFile: (shopId, file) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('shopId', shopId);
+    return api.post('/api/v1/menu/import', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+  downloadSample: async (format) => {
+    const res = await api.get(`/api/v1/menu/import/sample.${format}`, { responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement('a');
+    a.href = url; a.download = `aviqr-menu-sample.${format}`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
 };
 
 // ── Orders ────────────────────────────────────────────────────────────────────
@@ -176,6 +191,18 @@ export const orderQrApi = {
   confirmPayment: (shopId, code)   => api.post(`/api/v1/orders/shop/${shopId}/confirm-payment`, { code }),
   confirmPickup:  (shopId, code)   => api.post(`/api/v1/orders/shop/${shopId}/confirm-pickup`, { code }),
   getCodeImage:   (orderId, config={}) => api.get(`/api/v1/orders/${orderId}/code-image`, { ...config, responseType: 'blob' }),
+};
+
+// ── Media (file upload — menu item photos/videos/3D models, shop logos) ───────
+export const mediaApi = {
+  upload: (file, folder = 'misc', kind = 'image') => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post('/api/v1/media/upload', fd, {
+      params: { folder, kind },
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // ── Payments ──────────────────────────────────────────────────────────────────

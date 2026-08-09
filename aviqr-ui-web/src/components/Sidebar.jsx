@@ -3,7 +3,7 @@ import {
   LayoutDashboard, ShoppingBag, BookOpen, QrCode, Users, BarChart3,
   Settings, LogOut, X, Sparkles, Package, Gift, ShieldCheck,
   TrendingUp, Utensils, PlusCircle, Receipt, FlaskConical, Clock, ChefHat,
-  MessageSquare, Zap, LayoutGrid, ScanLine
+  MessageSquare, Zap, LayoutGrid, ScanLine, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useAuth, ROLE_LABELS, ROLE_PERMISSIONS } from '../context/AuthContext.jsx';
 import { useLang } from './shared/LangPicker.jsx';
@@ -78,7 +78,7 @@ const NAV_GROUPS = [
   },
 ];
 
-export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, basePath = '' }) {
+export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, basePath = '', collapsed = false, onToggleCollapse }) {
   const { user, logout } = useAuth();
   const { lang } = useLang();
   const navigate = useNavigate();
@@ -95,7 +95,7 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, baseP
   const handleLogout = () => { onClose(); logout(); navigate('/'); };
 
   return (
-    <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''}`}>
+    <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''} ${collapsed ? 'sidebar-collapsed' : ''}`}>
       {/* Logo */}
       <div className="sidebar-header">
         <div className="sidebar-logo">
@@ -120,7 +120,11 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, baseP
 
       {/* Shop card */}
       <div className="sidebar-shop-card">
-        <div className="sidebar-shop-avatar">{user?.name?.slice(0,2).toUpperCase() || 'SR'}</div>
+        <div className="sidebar-shop-avatar">
+          {user?.shopLogoUrl
+            ? <img src={user.shopLogoUrl} alt="" className="sidebar-shop-logo-img" />
+            : (user?.name?.slice(0,2).toUpperCase() || 'SR')}
+        </div>
         <div className="sidebar-shop-info">
           <div className="sidebar-shop-name">{user?.shopName || user?.name || 'My Shop'}</div>
           <div className="sidebar-shop-status">
@@ -133,7 +137,7 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, baseP
       {/* Navigation */}
       <nav className="sidebar-nav" aria-label="Primary navigation" style={{ flex:1, overflowY:'auto', padding:'8px 0' }}>
         {basePath && (
-          <NavLink to="/hotel" onClick={onClose} className="sidebar-link" style={{ marginBottom:8 }}>
+          <NavLink to="/hotel" onClick={onClose} className="sidebar-link" style={{ marginBottom:8 }} title={collapsed ? t('backToOutlets', lang) : undefined}>
             <span>&larr; {t('backToOutlets', lang)}</span>
           </NavLink>
         )}
@@ -142,12 +146,13 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, baseP
           if (visibleItems.length === 0) return null;
           return (
             <div key={group.labelKey} style={{ marginBottom:4 }}>
-              <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.4)', textTransform:'uppercase', letterSpacing:.8, padding:'10px 20px 4px' }}>
+              <div className="sidebar-group-label" style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.4)', textTransform:'uppercase', letterSpacing:.8, padding:'10px 20px 4px' }}>
                 {t(group.labelKey, lang)}
               </div>
               {visibleItems.map(({ to, labelKey, icon:Icon, badge }) => (
                 <NavLink key={to} to={`${basePath}${to}`} onClick={onClose}
-                  className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}>
+                  className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}
+                  title={collapsed ? t(labelKey, lang) : undefined}>
                   <Icon size={16} aria-hidden="true" />
                   <span>{t(labelKey, lang)}</span>
                   {badge === 'orders' && liveOrderCount > 0 && (
@@ -164,20 +169,24 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, baseP
 
         {isAdmin && (
           <div style={{ marginBottom:4 }}>
-            <div style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.4)', textTransform:'uppercase', letterSpacing:.8, padding:'10px 20px 4px' }}>Admin</div>
-            <NavLink to="/admin" onClick={onClose} className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}>
+            <div className="sidebar-group-label" style={{ fontSize:10, fontWeight:700, color:'rgba(255,255,255,0.4)', textTransform:'uppercase', letterSpacing:.8, padding:'10px 20px 4px' }}>Admin</div>
+            <NavLink to="/admin" onClick={onClose} className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`} title={collapsed ? t('navAdminPanel', lang) : undefined}>
               <ShieldCheck size={16} /><span>{t('navAdminPanel', lang)}</span>
             </NavLink>
           </div>
         )}
       </nav>
 
+      <button className="sidebar-collapse-toggle" onClick={onToggleCollapse} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+        {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+      </button>
+
       <div className="sidebar-footer">
-        <div style={{ fontSize:10, color:'rgba(255,255,255,0.35)', marginBottom:8, textAlign:'center' }}>
+        <div className="sidebar-role-tag" style={{ fontSize:10, color:'rgba(255,255,255,0.35)', marginBottom:8, textAlign:'center' }}>
           {(ROLE_LABELS[user?.role] || 'Owner').toUpperCase()}
         </div>
-        <button className="sidebar-logout" onClick={handleLogout}>
-          <LogOut size={16} aria-hidden="true" /> {t('logout', lang)}
+        <button className="sidebar-logout" onClick={handleLogout} title={collapsed ? t('logout', lang) : undefined}>
+          <LogOut size={16} aria-hidden="true" /> <span>{t('logout', lang)}</span>
         </button>
         <div className="sidebar-version">AviQR v2.1</div>
       </div>

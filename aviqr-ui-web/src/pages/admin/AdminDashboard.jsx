@@ -73,6 +73,7 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [tab, setTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('aviqr_admin_sidebar_collapsed') === '1');
   const [platformStats, setPlatformStats] = useState(null);
   const [userStats, setUserStats] = useState(null);
   const [usersRoleFilter, setUsersRoleFilter] = useState('all');
@@ -95,9 +96,17 @@ export default function AdminDashboard() {
 
   useEffect(() => { loadPlatform(); }, [loadPlatform]);
 
+  const toggleSidebarCollapsed = () => {
+    setSidebarCollapsed(c => {
+      const next = !c;
+      localStorage.setItem('aviqr_admin_sidebar_collapsed', next ? '1' : '0');
+      return next;
+    });
+  };
+
   return (
-    <div className="admin-layout">
-      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
+    <div className={`admin-layout ${sidebarCollapsed ? 'admin-sidebar-collapsed' : ''}`}>
+      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="admin-sidebar-header">
           <div className="admin-brand">
             <QrCode size={18} style={{ color: '#5DCAA5' }}/>
@@ -115,14 +124,20 @@ export default function AdminDashboard() {
         <nav className="admin-nav">
           {NAV.map(n => (
             <button key={n.key} className={`admin-nav-item ${tab === n.key ? 'active' : ''}`}
-              onClick={() => { setTab(n.key); setSidebarOpen(false); }}>
+              onClick={() => { setTab(n.key); setSidebarOpen(false); }}
+              title={sidebarCollapsed ? t(n.labelKey, lang) : undefined}>
               <n.icon size={16}/> <span>{t(n.labelKey, lang)}</span>
             </button>
           ))}
         </nav>
+        <button className="admin-sidebar-collapse-toggle" onClick={toggleSidebarCollapsed}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          {sidebarCollapsed ? <ChevronRight size={14}/> : <ChevronLeft size={14}/>}
+        </button>
         <div className="admin-sidebar-footer">
-          <button className="admin-logout" onClick={() => { logout(); navigate('/'); }}>
-            <LogOut size={14}/> {t('logout', lang)}
+          <button className="admin-logout" onClick={() => { logout(); navigate('/'); }} title={sidebarCollapsed ? t('logout', lang) : undefined}>
+            <LogOut size={14}/> <span>{t('logout', lang)}</span>
           </button>
         </div>
       </aside>

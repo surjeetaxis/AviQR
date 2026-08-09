@@ -36,7 +36,11 @@ export default function Topbar({ onSearchOpen }) {
 
         <div className="topbar-profile-wrap">
           <button className="topbar-profile" onClick={() => setShowDropdown(p => !p)}>
-            <div className="topbar-avatar">{user?.avatar || 'SN'}</div>
+            <div className="topbar-avatar">
+              {user?.shopLogoUrl
+                ? <img src={user.shopLogoUrl} alt="" className="topbar-avatar-logo-img" />
+                : (user?.avatar || 'SN')}
+            </div>
             <div className="topbar-profile-text">
               <span className="topbar-profile-name">{user?.name?.split(' ')[0] || 'Owner'}</span>
               <span className="topbar-profile-role">{ROLE_LABELS[user?.role] || 'Owner'}</span>

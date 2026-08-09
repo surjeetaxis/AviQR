@@ -12,6 +12,7 @@ import './DashboardLayout.css';
 export default function DashboardLayout() {
   const [liveOrderCount, setLiveOrderCount] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('aviqr_sidebar_collapsed') === '1');
   const { user } = useAuth();
   const { outletId } = useParams();
   const basePath = outletId ? `/hotel/outlets/${outletId}` : '';
@@ -43,9 +44,17 @@ export default function DashboardLayout() {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
+  const toggleCollapsed = () => {
+    setCollapsed(c => {
+      const next = !c;
+      localStorage.setItem('aviqr_sidebar_collapsed', next ? '1' : '0');
+      return next;
+    });
+  };
+
   const content = (
-    <div className="layout">
-      <Sidebar liveOrderCount={liveOrderCount} basePath={basePath} />
+    <div className={`layout ${collapsed ? 'sidebar-collapsed' : ''}`}>
+      <Sidebar liveOrderCount={liveOrderCount} basePath={basePath} collapsed={collapsed} onToggleCollapse={toggleCollapsed} />
       <div className="layout-main">
         <Topbar onSearchOpen={() => setSearchOpen(true)} />
         <main className="layout-content">

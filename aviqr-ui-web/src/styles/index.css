@@ -33,6 +33,7 @@
 
   /* Layout */
   --sidebar-w: 240px;
+  --sidebar-w-collapsed: 68px;
   --topbar-h: 64px;
   --radius-sm: 8px;
   --radius-md: 12px;

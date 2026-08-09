@@ -8,19 +8,9 @@ import {
   MapPin, Loader2,
 } from 'lucide-react';
 
-// Converts an uploaded file to a data URL — same pattern as menu item image
-// upload (Menu.jsx) since there's no dedicated shop-asset storage endpoint.
-function readFileAsDataUrl(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = e => res(e.target.result);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-}
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
-import { shopApi, authApi, menuApi, aggregatorConfigApi, planApi, offerApi } from '../api/index.js';
+import { shopApi, authApi, menuApi, mediaApi, aggregatorConfigApi, planApi, offerApi } from '../api/index.js';
 
 const DAYS  = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const LANGS = [
@@ -126,6 +116,7 @@ export default function Settings() {
   });
   const [locating, setLocating] = useState(false);
   const [locErr, setLocErr] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef(null);
   const [hours, setHours] = useState(
     DAYS.reduce((a, d) => ({ ...a, [d]:{ open: d !== 'Sunday', from:'09:00', to:'22:00' } }), {})
@@ -233,10 +224,18 @@ export default function Settings() {
   };
   const handleLogoFile = async e => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const dataUrl = await readFileAsDataUrl(file);
-    setShopForm(f => ({ ...f, logoUrl: dataUrl }));
     e.target.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Logo must be under 5 MB.'); return; }
+    setUploadingLogo(true);
+    try {
+      const res = await mediaApi.upload(file, 'logos');
+      setShopForm(f => ({ ...f, logoUrl: res.data.data.url }));
+    } catch (err) {
+      alert(err.response?.data?.message || 'Logo upload failed. Please try again.');
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   // ── Save helpers ─────────────────────────────────────────────────────────
@@ -251,7 +250,13 @@ export default function Settings() {
     finally { setSaving(false); }
   };
 
-  const saveShop = () => saveSection([shopApi.update(shopId, shopForm)]);
+  // Sidebar/Topbar cache the shop logo on `user` (it isn't part of the login payload)
+  // so they don't each re-fetch the shop — update that cache the moment a save
+  // succeeds instead of waiting for a page reload to pick up the new logo.
+  const saveShop = async () => {
+    await saveSection([shopApi.update(shopId, shopForm)]);
+    updateUser({ shopLogoUrl: shopForm.logoUrl });
+  };
 
   const requestCancellation = async () => {
     if (!shopId || cancelRequestedAt) return;
@@ -425,6 +430,7 @@ export default function Settings() {
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div style={{ display:'flex', gap:0, alignItems:'flex-start', minHeight:'calc(100vh - 140px)' }}>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       {/* ── Left sidebar ─────────────────────────────────────────────────── */}
       <div style={{ width:230, flexShrink:0, background:'white', borderRadius:12, border:'1px solid var(--gray-200)', overflow:'hidden', position:'sticky', top:24, marginRight:20 }}>
@@ -492,8 +498,8 @@ export default function Settings() {
                   </div>
                   <input className="field-input" style={{ flex:1 }} placeholder="https://... .jpg / .png / .svg"
                     value={shopForm.logoUrl} onChange={setS('logoUrl')} />
-                  <button type="button" className="btn btn-secondary" style={{ height:34, flexShrink:0 }} onClick={() => logoInputRef.current?.click()}>
-                    <ImageIcon size={14}/> Upload
+                  <button type="button" className="btn btn-secondary" style={{ height:34, flexShrink:0 }} onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}>
+                    {uploadingLogo ? <Loader2 size={14} style={{ animation:'spin 1s linear infinite' }}/> : <ImageIcon size={14}/>} {uploadingLogo ? 'Uploading…' : 'Upload'}
                   </button>
                   {shopForm.logoUrl && (
                     <button type="button" onClick={() => setShopForm(f => ({ ...f, logoUrl:'' }))}

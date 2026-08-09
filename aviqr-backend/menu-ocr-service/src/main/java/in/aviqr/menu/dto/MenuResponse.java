@@ -18,6 +18,7 @@ public class MenuResponse {
     @Data
     public static class ShopInfoDto {
         String name; String tagline; String phone; String address;
+        String logoUrl;
         BigDecimal rating; Integer reviews;
     }
 

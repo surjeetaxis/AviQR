@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, X, Video, Box, ScanLine } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Video, Box, ScanLine, Upload, Download, FileSpreadsheet, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
@@ -57,6 +57,14 @@ export default function Menu() {
   const [catForm,   setCatForm]   = useState({ name:'', emoji:'🍽️' });
   const [catSaving, setCatSaving] = useState(false);
   const [editCatId, setEditCatId] = useState(null);
+
+  // Import (CSV/Excel) modal
+  const [importOpen,     setImportOpen]     = useState(false);
+  const [importPickedFile, setImportPickedFile] = useState(null);
+  const [importing,      setImporting]      = useState(false);
+  const [importResult,   setImportResult]   = useState(null);
+  const [importError,    setImportError]    = useState('');
+  const [downloadingSample, setDownloadingSample] = useState('');
 
   useEffect(() => { loadMenu(); }, [shopId]);
 
@@ -118,6 +126,30 @@ export default function Menu() {
     } catch (err) {
       alert(err.response?.data?.message || 'Delete failed');
     }
+  };
+
+  const openImport = () => {
+    setImportPickedFile(null); setImportResult(null); setImportError('');
+    setImportOpen(true);
+  };
+
+  const runImport = async () => {
+    if (!importPickedFile) return;
+    setImporting(true); setImportError(''); setImportResult(null);
+    try {
+      const res = await menuApi.importFile(shopId, importPickedFile);
+      setImportResult(res.data.data);
+      loadMenu();
+    } catch (err) {
+      setImportError(err.response?.data?.message || 'Import failed. Please check the file and try again.');
+    } finally { setImporting(false); }
+  };
+
+  const downloadSample = async (format) => {
+    setDownloadingSample(format);
+    try { await menuApi.downloadSample(format); }
+    catch { alert('Could not download sample file.'); }
+    finally { setDownloadingSample(''); }
   };
 
   const toggleAvail = async (catId, itemId, current) => {
@@ -214,6 +246,7 @@ export default function Menu() {
             />
           </div>
           <button className="btn btn-secondary" onClick={() => nav('/menu/scan')}><ScanLine size={14} /> Scan Menu</button>
+          <button className="btn btn-secondary" onClick={openImport}><Upload size={14} /> Import CSV/Excel</button>
           <button className="btn btn-secondary" onClick={openAddCat}><Plus size={14} /> Add category</button>
         </div>
       </div>
@@ -376,6 +409,88 @@ export default function Menu() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Import CSV/Excel Modal ── */}
+      {importOpen && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}
+          onClick={() => setImportOpen(false)}>
+          <div style={{ background:'white', borderRadius:16, padding:28, width:'100%', maxWidth:460 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+              <h2 style={{ fontSize:18, fontWeight:700 }}>Import menu from CSV/Excel</h2>
+              <button onClick={() => setImportOpen(false)} style={{ background:'none', border:'none', cursor:'pointer' }}><X size={18}/></button>
+            </div>
+            <p style={{ fontSize:13, color:'var(--gray-500)', marginBottom:18 }}>
+              Bulk-add categories and items from a spreadsheet. Columns: <b>Category, Item Name, Description, Price, Veg, Spicy, Popular</b> (only the first three are required).
+            </p>
+
+            <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+              <button type="button" className="btn btn-secondary" style={{ flex:1, fontSize:12.5 }}
+                disabled={downloadingSample === 'csv'} onClick={() => downloadSample('csv')}>
+                <Download size={13} /> {downloadingSample === 'csv' ? 'Downloading…' : 'Sample CSV'}
+              </button>
+              <button type="button" className="btn btn-secondary" style={{ flex:1, fontSize:12.5 }}
+                disabled={downloadingSample === 'xlsx'} onClick={() => downloadSample('xlsx')}>
+                <Download size={13} /> {downloadingSample === 'xlsx' ? 'Downloading…' : 'Sample Excel'}
+              </button>
+            </div>
+
+            {!importResult && (
+              <>
+                <label
+                  style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, padding:'28px 16px', border:'2px dashed var(--gray-200)', borderRadius:12, cursor:'pointer', marginBottom:16, textAlign:'center' }}>
+                  <FileSpreadsheet size={26} style={{ color:'var(--gray-400)' }} />
+                  <span style={{ fontSize:13, fontWeight:600 }}>
+                    {importPickedFile ? importPickedFile.name : 'Click to choose a .csv or .xlsx file'}
+                  </span>
+                  <input type="file" accept=".csv,.xlsx,.xls" style={{ display:'none' }}
+                    onChange={e => { setImportPickedFile(e.target.files?.[0] || null); setImportError(''); }} />
+                </label>
+
+                {importError && (
+                  <div className="demo-notice" style={{ background:'var(--red-bg)', borderColor:'#FCA5A5', color:'var(--red)', marginBottom:16 }}>
+                    ⚠ {importError}
+                  </div>
+                )}
+
+                <div style={{ display:'flex', gap:10 }}>
+                  <button type="button" className="btn btn-secondary" style={{ flex:1 }} onClick={() => setImportOpen(false)}>Cancel</button>
+                  <button type="button" className="btn btn-primary" style={{ flex:1 }} disabled={!importPickedFile || importing} onClick={runImport}>
+                    {importing ? 'Importing…' : 'Import'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {importResult && (
+              <>
+                <div className="demo-notice" style={{ background:'var(--green-light)', borderColor:'var(--green-mid)', color:'var(--green-darker)', display:'flex', alignItems:'center', gap:8, marginBottom: importResult.errors?.length ? 12 : 20 }}>
+                  <CheckCircle2 size={16} /> Added {importResult.itemsCreated} item{importResult.itemsCreated === 1 ? '' : 's'}
+                  {importResult.categoriesCreated > 0 ? ` and ${importResult.categoriesCreated} new categor${importResult.categoriesCreated === 1 ? 'y' : 'ies'}` : ''}.
+                </div>
+
+                {importResult.errors?.length > 0 && (
+                  <div style={{ marginBottom:20 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:12.5, fontWeight:700, color:'var(--gray-700)', marginBottom:6 }}>
+                      <AlertTriangle size={13} style={{ color:'#D97706' }} /> {importResult.errors.length} row{importResult.errors.length === 1 ? '' : 's'} skipped
+                    </div>
+                    <div style={{ maxHeight:140, overflowY:'auto', border:'1px solid var(--gray-100)', borderRadius:8, padding:'6px 10px' }}>
+                      {importResult.errors.map((e, i) => (
+                        <div key={i} style={{ fontSize:12, color:'var(--gray-500)', padding:'3px 0' }}>Row {e.row}: {e.message}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display:'flex', gap:10 }}>
+                  <button type="button" className="btn btn-secondary" style={{ flex:1 }}
+                    onClick={() => { setImportResult(null); setImportPickedFile(null); }}>Import another file</button>
+                  <button type="button" className="btn btn-primary" style={{ flex:1 }} onClick={() => setImportOpen(false)}>Done</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

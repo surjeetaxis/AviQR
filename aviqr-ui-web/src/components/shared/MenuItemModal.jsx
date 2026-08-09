@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Video, Box, Image as ImageIcon } from 'lucide-react';
+import { X, Video, Box, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { mediaApi } from '../../api/index.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -20,15 +21,6 @@ function loadModelViewerScript() {
   s.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js';
   s.setAttribute('data-mv-loader', '1');
   document.head.appendChild(s);
-}
-
-function readFileAsDataUrl(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = e => res(e.target.result);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
 }
 
 // ── Media preview components ───────────────────────────────────────────────────
@@ -114,6 +106,9 @@ export default function MenuItemModal({ title, submitLabel, initialForm, onSave,
   const [form, setForm] = useState({ ...EMPTY_MENU_ITEM, ...initialForm });
   const [mediaTab, setMediaTab] = useState(initialForm?.mediaType || 'NONE');
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingModel, setUploadingModel] = useState(false);
 
   const imgInputRef   = useRef(null);
   const videoInputRef = useRef(null);
@@ -134,33 +129,61 @@ export default function MenuItemModal({ title, submitLabel, initialForm, onSave,
 
   const handleImageFile = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert('Image must be under 2 MB for local preview. Use a CDN URL for production.'); return; }
-    set('imageUrl', await readFileAsDataUrl(file));
+    if (file.size > 5 * 1024 * 1024) { alert('Image must be under 5 MB.'); return; }
+    setUploadingImage(true);
+    try {
+      const res = await mediaApi.upload(file, 'menu-items');
+      set('imageUrl', res.data.data.url);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Image upload failed. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleVideoFile = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
     if (file.size > 20 * 1024 * 1024) {
       alert('Video files > 20 MB should be hosted on YouTube or Vimeo. Paste the URL above instead.');
       return;
     }
-    set('videoUrl', await readFileAsDataUrl(file));
+    setUploadingVideo(true);
+    try {
+      const res = await mediaApi.upload(file, 'menu-videos', 'video');
+      set('videoUrl', res.data.data.url);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Video upload failed. Please try again.');
+    } finally {
+      setUploadingVideo(false);
+    }
   };
 
   const handleModelFile = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
       alert('3D model > 10 MB. Please host it on a CDN and paste the URL instead.');
       return;
     }
-    set('modelUrl', await readFileAsDataUrl(file));
+    setUploadingModel(true);
+    try {
+      const res = await mediaApi.upload(file, 'menu-models', 'model');
+      set('modelUrl', res.data.data.url);
+    } catch (err) {
+      alert(err.response?.data?.message || '3D model upload failed. Please try again.');
+    } finally {
+      setUploadingModel(false);
+    }
   };
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       <div style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 560, maxHeight: '92vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 0' }}>
@@ -215,8 +238,8 @@ export default function MenuItemModal({ title, submitLabel, initialForm, onSave,
                       onChange={e => set('imageUrl', e.target.value)}
                       style={{ flex: 1 }}
                     />
-                    <button type="button" className="media-upload-btn" onClick={() => imgInputRef.current?.click()} title="Upload from device">
-                      <ImageIcon size={14} /> Upload
+                    <button type="button" className="media-upload-btn" onClick={() => imgInputRef.current?.click()} disabled={uploadingImage} title="Upload from device">
+                      {uploadingImage ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <ImageIcon size={14} />} {uploadingImage ? 'Uploading…' : 'Upload'}
                     </button>
                     <input ref={imgInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageFile} />
                   </div>
@@ -238,8 +261,8 @@ export default function MenuItemModal({ title, submitLabel, initialForm, onSave,
                       onChange={e => set('videoUrl', e.target.value)}
                       style={{ flex: 1 }}
                     />
-                    <button type="button" className="media-upload-btn" onClick={() => videoInputRef.current?.click()} title="Upload from device (≤20 MB)">
-                      <Video size={14} /> Upload
+                    <button type="button" className="media-upload-btn" onClick={() => videoInputRef.current?.click()} disabled={uploadingVideo} title="Upload from device (≤20 MB)">
+                      {uploadingVideo ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Video size={14} />} {uploadingVideo ? 'Uploading…' : 'Upload'}
                     </button>
                     <input ref={videoInputRef} type="file" accept="video/*" style={{ display: 'none' }} onChange={handleVideoFile} />
                   </div>
@@ -261,8 +284,8 @@ export default function MenuItemModal({ title, submitLabel, initialForm, onSave,
                       onChange={e => set('modelUrl', e.target.value)}
                       style={{ flex: 1 }}
                     />
-                    <button type="button" className="media-upload-btn" onClick={() => modelInputRef.current?.click()} title="Upload from device (≤10 MB)">
-                      <Box size={14} /> Upload
+                    <button type="button" className="media-upload-btn" onClick={() => modelInputRef.current?.click()} disabled={uploadingModel} title="Upload from device (≤10 MB)">
+                      {uploadingModel ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Box size={14} />} {uploadingModel ? 'Uploading…' : 'Upload'}
                     </button>
                     <input ref={modelInputRef} type="file" accept=".glb,.gltf" style={{ display: 'none' }} onChange={handleModelFile} />
                   </div>

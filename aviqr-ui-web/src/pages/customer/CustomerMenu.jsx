@@ -435,6 +435,7 @@ function normalizeApiShop(data) {
     nameHi: shop.nameHi || shop.name,
     tagline: shop.tagline || '',
     emoji: shop.emoji || '🍽',
+    logoUrl: shop.logoUrl || '',
     rating: shop.rating || 4.5,
     reviews: shop.reviews || 0,
     timing: shop.timing || shop.openingHours || '9 AM – 11 PM',
@@ -774,7 +775,9 @@ export default function CustomerMenu() {
       {/* ── Shop banner ── */}
       <div className="cm-shop-banner" style={{ '--shop-color': shop.color }}>
         <div className="cm-shop-emoji-wrap">
-          <span className="cm-shop-emoji">{shop.emoji}</span>
+          {shop.logoUrl
+            ? <img src={shop.logoUrl} alt={`${shop.name} logo`} className="cm-shop-logo-img" />
+            : <span className="cm-shop-emoji">{shop.emoji}</span>}
         </div>
         <div className="cm-shop-info">
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>

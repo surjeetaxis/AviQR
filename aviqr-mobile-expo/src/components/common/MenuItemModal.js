@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert, Modal, ScrollView } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Switch, Alert, Modal, ScrollView, ActivityIndicator } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Button } from './Button.js';
 import { Input } from './Input.js';
+import { mediaApi } from '../../api/index.js';
 import { Colors, FontSize, Radius } from '../../theme/index.js';
 
 export const EMPTY_MENU_ITEM = {
@@ -19,12 +21,37 @@ export function MenuItemModal({ visible, title, submitLabel, initialForm, onSave
   const [form, setForm] = useState(initialForm || EMPTY_MENU_ITEM);
   const [saving, setSaving] = useState(false);
   const [showTranslations, setShowTranslations] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (visible) { setForm(initialForm || EMPTY_MENU_ITEM); setShowTranslations(false); }
   }, [visible]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const pickAndUploadImage = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Please allow photo library access to upload an image.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+      Alert.alert('Image too large', 'Please choose an image under 5 MB.');
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const res = await mediaApi.upload(asset, 'menu-items');
+      set('imageUrl', res.data.data.url);
+    } catch (err) {
+      Alert.alert('Upload failed', err.response?.data?.message || 'Could not upload image. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!form.name || !form.price) { Alert.alert('Required', 'Name and price are required'); return; }
@@ -60,7 +87,17 @@ export function MenuItemModal({ visible, title, submitLabel, initialForm, onSave
             </TouchableOpacity>
           ))}
         </View>
-        <Input label="Image URL" placeholder="https://…jpg" value={form.imageUrl} onChangeText={v => set('imageUrl', v)} autoCapitalize="none" />
+        <View style={ss.imageRow}>
+          {form.imageUrl ? <Image source={{ uri: form.imageUrl }} style={ss.imageThumb} /> : null}
+          <View style={{ flex: 1 }}>
+            <Input label="Image URL" placeholder="https://…jpg" value={form.imageUrl} onChangeText={v => set('imageUrl', v)} autoCapitalize="none" />
+          </View>
+        </View>
+        <TouchableOpacity style={ss.uploadBtn} onPress={pickAndUploadImage} disabled={uploadingImage}>
+          {uploadingImage
+            ? <ActivityIndicator size="small" color={Colors.primary} />
+            : <Text style={ss.uploadBtnTxt}>📷 Upload from device</Text>}
+        </TouchableOpacity>
         {form.mediaType === 'VIDEO' && <Input label="Video URL" placeholder="https://…mp4 or YouTube link" value={form.videoUrl} onChangeText={v => set('videoUrl', v)} autoCapitalize="none" />}
         {form.mediaType === 'MODEL_3D' && <Input label="3D Model URL (.glb/.gltf)" placeholder="https://…glb" value={form.modelUrl} onChangeText={v => set('modelUrl', v)} autoCapitalize="none" />}
 
@@ -96,4 +133,8 @@ const ss = StyleSheet.create({
   mediaChipTxt: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray700 },
   mediaChipTxtActive: { color: Colors.white },
   translationsToggle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary, marginTop: 14, marginBottom: 8 },
+  imageRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+  imageThumb: { width: 44, height: 44, borderRadius: Radius.md, backgroundColor: Colors.gray100, marginBottom: 6 },
+  uploadBtn: { height: 40, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 8, marginBottom: 4 },
+  uploadBtnTxt: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray700 },
 });

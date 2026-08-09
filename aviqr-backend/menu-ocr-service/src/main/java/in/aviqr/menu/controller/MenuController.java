@@ -3,6 +3,7 @@ import in.aviqr.menu.dto.*;
 import in.aviqr.menu.entity.*;
 import in.aviqr.menu.repository.*;
 import in.aviqr.menu.service.DynamicPricingService;
+import in.aviqr.menu.service.MenuImportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ public class MenuController {
     private final MenuAddonRepository addonRepo;
     private final DynamicPricingService pricingService;
     private final RestTemplate restTemplate;
+    private final MenuImportService importService;
 
     // ── Public endpoint — called by customer QR scan ──────────────────────────
     @GetMapping("/api/v1/menu/public/{shopId}")
@@ -98,6 +100,7 @@ public class MenuController {
             MenuResponse.ShopInfoDto dto = new MenuResponse.ShopInfoDto();
             dto.setName(s.getName()); dto.setTagline(s.getTagline());
             dto.setPhone(s.getPhone()); dto.setAddress(s.getAddress());
+            dto.setLogoUrl(s.getLogoUrl());
             dto.setRating(s.getRating()); dto.setReviews(s.getRatingCount());
             return dto;
         } catch (Exception e) {
@@ -190,6 +193,45 @@ public class MenuController {
     public ResponseEntity<ApiResponse<Void>> deleteItem(@PathVariable UUID id) {
         itemRepo.deleteById(id);
         return ResponseEntity.ok(ApiResponse.ok("Deleted", null));
+    }
+
+    // ── Bulk import from CSV/Excel ────────────────────────────────────────────
+    @PostMapping("/api/v1/menu/import")
+    public ResponseEntity<ApiResponse<MenuImportService.ImportResult>> importMenu(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam String shopId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId) {
+        if ("OWNER".equals(role) && !callerShopId.isBlank() && !callerShopId.equals(shopId))
+            return ResponseEntity.status(403).body(ApiResponse.error("Shop mismatch"));
+        if (file.isEmpty()) return ResponseEntity.badRequest().body(ApiResponse.error("File is empty"));
+        try {
+            MenuImportService.ImportResult result = importService.importFile(shopId, file);
+            log.info("Menu import for shop {}: {} categories, {} items, {} row errors",
+                shopId, result.getCategoriesCreated(), result.getItemsCreated(), result.getErrors().size());
+            return ResponseEntity.ok(ApiResponse.ok("Import complete", result));
+        } catch (Exception e) {
+            log.warn("Menu import failed for shop {}: {}", shopId, e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.error("Could not read file: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/api/v1/menu/import/sample.csv")
+    public ResponseEntity<byte[]> sampleCsv() {
+        byte[] body = importService.sampleCsv();
+        return ResponseEntity.ok()
+            .header("Content-Type", "text/csv")
+            .header("Content-Disposition", "attachment; filename=\"aviqr-menu-sample.csv\"")
+            .body(body);
+    }
+
+    @GetMapping("/api/v1/menu/import/sample.xlsx")
+    public ResponseEntity<byte[]> sampleXlsx() throws java.io.IOException {
+        byte[] body = importService.sampleXlsx();
+        return ResponseEntity.ok()
+            .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            .header("Content-Disposition", "attachment; filename=\"aviqr-menu-sample.xlsx\"")
+            .body(body);
     }
 
     // ── Pricing Rules ─────────────────────────────────────────────────────────

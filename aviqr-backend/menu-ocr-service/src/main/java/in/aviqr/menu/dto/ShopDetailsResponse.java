@@ -10,6 +10,7 @@ public class ShopDetailsResponse {
     private String tagline;
     private String phone;
     private String address;
+    private String logoUrl;
     private BigDecimal rating;
     private Integer ratingCount;
 }

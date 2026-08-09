@@ -10,7 +10,58 @@
   flex-direction: column;
   z-index: 50;
   border-right: 1px solid var(--gray-800);
-  transition: transform .25s ease;
+  transition: transform .25s ease, width .2s ease;
+}
+
+/* ─── Collapsed (icon-only) mode ──────────────────────────────────────────── */
+.sidebar.sidebar-collapsed {
+  width: var(--sidebar-w-collapsed);
+}
+.sidebar.sidebar-collapsed .sidebar-wordmark,
+.sidebar.sidebar-collapsed .sidebar-shop-info,
+.sidebar.sidebar-collapsed .sidebar-group-label,
+.sidebar.sidebar-collapsed .sidebar-link span,
+.sidebar.sidebar-collapsed .sidebar-badge,
+.sidebar.sidebar-collapsed .sidebar-role-tag,
+.sidebar.sidebar-collapsed .sidebar-logout span,
+.sidebar.sidebar-collapsed .sidebar-version {
+  display: none;
+}
+.sidebar.sidebar-collapsed .sidebar-header {
+  justify-content: center;
+  padding: 18px 0 16px;
+}
+.sidebar.sidebar-collapsed .sidebar-logo { gap: 0; }
+.sidebar.sidebar-collapsed .sidebar-shop-card {
+  justify-content: center;
+  padding: 12px 0;
+}
+.sidebar.sidebar-collapsed .sidebar-link,
+.sidebar.sidebar-collapsed .sidebar-logout {
+  justify-content: center;
+  padding: 10px;
+}
+
+.sidebar-collapse-toggle {
+  position: absolute;
+  top: 64px;
+  right: -11px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--gray-800);
+  border: 1px solid var(--gray-700);
+  color: var(--gray-300);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 51;
+  transition: background .15s, color .15s;
+}
+.sidebar-collapse-toggle:hover {
+  background: var(--green-darker);
+  color: var(--white);
 }
 
 .sidebar-header {
@@ -90,7 +141,9 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
 }
+.sidebar-shop-logo-img { width: 100%; height: 100%; object-fit: cover; }
 
 .sidebar-shop-info { flex: 1; min-width: 0; }
 .sidebar-shop-name {
