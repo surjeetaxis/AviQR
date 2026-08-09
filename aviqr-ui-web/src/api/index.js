@@ -6,6 +6,7 @@ import { getActiveOutletId, getActiveToken } from './outletContext.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const APP_VERSION = '1.0.0';
 
 export const api = axios.create({
   baseURL: BASE_URL,
@@ -32,6 +33,11 @@ api.interceptors.request.use((config) => {
     if (user.shopId) config.headers['X-Shop-Id']   = user.shopId;
     if (user.role)   config.headers['X-User-Role'] = user.role.toUpperCase();
   } catch {}
+  // Lets support/admin session analytics tell web logins apart from mobile —
+  // see aviqr-mobile-expo's resolveDevHost()-adjacent header set for the
+  // mobile-side equivalent of this.
+  config.headers['X-Platform'] = 'WEB';
+  config.headers['X-App-Version'] = APP_VERSION;
   return config;
 });
 

@@ -130,7 +130,7 @@ export default function MallDashboard() {
         <div className="admin-user-card">
           <div className="admin-avatar" style={{background:'var(--blue)'}}>{user?.avatar||'FM'}</div>
           <div>
-            <div className="admin-user-name">{user?.mallName||'Forum Mall'}</div>
+            <div className="admin-user-name">{mall?.name||user?.mallName||'Mall'}</div>
             <div className="admin-user-role">Mall Admin · {vendors.length} vendors</div>
           </div>
         </div>
@@ -150,7 +150,7 @@ export default function MallDashboard() {
       <div className="admin-main">
         <header className="admin-topbar">
           <button className="admin-mobile-menu" onClick={()=>setSidebarOpen(o=>!o)}><MenuIcon size={20}/></button>
-          <span style={{fontWeight:700,fontSize:15}}>{user?.mallName||'Forum Mall'} — Food Court</span>
+          <span style={{fontWeight:700,fontSize:15}}>{mall?.name||user?.mallName||'Mall'} — Food Court</span>
           <div style={{display:'flex',alignItems:'center',gap:10,marginLeft:'auto'}}>
             <LangPicker/>
             <ProfileMenu
@@ -168,7 +168,7 @@ export default function MallDashboard() {
           </div>
         </header>
         <main className="admin-content">
-          {tab==='overview'    && <MallOverview vendors={vendors} onNav={setTab}/>}
+          {tab==='overview'    && <MallOverview vendors={vendors} onNav={setTab} mall={mall}/>}
           {tab==='vendors'     && <VendorsFull vendors={vendors} onToggle={toggleVendor} onAdd={addVendor} onRemove={removeVendor} onInvite={inviteRestaurant}/>}
           {tab==='orders'      && <MallOrdersTab vendors={vendors}/>}
           {tab==='revenue'     && <RevenueShare vendors={vendors}/>}
@@ -185,13 +185,13 @@ export default function MallDashboard() {
   );
 }
 
-function MallOverview({vendors,onNav}) {
+function MallOverview({vendors,onNav,mall}) {
   const totalRev=vendors.reduce((a,v)=>a+v.revenue,0);
   const totalComm=vendors.reduce((a,v)=>a+v.commission,0);
   const totalOrders=vendors.reduce((a,v)=>a+v.orders,0);
   return (
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
-      <div className="page-header"><div><h1 className="page-title">Forum Mall — Food Court</h1><p className="page-subtitle">Bengaluru · {vendors.filter(v=>v.status==='active').length} vendors open</p></div></div>
+      <div className="page-header"><div><h1 className="page-title">{mall?.name||'Mall'} — Food Court</h1><p className="page-subtitle">{mall?.city?`${mall.city} · `:''}{vendors.filter(v=>v.status==='active').length} vendors open</p></div></div>
       <div className="admin-kpi-grid">
         {[
           {label:'Active vendors',value:vendors.filter(v=>v.status==='active').length,icon:Store,color:'green'},
