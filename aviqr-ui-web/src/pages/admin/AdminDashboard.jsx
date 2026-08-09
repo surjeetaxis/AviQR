@@ -274,7 +274,7 @@ function AdminOverview({ ps, us, onNav, onRefresh }) {
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
             {roleData.map((r, i) => (
-              <button key={r.role} className="admin-row-btn" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, padding: '4px 8px' }}
+              <button key={r.role} className="admin-legend-btn" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, padding: '4px 8px' }}
                 onClick={() => onNav('users', r.role)}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: ROLE_PIE_COLORS[i % ROLE_PIE_COLORS.length], display: 'inline-block' }}/>
                 <span style={{ textTransform: 'capitalize' }}>{r.role}</span>
