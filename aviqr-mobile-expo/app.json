@@ -24,12 +24,7 @@
         "NSLocationWhenInUseUsageDescription": "AviQR uses your location to show restaurants near you.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false,
-          "NSAllowsLocalNetworking": true,
-          "NSExceptionDomains": {
-            "65.109.133.21": {
-              "NSExceptionAllowsInsecureHTTPLoads": true
-            }
-          }
+          "NSAllowsLocalNetworking": true
         }
       }
     },

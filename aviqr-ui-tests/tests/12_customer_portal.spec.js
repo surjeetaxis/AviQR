@@ -16,7 +16,7 @@ test.describe('Customer Portal — bottom nav shell present on all 3 QR flows', 
   test('Restaurant menu (/menu/:shopId) keeps its URL and gets the shell nav', async ({ page }) => {
     await page.goto(`/menu/${SPICE_ROUTE_SHOP_ID}`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('.cps-nav')).toBeVisible();
+    await expect(page.locator('.bn-wrap')).toBeVisible();
     await expect(page.locator('.cm-shop-name')).toBeVisible();
     await page.screenshot({ path: 'screenshots/portal-1-menu-with-shell.png', fullPage: true });
   });
@@ -24,14 +24,14 @@ test.describe('Customer Portal — bottom nav shell present on all 3 QR flows', 
   test('Food court (/food-court/:mallId) keeps its URL and gets the shell nav', async ({ page }) => {
     await page.goto(`/food-court/${FORUM_MALL_ID}`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('.cps-nav')).toBeVisible();
+    await expect(page.locator('.bn-wrap')).toBeVisible();
     await expect(page.getByText('Forum Mall Bengaluru')).toBeVisible();
     await page.screenshot({ path: 'screenshots/portal-2-foodcourt-with-shell.png', fullPage: true });
   });
 
   test('Portal Home with no scanned context shows the "scan a QR" empty state', async ({ page }) => {
     await page.goto('/portal/home');
-    await expect(page.locator('.cps-nav')).toBeVisible();
+    await expect(page.locator('.bn-wrap')).toBeVisible();
     await expect(page.getByText('Scan a QR to get started')).toBeVisible();
   });
 });
@@ -73,14 +73,14 @@ test('Full order flow: browse anonymously → login prompted at checkout → rea
   await page.screenshot({ path: 'screenshots/portal-5-real-order-confirmed.png', fullPage: true });
 
   // 4. Same logged-in session, same tab — the real order now appears in Orders history.
-  await page.click('.cps-nav-item:has-text("Orders")');
+  await page.click('.bn-item[aria-label="Orders"]');
   await page.waitForURL(url => url.pathname === '/portal/orders');
   await expect(page.getByText('My Orders')).toBeVisible({ timeout: 8_000 });
   await expect(page.getByText('Playwright Test Customer').or(page.locator('text=/#.+/')).first()).toBeVisible({ timeout: 8_000 });
   await page.screenshot({ path: 'screenshots/portal-6-orders-tab-with-real-order.png', fullPage: true });
 
   // 5. Profile tab shows the real logged-in phone.
-  await page.click('.cps-nav-item:has-text("Profile")');
+  await page.click('.bn-item[aria-label="Profile"]');
   await page.waitForURL(url => url.pathname === '/portal/profile');
   await expect(page.getByText(phone)).toBeVisible({ timeout: 8_000 });
   await page.screenshot({ path: 'screenshots/portal-7-profile-tab.png', fullPage: true });

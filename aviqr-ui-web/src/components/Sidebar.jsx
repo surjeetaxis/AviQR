@@ -92,7 +92,7 @@ export default function Sidebar({ mobileOpen, onClose, liveOrderCount = 0, baseP
     return perms.includes(to.replace('/', ''));
   };
 
-  const handleLogout = () => { onClose(); logout(); navigate('/'); };
+  const handleLogout = () => { onClose?.(); logout(); navigate('/'); };
 
   return (
     <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''} ${collapsed ? 'sidebar-collapsed' : ''}`}>
