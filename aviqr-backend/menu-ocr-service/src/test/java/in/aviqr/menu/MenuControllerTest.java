@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import in.aviqr.menu.entity.*;
 import in.aviqr.menu.repository.*;
 import in.aviqr.menu.service.DynamicPricingService;
+import in.aviqr.menu.service.MenuImportService;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -38,6 +39,7 @@ class MenuControllerTest {
     @MockBean PricingRuleRepository  ruleRepo;
     @MockBean DynamicPricingService  pricingService;
     @MockBean RestTemplate           restTemplate; // MenuController fetches shop info (name/rating/etc.) for the public menu banner
+    @MockBean MenuImportService      importService;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
