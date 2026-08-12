@@ -32,7 +32,7 @@ export default function Login() {
     if(!email||!pw) return setErr('Enter email and password');
     setLoad(true); setErr('');
     try { const u=await login(email,pw); router.replace(homeFor(u.role)); }
-    catch(e){ setErr(e.response?.data?.message||'Invalid credentials.'); }
+    catch(e){ setErr(e.response ? (e.response.data?.message||'Invalid credentials.') : 'Could not reach the server. Check your connection.'); }
     finally { setLoad(false); }
   };
 

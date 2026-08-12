@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AviQR — Launch Readiness Checklist</title>
+<style>
+  :root {
+    --bg: #F6F8F7;
+    --surface: #FFFFFF;
+    --surface-alt: #EDF3F0;
+    --border: #D9E2DD;
+    --text: #142420;
+    --text-muted: #52655E;
+    --text-faint: #7D8D87;
+    --accent: #1D9E75;
+    --accent-strong: #106B4E;
+    --accent-wash: #E4F4EE;
+    --amber: #9A6300;
+    --amber-wash: #FBF0DC;
+    --slate: #4A5A64;
+    --slate-wash: #E9EEF1;
+    --code-bg: #EEF2F0;
+    --danger: #B23B3B;
+    --shadow: 0 1px 2px rgba(20, 36, 32, 0.04), 0 8px 24px rgba(20, 36, 32, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0D1512;
+      --surface: #131E1A;
+      --surface-alt: #182420;
+      --border: #263B33;
+      --text: #E8F1EC;
+      --text-muted: #9FB4AC;
+      --text-faint: #71887F;
+      --accent: #37C795;
+      --accent-strong: #6FE0B6;
+      --accent-wash: #17332A;
+      --amber: #E3AE55;
+      --amber-wash: #332A16;
+      --slate: #A9BAC2;
+      --slate-wash: #1B2A30;
+      --code-bg: #182420;
+      --danger: #E08585;
+      --shadow: 0 1px 2px rgba(0,0,0,0.2), 0 12px 32px rgba(0,0,0,0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0D1512;
+    --surface: #131E1A;
+    --surface-alt: #182420;
+    --border: #263B33;
+    --text: #E8F1EC;
+    --text-muted: #9FB4AC;
+    --text-faint: #71887F;
+    --accent: #37C795;
+    --accent-strong: #6FE0B6;
+    --accent-wash: #17332A;
+    --amber: #E3AE55;
+    --amber-wash: #332A16;
+    --slate: #A9BAC2;
+    --slate-wash: #1B2A30;
+    --code-bg: #182420;
+    --danger: #E08585;
+    --shadow: 0 1px 2px rgba(0,0,0,0.2), 0 12px 32px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    margin: 0;
+    padding: 0 20px 96px;
+  }
+
+  .page { max-width: 900px; margin: 0 auto; }
+
+  h1, h2, h3 {
+    font-family: ui-serif, Georgia, "Iowan Old Style", "Times New Roman", serif;
+    font-weight: 600;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  code, .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+
+  /* ---------- Header ---------- */
+  header.doc-head { padding: 56px 0 32px; border-bottom: 1px solid var(--border); }
+
+  .eyebrow {
+    font-size: 12.5px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--accent-strong); margin: 0 0 14px;
+  }
+
+  h1 { font-size: clamp(28px, 4vw, 38px); letter-spacing: -0.01em; color: var(--text); margin-bottom: 14px; }
+
+  .dek { font-size: 16.5px; color: var(--text-muted); max-width: 64ch; margin: 0 0 16px; }
+  .dek.small { font-size: 13.5px; margin: 0 0 22px; }
+
+  .meta-strip { display: flex; flex-wrap: wrap; gap: 10px 22px; font-size: 13px; color: var(--text-faint); }
+  .meta-strip span { display: inline-flex; align-items: baseline; gap: 6px; }
+  .meta-strip b { color: var(--text-muted); font-weight: 600; }
+
+  .quicknav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .quicknav a {
+    font-size: 12.5px; font-weight: 600; color: var(--text-muted); text-decoration: none;
+    padding: 5px 11px; border-radius: 100px; border: 1px solid var(--border); background: var(--surface);
+  }
+  .quicknav a:hover { color: var(--accent-strong); border-color: var(--accent); }
+
+  /* ---------- Progress card ---------- */
+  .progress-card {
+    margin-top: 22px; padding: 16px 20px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow);
+  }
+  .progress-label {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+    font-size: 13.5px; color: var(--text-muted); margin-bottom: 9px; font-variant-numeric: tabular-nums;
+  }
+  .progress-label b { color: var(--text); font-weight: 700; }
+  .progress-track { height: 7px; border-radius: 100px; background: var(--surface-alt); border: 1px solid var(--border); overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 100px; transition: width 0.3s ease; }
+  .toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 13px; }
+  .btn-ghost {
+    font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent-strong); }
+  .btn-ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .storage-note { font-size: 12px; color: var(--text-faint); margin-top: 11px; }
+
+  /* ---------- Legend / chips ---------- */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0 8px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+    letter-spacing: 0.02em; padding: 5px 10px; border-radius: 100px; border: 1px solid transparent; white-space: nowrap;
+  }
+  .chip.required { background: var(--accent-wash); color: var(--accent-strong); }
+  .chip.recommended { background: var(--amber-wash); color: var(--amber); }
+  .chip.existing { background: var(--slate-wash); color: var(--slate); }
+
+  /* ---------- Status toggle (accounts) ---------- */
+  .status-toggle {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+    padding: 5px 12px 5px 9px; border-radius: 100px; background: var(--slate-wash); color: var(--slate);
+    cursor: pointer; user-select: none; transition: background 0.15s, color 0.15s;
+  }
+  .status-toggle input { width: 14px; height: 14px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+  .status-toggle.done, .status-toggle:has(input:checked) { background: var(--accent-wash); color: var(--accent-strong); }
+  .status-toggle:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- Account category sections ---------- */
+  section.category { margin-top: 48px; }
+  .category-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; }
+  .category-label {
+    font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-faint); white-space: nowrap;
+  }
+  .category-rule { height: 1px; background: var(--border); flex: 1; }
+
+  .account-list { display: flex; flex-direction: column; gap: 14px; }
+  .account { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; box-shadow: var(--shadow); }
+  .account-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+  .account-badges { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .account-id { font-size: 11.5px; color: var(--text-faint); letter-spacing: 0.04em; margin-bottom: 3px; }
+  .account-name { font-size: 17.5px; font-weight: 600; color: var(--text); margin: 0; }
+  .account-purpose { font-size: 14.5px; color: var(--text-muted); margin: 10px 0 14px; max-width: 66ch; }
+
+  .account-detail { display: grid; grid-template-columns: 88px 1fr; gap: 6px 14px; font-size: 13.5px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .account-detail dt { color: var(--text-faint); font-weight: 600; font-size: 12px; letter-spacing: 0.03em; text-transform: uppercase; padding-top: 5px; }
+  .account-detail dd { margin: 0 0 8px; color: var(--text-muted); }
+  .account-detail code { background: var(--code-bg); color: var(--text); padding: 1.5px 5px; border-radius: 4px; font-size: 12.5px; }
+  .access-divider { grid-column: 1 / -1; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent-strong); margin: 4px 0 2px; padding-top: 0; }
+
+  .account-detail input[type="text"] {
+    width: 100%; border: none; border-bottom: 1px dashed var(--border); background: transparent;
+    color: var(--text); font: inherit; font-size: 13.5px; padding: 3px 1px 6px;
+  }
+  .account-detail input[type="text"]::placeholder { color: var(--text-faint); font-style: italic; }
+  .account-detail input[type="text"]:focus { outline: none; border-bottom-color: var(--accent); }
+
+  /* ---------- Section blocks (Servers / Web / Backend / DB / Android / iOS) ---------- */
+  .section-block { margin-top: 58px; padding-top: 28px; border-top: 2px solid var(--border); scroll-margin-top: 20px; }
+  .section-head-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+  .section-title { font-size: 23px; margin: 0; }
+  .section-count { font-size: 13px; color: var(--text-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .section-sub { font-size: 14px; color: var(--text-muted); margin: 10px 0 20px; max-width: 66ch; }
+
+  .check-list { display: flex; flex-direction: column; gap: 10px; }
+  .check-row {
+    display: flex; gap: 12px; align-items: flex-start; padding: 13px 16px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--surface); cursor: pointer; box-shadow: var(--shadow);
+  }
+  .check-row input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+  .check-row .check-text { font-size: 14px; color: var(--text-muted); line-height: 1.5; }
+  .check-row .check-text strong { color: var(--text); font-weight: 600; }
+  .check-row.done, .check-row:has(input:checked) { background: var(--accent-wash); border-color: var(--accent); }
+  .check-row.done .check-text strong, .check-row:has(input:checked) .check-text strong { color: var(--accent-strong); }
+  .check-row.done .check-text, .check-row:has(input:checked) .check-text { text-decoration: line-through; text-decoration-color: var(--text-faint); opacity: 0.75; }
+  .check-row:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- Server table ---------- */
+  .server-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); }
+  .server-table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 720px; }
+  .server-table th {
+    text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint);
+    padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface-alt); white-space: nowrap;
+  }
+  .server-table td { padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .server-table tr:last-child td { border-bottom: none; }
+  .server-table input[type="text"] { width: 100%; min-width: 90px; border: none; background: transparent; color: var(--text); font: inherit; font-size: 13px; padding: 6px 4px; border-radius: 4px; }
+  .server-table input[type="text"]::placeholder { color: var(--text-faint); font-style: italic; }
+  .server-table input[type="text"]:focus { outline: none; background: var(--surface-alt); }
+  .server-table select {
+    font: inherit; font-size: 12.5px; border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 6px; background: var(--surface); color: var(--text);
+  }
+  .server-row-status {
+    display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; padding: 5px 10px;
+    border-radius: 100px; background: var(--slate-wash); color: var(--slate); cursor: pointer; border: none; white-space: nowrap;
+  }
+  .server-row-status.done { background: var(--accent-wash); color: var(--accent-strong); }
+  .server-remove {
+    background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 15px; line-height: 1; padding: 6px; border-radius: 6px;
+  }
+  .server-remove:hover { color: var(--danger); background: var(--surface-alt); }
+  .server-empty { padding: 20px 14px; color: var(--text-faint); font-style: italic; font-size: 13.5px; }
+
+  /* ---------- Footnote ---------- */
+  .footnote { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-faint); max-width: 66ch; }
+
+  @media (max-width: 520px) {
+    .account-detail { grid-template-columns: 1fr; }
+    .account-detail dt { padding-top: 6px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="doc-head">
+    <p class="eyebrow">AviQR · Full Application Launch</p>
+    <h1>Launch Readiness Checklist</h1>
+    <p class="dek">Every account, server, and platform-specific step needed to take AviQR from this repo to production — accounts, servers, web, backend, database, Android, and iOS.</p>
+    <p class="dek small">Web/backend/database steps are written generically — this repo only contains the Expo mobile app, so adapt them to your actual backend/infra repo and stack.</p>
+    <div class="meta-strip">
+      <span><b>iOS/Android package</b> <code class="mono">in.aviqr.app</code></span>
+      <span><b>API</b> <code class="mono">api.aviqr.in</code></span>
+      <span><b>Compiled from</b> app.json, eas.json, Info.plist, privacy.js</span>
+      <span><b>Generated</b> Aug 11, 2026</span>
+    </div>
+    <nav class="quicknav">
+      <a href="#accounts">Accounts</a>
+      <a href="#servers">Servers</a>
+      <a href="#web">Web</a>
+      <a href="#backend">Backend</a>
+      <a href="#database">Database</a>
+      <a href="#android">Android</a>
+      <a href="#ios">iOS</a>
+    </nav>
+
+    <div class="progress-card">
+      <div class="progress-label">
+        <span><b id="progress-count">0</b> of 13 accounts marked done</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="toolbar-actions">
+        <button type="button" class="btn-ghost" id="export-data">Export data (.json)</button>
+        <button type="button" class="btn-ghost" id="import-trigger">Import data</button>
+        <input type="file" id="import-file" accept="application/json" style="display: none;">
+        <button type="button" class="btn-ghost" id="copy-summary">Copy status summary</button>
+        <button type="button" class="btn-ghost" id="reset-fills">Reset my fills</button>
+      </div>
+      <p class="storage-note">Everything saves to <em>this browser only</em> (no server, nothing written back into this file) — click <strong>Export data</strong> for a permanent snapshot you can keep, share, or commit to git, and <strong>Import data</strong> to load one back in (here or in any other browser).</p>
+    </div>
+  </header>
+
+  <!-- ================= ACCOUNTS ================= -->
+  <div id="accounts">
+    <div class="legend" style="margin-top: 40px;">
+      <span class="chip required">Required — blocks launch</span>
+      <span class="chip recommended">Recommended</span>
+      <span class="chip existing">Already provisioned / in use</span>
+    </div>
+    <p class="dek small" style="margin-top: 10px;">Each entry tracks <em>where</em> access lives — login used, 2FA status, which vault holds the credential — not the password itself. Keep the actual secret in a shared password manager (1Password, Bitwarden, etc.) and reference it here.</p>
+
+    <!-- PLATFORM -->
+    <section class="category">
+      <div class="category-head">
+        <span class="category-label">App Store Accounts</span>
+        <span class="category-rule"></span>
+      </div>
+      <div class="account-list">
+
+        <article class="account" data-id="ACC-01">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-01</p>
+              <h3 class="account-name">Apple Developer Account</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip required">Required</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">Publishes <code class="mono">in.aviqr.app</code> to the App Store, signs builds, and issues the APNs key that powers order and low-stock push notifications and TestFlight betas.</p>
+          <dl class="account-detail">
+            <dt>Set up</dt><dd>Apple ID enrolled in the Apple Developer Program (US$99/yr) · App Store Connect access · APNs Auth Key (.p8) for push · app already declares camera, photo library, notification, location and Face ID usage strings.</dd>
+            <dt>Owner</dt><dd>Use a shared company Apple ID, not a personal one — losing access to a personal ID is the single most common App Store lockout.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Apple ID email —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+        <article class="account" data-id="ACC-02">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-02</p>
+              <h3 class="account-name">Google Play Console</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip required">Required</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">Publishes <code class="mono">in.aviqr.app</code> to the Play Store, manages app signing, and handles staged rollouts.</p>
+          <dl class="account-detail">
+            <dt>Set up</dt><dd>Google account enrolled in Play Console (US$25 one-time) · app signing key · service account JSON so EAS Submit / CI can upload builds automatically.</dd>
+            <dt>Owner</dt><dd>Same shared Google account used for Workspace/Gmail below.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Google account email —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- CLOUD -->
+    <section class="category">
+      <div class="category-head">
+        <span class="category-label">Cloud Infrastructure</span>
+        <span class="category-rule"></span>
+      </div>
+      <div class="account-list">
+
+        <article class="account" data-id="ACC-03">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-03</p>
+              <h3 class="account-name">AWS Account</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip required">Required</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">Hosts the <code class="mono">api.aviqr.in</code> backend, stores menu images and QR assets, and optionally sends transactional email via SES.</p>
+          <dl class="account-detail">
+            <dt>Set up</dt><dd>Root account + separate IAM users, billing alerts, S3 buckets, Route 53 if DNS lives here.</dd>
+            <dt>Owner</dt><dd>Backend / infra lead.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the AWS root/IAM login —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+        <article class="account" data-id="ACC-04">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-04</p>
+              <h3 class="account-name">GCP Account</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip required">Required</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">Runs Firebase Cloud Messaging for Android push, and the Maps/Places API behind the "restaurants near you" location feature.</p>
+          <dl class="account-detail">
+            <dt>Set up</dt><dd>Firebase project linked to <code class="mono">in.aviqr.app</code> · FCM service account key · Maps API key restricted to the Android package + release SHA-1.</dd>
+            <dt>Owner</dt><dd>Mobile lead.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the GCP account email —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+        <article class="account" data-id="ACC-05">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-05</p>
+              <h3 class="account-name">Hetzner Account</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip required">Required</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">VPS / dedicated servers for backend services, databases, or a self-managed Elastic cluster, if infra isn't fully on AWS.</p>
+          <dl class="account-detail">
+            <dt>Set up</dt><dd>Project + SSH keys, firewall rules, billing contact.</dd>
+            <dt>Owner</dt><dd>Infra / DevOps.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Hetzner account email —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- OBSERVABILITY -->
+    <section class="category">
+      <div class="category-head">
+        <span class="category-label">Search &amp; Observability</span>
+        <span class="category-rule"></span>
+      </div>
+      <div class="account-list">
+
+        <article class="account" data-id="ACC-06">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-06</p>
+              <h3 class="account-name">Elastic Account</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip recommended">Recommended</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">Backend logging, order search, and monitoring dashboards.</p>
+          <dl class="account-detail">
+            <dt>Set up</dt><dd>Elastic Cloud deployment, or a self-hosted cluster on Hetzner/AWS · API keys for backend ingestion.</dd>
+            <dt>Owner</dt><dd>Backend / infra lead.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Elastic Cloud login —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- MESSAGING -->
+    <section class="category">
+      <div class="category-head">
+        <span class="category-label">Messaging &amp; Notifications</span>
+        <span class="category-rule"></span>
+      </div>
+      <div class="account-list">
+
+        <article class="account" data-id="ACC-07">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-07</p>
+              <h3 class="account-name">WhatsApp Business Platform</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip required">Required</span>
+              <span class="chip existing">In use: Twilio</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">Sends order updates and OTPs over WhatsApp. Confirmed in this repo's own privacy policy (<code class="mono">app/privacy.js</code>): "Twilio — SMS/WhatsApp notifications (phone number, order summary)." No separate Gupshup/Interakt/Meta Cloud API integration appears anywhere else in the codebase.</p>
+          <dl class="account-detail">
+            <dt>Set up</dt><dd>Twilio account with WhatsApp Business API enabled · Meta Business Manager verification (Twilio brokers this, but Meta still requires a verified business) · approved message templates for order updates.</dd>
+            <dt>Owner</dt><dd>Product / ops lead — business verification is the slow step, start it early. Likely the <em>same</em> Twilio account as the SMS gateway below — confirm before creating a second one.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Twilio console login —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+        <article class="account" data-id="ACC-08">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-08</p>
+              <h3 class="account-name">SMS Gateway</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip required">Required</span>
+              <span class="chip existing">In use: Twilio</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">OTP delivery and SMS fallback for order status — same provider (Twilio) as WhatsApp above, per <code class="mono">app/privacy.js</code>.</p>
+          <dl class="account-detail">
+            <dt>Set up</dt><dd>Twilio account (shared with WhatsApp, above) · DLT sender-ID registration (mandatory for transactional SMS in India) · API keys.</dd>
+            <dt>Owner</dt><dd>Backend lead.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Twilio console login —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- EMAIL -->
+    <section class="category">
+      <div class="category-head">
+        <span class="category-label">Email &amp; Collaboration</span>
+        <span class="category-rule"></span>
+      </div>
+      <div class="account-list">
+
+        <article class="account" data-id="ACC-09">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-09</p>
+              <h3 class="account-name">Gmail / Google Workspace</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip required">Required</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">Runs <code class="mono">support@aviqr.in</code> (already referenced in app.json) and the shared login used for Play Console, GCP and Firebase above.</p>
+          <dl class="account-detail">
+            <dt>Set up</dt><dd>Workspace domain verification for <code class="mono">aviqr.in</code> · support@ and any team mailboxes.</dd>
+            <dt>Owner</dt><dd>Founder / admin.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Workspace admin email —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- FLAGGED FROM CODEBASE -->
+    <section class="category">
+      <div class="category-head">
+        <span class="category-label">Also Flagged From the Codebase</span>
+        <span class="category-rule"></span>
+      </div>
+      <div class="account-list">
+
+        <article class="account" data-id="ACC-10">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-10</p>
+              <h3 class="account-name">Expo / EAS Account</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip existing">Already provisioned</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">Owns the build and submit pipeline.</p>
+          <dl class="account-detail">
+            <dt>Detail</dt><dd>Currently owned by <code class="mono">surjeet8229</code>, project <code class="mono">d81c568d-2c01-4ec3-9492-5301b71c9783</code>. Confirm who else needs access, or move it to a shared org account before launch.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— confirm the Expo account email —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+        <article class="account" data-id="ACC-11">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-11</p>
+              <h3 class="account-name">Sentry</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip recommended">Recommended</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">Crash and error reporting for the mobile app.</p>
+          <dl class="account-detail">
+            <dt>Detail</dt><dd><code class="mono">app.json</code> already has an empty <code class="mono">sentryDsn</code> placeholder — create a Sentry project and drop the DSN in before release.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Sentry account email —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+        <article class="account" data-id="ACC-12">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-12</p>
+              <h3 class="account-name">Domain Registrar &amp; DNS</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip required">Required</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">Controls <code class="mono">aviqr.in</code>, which resolves <code class="mono">api.aviqr.in</code> and the privacy/terms pages the app links to.</p>
+          <dl class="account-detail">
+            <dt>Detail</dt><dd>Find out who currently holds the registrar login and DNS access before it becomes a launch-week scramble.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the registrar account email —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+        <article class="account" data-id="ACC-13">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-13</p>
+              <h3 class="account-name">Payment Gateway</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip existing">In use: Razorpay</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">Referenced in <code class="mono">app/privacy.js</code>: "Razorpay — payment processing (order amount, contact details)."</p>
+          <dl class="account-detail">
+            <dt>Set up</dt><dd>Razorpay business account, KYC, API keys (test + live).</dd>
+            <dt>Owner</dt><dd>Founder / finance lead.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Razorpay account email —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+      </div>
+    </section>
+  </div>
+
+  <!-- ================= SERVERS ================= -->
+  <div class="section-block" id="servers">
+    <div class="section-head-row">
+      <h2 class="section-title">Server List</h2>
+    </div>
+    <p class="section-sub">Track wherever AviQR actually runs. Add a row per server, VM, or managed service — nothing is pre-filled since real infra details aren't visible from this mobile repo.</p>
+
+    <div class="server-table-wrap">
+      <table class="server-table">
+        <thead>
+          <tr><th>Name</th><th>Host / IP</th><th>Provider</th><th>Purpose</th><th>Env</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody id="server-tbody"></tbody>
+      </table>
+    </div>
+    <button type="button" class="btn-ghost" id="add-server" style="margin-top: 12px;">+ Add server</button>
+  </div>
+
+  <!-- ================= WEB ================= -->
+  <div class="section-block" id="web">
+    <div class="section-head-row">
+      <h2 class="section-title">Web</h2>
+      <span class="section-count" data-count-for="web">0/5 done</span>
+    </div>
+    <p class="section-sub">The public-facing surface: <code class="mono">aviqr.in</code>, the privacy/terms pages the app links to, and Expo's static web export.</p>
+    <div class="check-list">
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-1"><span class="check-text"><strong>Domain &amp; DNS</strong> — aviqr.in resolves and points at production hosting.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-2"><span class="check-text"><strong>SSL certificate</strong> — HTTPS valid on both aviqr.in and api.aviqr.in.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-3"><span class="check-text"><strong>Legal pages deployed</strong> — /privacy and /terms live, matching app.json's <code class="mono">privacyPolicyUrl</code> / <code class="mono">termsUrl</code>.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-4"><span class="check-text"><strong>Web build exported</strong> — Expo's static web output (per app.json's <code class="mono">web.bundler: metro</code>) built and hosted, if a public web app ships alongside the mobile apps.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-5"><span class="check-text"><strong>Support inbox live</strong> — support@aviqr.in receiving mail and monitored.</span></label>
+    </div>
+  </div>
+
+  <!-- ================= BACKEND ================= -->
+  <div class="section-block" id="backend">
+    <div class="section-head-row">
+      <h2 class="section-title">Backend</h2>
+      <span class="section-count" data-count-for="backend">0/5 done</span>
+    </div>
+    <p class="section-sub">The API behind <code class="mono">api.aviqr.in</code> — wherever it actually lives (AWS, Hetzner, etc.), not part of this mobile repo.</p>
+    <div class="check-list">
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="backend" data-check-id="backend-1"><span class="check-text"><strong>API reachable</strong> — api.aviqr.in responds over HTTPS from production infrastructure.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="backend" data-check-id="backend-2"><span class="check-text"><strong>Secrets loaded from vault</strong> — Twilio, Razorpay, Firebase/FCM, and Maps API keys pulled from a secrets store, not hardcoded.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="backend" data-check-id="backend-3"><span class="check-text"><strong>Push delivery verified</strong> — a real APNs and FCM test push has been delivered to a physical device.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="backend" data-check-id="backend-4"><span class="check-text"><strong>Logging &amp; monitoring wired</strong> — Elastic (or equivalent) receiving backend logs, alerts configured.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="backend" data-check-id="backend-5"><span class="check-text"><strong>Abuse protection</strong> — rate limiting on public endpoints, especially OTP and order creation.</span></label>
+    </div>
+  </div>
+
+  <!-- ================= DATABASE ================= -->
+  <div class="section-block" id="database">
+    <div class="section-head-row">
+      <h2 class="section-title">Database</h2>
+      <span class="section-count" data-count-for="database">0/5 done</span>
+    </div>
+    <p class="section-sub">Wherever order, menu, and account data is persisted in production.</p>
+    <div class="check-list">
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="database" data-check-id="db-1"><span class="check-text"><strong>Production DB provisioned</strong> — engine, size, and region decided and running.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="database" data-check-id="db-2"><span class="check-text"><strong>Automated backups</strong> — scheduled, and a restore has actually been test-run once.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="database" data-check-id="db-3"><span class="check-text"><strong>Migrations applied</strong> — schema matches the backend release being shipped.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="database" data-check-id="db-4"><span class="check-text"><strong>Access locked down</strong> — reachable only from the backend's own network/VPC, not the open internet.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="database" data-check-id="db-5"><span class="check-text"><strong>Connection string in vault</strong> — not committed to a repo or left in plaintext EAS secrets.</span></label>
+    </div>
+  </div>
+
+  <!-- ================= ANDROID ================= -->
+  <div class="section-block" id="android">
+    <div class="section-head-row">
+      <h2 class="section-title">Android</h2>
+      <span class="section-count" data-count-for="android">0/5 done</span>
+    </div>
+    <p class="section-sub">Shipping <code class="mono">in.aviqr.app</code> to the Play Store.</p>
+    <div class="check-list">
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="android" data-check-id="android-1"><span class="check-text"><strong>Play Console listing ready</strong> — screenshots, description, content rating, and Data Safety form filled in.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="android" data-check-id="android-2"><span class="check-text"><strong>Signing key generated &amp; backed up</strong> — Play App Signing enrolled, upload key stored safely.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="android" data-check-id="android-3"><span class="check-text"><strong>Internal testing track passed</strong> — build installed and smoke-tested on a real device.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="android" data-check-id="android-4"><span class="check-text"><strong>Permissions reviewed</strong> — camera, location, notification, and audio permissions in app.json match what the Play listing discloses.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="android" data-check-id="android-5"><span class="check-text"><strong>Production release submitted</strong> — build uploaded via EAS Submit, rollout percentage set.</span></label>
+    </div>
+  </div>
+
+  <!-- ================= IOS ================= -->
+  <div class="section-block" id="ios">
+    <div class="section-head-row">
+      <h2 class="section-title">iOS</h2>
+      <span class="section-count" data-count-for="ios">0/5 done</span>
+    </div>
+    <p class="section-sub">Shipping <code class="mono">in.aviqr.app</code> to the App Store.</p>
+    <div class="check-list">
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="ios" data-check-id="ios-1"><span class="check-text"><strong>App Store Connect listing ready</strong> — screenshots, description, and privacy nutrition label filled in.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="ios" data-check-id="ios-2"><span class="check-text"><strong>APNs key uploaded</strong> — push certificate configured for order and status notifications.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="ios" data-check-id="ios-3"><span class="check-text"><strong>TestFlight build tested</strong> — internal testers have run the real build end-to-end.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="ios" data-check-id="ios-4"><span class="check-text"><strong>Usage strings reviewed</strong> — camera, photo library, location, and Face ID descriptions in Info.plist match actual behavior.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="ios" data-check-id="ios-5"><span class="check-text"><strong>Submitted for App Review</strong> — build uploaded via EAS Submit, awaiting Apple's decision.</span></label>
+    </div>
+  </div>
+
+  <p class="footnote">Compiled from what's actually in this repo — app.json, eas.json, ios/AviQR/Info.plist, and app/privacy.js — as of Aug 11, 2026. Web/backend/database items are generic best practice, not confirmed by code, since this repo only holds the Expo mobile app. Server list starts empty by design — fill in your real infrastructure.</p>
+
+</div>
+
+<script>
+(function () {
+  var ACCOUNTS_KEY = 'aviqr-accounts-v1';
+  var CHECKLIST_KEY = 'aviqr-checklist-v1';
+  var SERVERS_KEY = 'aviqr-servers-v1';
+  var TOTAL_ACCOUNTS = document.querySelectorAll('.account[data-id]').length;
+
+  function loadJSON(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (e) { return fallback; }
+  }
+  function saveJSON(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+  }
+
+  /* ---------- Accounts ---------- */
+  var accountState = loadJSON(ACCOUNTS_KEY, {});
+
+  function updateAccountProgress() {
+    var done = 0;
+    document.querySelectorAll('.account .status-checkbox').forEach(function (cb) { if (cb.checked) done++; });
+    var pct = TOTAL_ACCOUNTS ? Math.round((done / TOTAL_ACCOUNTS) * 100) : 0;
+    document.getElementById('progress-count').textContent = done;
+    document.getElementById('progress-pct').textContent = pct + '%';
+    document.getElementById('progress-fill').style.width = pct + '%';
+  }
+
+  document.querySelectorAll('.account[data-id]').forEach(function (article) {
+    var id = article.dataset.id;
+    var entry = accountState[id] || {};
+    var checkbox = article.querySelector('.status-checkbox');
+    var toggle = article.querySelector('.status-toggle');
+    var text = article.querySelector('.status-text');
+    checkbox.checked = !!entry.done;
+    text.textContent = checkbox.checked ? 'Done' : 'Pending';
+    toggle.classList.toggle('done', checkbox.checked);
+
+    checkbox.addEventListener('change', function () {
+      var s = loadJSON(ACCOUNTS_KEY, {});
+      s[id] = s[id] || {};
+      s[id].done = checkbox.checked;
+      saveJSON(ACCOUNTS_KEY, s);
+      text.textContent = checkbox.checked ? 'Done' : 'Pending';
+      toggle.classList.toggle('done', checkbox.checked);
+      updateAccountProgress();
+    });
+
+    article.querySelectorAll('input[data-field]').forEach(function (input) {
+      var field = input.dataset.field;
+      if (entry[field]) input.value = entry[field];
+      input.addEventListener('input', function () {
+        var s = loadJSON(ACCOUNTS_KEY, {});
+        s[id] = s[id] || {};
+        s[id][field] = input.value;
+        saveJSON(ACCOUNTS_KEY, s);
+      });
+    });
+  });
+
+  document.getElementById('export-data').addEventListener('click', function () {
+    var payload = {
+      exportedAt: new Date().toISOString(),
+      accounts: loadJSON(ACCOUNTS_KEY, {}),
+      checklist: loadJSON(CHECKLIST_KEY, {}),
+      servers: loadJSON(SERVERS_KEY, [])
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'aviqr-launch-status.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('import-trigger').addEventListener('click', function () {
+    document.getElementById('import-file').click();
+  });
+
+  document.getElementById('import-file').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var data = JSON.parse(reader.result);
+        if (data.accounts) saveJSON(ACCOUNTS_KEY, data.accounts);
+        if (data.checklist) saveJSON(CHECKLIST_KEY, data.checklist);
+        if (data.servers) saveJSON(SERVERS_KEY, data.servers);
+        location.reload();
+      } catch (err) {
+        alert('Could not read that file — is it a JSON export from this page?');
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('reset-fills').addEventListener('click', function (e) {
+    var btn = e.currentTarget;
+    if (btn.dataset.armed === 'true') {
+      try { localStorage.removeItem(ACCOUNTS_KEY); localStorage.removeItem(CHECKLIST_KEY); localStorage.removeItem(SERVERS_KEY); } catch (err) {}
+      location.reload();
+    } else {
+      btn.dataset.armed = 'true';
+      var original = btn.textContent;
+      btn.textContent = 'Click again to confirm';
+      setTimeout(function () { btn.dataset.armed = 'false'; btn.textContent = original; }, 3000);
+    }
+  });
+
+  document.getElementById('copy-summary').addEventListener('click', function () {
+    var lines = ['AviQR launch status —', '', 'Accounts:'];
+    document.querySelectorAll('.account[data-id]').forEach(function (article) {
+      var id = article.dataset.id;
+      var name = article.querySelector('.account-name').textContent;
+      var done = article.querySelector('.status-checkbox').checked;
+      lines.push((done ? '[done] ' : '[pending] ') + id + ' — ' + name);
+    });
+    ['web', 'backend', 'database', 'android', 'ios'].forEach(function (cat) {
+      lines.push('', cat.charAt(0).toUpperCase() + cat.slice(1) + ':');
+      document.querySelectorAll('.check-item[data-category="' + cat + '"]').forEach(function (cb) {
+        var label = cb.closest('.check-row').querySelector('strong').textContent;
+        lines.push((cb.checked ? '[done] ' : '[pending] ') + label);
+      });
+    });
+    var text = lines.join('\n');
+    var btn = document.getElementById('copy-summary');
+    var original = btn.textContent;
+    function flash(msg) { btn.textContent = msg; setTimeout(function () { btn.textContent = original; }, 1600); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { flash('Copied'); }, function () { flash('Copy failed'); });
+    } else {
+      flash('Copy unsupported');
+    }
+  });
+
+  /* ---------- Generic checklists (web/backend/database/android/ios) ---------- */
+  var checklistState = loadJSON(CHECKLIST_KEY, {});
+
+  function updateChecklistCount(category) {
+    var items = document.querySelectorAll('.check-item[data-category="' + category + '"]');
+    var done = 0;
+    items.forEach(function (cb) { if (cb.checked) done++; });
+    var el = document.querySelector('.section-count[data-count-for="' + category + '"]');
+    if (el) el.textContent = done + '/' + items.length + ' done';
+  }
+
+  document.querySelectorAll('.check-item').forEach(function (cb) {
+    var checkId = cb.dataset.checkId;
+    var category = cb.dataset.category;
+    var row = cb.closest('.check-row');
+    cb.checked = !!checklistState[checkId];
+    row.classList.toggle('done', cb.checked);
+
+    cb.addEventListener('change', function () {
+      var s = loadJSON(CHECKLIST_KEY, {});
+      s[checkId] = cb.checked;
+      saveJSON(CHECKLIST_KEY, s);
+      row.classList.toggle('done', cb.checked);
+      updateChecklistCount(category);
+    });
+  });
+
+  ['web', 'backend', 'database', 'android', 'ios'].forEach(updateChecklistCount);
+
+  /* ---------- Server list ---------- */
+  var servers = loadJSON(SERVERS_KEY, []);
+  var tbody = document.getElementById('server-tbody');
+
+  function makeInputCell(srv, field, placeholder) {
+    var td = document.createElement('td');
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = placeholder;
+    input.value = srv[field] || '';
+    input.addEventListener('input', function () { srv[field] = input.value; saveJSON(SERVERS_KEY, servers); });
+    td.appendChild(input);
+    return td;
+  }
+
+  function makeSelectCell(srv, field, options) {
+    var td = document.createElement('td');
+    var select = document.createElement('select');
+    if (!srv[field]) srv[field] = options[0];
+    options.forEach(function (opt) {
+      var o = document.createElement('option');
+      o.value = opt; o.textContent = opt;
+      if (srv[field] === opt) o.selected = true;
+      select.appendChild(o);
+    });
+    select.addEventListener('change', function () { srv[field] = select.value; saveJSON(SERVERS_KEY, servers); });
+    td.appendChild(select);
+    return td;
+  }
+
+  function renderServers() {
+    tbody.innerHTML = '';
+    if (servers.length === 0) {
+      var tr = document.createElement('tr');
+      var td = document.createElement('td');
+      td.colSpan = 7;
+      td.className = 'server-empty';
+      td.textContent = 'No servers added yet — click "+ Add server" below.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    servers.forEach(function (srv) {
+      var tr = document.createElement('tr');
+      tr.appendChild(makeInputCell(srv, 'name', 'e.g. api-prod-1'));
+      tr.appendChild(makeInputCell(srv, 'host', 'host or IP'));
+      tr.appendChild(makeSelectCell(srv, 'provider', ['AWS', 'GCP', 'Hetzner', 'Azure', 'Other']));
+      tr.appendChild(makeInputCell(srv, 'purpose', 'e.g. API, DB, Elastic'));
+      tr.appendChild(makeSelectCell(srv, 'env', ['Production', 'Staging', 'Dev']));
+
+      var statusTd = document.createElement('td');
+      var statusBtn = document.createElement('button');
+      statusBtn.type = 'button';
+      statusBtn.className = 'server-row-status' + (srv.done ? ' done' : '');
+      statusBtn.textContent = srv.done ? 'Provisioned' : 'Pending';
+      statusBtn.addEventListener('click', function () {
+        srv.done = !srv.done;
+        statusBtn.classList.toggle('done', srv.done);
+        statusBtn.textContent = srv.done ? 'Provisioned' : 'Pending';
+        saveJSON(SERVERS_KEY, servers);
+      });
+      statusTd.appendChild(statusBtn);
+      tr.appendChild(statusTd);
+
+      var removeTd = document.createElement('td');
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'server-remove';
+      removeBtn.setAttribute('aria-label', 'Remove server');
+      removeBtn.textContent = '✕';
+      removeBtn.addEventListener('click', function () {
+        servers = servers.filter(function (s) { return s.id !== srv.id; });
+        saveJSON(SERVERS_KEY, servers);
+        renderServers();
+      });
+      removeTd.appendChild(removeBtn);
+      tr.appendChild(removeTd);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('add-server').addEventListener('click', function () {
+    var id = 'srv-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    servers.push({ id: id, name: '', host: '', provider: 'AWS', purpose: '', env: 'Production', done: false });
+    saveJSON(SERVERS_KEY, servers);
+    renderServers();
+    var lastInput = tbody.querySelector('tr:last-child input[type="text"]');
+    if (lastInput) lastInput.focus();
+  });
+
+  renderServers();
+  updateAccountProgress();
+})();
+</script>
+</body>
+</html>

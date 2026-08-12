@@ -43,7 +43,8 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -76,7 +77,12 @@
       "termsUrl": "https://aviqr.in/terms",
       "supportEmail": "support@aviqr.in",
       "sentryDsn": "",
-      "sentryNote": "Set sentryDsn to your Sentry DSN from sentry.io project settings"
-    }
+      "sentryNote": "Set sentryDsn to your Sentry DSN from sentry.io project settings",
+      "router": {},
+      "eas": {
+        "projectId": "d81c568d-2c01-4ec3-9492-5301b71c9783"
+      }
+    },
+    "owner": "surjeet8229"
   }
 }
