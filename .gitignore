@@ -12,6 +12,7 @@ out/
 *.war
 *.ear
 !aviqr-backend/gradle/wrapper/gradle-wrapper.jar
+!aviqr-mobile-expo/android/gradle/wrapper/gradle-wrapper.jar
 
 # =========================
 # Logs & PIDs
