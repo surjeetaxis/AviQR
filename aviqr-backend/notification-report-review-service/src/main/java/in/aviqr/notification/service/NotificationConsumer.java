@@ -1,5 +1,6 @@
 package in.aviqr.notification.service;
 
+import in.aviqr.notification.config.NotificationRabbitConfig;
 import in.aviqr.notification.config.RabbitMQConfig;
 import in.aviqr.notification.entity.Notification;
 import in.aviqr.notification.repository.NotificationRepository;
@@ -17,6 +18,7 @@ public class NotificationConsumer {
     private final NotificationRepository repo;
     private final WaSenderWhatsAppService whatsApp;
     private final ElasticEmailService     email;
+    private final TwilioSmsService        sms;
 
     // ── New order placed ──────────────────────────────────────────────────────
     @SuppressWarnings("unchecked")
@@ -109,6 +111,15 @@ public class NotificationConsumer {
                 "⚠️ *Low Stock Alert*\n*%s* is running low — only *%d* remaining.\nUpdate in AviQR dashboard.",
                 itemName, remaining));
         }
+    }
+
+    // ── Login/register OTP (triggered by auth-service via RabbitMQ) ──────────
+    @RabbitListener(queues = NotificationRabbitConfig.OTP_REQUESTED_QUEUE)
+    public void onOtpRequested(Map<String, Object> event) {
+        String phone = str(event, "phone");
+        String otp   = str(event, "otp");
+        if (phone == null || phone.isBlank() || otp == null || otp.isBlank()) return;
+        sms.send(phone, "Your AviQR verification code is " + otp + ". Valid for 10 minutes. Do not share this code.");
     }
 
     // ── Welcome email (triggered by auth-service via RabbitMQ on register) ───

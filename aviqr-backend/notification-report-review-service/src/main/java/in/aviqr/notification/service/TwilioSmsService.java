@@ -5,7 +5,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Plain SMS via Twilio (CRM campaigns — birthday/anniversary wishes, segment broadcasts).
+ * Plain SMS via Twilio (login/register OTP delivery, plus CRM campaigns — birthday/anniversary
+ * wishes, segment broadcasts).
  * Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_SMS_FROM in .env
  * Set app.sms.enabled=true to activate (false = logs only, safe for dev)
  */

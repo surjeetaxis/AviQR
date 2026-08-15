@@ -107,8 +107,11 @@ public class AuthService {
                 .build();
         otpRepo.save(record);
 
-        // In production: send via Twilio / SMS gateway
-        log.info("OTP for {}: {} (send via SMS in production)", req.getPhone(), otp);
+        try {
+            rabbit.convertAndSend("aviqr.users", "otp.requested",
+                Map.of("phone", req.getPhone(), "otp", otp));
+        } catch (Exception e) { log.warn("Failed to publish otp.requested event: {}", e.getMessage()); }
+        log.info("OTP requested for {}", req.getPhone());
         return "OTP sent to " + req.getPhone().substring(0, 6) + "****";
     }
 
