@@ -295,7 +295,7 @@ export default function Onboarding({ onComplete }) {
                 <QrCode size={64} color="#1D9E75" />
               </div>
               <p style={{ fontSize: 13, color: '#6B7280', marginTop: 12 }}>
-                Your QR menu link: <strong>aviqr.in/menu/{shopId?.slice(0,8)}…</strong>
+                Your QR menu link: <strong>aviqr.com/menu/{shopId?.slice(0,8)}…</strong>
               </p>
             </div>
             {err && <p style={styles.errMsg}>{err}</p>}

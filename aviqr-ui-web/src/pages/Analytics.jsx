@@ -249,8 +249,8 @@ export default function Analytics() {
         <div style={{ background:'#EFF6FF', border:'1px solid #BFDBFE', borderRadius:8, padding:'12px 16px', fontSize:13, color:'#1D4ED8', marginBottom:16 }}>
           <strong>Aggregator Integration</strong> — Orders from Zomato and Swiggy appear here when you configure the webhook URL in your aggregator partner portal. All orders flow into the same queue as dine-in and takeaway orders.
           <div style={{ marginTop:6, fontSize:12 }}>
-            Zomato webhook URL: <code style={{ background:'#DBEAFE', padding:'1px 6px', borderRadius:4 }}>https://api.aviqr.in/api/v1/aggregator/zomato/webhook</code><br/>
-            Swiggy webhook URL: <code style={{ background:'#DBEAFE', padding:'1px 6px', borderRadius:4 }}>https://api.aviqr.in/api/v1/aggregator/swiggy/webhook</code>
+            Zomato webhook URL: <code style={{ background:'#DBEAFE', padding:'1px 6px', borderRadius:4 }}>https://api.aviqr.com/api/v1/aggregator/zomato/webhook</code><br/>
+            Swiggy webhook URL: <code style={{ background:'#DBEAFE', padding:'1px 6px', borderRadius:4 }}>https://api.aviqr.com/api/v1/aggregator/swiggy/webhook</code>
           </div>
         </div>
 

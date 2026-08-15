@@ -275,7 +275,7 @@ export default function Settings() {
           )}
           {shop?.subscriptionStatus === 'TRIAL_EXPIRED' && (
             <View style={[ss.trialBanner, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' }]}>
-              <Text style={[ss.trialBannerTxt, { color: '#991B1B' }]}>⚠ Your free trial has ended. Contact support@aviqr.in to continue, or you'll be moved back to Starter.</Text>
+              <Text style={[ss.trialBannerTxt, { color: '#991B1B' }]}>⚠ Your free trial has ended. Contact support@aviqr.com to continue, or you'll be moved back to Starter.</Text>
             </View>
           )}
           {shop?.cancelRequestedAt && shop?.subscriptionStatus !== 'CANCELED' && (
@@ -291,7 +291,7 @@ export default function Settings() {
             <Text style={ss.planPrice}>{planInfo.price > 0 ? `₹${planInfo.price}/mo` : 'Free'}</Text>
           </View>
           <Text style={ss.planHint}>Plans are managed on the web — subscribe or change plans there and it reflects here automatically.</Text>
-          <TouchableOpacity onPress={() => Linking.openURL('https://aviqr.in/#pricing')} style={{ marginTop: 6 }}>
+          <TouchableOpacity onPress={() => Linking.openURL('https://aviqr.com/#pricing')} style={{ marginTop: 6 }}>
             <Text style={{ fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary }}>Manage subscription on web →</Text>
           </TouchableOpacity>
           {planInfo.price > 0 && shop?.subscriptionStatus !== 'CANCELED' && !shop?.cancelRequestedAt && (

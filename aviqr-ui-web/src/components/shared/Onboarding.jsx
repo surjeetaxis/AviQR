@@ -229,7 +229,7 @@ export default function Onboarding() {
                 <div className="onb-qr-icon"><QrCode size={48} style={{color:'var(--green)'}}/></div>
                 <h1 className="onb-title">Your QR code is ready!</h1>
                 <p className="onb-sub">Scan it now to preview your customer menu. Print and place it on your tables.</p>
-                <div className="onb-qr-url">aviqr.in/menu/{form.name.toLowerCase().replace(/\s+/g,'-')||'your-shop'}</div>
+                <div className="onb-qr-url">aviqr.com/menu/{form.name.toLowerCase().replace(/\s+/g,'-')||'your-shop'}</div>
                 <div className="onb-qr-actions">
                   <button className="onb-dl-btn">📥 Download PNG</button>
                   <button className="onb-dl-btn">🖨 Print sheet</button>

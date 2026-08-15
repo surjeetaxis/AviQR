@@ -53,7 +53,7 @@ export default function FAQPage() {
       <SEO
         title="FAQ — AviQR"
         description="Answers about getting started, pricing, features, payments and security on AviQR."
-        canonical="https://aviqr.in/faq"
+        canonical="https://aviqr.com/faq"
       />
       <SiteHeader />
 

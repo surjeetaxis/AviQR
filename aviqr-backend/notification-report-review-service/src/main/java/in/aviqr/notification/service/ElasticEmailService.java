@@ -28,7 +28,7 @@ public class ElasticEmailService {
     @Value("${elasticemail.api.url:https://api.elasticemail.com/v4/emails/transactional}")
     private String apiUrl;
 
-    @Value("${elasticemail.from:noreply@aviqr.in}")
+    @Value("${elasticemail.from:noreply@aviqr.com}")
     private String fromEmail;
 
     @Value("${app.email.enabled:false}")

@@ -74,7 +74,7 @@ export function TentTemplate({ d, qrImg, compact }) {
           </div>
         )}
         {d.footerOn && <div className="tpl-footer-msg">{d.footerText}</div>}
-        <div className="tpl-brand-tag">Powered by AviQR · aviqr.in</div>
+        <div className="tpl-brand-tag">Powered by AviQR · aviqr.com</div>
       </div>
     </div>
   );
@@ -110,7 +110,7 @@ export function PosterTemplate({ d, qrImg }) {
         </div>
       )}
       <div className="tpl-poster-footer" style={{ background: t.bg, color: t.fg }}>
-        {d.footerOn ? d.footerText + ' · ' : ''}aviqr.in
+        {d.footerOn ? d.footerText + ' · ' : ''}aviqr.com
       </div>
     </div>
   );
@@ -142,7 +142,7 @@ export function CounterTemplate({ d, qrImg }) {
             {d.contactWebsite && <div>🔗 {d.contactWebsite}</div>}
           </div>
         )}
-        <div className="tpl-counter-brand">aviqr.in</div>
+        <div className="tpl-counter-brand">aviqr.com</div>
       </div>
       <div className="tpl-counter-right">
         {qrImg && <img src={qrImg} alt="QR Code" className="tpl-counter-qr" />}

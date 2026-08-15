@@ -32,7 +32,7 @@ export default function AboutPage() {
       <SEO
         title="About AviQR — QR Menu & Restaurant OS for India"
         description="Why we built AviQR: one QR-powered platform for menus, orders, payments and operations across restaurants, hotels, malls and multi-outlet brands in India."
-        canonical="https://aviqr.in/about"
+        canonical="https://aviqr.com/about"
       />
       <SiteHeader />
 

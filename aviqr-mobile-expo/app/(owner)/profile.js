@@ -41,7 +41,7 @@ export default function ProfileScreen() {
         await authApi.deleteAccount?.();
         logout();
       } catch {
-        Alert.alert('Error', 'Account deletion failed. Contact support@aviqr.in');
+        Alert.alert('Error', 'Account deletion failed. Contact support@aviqr.com');
       }
     },
     'Delete my account'

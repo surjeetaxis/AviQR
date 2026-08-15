@@ -7,7 +7,7 @@ import '../landing/Landing.css';
 import './Company.css';
 
 const CHANNELS = [
-  { icon: Mail,  title: 'Support',   desc: 'Product questions, bugs, account help', value: 'support@aviqr.in', href: 'mailto:support@aviqr.in' },
+  { icon: Mail,  title: 'Support',   desc: 'Product questions, bugs, account help', value: 'support@aviqr.com', href: 'mailto:support@aviqr.com' },
   { icon: Phone, title: 'Call us',   desc: 'Mon–Sat, 9 AM – 8 PM IST', value: '+91 98450 00000', href: 'tel:+919845000000' },
   { icon: MapPin,title: 'Office',    desc: 'Registered address', value: 'Bengaluru, Karnataka – 560001', href: null },
 ];
@@ -20,7 +20,7 @@ export default function ContactPage() {
     e.preventDefault();
     const subject = encodeURIComponent(`Website enquiry from ${form.name || 'AviQR visitor'}`);
     const body = encodeURIComponent(`${form.message}\n\n— ${form.name} (${form.email})`);
-    window.location.href = `mailto:support@aviqr.in?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:support@aviqr.com?subject=${subject}&body=${body}`;
   };
 
   return (
@@ -28,7 +28,7 @@ export default function ContactPage() {
       <SEO
         title="Contact AviQR"
         description="Reach the AviQR team for support, sales or grievance escalation."
-        canonical="https://aviqr.in/contact"
+        canonical="https://aviqr.com/contact"
       />
       <SiteHeader />
 
@@ -68,7 +68,7 @@ export default function ContactPage() {
             <textarea id="c-message" required value={form.message} onChange={e => set('message', e.target.value)} placeholder="How can we help?" />
           </div>
           <button type="submit" className="contact-submit">Send message</button>
-          <p className="contact-form-note">Opens your email app addressed to support@aviqr.in — we typically reply within 2 hours during business hours.</p>
+          <p className="contact-form-note">Opens your email app addressed to support@aviqr.com — we typically reply within 2 hours during business hours.</p>
         </form>
 
         <div className="trust-card" style={{ marginTop: 24 }}>
@@ -77,7 +77,7 @@ export default function ContactPage() {
             <div className="trust-title">Grievance Officer</div>
             <div className="trust-desc">
               For DPDP Act / IT Rules grievances that aren't resolved by support, escalate to{' '}
-              <a href="mailto:grievance@aviqr.in">grievance@aviqr.in</a> — response within 30 days.
+              <a href="mailto:grievance@aviqr.com">grievance@aviqr.com</a> — response within 30 days.
             </div>
           </div>
         </div>

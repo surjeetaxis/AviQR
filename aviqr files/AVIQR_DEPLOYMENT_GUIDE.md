@@ -287,7 +287,7 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
 # 3. Test login
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@aviqr.in","password":"Admin@1234"}'
+  -d '{"email":"admin@aviqr.com","password":"Admin@1234"}'
 # Should return accessToken
 
 # 4. Open Eureka dashboard — all services should be green
@@ -476,14 +476,14 @@ Point your domain to the server. In your domain registrar (GoDaddy / Namecheap /
 
 ```
 Type    Name         Value
-A       @            YOUR_SERVER_IP      → aviqr.in
-A       www          YOUR_SERVER_IP      → www.aviqr.in
-A       api          YOUR_SERVER_IP      → api.aviqr.in
+A       @            YOUR_SERVER_IP      → aviqr.com
+A       www          YOUR_SERVER_IP      → www.aviqr.com
+A       api          YOUR_SERVER_IP      → api.aviqr.com
 ```
 
 Wait 5–30 minutes for DNS to propagate, then:
 ```bash
-ping aviqr.in   # should show your server IP
+ping aviqr.com   # should show your server IP
 ```
 
 ---
@@ -518,15 +518,15 @@ TWILIO_PHONE_NUMBER=+1415xxxxxxx
 # SMTP for emails
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=noreply@aviqr.in
+SMTP_USER=noreply@aviqr.com
 SMTP_PASSWORD=your_app_specific_password
 
 # Google Vision for OCR
 GOOGLE_VISION_API_KEY=AIzaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Your actual domain
-APP_BASE_URL=https://aviqr.in
-FRONTEND_URL=https://aviqr.in
+APP_BASE_URL=https://aviqr.com
+FRONTEND_URL=https://aviqr.com
 ```
 
 ---
@@ -646,7 +646,7 @@ npm ci
 
 # Update API URL in frontend
 # Edit src/context/AuthContext.jsx or create a .env.production file
-echo "VITE_API_URL=https://api.aviqr.in" > .env.production
+echo "VITE_API_URL=https://api.aviqr.com" > .env.production
 
 # Build production bundle
 npm run build
@@ -669,17 +669,17 @@ Paste this complete Nginx config:
 # Redirect HTTP to HTTPS
 server {
     listen 80;
-    server_name aviqr.in www.aviqr.in api.aviqr.in;
+    server_name aviqr.com www.aviqr.com api.aviqr.com;
     return 301 https://$host$request_uri;
 }
 
-# Main frontend — aviqr.in
+# Main frontend — aviqr.com
 server {
     listen 443 ssl http2;
-    server_name aviqr.in www.aviqr.in;
+    server_name aviqr.com www.aviqr.com;
 
-    ssl_certificate     /etc/letsencrypt/live/aviqr.in/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/aviqr.in/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/aviqr.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/aviqr.com/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 
     root /var/www/aviqr/aviqr-ui-web/dist;
@@ -706,13 +706,13 @@ server {
     gzip_min_length 1000;
 }
 
-# API Gateway — api.aviqr.in
+# API Gateway — api.aviqr.com
 server {
     listen 443 ssl http2;
-    server_name api.aviqr.in;
+    server_name api.aviqr.com;
 
-    ssl_certificate     /etc/letsencrypt/live/aviqr.in/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/aviqr.in/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/aviqr.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/aviqr.com/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 
     # Forward all API calls to Spring Cloud Gateway
@@ -733,7 +733,7 @@ server {
         client_max_body_size 25M;
 
         # CORS headers
-        add_header Access-Control-Allow-Origin  "https://aviqr.in" always;
+        add_header Access-Control-Allow-Origin  "https://aviqr.com" always;
         add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Authorization, Content-Type, X-Requested-With" always;
 
@@ -753,7 +753,7 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 
 # Get SSL certificates (free via Let's Encrypt)
-certbot --nginx -d aviqr.in -d www.aviqr.in -d api.aviqr.in \
+certbot --nginx -d aviqr.com -d www.aviqr.com -d api.aviqr.com \
   --non-interactive --agree-tos -m your@email.com
 
 # Reload Nginx
@@ -809,22 +809,22 @@ curl http://localhost:8761/eureka/apps | grep -o '<appName>[^<]*</appName>'
 
 ```bash
 # 1. Frontend loads
-curl -I https://aviqr.in
+curl -I https://aviqr.com
 # Expected: HTTP/2 200
 
 # 2. API gateway health
-curl https://api.aviqr.in/actuator/health
+curl https://api.aviqr.com/actuator/health
 # Expected: {"status":"UP"}
 
 # 3. Test login
-curl -X POST https://api.aviqr.in/api/v1/auth/login \
+curl -X POST https://api.aviqr.com/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@aviqr.in","password":"Admin@1234"}'
+  -d '{"email":"admin@aviqr.com","password":"Admin@1234"}'
 # Expected: {"success":true,"data":{"accessToken":"eyJ..."}}
 
 # 4. Open browser
-# https://aviqr.in → Frontend
-# https://api.aviqr.in/actuator/health → API health
+# https://aviqr.com → Frontend
+# https://api.aviqr.com/actuator/health → API health
 ```
 
 ---
@@ -969,4 +969,4 @@ ufw status
 | Start frontend | `npm run dev` |
 | Build frontend | `npm run build` |
 | Check server health | `curl http://localhost:8080/actuator/health` |
-| Admin login | admin@aviqr.in / Admin@1234 |
+| Admin login | admin@aviqr.com / Admin@1234 |

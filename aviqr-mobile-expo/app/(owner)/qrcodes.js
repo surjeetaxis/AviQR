@@ -46,7 +46,7 @@ export default function QRCodesScreen() {
   const QRCard = ({ code }) => (
     <Card style={styles.qrCard}>
       <TouchableOpacity onPress={() => setPreview(code)} style={styles.qrLeft}>
-        <QRCode value={code.targetUrl || 'https://aviqr.in'} size={72} color={Colors.gray900} backgroundColor="transparent" />
+        <QRCode value={code.targetUrl || 'https://aviqr.com'} size={72} color={Colors.gray900} backgroundColor="transparent" />
       </TouchableOpacity>
       <View style={styles.qrInfo}>
         <Text style={styles.qrLabel}>{code.label || 'QR Code'}</Text>

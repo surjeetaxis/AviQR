@@ -42,7 +42,7 @@ Open `src/api/index.js` and set `DEV_URL` for your target:
 The backend must be running first:  `cd .. && ./aviqr.sh start`
 
 Login with a seed account (password `Test@1234`):
-    Owner → sujeet@spiceroute.in     Admin → admin@aviqr.in
+    Owner → sujeet@spiceroute.in     Admin → admin@aviqr.com
 
 ---
 
@@ -65,4 +65,4 @@ cart/GST math, auth token storage, and API endpoint contracts.
     npx eas build -p ios        # App Store
 
 (Requires an Expo account + `eas-cli`. For production the app uses
-`PROD_URL = https://api.aviqr.in`.)
+`PROD_URL = https://api.aviqr.com`.)

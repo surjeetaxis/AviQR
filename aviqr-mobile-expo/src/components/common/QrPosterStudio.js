@@ -26,7 +26,7 @@ export function QrPosterStudio({ visible, onClose, shopId, shopName, targetUrl }
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const tpl = TEMPLATES.find(t => t.key === template);
-  const previewUrl = targetUrl || `https://aviqr.in/menu/${shopId}`;
+  const previewUrl = targetUrl || `https://aviqr.com/menu/${shopId}`;
 
   const reset = () => { setStep('template'); setTemplate('tent'); setThemeKey('emerald'); setBatchOn(false); setForm({ ...DEFAULT_FORM, shopName: shopName || '' }); };
   const close = () => { reset(); onClose(); };
@@ -203,7 +203,7 @@ export function QrPosterStudio({ visible, onClose, shopId, shopName, targetUrl }
                 <ToggleField label="Contact info" on={form.contactOn} onToggle={v => set('contactOn', v)}>
                   <Input label="Phone" value={form.contactPhone} onChangeText={v => set('contactPhone', v)} placeholder="+91 98450 12345" />
                   <Input label="Address" value={form.contactAddress} onChangeText={v => set('contactAddress', v)} placeholder="12 MG Road, Bengaluru" />
-                  <Input label="Website" value={form.contactWebsite} onChangeText={v => set('contactWebsite', v)} placeholder="aviqr.in" />
+                  <Input label="Website" value={form.contactWebsite} onChangeText={v => set('contactWebsite', v)} placeholder="aviqr.com" />
                 </ToggleField>
               )}
 

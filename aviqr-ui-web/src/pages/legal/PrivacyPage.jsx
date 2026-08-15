@@ -7,7 +7,7 @@ import './Legal.css';
 export default function PrivacyPage() {
   return (
     <div className="legal-page">
-      <SEO title="Privacy Policy — AviQR" description="How AviQR collects, uses and protects your data." canonical="https://aviqr.in/privacy" />
+      <SEO title="Privacy Policy — AviQR" description="How AviQR collects, uses and protects your data." canonical="https://aviqr.com/privacy" />
       <SiteHeader />
       <div className="legal-content">
         <h1>Privacy Policy</h1>
@@ -39,14 +39,14 @@ export default function PrivacyPage() {
         <p>We use session cookies for login state and a preference cookie (aviqr_lang) for language selection. We do not use advertising cookies or cross-site tracking.</p>
 
         <h2>8. Your Rights (DPDP Act 2023)</h2>
-        <p>You have the right to access, correct, erase, and port your personal data. You may withdraw consent for WhatsApp notifications at any time in Settings. Contact <a href="mailto:privacy@aviqr.in">privacy@aviqr.in</a> to exercise your rights.</p>
+        <p>You have the right to access, correct, erase, and port your personal data. You may withdraw consent for WhatsApp notifications at any time in Settings. Contact <a href="mailto:privacy@aviqr.com">privacy@aviqr.com</a> to exercise your rights.</p>
 
         <h2>9. Children</h2>
         <p>AviQR is not directed to persons under 18. We do not knowingly collect data from minors.</p>
 
         <h2>10. Contact</h2>
-        <p>Privacy queries: <a href="mailto:privacy@aviqr.in">privacy@aviqr.in</a><br/>
-        Grievance Officer: <a href="mailto:grievance@aviqr.in">grievance@aviqr.in</a> (response within 30 days)<br/>
+        <p>Privacy queries: <a href="mailto:privacy@aviqr.com">privacy@aviqr.com</a><br/>
+        Grievance Officer: <a href="mailto:grievance@aviqr.com">grievance@aviqr.com</a> (response within 30 days)<br/>
         Address: [Company Registered Address], Bengaluru, Karnataka – 560001</p>
 
         <p className="legal-updated">Last updated: 25 June 2025</p>

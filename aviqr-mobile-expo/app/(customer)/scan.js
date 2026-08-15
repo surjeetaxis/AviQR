@@ -16,7 +16,7 @@ function parseQuery(qs) {
 
 // Mirrors QrService.buildUrl on the backend (order-qr-service/QrService.java)
 // — the URL shapes a shop/table/mall/brand/hotel QR code actually encodes
-// (https://aviqr.in/menu/{shopId}?table=…, /food-court/{mallId}, /brand/{brandId},
+// (https://aviqr.com/menu/{shopId}?table=…, /food-court/{mallId}, /brand/{brandId},
 // /hotel-services/{hotelId}?room=…). Parsed by hand rather than the URL global
 // to avoid depending on a Hermes polyfill that may not be present.
 function resolveTarget(raw) {

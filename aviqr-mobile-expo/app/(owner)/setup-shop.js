@@ -12,7 +12,7 @@ import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index
 const STEPS = ['Choose plan', 'Create shop', 'Add menu', 'Get QR code', 'Go live!'];
 // Mobile onboarding only ever offers the free Starter plan — Growth/Business/
 // Enterprise are web-only, so new shops created in-app always start free and
-// upgrade later on the web (aviqr.in), same as web's Onboarding.jsx which
+// upgrade later on the web (aviqr.com), same as web's Onboarding.jsx which
 // still offers the full KNOWN_PLAN_KEYS set.
 const KNOWN_PLAN_KEYS = ['STARTER'];
 
@@ -288,7 +288,7 @@ export default function SetupShopScreen() {
               <Text style={ss.sub}>Customers scan this at their table to view your menu and order.</Text>
               <View style={ss.qrBox}><Text style={{ fontSize: 40 }}>📱</Text></View>
               <Text style={{ fontSize: FontSize.sm, color: Colors.gray500, textAlign: 'center', marginBottom: 16 }}>
-                Your QR menu link: aviqr.in/menu/{shopId?.slice(0, 8)}…
+                Your QR menu link: aviqr.com/menu/{shopId?.slice(0, 8)}…
               </Text>
               <Button title="Skip for now" variant="ghost" onPress={() => setStep(5)} style={{ marginBottom: 8 }} />
               <Button title={busy ? 'Generating…' : 'Generate QR'} onPress={handleGenerateQR} loading={busy} />

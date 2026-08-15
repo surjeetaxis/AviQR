@@ -53,7 +53,7 @@ export default function AIChatbot({ shopId }) {
       setEscalated(true);
       setMessages(prev => [...prev,
         { role:'user', content:text },
-        { role:'assistant', content:'Connecting you to our support team! 📞 You can also reach us directly at support@aviqr.in or call +91 98450 00000. Average response time: under 2 hours.' }
+        { role:'assistant', content:'Connecting you to our support team! 📞 You can also reach us directly at support@aviqr.com or call +91 98450 00000. Average response time: under 2 hours.' }
       ]);
       setInput('');
       return;

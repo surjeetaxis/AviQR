@@ -8,9 +8,9 @@ const SECTIONS = [
   { h: '5. Data Retention', p: 'Account data: duration of account + 3 years. Order/payment records: 7 years (Income Tax Act). Customer contact data: 1 year from order. Audit logs: 90 days.' },
   { h: '6. Security', p: 'All data in transit is encrypted via TLS 1.2/1.3. Passwords are hashed with bcrypt. Databases are not publicly accessible. JWT tokens are short-lived with rotation.' },
   { h: '7. Cookies', p: 'We use session cookies for login state and a preference cookie (aviqr_lang) for language selection. We do not use advertising cookies or cross-site tracking.' },
-  { h: '8. Your Rights (DPDP Act 2023)', p: 'You have the right to access, correct, erase, and port your personal data. You may withdraw consent for WhatsApp notifications at any time in Settings. Contact privacy@aviqr.in to exercise your rights.' },
+  { h: '8. Your Rights (DPDP Act 2023)', p: 'You have the right to access, correct, erase, and port your personal data. You may withdraw consent for WhatsApp notifications at any time in Settings. Contact privacy@aviqr.com to exercise your rights.' },
   { h: '9. Children', p: 'AviQR is not directed to persons under 18. We do not knowingly collect data from minors.' },
-  { h: '10. Contact', p: 'Privacy queries: privacy@aviqr.in\nGrievance Officer: grievance@aviqr.in (response within 30 days)\nAddress: [Company Registered Address], Bengaluru, Karnataka – 560001' },
+  { h: '10. Contact', p: 'Privacy queries: privacy@aviqr.com\nGrievance Officer: grievance@aviqr.com (response within 30 days)\nAddress: [Company Registered Address], Bengaluru, Karnataka – 560001' },
 ];
 
 export default function PrivacyScreen() {

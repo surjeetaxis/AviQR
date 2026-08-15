@@ -23,9 +23,9 @@ import java.util.*;
  *
  * Setup (do once per restaurant):
  *  Zomato Partner Portal  → Integrations → POS Webhook URL:
- *    https://api.aviqr.in/api/v1/aggregator/zomato/webhook
+ *    https://api.aviqr.com/api/v1/aggregator/zomato/webhook
  *  Swiggy Restaurant Hub  → Settings → Order Push URL:
- *    https://api.aviqr.in/api/v1/aggregator/swiggy/webhook
+ *    https://api.aviqr.com/api/v1/aggregator/swiggy/webhook
  *
  * VERIFICATION:
  *  Both platforms send a signature header to verify authenticity.

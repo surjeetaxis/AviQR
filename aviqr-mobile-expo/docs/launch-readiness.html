@@ -251,7 +251,7 @@
     <p class="dek small">Web/backend/database steps are written generically — this repo only contains the Expo mobile app, so adapt them to your actual backend/infra repo and stack.</p>
     <div class="meta-strip">
       <span><b>iOS/Android package</b> <code class="mono">in.aviqr.app</code></span>
-      <span><b>API</b> <code class="mono">api.aviqr.in</code></span>
+      <span><b>API</b> <code class="mono">api.aviqr.com</code></span>
       <span><b>Compiled from</b> app.json, eas.json, Info.plist, privacy.js</span>
       <span><b>Generated</b> Aug 11, 2026</span>
     </div>
@@ -365,7 +365,7 @@
               <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
             </div>
           </div>
-          <p class="account-purpose">Hosts the <code class="mono">api.aviqr.in</code> backend, stores menu images and QR assets, and optionally sends transactional email via SES.</p>
+          <p class="account-purpose">Hosts the <code class="mono">api.aviqr.com</code> backend, stores menu images and QR assets, and optionally sends transactional email via SES.</p>
           <dl class="account-detail">
             <dt>Set up</dt><dd>Root account + separate IAM users, billing alerts, S3 buckets, Route 53 if DNS lives here.</dd>
             <dt>Owner</dt><dd>Backend / infra lead.</dd>
@@ -532,9 +532,9 @@
               <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
             </div>
           </div>
-          <p class="account-purpose">Runs <code class="mono">support@aviqr.in</code> (already referenced in app.json) and the shared login used for Play Console, GCP and Firebase above.</p>
+          <p class="account-purpose">Runs <code class="mono">support@aviqr.com</code> (already referenced in app.json) and the shared login used for Play Console, GCP and Firebase above.</p>
           <dl class="account-detail">
-            <dt>Set up</dt><dd>Workspace domain verification for <code class="mono">aviqr.in</code> · support@ and any team mailboxes.</dd>
+            <dt>Set up</dt><dd>Workspace domain verification for <code class="mono">aviqr.com</code> · support@ and any team mailboxes.</dd>
             <dt>Owner</dt><dd>Founder / admin.</dd>
             <dt class="access-divider">Access</dt>
             <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Workspace admin email —"></dd>
@@ -607,7 +607,7 @@
               <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
             </div>
           </div>
-          <p class="account-purpose">Controls <code class="mono">aviqr.in</code>, which resolves <code class="mono">api.aviqr.in</code> and the privacy/terms pages the app links to.</p>
+          <p class="account-purpose">Controls <code class="mono">aviqr.com</code>, which resolves <code class="mono">api.aviqr.com</code> and the privacy/terms pages the app links to.</p>
           <dl class="account-detail">
             <dt>Detail</dt><dd>Find out who currently holds the registrar login and DNS access before it becomes a launch-week scramble.</dd>
             <dt class="access-divider">Access</dt>
@@ -667,13 +667,13 @@
       <h2 class="section-title">Web</h2>
       <span class="section-count" data-count-for="web">0/5 done</span>
     </div>
-    <p class="section-sub">The public-facing surface: <code class="mono">aviqr.in</code>, the privacy/terms pages the app links to, and Expo's static web export.</p>
+    <p class="section-sub">The public-facing surface: <code class="mono">aviqr.com</code>, the privacy/terms pages the app links to, and Expo's static web export.</p>
     <div class="check-list">
-      <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-1"><span class="check-text"><strong>Domain &amp; DNS</strong> — aviqr.in resolves and points at production hosting.</span></label>
-      <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-2"><span class="check-text"><strong>SSL certificate</strong> — HTTPS valid on both aviqr.in and api.aviqr.in.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-1"><span class="check-text"><strong>Domain &amp; DNS</strong> — aviqr.com resolves and points at production hosting.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-2"><span class="check-text"><strong>SSL certificate</strong> — HTTPS valid on both aviqr.com and api.aviqr.com.</span></label>
       <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-3"><span class="check-text"><strong>Legal pages deployed</strong> — /privacy and /terms live, matching app.json's <code class="mono">privacyPolicyUrl</code> / <code class="mono">termsUrl</code>.</span></label>
       <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-4"><span class="check-text"><strong>Web build exported</strong> — Expo's static web output (per app.json's <code class="mono">web.bundler: metro</code>) built and hosted, if a public web app ships alongside the mobile apps.</span></label>
-      <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-5"><span class="check-text"><strong>Support inbox live</strong> — support@aviqr.in receiving mail and monitored.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="web" data-check-id="web-5"><span class="check-text"><strong>Support inbox live</strong> — support@aviqr.com receiving mail and monitored.</span></label>
     </div>
   </div>
 
@@ -683,9 +683,9 @@
       <h2 class="section-title">Backend</h2>
       <span class="section-count" data-count-for="backend">0/5 done</span>
     </div>
-    <p class="section-sub">The API behind <code class="mono">api.aviqr.in</code> — wherever it actually lives (AWS, Hetzner, etc.), not part of this mobile repo.</p>
+    <p class="section-sub">The API behind <code class="mono">api.aviqr.com</code> — wherever it actually lives (AWS, Hetzner, etc.), not part of this mobile repo.</p>
     <div class="check-list">
-      <label class="check-row"><input type="checkbox" class="check-item" data-category="backend" data-check-id="backend-1"><span class="check-text"><strong>API reachable</strong> — api.aviqr.in responds over HTTPS from production infrastructure.</span></label>
+      <label class="check-row"><input type="checkbox" class="check-item" data-category="backend" data-check-id="backend-1"><span class="check-text"><strong>API reachable</strong> — api.aviqr.com responds over HTTPS from production infrastructure.</span></label>
       <label class="check-row"><input type="checkbox" class="check-item" data-category="backend" data-check-id="backend-2"><span class="check-text"><strong>Secrets loaded from vault</strong> — Twilio, Razorpay, Firebase/FCM, and Maps API keys pulled from a secrets store, not hardcoded.</span></label>
       <label class="check-row"><input type="checkbox" class="check-item" data-category="backend" data-check-id="backend-3"><span class="check-text"><strong>Push delivery verified</strong> — a real APNs and FCM test push has been delivered to a physical device.</span></label>
       <label class="check-row"><input type="checkbox" class="check-item" data-category="backend" data-check-id="backend-4"><span class="check-text"><strong>Logging &amp; monitoring wired</strong> — Elastic (or equivalent) receiving backend logs, alerts configured.</span></label>

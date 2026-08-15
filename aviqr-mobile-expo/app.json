@@ -72,10 +72,10 @@
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "https://api.aviqr.in",
-      "privacyPolicyUrl": "https://aviqr.in/privacy",
-      "termsUrl": "https://aviqr.in/terms",
-      "supportEmail": "support@aviqr.in",
+      "apiUrl": "https://api.aviqr.com",
+      "privacyPolicyUrl": "https://aviqr.com/privacy",
+      "termsUrl": "https://aviqr.com/terms",
+      "supportEmail": "support@aviqr.com",
       "sentryDsn": "",
       "sentryNote": "Set sentryDsn to your Sentry DSN from sentry.io project settings",
       "router": {},

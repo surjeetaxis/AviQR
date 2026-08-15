@@ -219,9 +219,9 @@ const FAQ = [
 
 export function chatbotFallback(message) {
   const lower = message.toLowerCase();
-  if (/human|agent|staff|speak to|connect/i.test(lower)) return 'Connecting you to our team! Reach us at support@aviqr.in or call +91 98450 00000. *(AI offline — FAQ mode)*';
+  if (/human|agent|staff|speak to|connect/i.test(lower)) return 'Connecting you to our team! Reach us at support@aviqr.com or call +91 98450 00000. *(AI offline — FAQ mode)*';
   for (const entry of FAQ) { if (entry.p.some(p => lower.includes(p))) return entry.r + ' *(AI offline — FAQ mode)*'; }
-  return "Thanks for your message! Our AI is temporarily offline. For immediate help: call +91 98450 00000, email support@aviqr.in. *(AI offline)*";
+  return "Thanks for your message! Our AI is temporarily offline. For immediate help: call +91 98450 00000, email support@aviqr.com. *(AI offline)*";
 }
 
 export function adminChatbotFallback(message) {

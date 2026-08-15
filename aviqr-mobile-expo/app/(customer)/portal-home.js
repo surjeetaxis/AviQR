@@ -11,7 +11,7 @@ import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index
 // Mirrors web's PortalHome.jsx — shown when the app is opened with no shop/table/room
 // context (i.e. the customer hasn't scanned a QR code yet this session). Leads with
 // "Scan a QR to get started", backed by a search box (with recent-search history) and
-// a nearby-shops list. A QR-scan deep link (aviqr://... / a scanned https://aviqr.in/menu/…
+// a nearby-shops list. A QR-scan deep link (aviqr://... / a scanned https://aviqr.com/menu/…
 // URL resolved in scan.js) never passes through here — it routes straight to the shop.
 export default function PortalHomeScreen() {
   const [status, setStatus] = useState('loading'); // loading | granted | denied

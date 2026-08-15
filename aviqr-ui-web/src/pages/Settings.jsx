@@ -1017,7 +1017,7 @@ export default function Settings() {
                   <div style={{ fontSize:12, color:'var(--gray-500)' }}>Download all your orders, menu items, and customer data as CSV</div>
                 </div>
                 <button className="btn btn-secondary" style={{ fontSize:12, color:'var(--gray-600)' }}
-                  onClick={() => alert('Contact support@aviqr.in to request a data export')}>
+                  onClick={() => alert('Contact support@aviqr.com to request a data export')}>
                   Request export
                 </button>
               </div>
@@ -1027,7 +1027,7 @@ export default function Settings() {
                   <div style={{ fontSize:12, color:'var(--gray-500)' }}>Permanently delete your shop, menu, orders, and all data</div>
                 </div>
                 <button style={{ background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:8, padding:'7px 14px', cursor:'pointer', fontSize:12, fontWeight:600, color:'#DC2626' }}
-                  onClick={() => alert('Contact support@aviqr.in to delete your account')}>
+                  onClick={() => alert('Contact support@aviqr.com to delete your account')}>
                   Delete account
                 </button>
               </div>
@@ -1050,7 +1050,7 @@ export default function Settings() {
               )}
               {subStatus === 'TRIAL_EXPIRED' && (
                 <div style={{ background:'#FEE2E2', border:'1px solid #FCA5A5', color:'#991B1B', borderRadius:10, padding:'12px 16px', marginBottom:14, fontSize:13 }}>
-                  ⚠ Your free trial has ended. Contact support@aviqr.in to continue on this plan, or you'll be moved back to the free Starter plan.
+                  ⚠ Your free trial has ended. Contact support@aviqr.com to continue on this plan, or you'll be moved back to the free Starter plan.
                 </div>
               )}
               {cancelRequestedAt && subStatus !== 'CANCELED' && (
@@ -1118,7 +1118,7 @@ export default function Settings() {
                         <div key={f} style={{ display:'flex', gap:6, alignItems:'center', fontSize:12, marginBottom:5 }}><Check size={12} style={{ color }}/>{f}</div>
                       ))}
                       <button style={{ width:'100%', justifyContent:'center', marginTop:14, padding:'9px 0', borderRadius:8, border:`2px solid ${color}`, background: i === 0 ? color : 'white', color: i === 0 ? 'white' : color, fontWeight:700, fontSize:13, cursor:'pointer' }}
-                        onClick={() => alert('Contact support@aviqr.in to upgrade')}>
+                        onClick={() => alert('Contact support@aviqr.com to upgrade')}>
                         Upgrade to {p.label}
                       </button>
                     </div>

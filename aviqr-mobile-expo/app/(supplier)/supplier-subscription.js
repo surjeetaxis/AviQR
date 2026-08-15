@@ -15,7 +15,7 @@ export default function SupplierSubscriptionScreen() {
           <Text style={ss.name}>Manage your subscription on the web</Text>
           <Text style={ss.feature}>Sign in on the web and open Subscription from your dashboard to subscribe or change plans.</Text>
         </View>
-        <TouchableOpacity style={ss.webLink} onPress={() => Linking.openURL('https://aviqr.in')}>
+        <TouchableOpacity style={ss.webLink} onPress={() => Linking.openURL('https://aviqr.com')}>
           <Text style={ss.webLinkTxt}>Manage subscription on web →</Text>
         </TouchableOpacity>
       </ScrollView>

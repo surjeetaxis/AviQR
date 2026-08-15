@@ -43,7 +43,7 @@ const DEV_URL = Platform.OS === 'web'
 // simulators/emulators on the dev machine's LAN.
 const STAGING_URL = 'http://65.109.133.21:8080';
 
-const PROD_URL = 'https://api.aviqr.in';
+const PROD_URL = 'https://api.aviqr.com';
 
 // EXPO_PUBLIC_ vars are inlined at bundle time by Expo/Metro, so this works
 // the same in Expo Go, a dev client, and a standalone release build.

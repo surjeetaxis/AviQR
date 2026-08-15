@@ -57,7 +57,7 @@ export default function FeaturesPage() {
       <SEO
         title="Features — Order Confirmation, Live Tracking & Billing | AviQR"
         description="See AviQR's counter payment confirmation, live order tracking, POS bill break-ups and branded receipts in action, with real screenshots."
-        canonical="https://aviqr.in/features"
+        canonical="https://aviqr.com/features"
       />
       <SiteHeader />
 

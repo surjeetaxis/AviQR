@@ -7,7 +7,7 @@ import './Legal.css';
 export default function RefundPage() {
   return (
     <div className="legal-page">
-      <SEO title="Refund & Cancellation Policy — AviQR" description="AviQR's refund and cancellation policy for subscriptions and customer orders." canonical="https://aviqr.in/refund" />
+      <SEO title="Refund & Cancellation Policy — AviQR" description="AviQR's refund and cancellation policy for subscriptions and customer orders." canonical="https://aviqr.com/refund" />
       <SiteHeader />
       <div className="legal-content">
         <h1>Refund & Cancellation Policy</h1>
@@ -25,16 +25,16 @@ export default function RefundPage() {
 
         <h2>4. Refunds for customer food/service orders</h2>
         <p>If a customer's order is cancelled before the business accepts it, or the business cancels it (e.g. item out of stock), any online payment is refunded automatically to the original payment method via Razorpay, typically within <strong>5–7 business days</strong>.</p>
-        <p>Refund requests for accepted orders (wrong item, quality issue, non-delivery) are the responsibility of the business the customer ordered from — AviQR does not adjudicate food quality or service disputes, per our <a href="/terms">Terms of Service</a>. Customers should first contact the business directly; if unresolved, AviQR support can help mediate at <a href="mailto:support@aviqr.in">support@aviqr.in</a>.</p>
+        <p>Refund requests for accepted orders (wrong item, quality issue, non-delivery) are the responsibility of the business the customer ordered from — AviQR does not adjudicate food quality or service disputes, per our <a href="/terms">Terms of Service</a>. Customers should first contact the business directly; if unresolved, AviQR support can help mediate at <a href="mailto:support@aviqr.com">support@aviqr.com</a>.</p>
 
         <h2>5. Failed or duplicate payments</h2>
-        <p>If a payment is deducted but the order/subscription doesn't reflect it (e.g. a network error at checkout), the amount is automatically reversed by Razorpay within 5–7 business days. If it isn't, email <a href="mailto:support@aviqr.in">support@aviqr.in</a> with the payment reference ID shown in your Razorpay receipt.</p>
+        <p>If a payment is deducted but the order/subscription doesn't reflect it (e.g. a network error at checkout), the amount is automatically reversed by Razorpay within 5–7 business days. If it isn't, email <a href="mailto:support@aviqr.com">support@aviqr.com</a> with the payment reference ID shown in your Razorpay receipt.</p>
 
         <h2>6. How to request a refund</h2>
-        <p>Email <a href="mailto:support@aviqr.in">support@aviqr.in</a> with your registered phone/email, the order ID or subscription invoice number, and the reason. We acknowledge requests within 48 hours and resolve eligible ones within 7 business days.</p>
+        <p>Email <a href="mailto:support@aviqr.com">support@aviqr.com</a> with your registered phone/email, the order ID or subscription invoice number, and the reason. We acknowledge requests within 48 hours and resolve eligible ones within 7 business days.</p>
 
         <h2>7. Contact</h2>
-        <p>Billing support: <a href="mailto:support@aviqr.in">support@aviqr.in</a> · Grievance Officer: <a href="mailto:grievance@aviqr.in">grievance@aviqr.in</a></p>
+        <p>Billing support: <a href="mailto:support@aviqr.com">support@aviqr.com</a> · Grievance Officer: <a href="mailto:grievance@aviqr.com">grievance@aviqr.com</a></p>
 
         <p className="legal-updated">Last updated: 25 June 2025</p>
       </div>

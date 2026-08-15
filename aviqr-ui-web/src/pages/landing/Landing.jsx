@@ -197,7 +197,7 @@ export default function Landing() {
       <SEO
         title="AviQR — QR Menu & Restaurant OS for India"
         description="Scan to order. Pay online. 9 Indian languages. Manage restaurants, hotels and malls with AviQR's QR-powered platform."
-        canonical="https://aviqr.in/"
+        canonical="https://aviqr.com/"
       />
       <SiteHeader isHome />
 

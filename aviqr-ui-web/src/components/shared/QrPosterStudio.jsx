@@ -6,18 +6,18 @@ import { shopApi, menuApi, shopPromotionApi, qrApi } from '../../api/index.js';
 import { PALETTES, LAYOUTS, DESTINATIONS, PosterPreview, CatalogPosterPreview, PosterDoc, CatalogPosterDoc } from './PosterTemplates.jsx';
 import './QrPosterStudio.css';
 
-const BASE_URL = 'https://aviqr.in';
+const BASE_URL = 'https://aviqr.com';
 
 // Marketing/landing-page destinations for Admin's no-shop "Poster Studio" mode —
 // same presets the old standalone Marketing QR Generator offered.
 const MARKETING_PRESETS = [
-  { label: 'AviQR Website',      url: 'https://aviqr.in',                    campaign: 'website',  emoji: '🌐' },
-  { label: 'Pricing Page',       url: 'https://aviqr.in/pricing',            campaign: 'pricing',  emoji: '💰' },
-  { label: 'Demo / Free Trial',  url: 'https://aviqr.in/demo',               campaign: 'demo',     emoji: '🎯' },
-  { label: 'Contact Sales',      url: 'https://aviqr.in/contact',            campaign: 'sales',    emoji: '📞' },
+  { label: 'AviQR Website',      url: 'https://aviqr.com',                    campaign: 'website',  emoji: '🌐' },
+  { label: 'Pricing Page',       url: 'https://aviqr.com/pricing',            campaign: 'pricing',  emoji: '💰' },
+  { label: 'Demo / Free Trial',  url: 'https://aviqr.com/demo',               campaign: 'demo',     emoji: '🎯' },
+  { label: 'Contact Sales',      url: 'https://aviqr.com/contact',            campaign: 'sales',    emoji: '📞' },
   { label: 'Play Store App',     url: 'https://play.google.com/store/apps/details?id=in.aviqr.app', campaign: 'playstore', emoji: '📱' },
-  { label: 'Partner Program',    url: 'https://aviqr.in/partners',           campaign: 'partners', emoji: '🤝' },
-  { label: 'Blog / Guides',      url: 'https://aviqr.in/blog',               campaign: 'blog',     emoji: '📖' },
+  { label: 'Partner Program',    url: 'https://aviqr.com/partners',           campaign: 'partners', emoji: '🤝' },
+  { label: 'Blog / Guides',      url: 'https://aviqr.com/blog',               campaign: 'blog',     emoji: '📖' },
   { label: 'Custom URL',         url: '',                                    campaign: 'custom',   emoji: '✏️' },
 ];
 
@@ -284,7 +284,7 @@ export default function QrPosterStudio({
                         {form.marketingPreset === 'custom' && (
                           <div className="qps-field">
                             <label>Destination URL *</label>
-                            <input value={form.customUrl} onChange={e => set('customUrl', e.target.value)} placeholder="https://aviqr.in/your-page" />
+                            <input value={form.customUrl} onChange={e => set('customUrl', e.target.value)} placeholder="https://aviqr.com/your-page" />
                           </div>
                         )}
                       </>

@@ -47,7 +47,7 @@ export default function MallSubscriptionScreen() {
           </View>
         )}
         <Text style={ss.hint}>Plans are managed on the web — sign in there and open Subscription from your dashboard to subscribe or change plans.</Text>
-        <TouchableOpacity style={ss.webLink} onPress={() => Linking.openURL('https://aviqr.in')}>
+        <TouchableOpacity style={ss.webLink} onPress={() => Linking.openURL('https://aviqr.com')}>
           <Text style={ss.webLinkTxt}>Manage subscription on web →</Text>
         </TouchableOpacity>
       </ScrollView>

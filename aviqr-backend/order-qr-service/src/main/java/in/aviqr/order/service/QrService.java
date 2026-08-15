@@ -17,7 +17,7 @@ public class QrService {
     private final QrCodeRepository repo;
     private final QrScanLogRepository scanRepo;
 
-    @Value("${app.base-url:https://aviqr.in}")
+    @Value("${app.base-url:https://aviqr.com}")
     private String baseUrl;
 
     @Transactional

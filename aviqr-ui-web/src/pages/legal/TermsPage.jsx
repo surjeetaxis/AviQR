@@ -7,7 +7,7 @@ import './Legal.css';
 export default function TermsPage() {
   return (
     <div className="legal-page">
-      <SEO title="Terms of Service — AviQR" description="The terms governing use of the AviQR platform." canonical="https://aviqr.in/terms" />
+      <SEO title="Terms of Service — AviQR" description="The terms governing use of the AviQR platform." canonical="https://aviqr.com/terms" />
       <SiteHeader />
       <div className="legal-content">
         <h1>Terms of Service</h1>
@@ -23,7 +23,7 @@ export default function TermsPage() {
         <p>You must be at least 18 years of age. By registering, you confirm all information you provide is accurate. The Service is intended for lawful business use in India.</p>
 
         <h2>4. Account Security</h2>
-        <p>You are responsible for maintaining the confidentiality of your login credentials and for all activity under your account. Notify us immediately at <a href="mailto:support@aviqr.in">support@aviqr.in</a> of any unauthorized use.</p>
+        <p>You are responsible for maintaining the confidentiality of your login credentials and for all activity under your account. Notify us immediately at <a href="mailto:support@aviqr.com">support@aviqr.com</a> of any unauthorized use.</p>
 
         <h2>5. Subscription & Payment</h2>
         <p>Subscription fees are billed in advance in INR, exclusive of GST. Payments are processed via Razorpay. Fees are non-refundable except as required by law. Failure to pay may result in suspension.</p>
@@ -44,10 +44,10 @@ export default function TermsPage() {
         <p>These Terms are governed by the laws of India. Disputes are subject to the exclusive jurisdiction of the courts of Bengaluru, Karnataka.</p>
 
         <h2>11. Grievance Officer</h2>
-        <p>Grievance Officer Email: <a href="mailto:grievance@aviqr.in">grievance@aviqr.in</a><br/>Response time: within 30 days of receipt.</p>
+        <p>Grievance Officer Email: <a href="mailto:grievance@aviqr.com">grievance@aviqr.com</a><br/>Response time: within 30 days of receipt.</p>
 
         <h2>12. Contact</h2>
-        <p>Email: <a href="mailto:legal@aviqr.in">legal@aviqr.in</a> · Website: <a href="https://aviqr.in">aviqr.in</a></p>
+        <p>Email: <a href="mailto:legal@aviqr.com">legal@aviqr.com</a> · Website: <a href="https://aviqr.com">aviqr.com</a></p>
 
         <p className="legal-updated">Last updated: 25 June 2025</p>
       </div>

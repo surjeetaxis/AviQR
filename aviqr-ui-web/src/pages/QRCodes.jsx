@@ -22,7 +22,7 @@ const QR_TYPES = [
 ];
 
 const ADVERT_TARGETS = [
-  { id: 'website',    label: 'AviQR Website',       url: 'https://aviqr.in',                                   icon: '🌐' },
+  { id: 'website',    label: 'AviQR Website',       url: 'https://aviqr.com',                                   icon: '🌐' },
   { id: 'playstore',  label: 'Google Play Store',    url: 'https://play.google.com/store/apps/details?id=in.aviqr', icon: '🤖' },
   { id: 'appstore',   label: 'Apple App Store',      url: 'https://apps.apple.com/app/aviqr',                   icon: '' },
   { id: 'custom',     label: 'Custom URL',           url: '',                                                   icon: '✏️' },
@@ -42,7 +42,7 @@ const ADVERT_DEFAULTS = {
   wifiName:     '',
   wifiPass:     '',
   footerOn:     true,
-  footerText:   'aviqr.in — Smart QR for every business',
+  footerText:   'aviqr.com — Smart QR for every business',
 };
 
 const DEFAULTS = {
@@ -158,7 +158,7 @@ export default function QRCodes() {
       .catch(() => {});
   }, [shopId]);
 
-  const qrUrl  = selCode?.targetUrl || (shopId ? `https://aviqr.in/menu/${shopId}` : '');
+  const qrUrl  = selCode?.targetUrl || (shopId ? `https://aviqr.com/menu/${shopId}` : '');
   const theme  = THEMES[design.theme];
 
   // Regenerate QR data-URL when URL or theme color changes
@@ -175,7 +175,7 @@ export default function QRCodes() {
   useEffect(() => {
     if (!shopId) return;
     setBatchReady(false);
-    const base = selCode?.targetUrl || `https://aviqr.in/menu/${shopId}`;
+    const base = selCode?.targetUrl || `https://aviqr.com/menu/${shopId}`;
     Promise.all(
       Array.from({ length: batchCount }, (_, i) =>
         QRCode.toDataURL(`${base}?t=${i + 1}`, {
@@ -191,7 +191,7 @@ export default function QRCodes() {
 
   const advertUrl = (() => {
     const t = ADVERT_TARGETS.find(t => t.id === advertTarget);
-    return advertTarget === 'custom' ? (advertCustomUrl || 'https://aviqr.in') : (t?.url || 'https://aviqr.in');
+    return advertTarget === 'custom' ? (advertCustomUrl || 'https://aviqr.com') : (t?.url || 'https://aviqr.com');
   })();
 
   // Regenerate advertise QR when URL or theme changes
@@ -223,7 +223,7 @@ export default function QRCodes() {
       const c = {
         id: `local_${Date.now()}`,
         qrCode: `${type}_${Date.now()}`,
-        targetUrl: `https://aviqr.in/menu/${shopId}`,
+        targetUrl: `https://aviqr.com/menu/${shopId}`,
         label, type, scanCount: 0, active: true,
       };
       setCodes(p => [...p, c]);

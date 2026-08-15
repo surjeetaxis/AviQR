@@ -237,7 +237,7 @@ export default function MallHomeScreen() {
         onClose={() => setQrVendor(null)}
         shopId={qrVendor?.shopId}
         shopName={qrVendor?.name}
-        targetUrl={qrVendor?.shopId ? `https://aviqr.in/menu/${qrVendor.shopId}` : undefined}
+        targetUrl={qrVendor?.shopId ? `https://aviqr.com/menu/${qrVendor.shopId}` : undefined}
       />
     </View>
   );

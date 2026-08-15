@@ -127,7 +127,7 @@ public class NotificationConsumer {
             "<li>Generate your table QR codes</li>" +
             "<li>Share with customers!</li>" +
             "</ol>" +
-            "<p><a href=\"https://aviqr.in/dashboard\">Dashboard</a> · Support: support@aviqr.in</p>" +
+            "<p><a href=\"https://aviqr.com/dashboard\">Dashboard</a> · Support: support@aviqr.com</p>" +
             "<p>Happy serving! 🚀<br>— The AviQR Team</p>", name);
         email.send(to, "Welcome to AviQR! 🍽️", html);
     }

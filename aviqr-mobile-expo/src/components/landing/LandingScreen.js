@@ -99,7 +99,7 @@ const TRUST = [
 export default function LandingScreen() {
   // Mobile only ever offers the free Starter plan — paid tiers (Growth,
   // Business, Enterprise) are web-only so the app never runs a subscription
-  // purchase flow. Full pricing/upgrade lives at aviqr.in/#pricing.
+  // purchase flow. Full pricing/upgrade lives at aviqr.com/#pricing.
   const [plans, setPlans]   = useState(FALLBACK_PLANS.filter(p => p.planKey === 'STARTER'));
   const [offers, setOffers] = useState([]);
 
@@ -280,7 +280,7 @@ export default function LandingScreen() {
             </View>
           );
         })}
-        <TouchableOpacity style={ss.webPricingLink} onPress={() => Linking.openURL('https://aviqr.in/#pricing')}>
+        <TouchableOpacity style={ss.webPricingLink} onPress={() => Linking.openURL('https://aviqr.com/#pricing')}>
           <Text style={ss.webPricingLinkTxt}>See Growth & Business plans on the web →</Text>
         </TouchableOpacity>
       </View>

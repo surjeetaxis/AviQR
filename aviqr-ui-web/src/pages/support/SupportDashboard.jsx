@@ -26,7 +26,7 @@ const MOCK_TICKETS = [
 ];
 
 const MOCK_USERS = [
-  { id:'u1', name:'Sujeet Narayanan', email:'sujeet@aviqr.in', role:'owner',    plan:'Growth',  shops:1, joined:'Jan 2025', status:'active' },
+  { id:'u1', name:'Sujeet Narayanan', email:'sujeet@aviqr.com', role:'owner',    plan:'Growth',  shops:1, joined:'Jan 2025', status:'active' },
   { id:'u2', name:'Meena Pillai',     email:'meena@coconut.in', role:'owner',    plan:'Business',shops:2, joined:'Feb 2025', status:'active' },
   { id:'u3', name:'Farhan Khan',      email:'farhan@biryani.in',role:'owner',    plan:'Growth',  shops:1, joined:'Mar 2025', status:'suspended' },
   { id:'u4', name:'Anjali Singh',     email:'anjali@gmail.com', role:'customer', plan:'-',       shops:0, joined:'Apr 2025', status:'active' },

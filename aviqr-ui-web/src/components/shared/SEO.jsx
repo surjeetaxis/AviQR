@@ -14,7 +14,7 @@ import { Helmet } from 'react-helmet-async';
 
 const SITE_NAME = 'AviQR';
 const DEFAULT_DESC = 'QR-powered digital menu, live order management, and multilingual restaurant platform for India.';
-const DEFAULT_IMG = 'https://aviqr.in/og-image.png'; // 1200×630 px Open Graph image
+const DEFAULT_IMG = 'https://aviqr.com/og-image.png'; // 1200×630 px Open Graph image
 
 export default function SEO({ title, description, image, canonical, noIndex = false }) {
   const pageTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — Restaurant & Hotel QR Platform`;
@@ -50,7 +50,7 @@ export default function SEO({ title, description, image, canonical, noIndex = fa
         "applicationCategory": "BusinessApplication",
         "operatingSystem": "Web, Android",
         "description": DEFAULT_DESC,
-        "url": "https://aviqr.in",
+        "url": "https://aviqr.com",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "INR" }
       })}</script>
     </Helmet>
