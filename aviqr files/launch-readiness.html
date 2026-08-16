@@ -267,7 +267,7 @@
 
     <div class="progress-card">
       <div class="progress-label">
-        <span><b id="progress-count">0</b> of 13 accounts marked done</span>
+        <span><b id="progress-count">0</b> of 14 accounts marked done</span>
         <span id="progress-pct">0%</span>
       </div>
       <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
@@ -365,7 +365,7 @@
               <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
             </div>
           </div>
-          <p class="account-purpose">Hosts the <code class="mono">api.aviqr.com</code> backend, stores menu images and QR assets, and optionally sends transactional email via SES.</p>
+          <p class="account-purpose">Hosts the <code class="mono">api.aviqr.com</code> backend and stores menu images and QR assets. Does <em>not</em> send transactional email — that's Elastic Email's API (see ACC-14 below), not SES.</p>
           <dl class="account-detail">
             <dt>Set up</dt><dd>Root account + separate IAM users, billing alerts, S3 buckets, Route 53 if DNS lives here.</dd>
             <dt>Owner</dt><dd>Backend / infra lead.</dd>
@@ -472,18 +472,18 @@
             </div>
             <div class="account-badges">
               <span class="chip required">Required</span>
-              <span class="chip existing">In use: Twilio</span>
+              <span class="chip existing">In use: WaSenderAPI</span>
               <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
             </div>
           </div>
-          <p class="account-purpose">Sends order updates and OTPs over WhatsApp. Confirmed in this repo's own privacy policy (<code class="mono">app/privacy.js</code>): "Twilio — SMS/WhatsApp notifications (phone number, order summary)." No separate Gupshup/Interakt/Meta Cloud API integration appears anywhere else in the codebase.</p>
+          <p class="account-purpose">Sends order updates over WhatsApp (order confirmation, order ready, low-stock alerts to the owner) — implemented in code via <a href="https://wasenderapi.com" target="_blank" rel="noopener">WaSenderAPI</a> (<code class="mono">WaSenderWhatsAppService.java</code>), <em>not</em> Twilio. The repo's privacy policy text naming Twilio for WhatsApp is out of date — corrected here after reading the actual notification-service code.</p>
           <dl class="account-detail">
-            <dt>Set up</dt><dd>Twilio account with WhatsApp Business API enabled · Meta Business Manager verification (Twilio brokers this, but Meta still requires a verified business) · approved message templates for order updates.</dd>
-            <dt>Owner</dt><dd>Product / ops lead — business verification is the slow step, start it early. Likely the <em>same</em> Twilio account as the SMS gateway below — confirm before creating a second one.</dd>
+            <dt>Set up</dt><dd>WaSenderAPI account, WhatsApp number connected/paired in their dashboard, API key.</dd>
+            <dt>Owner</dt><dd>Product / ops lead.</dd>
             <dt class="access-divider">Access</dt>
-            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Twilio console login —"></dd>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the WaSenderAPI account login —"></dd>
             <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
-            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops — WASENDER_API_KEY —"></dd>
           </dl>
         </article>
 
@@ -499,9 +499,9 @@
               <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
             </div>
           </div>
-          <p class="account-purpose">OTP delivery and SMS fallback for order status — same provider (Twilio) as WhatsApp above, per <code class="mono">app/privacy.js</code>.</p>
+          <p class="account-purpose">OTP delivery for login/register (<code class="mono">auth-service</code> → RabbitMQ <code class="mono">otp.requested</code> → <code class="mono">TwilioSmsService</code> in notification-report-review-service) and CRM SMS campaigns. Code path is wired end-to-end; only real Twilio credentials are still outstanding.</p>
           <dl class="account-detail">
-            <dt>Set up</dt><dd>Twilio account (shared with WhatsApp, above) · DLT sender-ID registration (mandatory for transactional SMS in India) · API keys.</dd>
+            <dt>Set up</dt><dd>Twilio account · DLT sender-ID registration (mandatory for transactional SMS in India) · API keys → <code class="mono">TWILIO_ACCOUNT_SID</code>, <code class="mono">TWILIO_AUTH_TOKEN</code>, <code class="mono">TWILIO_SMS_FROM</code> in <code class="mono">aviqr-backend/.env</code>, then flip <code class="mono">APP_SMS_ENABLED=true</code>. Still placeholder values as of today. DLT registration status unconfirmed — not tracked anywhere in this codebase, and whether a Twilio account even exists yet hasn't been confirmed either. Check Twilio Console → Messaging → Regulatory Compliance → India DLT once that's settled.</dd>
             <dt>Owner</dt><dd>Backend lead.</dd>
             <dt class="access-divider">Access</dt>
             <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Twilio console login —"></dd>
@@ -540,6 +540,29 @@
             <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Workspace admin email —"></dd>
             <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
             <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops —"></dd>
+          </dl>
+        </article>
+
+        <article class="account" data-id="ACC-14">
+          <div class="account-top">
+            <div>
+              <p class="account-id mono">ACC-14</p>
+              <h3 class="account-name">Transactional Email (Elastic Email)</h3>
+            </div>
+            <div class="account-badges">
+              <span class="chip required">Required</span>
+              <span class="chip existing">In use: Elastic Email</span>
+              <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
+            </div>
+          </div>
+          <p class="account-purpose">Sends transactional email (welcome email on register, notification emails) via <a href="https://elasticemail.com" target="_blank" rel="noopener">Elastic Email</a>'s REST API (<code class="mono">ElasticEmailService.java</code>, header <code class="mono">X-ElasticEmail-ApiKey</code>) — not SMTP, not AWS SES. Distinct from ACC-09's Gmail/Workspace mailbox above, which just runs <code class="mono">support@aviqr.com</code>.</p>
+          <dl class="account-detail">
+            <dt>Set up</dt><dd>Elastic Email account · verified sender domain/address (currently <code class="mono">noreply@aviqr.in</code>, confirmed verified) · API key → <code class="mono">ELASTIC_EMAIL_API_KEY</code>, <code class="mono">ELASTIC_EMAIL_FROM</code> in <code class="mono">aviqr-backend/.env</code>, <code class="mono">APP_EMAIL_ENABLED=true</code>. <strong>Blocked:</strong> real send attempts return HTTP 400 "Access Denied" from Elastic Email's API. Key format is accepted (an earlier, different key returned "APIKey Expired" instead), so this is most likely a sender/domain verification or account-review issue on Elastic Email's side, not a wiring problem — check Settings → Domains for a real "Verified" status and the API key's Send permission/scope, or contact Elastic Email support.</dd>
+            <dt>Owner</dt><dd>Backend lead.</dd>
+            <dt class="access-divider">Access</dt>
+            <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Elastic Email account login —"></dd>
+            <dt>2FA</dt><dd><input type="text" data-field="twofa" placeholder="— on/off, recovery method —"></dd>
+            <dt>Vault</dt><dd><input type="text" data-field="vault" placeholder="— e.g. 1Password › AviQR Ops — ELASTIC_EMAIL_API_KEY —"></dd>
           </dl>
         </article>
 
@@ -624,13 +647,13 @@
               <h3 class="account-name">Payment Gateway</h3>
             </div>
             <div class="account-badges">
-              <span class="chip existing">In use: Razorpay</span>
+              <span class="chip existing">In use: Razorpay (LIVE)</span>
               <label class="status-toggle"><input type="checkbox" class="status-checkbox"><span class="status-text">Pending</span></label>
             </div>
           </div>
-          <p class="account-purpose">Referenced in <code class="mono">app/privacy.js</code>: "Razorpay — payment processing (order amount, contact details)."</p>
+          <p class="account-purpose">Referenced in <code class="mono">app/privacy.js</code>: "Razorpay — payment processing (order amount, contact details)." <code class="mono">payment-service</code> has a <code class="mono">RazorpayProductionGuard</code> that refuses to boot under the 'production' profile while keys are still placeholders, so a half-configured deploy fails loudly instead of silently mock-processing payments.</p>
           <dl class="account-detail">
-            <dt>Set up</dt><dd>Razorpay business account, KYC, API keys (test + live).</dd>
+            <dt>Set up</dt><dd><code class="mono">RAZORPAY_KEY_ID</code>/<code class="mono">RAZORPAY_KEY_SECRET</code> are live (<code class="mono">rzp_live_...</code>) in <code class="mono">aviqr-backend/.env</code> — verified by creating a real ₹1 order through <code class="mono">payment-service</code>'s <code class="mono">/create-order</code> twice. <code class="mono">RAZORPAY_WEBHOOK_SECRET</code> is also set; signature verification tested locally (valid signature accepted, tampered/missing rejected with 400). Not yet confirmed: the same secret has actually been entered when registering the webhook in Razorpay Dashboard → Settings → Webhooks for <code class="mono">https://api.aviqr.com/api/v1/payments/webhook/razorpay</code> — do that before relying on live webhook delivery.</dd>
             <dt>Owner</dt><dd>Founder / finance lead.</dd>
             <dt class="access-divider">Access</dt>
             <dt>Login</dt><dd><input type="text" data-field="login" placeholder="— add the Razorpay account email —"></dd>
