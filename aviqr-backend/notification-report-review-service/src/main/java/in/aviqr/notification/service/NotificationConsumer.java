@@ -19,6 +19,7 @@ public class NotificationConsumer {
     private final WaSenderWhatsAppService whatsApp;
     private final ElasticEmailService     email;
     private final TwilioSmsService        sms;
+    private final Msg91Service            msg91;
 
     // ── New order placed ──────────────────────────────────────────────────────
     @SuppressWarnings("unchecked")
@@ -114,12 +115,25 @@ public class NotificationConsumer {
     }
 
     // ── Login/register OTP (triggered by auth-service via RabbitMQ) ──────────
+    // Delivered via every enabled channel: Twilio SMS (existing), MSG91 SMS/WhatsApp
+    // (added 2026-08-16, each independently flagged — see Msg91Service javadoc for what's
+    // actually live vs. pending real-world setup), and MSG91 email when auth-service found a
+    // matching account (unregistered/new phones have no email on file, so email is skipped).
     @RabbitListener(queues = NotificationRabbitConfig.OTP_REQUESTED_QUEUE)
     public void onOtpRequested(Map<String, Object> event) {
         String phone = str(event, "phone");
         String otp   = str(event, "otp");
         if (phone == null || phone.isBlank() || otp == null || otp.isBlank()) return;
+
         sms.send(phone, "Your AviQR verification code is " + otp + ". Valid for 10 minutes. Do not share this code.");
+        msg91.sendOtpSms(phone, otp);
+        msg91.sendOtpWhatsapp(phone, otp);
+
+        String email = str(event, "email");
+        String name  = str(event, "name");
+        if (email != null && !email.isBlank()) {
+            msg91.sendOtpEmail(email, name, otp);
+        }
     }
 
     // ── Welcome email (triggered by auth-service via RabbitMQ on register) ───

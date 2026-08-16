@@ -108,8 +108,17 @@ public class AuthService {
         otpRepo.save(record);
 
         try {
-            rabbit.convertAndSend("aviqr.users", "otp.requested",
-                Map.of("phone", req.getPhone(), "otp", otp));
+            // Include email/name when this phone already belongs to a registered account, so
+            // notification-report-review-service can also deliver the OTP by email (MSG91).
+            // New/unregistered phones have no match here — email delivery is simply skipped for them.
+            var payload = new java.util.HashMap<String, Object>();
+            payload.put("phone", req.getPhone());
+            payload.put("otp", otp);
+            userRepo.findByPhone(req.getPhone()).ifPresent(u -> {
+                if (u.getEmail() != null && !u.getEmail().isBlank()) payload.put("email", u.getEmail());
+                if (u.getName() != null && !u.getName().isBlank()) payload.put("name", u.getName());
+            });
+            rabbit.convertAndSend("aviqr.users", "otp.requested", payload);
         } catch (Exception e) { log.warn("Failed to publish otp.requested event: {}", e.getMessage()); }
         log.info("OTP requested for {}", req.getPhone());
         return "OTP sent to " + req.getPhone().substring(0, 6) + "****";
