@@ -4,6 +4,7 @@ import SEO from '../../components/shared/SEO.jsx';
 import SiteHeader from '../../components/landing/SiteHeader.jsx';
 import SiteFooter from '../../components/landing/SiteFooter.jsx';
 import { planApi, offerApi } from '../../api/index.js';
+import { captureReferralCode } from '../../utils/referral.js';
 import {
   QrCode, Zap, BarChart2, Users, ShoppingBag, Star,
   ChevronRight, Globe, Shield, Clock, Smartphone,
@@ -159,6 +160,8 @@ export default function Landing() {
   const navigate = useNavigate();
   const [plans, setPlans]   = useState(FALLBACK_PLANS);
   const [offers, setOffers] = useState([]);
+
+  useEffect(() => { captureReferralCode(); }, []);
 
   useEffect(() => {
     (async () => {
