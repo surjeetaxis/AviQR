@@ -169,7 +169,7 @@ export default function Settings() {
   // Server-issued code (shop-mall-service) — signing up with it credits both
   // sides a free trial extension, tracked via Shop.referredByCode.
   const referralCode = shop?.referralCode || '';
-  const referralLink = referralCode ? `https://aviqr.com/demo?ref=${referralCode}` : '';
+  const referralLink = referralCode ? `https://aviqr.com/register?ref=${referralCode}` : '';
   const [referrals, setReferrals] = useState([]);
   useEffect(() => { if (shopId) shopApi.getReferrals(shopId).then(res => setReferrals(res.data.data || [])).catch(() => {}); }, [shopId, shop?.referralCode]);
   const shareReferral = async () => {

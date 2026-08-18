@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { CheckCircle, ArrowRight, Sparkles, Store, UtensilsCrossed, QrCode, Rocket, Loader2, MapPin, ScanLine } from 'lucide-react';
 import { shopApi, menuApi, qrApi, planApi, api } from '../api/index.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { getReferralCode, clearReferralCode } from '../utils/referral.js';
 import MenuOcrStep from './shared/MenuOcrStep.jsx';
 
 const STEPS = [
@@ -45,6 +46,10 @@ export default function Onboarding({ onComplete }) {
   const [shop, setShop] = useState({ name: '', phone: '', city: '', address: '', latitude: null, longitude: null });
   const [locating, setLocating] = useState(false);
   const [locErr, setLocErr] = useState('');
+  // Pre-filled from Landing/Register's ?ref= capture (localStorage) if the
+  // owner arrived via a shared referral link; editable in case they'd rather
+  // type in a code someone told them verbally.
+  const [referralCode, setReferralCode] = useState(() => getReferralCode());
 
   // First use of browser geolocation in this codebase — feeds the "nearby
   // shops" discovery feature, which otherwise has no way to learn a shop's
@@ -81,10 +86,12 @@ export default function Onboarding({ onComplete }) {
         latitude: shop.latitude,
         longitude: shop.longitude,
         subscriptionPlan: selectedPlan,
+        referredByCode: referralCode.trim() || undefined,
       });
       const newShopId = res.data?.data?.id;
       if (!newShopId) throw new Error('Shop created but no ID returned');
       setShopId(newShopId);
+      clearReferralCode();
       // Link shop in auth service → returns fresh JWT with shopId baked in
       await linkShop(newShopId);
       // Patch axios default header so subsequent calls in this wizard use the new shopId
@@ -217,6 +224,7 @@ export default function Onboarding({ onComplete }) {
                 <Field label="City" value={shop.city} onChange={v => setShop(s => ({ ...s, city: v }))} placeholder="Bengaluru" />
                 <Field label="Address" value={shop.address} onChange={v => setShop(s => ({ ...s, address: v }))} placeholder="123 MG Road" />
               </div>
+              <Field label="Referral code (optional)" value={referralCode} onChange={v => setReferralCode(v.toUpperCase())} placeholder="e.g. AB12CD" />
               <button type="button" style={styles.btnGhost} onClick={useCurrentLocation} disabled={locating}>
                 {locating ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <MapPin size={14} />}
                 {locating ? 'Getting location…' : shop.latitude != null ? 'Location captured ✓' : 'Use current location'}

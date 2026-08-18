@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Store, Hotel, Building2, ShoppingBag, ArrowRight,
          Check, Utensils } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { captureReferralCode } from '../../utils/referral.js';
 import './Auth.css';
 
 const TYPES = [
@@ -25,6 +26,8 @@ export default function Register() {
   const [loading, setLoad]      = useState(false);
   const [error, setErr]         = useState('');
   const set = (k,v) => setForm(f => ({ ...f, [k]: v }));
+
+  useEffect(() => { captureReferralCode(); }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
