@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class OtpLoginRequest {
-    @Pattern(regexp = "^[6-9]\\d{9}$") String phone;
+    @Email @NotBlank String email;
     @NotBlank String otp;
 }

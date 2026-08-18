@@ -10,4 +10,4 @@ Disallow: /supplier/
 Disallow: /support/
 Disallow: /api/
 
-Sitemap: https://aviqr.in/sitemap.xml
+Sitemap: https://aviqr.com/sitemap.xml

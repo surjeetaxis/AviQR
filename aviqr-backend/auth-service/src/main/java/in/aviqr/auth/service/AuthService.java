@@ -89,18 +89,23 @@ public class AuthService {
         return buildAuthResponse(user, device);
     }
 
+    // Email-only for now — SMS/WhatsApp providers (Twilio, MSG91 SMS/WhatsApp) aren't
+    // production-ready yet (DLT template pending, no WhatsApp Business number connected), so
+    // login/register OTP is delivered exclusively via MSG91 email until those are live.
     @Transactional
     public String sendOtp(SendOtpRequest req) {
-        // Rate limit: max 3 OTPs per phone per 10 minutes
-        long recentCount = otpRepo.countByTargetAndCreatedAtAfter(req.getPhone(), LocalDateTime.now().minusMinutes(10));
+        String email = req.getEmail().trim().toLowerCase();
+
+        // Rate limit: max 3 OTPs per email per 10 minutes
+        long recentCount = otpRepo.countByTargetAndCreatedAtAfter(email, LocalDateTime.now().minusMinutes(10));
         if (recentCount >= 3) throw new RuntimeException("Too many OTP requests. Wait 10 minutes.");
 
         String otp = String.format("%06d", new Random().nextInt(999999));
 
         OtpRecord record = OtpRecord.builder()
-                .target(req.getPhone())
+                .target(email)
                 .otp(passwordEncoder.encode(otp)) // hash OTP for storage
-                .type(OtpType.PHONE_LOGIN)
+                .type(OtpType.EMAIL_LOGIN)
                 .expiresAt(LocalDateTime.now().plusMinutes(10))
                 .createdAt(LocalDateTime.now())
                 .used(false)
@@ -108,20 +113,16 @@ public class AuthService {
         otpRepo.save(record);
 
         try {
-            // Include email/name when this phone already belongs to a registered account, so
-            // notification-report-review-service can also deliver the OTP by email (MSG91).
-            // New/unregistered phones have no match here — email delivery is simply skipped for them.
             var payload = new java.util.HashMap<String, Object>();
-            payload.put("phone", req.getPhone());
+            payload.put("email", email);
             payload.put("otp", otp);
-            userRepo.findByPhone(req.getPhone()).ifPresent(u -> {
-                if (u.getEmail() != null && !u.getEmail().isBlank()) payload.put("email", u.getEmail());
+            userRepo.findByEmail(email).ifPresent(u -> {
                 if (u.getName() != null && !u.getName().isBlank()) payload.put("name", u.getName());
             });
             rabbit.convertAndSend("aviqr.users", "otp.requested", payload);
         } catch (Exception e) { log.warn("Failed to publish otp.requested event: {}", e.getMessage()); }
-        log.info("OTP requested for {}", req.getPhone());
-        return "OTP sent to " + req.getPhone().substring(0, 6) + "****";
+        log.info("OTP requested for {}", email);
+        return "OTP sent to " + maskEmail(email);
     }
 
     @Transactional
@@ -131,11 +132,12 @@ public class AuthService {
 
     @Transactional
     public AuthResponse loginWithOtp(OtpLoginRequest req, DeviceInfo device) {
+        String email = req.getEmail().trim().toLowerCase();
         boolean devBypass = otpDevMode && otpFixedCode.equals(req.getOtp());
 
         if (!devBypass) {
             var candidates = otpRepo.findByTargetAndTypeAndUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
-                    req.getPhone(), OtpType.PHONE_LOGIN, LocalDateTime.now());
+                    email, OtpType.EMAIL_LOGIN, LocalDateTime.now());
 
             var otpRecord = candidates.stream()
                     .filter(r -> passwordEncoder.matches(req.getOtp(), r.getOtp()))
@@ -146,31 +148,30 @@ public class AuthService {
             otpRepo.save(otpRecord);
         }
 
-        // A verified OTP is proof of phone ownership, so a first-time phone (the common
+        // A verified OTP is proof of email ownership, so a first-time email (the common
         // case — a customer scanning a QR code has never registered anywhere) self-registers
-        // here as a CUSTOMER instead of being rejected. email/passwordHash stay required,
-        // not-null columns on User, but a customer never uses either — synthesize a unique
-        // placeholder email and a random, never-issued password hash.
-        User user = userRepo.findByPhone(req.getPhone()).orElseGet(() -> {
+        // here as a CUSTOMER instead of being rejected. passwordHash stays a required,
+        // not-null column on User, but a customer never uses it — synthesize a random,
+        // never-issued password hash. phone is left blank (nullable column).
+        User user = userRepo.findByEmail(email).orElseGet(() -> {
             User created = User.builder()
                     .name("Guest")
-                    .email(req.getPhone() + "@customer.aviqr.local")
-                    .phone(req.getPhone())
+                    .email(email)
                     .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
                     .role(UserRole.CUSTOMER)
                     .preferredLanguage("en")
                     .status(UserStatus.ACTIVE)
                     .build();
             created = userRepo.save(created);
-            auditService.log("USER_REGISTERED", created.getId().toString(), "Customer self-registered via OTP: " + req.getPhone());
+            auditService.log("USER_REGISTERED", created.getId().toString(), "Customer self-registered via OTP: " + email);
             return created;
         });
 
         user.setLastLoginAt(LocalDateTime.now());
-        user.setPhoneVerified(true);
+        user.setEmailVerified(true);
         userRepo.save(user);
         auditService.log("USER_LOGIN_OTP", user.getId().toString(),
-                "Login via OTP: " + req.getPhone() + " [" + device.getPlatform() + "]");
+                "Login via OTP: " + email + " [" + device.getPlatform() + "]");
 
         return buildAuthResponse(user, device);
     }
@@ -366,6 +367,13 @@ public class AuthService {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+    private String maskEmail(String email) {
+        int at = email.indexOf('@');
+        if (at <= 1) return email;
+        int visible = Math.min(2, at);
+        return email.substring(0, visible) + "****" + email.substring(at);
+    }
+
     private AuthResponse buildAuthResponse(User user) {
         return buildAuthResponse(user, DeviceInfo.builder().build());
     }

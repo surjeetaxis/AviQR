@@ -407,6 +407,17 @@ export default function CustomerMenuScreen() {
         contentContainerStyle={{ paddingBottom: cartCount > 0 ? 190 : 100 }}
         showsVerticalScrollIndicator={false}
         stickySectionHeadersEnabled={false}
+        ListFooterComponent={
+          // Mirrors .cm-footer-note on aviqr-ui-web's CustomerMenu, but
+          // tappable here — every diner who scans a partner shop's QR is a
+          // free, self-serve lead for shop owners considering AviQR.
+          <TouchableOpacity
+            style={styles.footerNote}
+            onPress={() => Linking.openURL('https://aviqr.com').catch(() => {})}
+          >
+            <Text style={styles.footerNoteText}>▦ Powered by AviQR</Text>
+          </TouchableOpacity>
+        }
       />
 
       {/* Cart FAB */}
@@ -590,6 +601,8 @@ const styles = StyleSheet.create({
   sectionHeader:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: Spacing.base, paddingVertical: 12, backgroundColor: Colors.gray50 },
   sectionEmoji:   { fontSize: 18 },
   sectionTitle:   { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray800 },
+  footerNote:     { alignItems: 'center', justifyContent: 'center', paddingVertical: 20 },
+  footerNoteText: { fontSize: 11.5, fontWeight: '600', color: Colors.gray400, letterSpacing: 0.2 },
   menuItem:       { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.white, padding: Spacing.base, borderBottomWidth: 1, borderBottomColor: Colors.borderLight, gap: 12 },
   menuItemLeft:   { flex: 1 },
   foodTypeRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },

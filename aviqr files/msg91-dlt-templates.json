@@ -1,0 +1,36 @@
+{
+  "_readme": {
+    "what_this_file_is": "A reference record of AviQR's SMS content for DLT (India TRAI) compliance — NOT a confirmed MSG91 bulk-import format. I could not verify MSG91 has a 'paste/upload JSON' template import feature at all; their documented flow is a manual dashboard form (Template Name, DLT Template ID, Sender ID, Content). Use this as your own tracking record and copy values into that form by hand.",
+    "why_it_cannot_be_imported_as_is": "dlt_template_id and sender_id are intentionally blank below — they don't exist yet. A real DLT Template ID (long numeric string) and Sender ID (exactly 6 alphanumeric characters) are only issued by your telecom operator's DLT platform (or MSG91's DLT-assist flow) AFTER they approve the exact content in this file. No tool, including me, can generate these — they come from a real regulatory approval step you have to complete.",
+    "next_steps": [
+      "1. Register as a Principal Entity (PE) on your telecom operator's DLT platform (Airtel IQ / Jio DLT / Vodafone Idea MyOperator) if not already done — or use MSG91's built-in DLT registration assistance.",
+      "2. Submit the exact 'content' string below (do not alter punctuation or spacing) for template approval, with 'AviQR' as the brand name.",
+      "3. Confirm the variable placeholder syntax directly in MSG91's template form before submitting — I found MSG91's own documentation inconsistent between {#var#} and ##var##, and could not resolve which applies to DLT submission vs. their Flow API call. Use whatever their form's own inline example shows.",
+      "4. Once approved, you'll receive a numeric DLT Template ID; fill that plus your registered Sender ID into MSG91's dashboard manually.",
+      "5. Update this file's dlt_template_id/sender_id fields for your own records once you have them."
+    ]
+  },
+  "templates": [
+    {
+      "template_name": "AviQR Login OTP",
+      "brand_name": "AviQR",
+      "template_type": "transactional",
+      "dlt_template_id": "",
+      "sender_id": "",
+      "content": "Your AviQR verification code is {#var#}. Valid for 10 minutes. Do not share this code.",
+      "variable_note": "Confirm exact placeholder syntax ({#var#} vs ##var##) against MSG91's own form before DLT submission — see _readme.next_steps item 3.",
+      "variables": [
+        {
+          "position": 1,
+          "description": "6-digit numeric OTP code"
+        }
+      ],
+      "used_for": "Login and registration OTP delivery — auth-service publishes an otp.requested event over RabbitMQ, notification-report-review-service consumes it and sends this SMS.",
+      "source_reference": "aviqr-backend/notification-report-review-service/src/main/java/in/aviqr/notification/service/NotificationConsumer.java:122",
+      "sent_via_note": "Currently implemented against Twilio's API directly (TwilioSmsService.java), not MSG91. Switching the OTP send path to MSG91 requires a separate code change beyond DLT template registration."
+    }
+  ],
+  "not_covered": {
+    "crm_campaign_sms": "shop-mall-service/CampaignService.java (birthday/anniversary wishes, segment broadcasts) sends free-form text each shop owner composes themselves — no fixed content, so it can't be pre-registered as one DLT template like OTP can. Needs a separate decision: restrict owners to pre-approved template variants, or use MSG91's dynamic-template DLT category."
+  }
+}

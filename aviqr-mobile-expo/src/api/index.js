@@ -104,7 +104,7 @@ export async function isBackendOnline() {
 export const authApi = {
   login:         (d)    => api.post('/api/v1/auth/login', d),
   loginOtp:      (d)    => api.post('/api/v1/auth/otp/login', d),
-  sendOtp:       (ph)   => api.post('/api/v1/auth/otp/send', { phone: ph }),
+  sendOtp:       (email)=> api.post('/api/v1/auth/otp/send', { email }),
   register:      (d)    => api.post('/api/v1/auth/register', d),
   forgotPassword:(e)    => api.post(`/api/v1/auth/forgot-password?email=${encodeURIComponent(e)}`),
   logout:        ()     => api.post('/api/v1/auth/logout'),

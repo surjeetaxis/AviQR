@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Linking } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Linking, Share } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
@@ -165,6 +165,22 @@ export default function Settings() {
   };
 
   const planInfo = PLAN_INFO[(shop?.subscriptionPlan || 'STARTER').toUpperCase()] || PLAN_INFO.STARTER;
+
+  // Referral code is derived from the shop ID (same 8-char slice convention
+  // Onboarding.jsx already uses for the QR menu link) so it needs no backend
+  // field of its own. The `ref` query param is a hook for whenever the
+  // marketing site/signup flow starts attributing signups to it.
+  const referralCode = shopId ? shopId.slice(0, 8).toUpperCase() : '';
+  const referralLink = `https://aviqr.com/demo?ref=${referralCode}`;
+  const shareReferral = async () => {
+    try {
+      await Share.share({
+        message: `I run my shop on AviQR — QR ordering, menu, and billing in one app. Try it free: ${referralLink}`,
+        url: referralLink,
+        title: 'Try AviQR',
+      });
+    } catch {}
+  };
 
   const Section = ({title,children}) => (
     <View style={ss.section}>
