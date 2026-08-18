@@ -1,0 +1,16 @@
+.qr-tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; max-width: 900px; margin: 0 auto; align-items: start; }
+.qr-tool-form { display: flex; flex-direction: column; gap: 16px; }
+.qr-color-row { display: flex; gap: 10px; }
+.qr-color-swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.qr-color-swatch.active { border-color: var(--gray-900); box-shadow: 0 0 0 2px var(--white), 0 0 0 4px var(--gray-200); }
+.qr-tool-preview {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: var(--radius-lg);
+  padding: 32px; min-height: 320px;
+}
+.qr-tool-image { width: 100%; max-width: 260px; border-radius: 12px; }
+.qr-tool-empty { font-size: 13px; color: var(--gray-400); text-align: center; max-width: 220px; }
+
+@media (max-width: 720px) {
+  .qr-tool-grid { grid-template-columns: 1fr; }
+}

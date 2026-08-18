@@ -50,6 +50,9 @@ import AboutPage         from './pages/company/AboutPage.jsx';
 import FeaturesPage      from './pages/company/FeaturesPage.jsx';
 import ContactPage       from './pages/company/ContactPage.jsx';
 import FAQPage           from './pages/company/FAQPage.jsx';
+import PartnersPage      from './pages/company/PartnersPage.jsx';
+import QrMenuGeneratorPage from './pages/tools/QrMenuGeneratorPage.jsx';
+import QrMenuGuidePage   from './pages/guides/QrMenuGuidePage.jsx';
 import AIHub             from './pages/ai/AIHub.jsx';
 import KOT              from './pages/KOT.jsx';
 
@@ -109,6 +112,9 @@ export default function App() {
       <Route path="/features"        element={<FeaturesPage />} />
       <Route path="/contact"         element={<ContactPage />} />
       <Route path="/faq"             element={<FAQPage />} />
+      <Route path="/partners"        element={<PartnersPage />} />
+      <Route path="/free-qr-menu-generator" element={<QrMenuGeneratorPage />} />
+      <Route path="/guides/qr-code-menu-guide" element={<QrMenuGuidePage />} />
       <Route path="/track-order"     element={<TrackOrder />} />
       <Route path="/onboarding"      element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 

@@ -23,12 +23,15 @@ export default function SiteFooter({ isHome = false }) {
             <a href="#" onClick={e => { e.preventDefault(); navigate('/features'); }}>What's new</a>
             <a href={`${base}#pricing`}>Pricing</a>
             <a href={`${base}#verticals`}>Verticals</a>
+            <a href="#" onClick={e => { e.preventDefault(); navigate('/free-qr-menu-generator'); }}>Free QR generator</a>
+            <a href="#" onClick={e => { e.preventDefault(); navigate('/guides/qr-code-menu-guide'); }}>QR menu guide</a>
           </div>
           <div className="footer-col">
             <div className="footer-col-title">Company</div>
             <a href="#" onClick={e => { e.preventDefault(); navigate('/about'); }}>About us</a>
             <a href="#" onClick={e => { e.preventDefault(); navigate('/contact'); }}>Contact</a>
             <a href="#" onClick={e => { e.preventDefault(); navigate('/faq'); }}>FAQ</a>
+            <a href="#" onClick={e => { e.preventDefault(); navigate('/partners'); }}>Partners</a>
           </div>
           <div className="footer-col">
             <div className="footer-col-title">Accounts</div>

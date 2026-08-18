@@ -150,11 +150,11 @@ const TRUST = [
   { icon: Globe,       title: 'Built for every scale',    desc: 'The same platform runs single food stalls, hotel chains, mall food courts and multi-outlet brands.' },
 ];
 
-const TESTIMONIALS = [
-  { name: 'Ankit Joshi', shop: 'Chai & Chaat, Pune', avatar: 'AJ', text: 'Our weekend orders jumped 40% after switching to dynamic pricing. Customers love the instant menu — no waiting for a waiter.' },
-  { name: 'Meena Pillai', shop: 'The Coconut Grove, Kochi', avatar: 'MP', text: 'Uploaded a photo of our old printed menu and got a fully digital version in 8 minutes. Absolutely magic.' },
-  { name: 'Suresh Nadar', shop: 'Grand Palace Hotel, Chennai', avatar: 'SN', text: 'The hotel module handles room service, laundry and spa requests from one QR in each room. Staff productivity up 60%.' },
-];
+// Intentionally empty until there are real customer quotes to put here —
+// add { name, shop, avatar, text } entries once collected. The section below
+// only renders when this has content, so an empty array just hides it rather
+// than showing a broken-looking placeholder on the live site.
+const TESTIMONIALS = [];
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -198,7 +198,7 @@ export default function Landing() {
   return (
     <div className="landing">
       <SEO
-        title="AviQR — QR Menu & Restaurant OS for India"
+        title="QR Menu & Restaurant OS for India"
         description="Scan to order. Pay online. 9 Indian languages. Manage restaurants, hotels and malls with AviQR's QR-powered platform."
         canonical="https://aviqr.com/"
         schema={{
@@ -487,27 +487,29 @@ export default function Landing() {
       </section>
 
       {/* ── Testimonials ── */}
-      <section className="testimonials-section">
-        <div className="section-header">
-          <div className="section-eyebrow">Stories</div>
-          <h2 className="section-title">What our customers say</h2>
-        </div>
-        <div className="testimonials-grid">
-          {TESTIMONIALS.map(t => (
-            <div key={t.name} className="testimonial-card">
-              <div className="testimonial-stars">{'★'.repeat(5)}</div>
-              <p className="testimonial-text">"{t.text}"</p>
-              <div className="testimonial-author">
-                <div className="testimonial-avatar">{t.avatar}</div>
-                <div>
-                  <div className="testimonial-name">{t.name}</div>
-                  <div className="testimonial-shop">{t.shop}</div>
+      {TESTIMONIALS.length > 0 && (
+        <section className="testimonials-section">
+          <div className="section-header">
+            <div className="section-eyebrow">Stories</div>
+            <h2 className="section-title">What our customers say</h2>
+          </div>
+          <div className="testimonials-grid">
+            {TESTIMONIALS.map(t => (
+              <div key={t.name} className="testimonial-card">
+                <div className="testimonial-stars">{'★'.repeat(5)}</div>
+                <p className="testimonial-text">"{t.text}"</p>
+                <div className="testimonial-author">
+                  <div className="testimonial-avatar">{t.avatar}</div>
+                  <div>
+                    <div className="testimonial-name">{t.name}</div>
+                    <div className="testimonial-shop">{t.shop}</div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Trust & security ── */}
       <section className="trust-section">

@@ -34,7 +34,27 @@ public class MenuController {
             @PathVariable String shopId,
             @RequestParam(defaultValue="en") String lang,
             @RequestParam(required=false) String cat) {
+        return ResponseEntity.ok(ApiResponse.ok(buildMenuResponse(shopId, lang, cat)));
+    }
 
+    // Real, crawlable HTML for the same shop — the React customer menu at
+    // aviqr.com/menu/{shopId} is client-rendered, so a crawler that doesn't
+    // execute JavaScript (most AI crawlers — GPTBot, ClaudeBot,
+    // PerplexityBot, unlike Googlebot) never sees the menu content or the
+    // Restaurant/Menu structured data, no matter what SEO tags the React
+    // page declares. nginx routes known crawler User-Agents hitting
+    // /menu/{shopId} here instead of the SPA (see DEPLOYMENT*.md); everyone
+    // else still gets the normal interactive app. Covered by the same
+    // gateway route as getPublicMenu above (/api/v1/menu/public/**), no
+    // separate route needed.
+    @GetMapping(value = "/api/v1/menu/public/{shopId}/html", produces = org.springframework.http.MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> getPublicMenuHtml(@PathVariable String shopId) {
+        MenuResponse resp = buildMenuResponse(shopId, "en", null);
+        return ResponseEntity.ok().contentType(org.springframework.http.MediaType.TEXT_HTML)
+            .body(new in.aviqr.menu.service.CrawlerMenuHtmlRenderer().render(shopId, resp));
+    }
+
+    private MenuResponse buildMenuResponse(String shopId, String lang, String cat) {
         List<Category> categories = catRepo.findByShopIdAndActiveTrueOrderBySortOrder(shopId);
         List<MenuResponse.CategoryDto> catDtos = new ArrayList<>();
 
@@ -83,7 +103,7 @@ public class MenuController {
             ad.setId(a.getId()); ad.setName(a.getName()); ad.setPrice(a.getPrice()); ad.setVeg(a.getVeg());
             return ad;
         }).toList());
-        return ResponseEntity.ok(ApiResponse.ok(resp));
+        return resp;
     }
 
     // Best-effort — the customer menu page falls back to generic placeholder

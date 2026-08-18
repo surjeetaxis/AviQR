@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:prerender": "vite build && node scripts/prerender.mjs",
     "preview": "vite preview --host",
     "test": "vitest run --reporter=verbose",
     "test:watch": "vitest --reporter=verbose"
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.2",
     "@vitest/coverage-v8": "^1.6.0",
+    "playwright": "^1.62.1",
     "vite": "^5.4.8",
     "vitest": "^1.6.0"
   }

@@ -68,7 +68,7 @@ deploy_at() {
   log "Building frontend..."
   cd "$WEB_DIR"
   npm ci --silent
-  VITE_API_URL="$VITE_API_URL" npm run build --silent
+  VITE_API_URL="$VITE_API_URL" npm run build:prerender --silent
   cd "$REPO_DIR"
 }
 

@@ -5,7 +5,25 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0F6E56" />
-    <title>AviQR Owner — Dashboard</title>
+
+    <!-- Static fallback title — this is a client-rendered SPA, so
+         components/shared/SEO.jsx (react-helmet-async) only reaches
+         crawlers that execute JavaScript. This is what any crawler that
+         fetches raw HTML without running JS actually sees on a route that
+         isn't prerendered (most AI crawlers — GPTBot, ClaudeBot,
+         PerplexityBot — don't execute JS; see scripts/prerender.mjs for the
+         routes that get real per-page HTML instead of just this fallback).
+         Helmet overwrites document.title once React mounts, for
+         browsers/crawlers that do run JS — a single DOM node, so no
+         duplicate-tag risk the way a second <meta> would have. Deliberately
+         NOT adding a static <meta name="description"> here: Helmet doesn't
+         know about tags it didn't render, so it would add a second
+         description tag rather than replace this one, and crawlers
+         generally honor whichever description tag comes first — which
+         would silently shadow every page's real Helmet-set description.
+         The <noscript> block below is the non-JS fallback content instead. -->
+    <title>AviQR — QR Menu & Restaurant OS for India</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -22,6 +40,14 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Real, indexable text for crawlers that don't execute JavaScript —
+         everything React renders is invisible to them, so this is the only
+         actual content they see on this page. Kept factual and short; the
+         JS-rendered page has the full, current version of all of this. -->
+    <noscript>
+      <h1>AviQR — QR Menu &amp; Restaurant OS for India</h1>
+      <p>Scan-to-order QR menus, live order management, and a multilingual (9 Indian languages) platform for restaurants, hotels, and malls. Free Starter plan, no credit card required — <a href="https://aviqr.com/register">register a business</a> or read the <a href="https://aviqr.com/features">full feature list</a>.</p>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

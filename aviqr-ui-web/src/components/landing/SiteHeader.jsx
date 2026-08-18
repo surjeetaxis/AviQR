@@ -21,6 +21,7 @@ export default function SiteHeader({ isHome = false }) {
           <a href={`${base}#verticals`}>Who it's for</a>
           <a href={`${base}#pricing`}>Pricing</a>
           <a href="/features">What's new</a>
+          <a href="/free-qr-menu-generator">Free QR generator</a>
           <a href="/faq">FAQ</a>
           <a href="/about">About</a>
         </div>

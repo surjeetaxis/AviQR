@@ -5,7 +5,7 @@ import {
   Store, Clock, CreditCard, Bell, Shield, Tag, Save, Globe, Check, AlertTriangle,
   ExternalLink, Plus, Trash2, X, Link2, Lock, Eye, EyeOff, Palette, ShoppingBag,
   Printer, ChevronRight, Wifi, WifiOff, RefreshCw, Info, Key, QrCode, Image as ImageIcon,
-  MapPin, Loader2,
+  MapPin, Loader2, Gift, Copy, Share2,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext.jsx';
@@ -170,6 +170,11 @@ export default function Settings() {
   const [livePlans, setLivePlans] = useState([]);
   const [liveOffers, setLiveOffers] = useState([]);
 
+  // Referral
+  const [referralCode, setReferralCode] = useState('');
+  const [referrals, setReferrals] = useState([]);
+  const [codeCopied, setCodeCopied] = useState(false);
+
   useEffect(() => {
     (async () => {
       try {
@@ -201,6 +206,7 @@ export default function Settings() {
         setSubStatus(d.subscriptionStatus || 'ACTIVE');
         setTrialEndsAt(d.trialEndsAt || null);
         setCancelRequestedAt(d.cancelRequestedAt || null);
+        setReferralCode(d.referralCode || '');
       }
     }).catch(() => {});
     shopApi.getSettings(shopId).then(r => {
@@ -208,7 +214,23 @@ export default function Settings() {
     }).catch(() => {});
     menuApi.getPricingRules(shopId).then(r => setRules(r.data.data || [])).catch(() => {});
     aggregatorConfigApi.getMapping(shopId).then(r => { if (r.data.data) setIntg(i => ({ ...i, ...r.data.data })); }).catch(() => {});
+    shopApi.getReferrals(shopId).then(r => setReferrals(r.data.data || [])).catch(() => {});
   }, [shopId]);
+
+  const referralLink = referralCode ? `https://aviqr.com/register?ref=${referralCode}` : '';
+  const copyReferralLink = async () => {
+    if (!referralLink) return;
+    try { await navigator.clipboard.writeText(referralLink); setCodeCopied(true); setTimeout(() => setCodeCopied(false), 2000); } catch { /* clipboard unavailable */ }
+  };
+  const shareReferralLink = async () => {
+    if (!referralLink) return;
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Try AviQR', text: `I run my shop on AviQR — QR ordering, menu, and billing in one app. Sign up with my code ${referralCode} and we both get a free trial extension.`, url: referralLink }); }
+      catch { /* user cancelled share sheet */ }
+    } else {
+      copyReferralLink();
+    }
+  };
 
   const set  = k => v  => setSettings(s => ({ ...s, [k]: v }));
   const tog  = k => () => setSettings(s => ({ ...s, [k]: !s[k] }));
@@ -423,6 +445,7 @@ export default function Settings() {
     { key:'appearance',   label:'Appearance',    icon:Palette,   badge: 'ok' },
     { key:'security', label:'Security',          icon:Lock,      badge: 'ok' },
     { key:'plan',     label:'Plan & Billing',    icon:Shield,    badge: shopPlan === 'BUSINESS' ? 'ok' : 'gray' },
+    { key:'referral', label:'Refer & Earn',      icon:Gift,      badge: referrals.length > 0 ? 'ok' : 'gray' },
   ];
 
   const badgeColor = b => b === 'ok' ? '#1D9E75' : b === 'warn' ? '#D97706' : '#D1D5DB';
@@ -1124,6 +1147,44 @@ export default function Settings() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── REFER & EARN ────────────────────────────────────────────────── */}
+        {section === 'referral' && (
+          <div style={{ background:'white', borderRadius:12, border:'1px solid var(--gray-200)', padding:24 }}>
+            <SectionHeader title="Refer & Earn" subtitle="Know another shop, hotel, or mall that could use AviQR? Share your code — when they sign up with it, you both get a free trial extension."/>
+
+            <div style={{ background:'linear-gradient(135deg, #1D9E7514, #1D9E7506)', border:'1.5px solid #1D9E7544', borderRadius:12, padding:24, marginBottom:20, textAlign:'center' }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#1D9E75', textTransform:'uppercase', letterSpacing:.8, marginBottom:8 }}>Your referral code</div>
+              <div style={{ fontSize:32, fontWeight:800, color:'var(--gray-900)', letterSpacing:4, marginBottom:16 }}>{referralCode || '…'}</div>
+              <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
+                <button className="btn btn-secondary" style={{ display:'flex', alignItems:'center', gap:6 }} onClick={copyReferralLink} disabled={!referralCode}>
+                  <Copy size={14}/> {codeCopied ? 'Copied!' : 'Copy link'}
+                </button>
+                <button className="btn btn-primary" style={{ display:'flex', alignItems:'center', gap:6 }} onClick={shareReferralLink} disabled={!referralCode}>
+                  <Share2 size={14}/> Share
+                </button>
+              </div>
+            </div>
+
+            <div style={{ fontSize:13, fontWeight:700, color:'var(--gray-700)', marginBottom:10 }}>
+              Referred shops {referrals.length > 0 && `(${referrals.length})`}
+            </div>
+            {referrals.length === 0 ? (
+              <div style={{ padding:'16px', borderRadius:8, background:'var(--gray-50)', fontSize:13, color:'var(--gray-500)', textAlign:'center' }}>
+                No signups yet — share your code to start earning trial days.
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {referrals.map(r => (
+                  <div key={r.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', borderRadius:8, background:'var(--gray-50)', fontSize:13 }}>
+                    <span style={{ fontWeight:600, color:'var(--gray-800)' }}>{r.name}</span>
+                    <span style={{ color:'var(--gray-400)', fontSize:12 }}>{r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : ''}</span>
+                  </div>
+                ))}
               </div>
             )}
           </div>

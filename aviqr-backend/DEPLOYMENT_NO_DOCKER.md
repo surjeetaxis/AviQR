@@ -1152,11 +1152,20 @@ cd /var/www/aviqr/aviqr-ui-web
 # Install dependencies
 npm ci
 
+# One-time only: downloads the Chromium binary `npm ci` doesn't install on
+# its own, into ~/.cache/ms-playwright (persists across future `npm ci`/
+# deploys — this doesn't need to run again unless that cache is cleared).
+# Needed for `npm run build:prerender` below.
+npx playwright install --with-deps chromium
+
 # Set production API URL
 echo "VITE_API_URL=https://api.yourdomain.com" > .env.production
 
-# Build
-npm run build
+# Build — prerenders the public marketing pages to real static HTML (see
+# scripts/prerender.mjs) so crawlers that don't execute JavaScript get
+# actual per-page content instead of one generic index.html shell. Use
+# plain `npm run build` instead if you just want a fast local/dev build.
+npm run build:prerender
 
 # The dist/ folder is your production frontend
 ls -la dist/
@@ -1174,6 +1183,31 @@ ls -la dist/
 
 # Create Nginx config
 cat > /etc/nginx/sites-available/aviqr << 'NGINX'
+# Marks known AI/search crawler User-Agents so /menu/{shopId} can serve them
+# real static HTML instead of the client-rendered SPA shell — see the
+# location block below and menu-ocr-service's MenuController.getPublicMenuHtml.
+# Must live outside any server{} block (nginx requires map at http level;
+# this file is `include`d from within http{} in nginx.conf, so top-level
+# here still resolves correctly).
+map $http_user_agent $is_seo_crawler {
+    default 0;
+    ~*GPTBot 1;
+    ~*ChatGPT-User 1;
+    ~*OAI-SearchBot 1;
+    ~*ClaudeBot 1;
+    ~*Claude-Web 1;
+    ~*anthropic-ai 1;
+    ~*PerplexityBot 1;
+    ~*Perplexity-User 1;
+    ~*Google-Extended 1;
+    ~*Applebot-Extended 1;
+    ~*Amazonbot 1;
+    ~*Meta-ExternalAgent 1;
+    ~*CCBot 1;
+    ~*Googlebot 1;
+    ~*bingbot 1;
+}
+
 # Redirect HTTP → HTTPS
 server {
     listen 80;
@@ -1194,9 +1228,24 @@ server {
     root  /var/www/aviqr/aviqr-ui-web/dist;
     index index.html;
 
+    # Shop menu pages are client-rendered (React), so a crawler that
+    # doesn't execute JavaScript sees an empty shell no matter what SEO
+    # tags the page declares. Known crawler UAs (see the map above) get
+    # real server-rendered HTML from menu-ocr-service instead; everyone
+    # else gets the normal interactive app. A single `if` with one
+    # proxy_pass+break is the documented-safe exception to nginx's usual
+    # "if is evil" guidance (no branching logic beyond this).
+    location ~ ^/menu/([0-9a-fA-F-]+)$ {
+        if ($is_seo_crawler = 1) {
+            proxy_pass http://127.0.0.1:8080/api/v1/menu/public/$1/html;
+            break;
+        }
+        try_files $uri /app-shell.html;
+    }
+
     # React Router support
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files $uri $uri/ /app-shell.html;
     }
 
     # Cache JS/CSS/images forever (content-hashed filenames)
@@ -1380,7 +1429,7 @@ systemctl restart aviqr-auth-service
 
 # Redeploy frontend
 cd /var/www/aviqr/aviqr-ui-web
-npm run build
+npm run build:prerender
 # No restart needed — Nginx serves from dist/ immediately
 ```
 
