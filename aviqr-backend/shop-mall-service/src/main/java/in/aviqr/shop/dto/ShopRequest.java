@@ -20,4 +20,5 @@ public class ShopRequest {
     Integer tableCount;
     Double latitude;
     Double longitude;
+    String referredByCode;
 }

@@ -198,6 +198,17 @@ export default function Landing() {
         title="AviQR — QR Menu & Restaurant OS for India"
         description="Scan to order. Pay online. 9 Indian languages. Manage restaurants, hotels and malls with AviQR's QR-powered platform."
         canonical="https://aviqr.com/"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "AviQR",
+          url: "https://aviqr.com",
+          logo: "https://aviqr.com/favicon.svg",
+          email: "support@aviqr.com",
+          telephone: "+91-98450-00000",
+          address: { "@type": "PostalAddress", addressLocality: "Bengaluru", addressRegion: "Karnataka", postalCode: "560001", addressCountry: "IN" },
+          contactPoint: { "@type": "ContactPoint", contactType: "customer support", email: "support@aviqr.com", telephone: "+91-98450-00000", areaServed: "IN" },
+        }}
       />
       <SiteHeader isHome />
 

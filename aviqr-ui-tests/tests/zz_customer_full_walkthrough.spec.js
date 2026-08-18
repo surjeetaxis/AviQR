@@ -66,7 +66,7 @@ test('Customer — full walkthrough of public pages, menu, food court, brand QR,
 
   await page.goto('/forgot-password');
   await page.waitForLoadState('networkidle');
-  await page.fill('input[type="email"]', 'test@aviqr.in');
+  await page.fill('input[type="email"]', 'test@aviqr.com');
   await pause(page);
   await page.screenshot({ path: 'screenshots/cust-05-forgot-password.png' });
 

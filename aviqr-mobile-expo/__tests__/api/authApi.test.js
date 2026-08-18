@@ -31,9 +31,9 @@ describe('authApi', () => {
     expect(m.post).toHaveBeenCalledWith('/api/v1/auth/register', body);
   });
 
-  it('sendOtp posts phone to OTP endpoint', async () => {
-    await authApi.sendOtp('9900112233');
-    expect(m.post).toHaveBeenCalledWith('/api/v1/auth/otp/send', { phone: '9900112233' });
+  it('sendOtp posts email to OTP endpoint', async () => {
+    await authApi.sendOtp('x@y.com');
+    expect(m.post).toHaveBeenCalledWith('/api/v1/auth/otp/send', { email: 'x@y.com' });
   });
 
   it('getProfile hits the profile endpoint', async () => {

@@ -4,5 +4,5 @@ import lombok.Data;
 
 @Data
 public class SendOtpRequest {
-    @Pattern(regexp = "^[6-9]\\d{9}$") @NotBlank String phone;
+    @Email @NotBlank String email;
 }

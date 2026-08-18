@@ -14,7 +14,7 @@ const DEV_URL = Platform.OS === 'web'
   // : 'http://localhost:8080';   // iOS simulator
   // : 'http://192.168.1.XX:8080'; // real device on same WiFi
 
-const PROD_URL = 'https://api.aviqr.in';
+const PROD_URL = 'https://api.aviqr.com';
 
 export const BASE_URL = __DEV__ ? DEV_URL : PROD_URL;
 

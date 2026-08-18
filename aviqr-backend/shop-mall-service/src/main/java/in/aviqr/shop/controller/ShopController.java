@@ -36,6 +36,11 @@ public class ShopController {
         return ResponseEntity.ok(ApiResponse.ok(service.getMyShops(uid)));
     }
 
+    @GetMapping("/{id}/referrals")
+    public ResponseEntity<ApiResponse<List<ShopResponse>>> referrals(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(service.getReferrals(id)));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ShopResponse>> getById(@PathVariable UUID id) {
         return service.getById(id)

@@ -37,6 +37,13 @@ public class Shop {
     private LocalDateTime planStartedAt;
     private LocalDateTime cancelRequestedAt;
 
+    // Every shop gets its own code to hand out (short, so it fits a shared
+    // link/QR poster); referredByCode records which other shop's code this
+    // one signed up with, if any — set once at creation, never changed.
+    @Column(unique = true, length = 8)
+    private String referralCode;
+    private String referredByCode;
+
     private Integer minOrderAmount;
     private Integer tableCount;
 

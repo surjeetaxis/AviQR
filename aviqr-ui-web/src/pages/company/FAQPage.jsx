@@ -45,6 +45,16 @@ const FAQ_GROUPS = [
   },
 ];
 
+const FAQ_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ_GROUPS.flatMap(g => g.items).map(item => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+
 export default function FAQPage() {
   const [open, setOpen] = useState('Getting started-0');
 
@@ -54,6 +64,7 @@ export default function FAQPage() {
         title="FAQ — AviQR"
         description="Answers about getting started, pricing, features, payments and security on AviQR."
         canonical="https://aviqr.com/faq"
+        schema={FAQ_SCHEMA}
       />
       <SiteHeader />
 

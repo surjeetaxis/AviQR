@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { menuApi, orderApi, paymentApi, favoritesApi, reviewApi } from '../../api/index.js';
+import SEO from '../../components/shared/SEO.jsx';
 import { useCart } from '../../context/CartContext.jsx';
 import { useCustomerAuth } from '../../context/CustomerAuthContext.jsx';
 import { setCustomerContext } from '../../context/customerContext.js';
@@ -518,6 +519,44 @@ export default function CustomerMenu() {
 
   // Derived
   const allItems = shop.categories.flatMap(c => c.items);
+
+  // Local-SEO structured data for this shop's public menu page — this is what
+  // lets a scanned/shared menu link show up as a Restaurant + Menu rich result
+  // in Google Search, independent of the shop's own Google Business Profile.
+  const menuCanonical = `https://aviqr.com/menu/${shop.id}`;
+  const shopSchema = shop.id ? {
+    "@context": "https://schema.org",
+    "@type": "Restaurant",
+    name: shop.name,
+    ...(shop.logoUrl && { image: shop.logoUrl }),
+    ...(shop.tagline && { description: shop.tagline }),
+    url: menuCanonical,
+    ...(shop.phone && { telephone: shop.phone }),
+    ...(shop.location && { address: { "@type": "PostalAddress", streetAddress: shop.location, addressCountry: "IN" } }),
+    ...((ratingSummary?.ratingCount || shop.reviews) > 0 && {
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: String(ratingSummary?.averageRating ?? shop.rating),
+        reviewCount: String(ratingSummary?.ratingCount ?? shop.reviews),
+      },
+    }),
+    hasMenu: {
+      "@type": "Menu",
+      name: `${shop.name} Menu`,
+      url: menuCanonical,
+      hasMenuSection: shop.categories.map(cat => ({
+        "@type": "MenuSection",
+        name: cat.name,
+        hasMenuItem: cat.items.map(item => ({
+          "@type": "MenuItem",
+          name: item.name,
+          ...(item.desc && { description: item.desc }),
+          ...(item.veg && { suitableForDiet: "https://schema.org/VegetarianDiet" }),
+          offers: { "@type": "Offer", price: String(item.price), priceCurrency: "INR" },
+        })),
+      })),
+    },
+  } : null;
   const addItem  = cartAddItem;
   const remItem  = cartRemItem;
   const cartCount = Object.values(cart).reduce((a, v) => a + v, 0);
@@ -735,6 +774,17 @@ export default function CustomerMenu() {
 
   return (
     <div className="cm-page">
+      {shopSchema && (
+        <SEO
+          title={`${shop.name} — Menu & Online Ordering`}
+          description={`Order online from ${shop.name}${shop.location ? ` in ${shop.location}` : ''}. ${shop.tagline || 'View the full menu, prices and photos, and pay online.'}`.trim()}
+          image={shop.logoUrl || undefined}
+          canonical={menuCanonical}
+          type="restaurant.menu"
+          schema={shopSchema}
+          appSchema={false}
+        />
+      )}
       {/* ── Header ── */}
       <header className="cm-header">
         <div className="cm-header-inner">

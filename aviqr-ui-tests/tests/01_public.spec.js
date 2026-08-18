@@ -76,7 +76,7 @@ test.describe('Public pages (no login required)', () => {
 
   test('Forgot password — filling email enables send button', async ({ page }) => {
     await page.goto('/forgot-password');
-    await page.fill('input[type="email"]', 'test@aviqr.in');
+    await page.fill('input[type="email"]', 'test@aviqr.com');
     const btn = page.locator('button:has-text("Send"), button:has-text("Reset")').first();
     await expect(btn).not.toBeDisabled();
     await page.screenshot({ path: 'screenshots/forgot-password-filled.png' });

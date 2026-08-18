@@ -19,6 +19,13 @@ public class ShopService {
 
     private static final int TRIAL_DAYS = 90;
 
+    // Referral reward: both sides get a free trial window, independent of
+    // whichever plan they're actually on — simplest reward that needs no
+    // billing/payment-gateway integration.
+    private static final int REFERRAL_BONUS_DAYS = 30;
+    private static final String REFERRAL_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I — avoids misread codes on a shared/printed link
+    private static final java.security.SecureRandom RNG = new java.security.SecureRandom();
+
     @Transactional
     public ShopResponse create(String ownerId, ShopRequest req) {
         String requestedKey = (req.getSubscriptionPlan() == null || req.getSubscriptionPlan().isBlank())
@@ -30,6 +37,17 @@ public class ShopService {
         boolean isPaid = plan != null && plan.getPrice() != null && plan.getPrice() > 0;
         LocalDateTime now = LocalDateTime.now();
 
+        String referredByCode = req.getReferredByCode() != null ? req.getReferredByCode().trim().toUpperCase() : null;
+        Shop referrer = (referredByCode != null && !referredByCode.isBlank())
+            ? repo.findByReferralCode(referredByCode).orElse(null) : null;
+        boolean referred = referrer != null;
+
+        LocalDateTime trialEndsAt = isPaid ? now.plusDays(TRIAL_DAYS) : null;
+        if (referred) {
+            LocalDateTime bonusEnd = now.plusDays(REFERRAL_BONUS_DAYS);
+            trialEndsAt = trialEndsAt == null || bonusEnd.isAfter(trialEndsAt) ? bonusEnd : trialEndsAt;
+        }
+
         Shop shop = Shop.builder()
             .name(req.getName()).tagline(req.getTagline())
             .ownerId(ownerId).phone(req.getPhone()).email(req.getEmail())
@@ -38,11 +56,41 @@ public class ShopService {
             .minOrderAmount(req.getMinOrderAmount()).tableCount(req.getTableCount())
             .latitude(req.getLatitude()).longitude(req.getLongitude())
             .subscriptionPlan(planKey)
-            .subscriptionStatus(isPaid ? SubscriptionStatus.TRIALING : SubscriptionStatus.ACTIVE)
-            .trialEndsAt(isPaid ? now.plusDays(TRIAL_DAYS) : null)
+            .subscriptionStatus(isPaid || referred ? SubscriptionStatus.TRIALING : SubscriptionStatus.ACTIVE)
+            .trialEndsAt(trialEndsAt)
             .planStartedAt(now)
+            .referralCode(generateReferralCode())
+            .referredByCode(referred ? referrer.getReferralCode() : null)
             .build();
-        return toDto(repo.save(shop));
+        shop = repo.save(shop);
+
+        if (referred) {
+            LocalDateTime base = referrer.getTrialEndsAt() != null && referrer.getTrialEndsAt().isAfter(now)
+                ? referrer.getTrialEndsAt() : now;
+            referrer.setTrialEndsAt(base.plusDays(REFERRAL_BONUS_DAYS));
+            if (referrer.getSubscriptionStatus() != SubscriptionStatus.CANCELED) {
+                referrer.setSubscriptionStatus(SubscriptionStatus.TRIALING);
+            }
+            repo.save(referrer);
+        }
+
+        return toDto(shop);
+    }
+
+    private String generateReferralCode() {
+        String code;
+        do {
+            StringBuilder sb = new StringBuilder(6);
+            for (int i = 0; i < 6; i++) sb.append(REFERRAL_CODE_CHARS.charAt(RNG.nextInt(REFERRAL_CODE_CHARS.length())));
+            code = sb.toString();
+        } while (repo.existsByReferralCode(code));
+        return code;
+    }
+
+    public List<ShopResponse> getReferrals(UUID shopId) {
+        return repo.findById(shopId)
+            .map(s -> repo.findByReferredByCode(s.getReferralCode()).stream().map(this::toDto).toList())
+            .orElse(List.of());
     }
 
     public List<ShopResponse> getMyShops(String ownerId) {
@@ -144,6 +192,7 @@ public class ShopService {
         r.setSubscriptionStatus(s.getSubscriptionStatus()); r.setTrialEndsAt(s.getTrialEndsAt());
         r.setPlanStartedAt(s.getPlanStartedAt()); r.setCancelRequestedAt(s.getCancelRequestedAt());
         r.setRating(s.getRating()); r.setRatingCount(s.getRatingCount());
+        r.setReferralCode(s.getReferralCode()); r.setReferredByCode(s.getReferredByCode());
         r.setCreatedAt(s.getCreatedAt());
         return r;
     }

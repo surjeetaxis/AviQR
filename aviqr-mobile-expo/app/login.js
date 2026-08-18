@@ -19,14 +19,14 @@ function homeFor(role) {
 
 export default function Login() {
   const { login, loginOtp } = useAuth();
-  const [tab, setTab]     = useState('password');
-  const [email, setEmail] = useState('');
-  const [pw, setPw]       = useState('');
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp]     = useState('');
-  const [sent, setSent]   = useState(false);
-  const [loading, setLoad]= useState(false);
-  const [err, setErr]     = useState('');
+  const [tab, setTab]       = useState('password');
+  const [email, setEmail]   = useState('');
+  const [pw, setPw]         = useState('');
+  const [otpEmail, setOtpEmail] = useState('');
+  const [otp, setOtp]       = useState('');
+  const [sent, setSent]     = useState(false);
+  const [loading, setLoad]  = useState(false);
+  const [err, setErr]       = useState('');
 
   const doLogin = async () => {
     if(!email||!pw) return setErr('Enter email and password');
@@ -37,9 +37,9 @@ export default function Login() {
   };
 
   const sendOtp = async () => {
-    if(!phone) return setErr('Enter phone number');
+    if(!otpEmail) return setErr('Enter email address');
     setLoad(true); setErr('');
-    try { await authApi.sendOtp(phone); setSent(true); }
+    try { await authApi.sendOtp(otpEmail); setSent(true); }
     catch { setErr('Could not send OTP. Use 123456 for dev.'); setSent(true); }
     finally { setLoad(false); }
   };
@@ -47,7 +47,7 @@ export default function Login() {
   const verifyOtp = async () => {
     if(!otp) return;
     setLoad(true); setErr('');
-    try { const u=await loginOtp(phone,otp); router.replace(homeFor(u.role)); }
+    try { const u=await loginOtp(otpEmail,otp); router.replace(homeFor(u.role)); }
     catch { setErr('Invalid OTP'); }
     finally { setLoad(false); }
   };
@@ -69,7 +69,7 @@ export default function Login() {
         <View style={ss.tabs}>
           {['password','otp'].map(t=>(
             <TouchableOpacity key={t} style={[ss.tab,tab===t&&ss.tabActive]} onPress={()=>{setTab(t);setErr('');}}>
-              <Text style={[ss.tabTxt,tab===t&&ss.tabTxtActive]}>{t==='password'?'🔑 Password':'📱 OTP'}</Text>
+              <Text style={[ss.tabTxt,tab===t&&ss.tabTxtActive]}>{t==='password'?'🔑 Password':'📧 OTP'}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -85,7 +85,7 @@ export default function Login() {
           </View>
         ):(
           <View>
-            <Input label="Phone" placeholder="9845012345" value={phone} onChangeText={setPhone} keyboardType="phone-pad"/>
+            <Input label="Email" placeholder="sujeet@spiceroute.in" value={otpEmail} onChangeText={setOtpEmail} keyboardType="email-address" autoCapitalize="none"/>
             {sent?(
               <View>
                 <Input label="OTP (dev: 123456)" placeholder="123456" value={otp} onChangeText={setOtp} keyboardType="number-pad"/>

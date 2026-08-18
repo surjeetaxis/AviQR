@@ -148,4 +148,4 @@ This keeps the bundle small and the styling fully under your control.
 
 ---
 
-AviQR Technologies Private Limited · Bengaluru · aviqr.in
+AviQR Technologies Private Limited · Bengaluru · aviqr.com

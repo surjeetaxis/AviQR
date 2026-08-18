@@ -18,7 +18,7 @@ test('New user sign-up — register a restaurant owner and complete onboarding',
   const stamp = Date.now();
   const newUser = {
     name: 'Priya Sharma',
-    email: `priya.demo.${stamp}@aviqr.in`,
+    email: `priya.demo.${stamp}@aviqr.com`,
     phone: '9' + String(stamp).slice(-9),
     password: 'Demo@1234',
   };

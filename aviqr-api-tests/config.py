@@ -22,8 +22,8 @@ EXPECTED_SERVICES = [
 # Seeded by aviqr_setup.sql — every dev password is Axis321#. One login per
 # user type the platform supports, so "all user types" means these 12.
 SEED_USERS = {
-    "ADMIN":    {"email": "admin@aviqr.in",        "password": "Axis321#"},
-    "SUPPORT":  {"email": "support@aviqr.in",       "password": "Axis321#"},
+    "ADMIN":    {"email": "admin@aviqr.com",        "password": "Axis321#"},
+    "SUPPORT":  {"email": "support@aviqr.com",       "password": "Axis321#"},
     "OWNER":    {"email": "sujeet@spiceroute.in",   "password": "Axis321#"},  # owns SHOP_101
     "OWNER2":   {"email": "meena@coconut.in",       "password": "Axis321#"},  # owns SHOP_102
     "OWNER3":   {"email": "priya@cake.in",          "password": "Axis321#"},  # owns SHOP_104

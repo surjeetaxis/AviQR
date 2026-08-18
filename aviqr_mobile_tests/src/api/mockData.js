@@ -61,9 +61,9 @@ export const MOCK_STAFF = [
 ];
 
 export const MOCK_QR_CODES = [
-  { id:'q1', qrCode:'spiceroute',    targetUrl:'https://aviqr.in/menu/shop1',            label:'Main Shop QR', type:'SHOP',  scanCount:2841 },
-  { id:'q2', qrCode:'spiceroute-t4', targetUrl:'https://aviqr.in/menu/shop1?table=4',    label:'Table 4',      type:'TABLE', scanCount:421 },
-  { id:'q3', qrCode:'spiceroute-t7', targetUrl:'https://aviqr.in/menu/shop1?table=7',    label:'Table 7',      type:'TABLE', scanCount:284 },
+  { id:'q1', qrCode:'spiceroute',    targetUrl:'https://aviqr.com/menu/shop1',            label:'Main Shop QR', type:'SHOP',  scanCount:2841 },
+  { id:'q2', qrCode:'spiceroute-t4', targetUrl:'https://aviqr.com/menu/shop1?table=4',    label:'Table 4',      type:'TABLE', scanCount:421 },
+  { id:'q3', qrCode:'spiceroute-t7', targetUrl:'https://aviqr.com/menu/shop1?table=7',    label:'Table 7',      type:'TABLE', scanCount:284 },
 ];
 
 export const MOCK_TOP_ITEMS = [

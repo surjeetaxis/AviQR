@@ -21,7 +21,7 @@ Companion doc: a cost report covering hosting/storage/domain/messaging/payment-g
 - Mobile: 86/86 Jest passing
 
 **Not yet true (as of this plan)**
-- No AWS or GCP compute provisioned — DNS for `aviqr.in`, `api.aviqr.in`, `staging.aviqr.in`, `staging-api.aviqr.in` all return nothing
+- No AWS or GCP compute provisioned — DNS for `aviqr.com`, `api.aviqr.com`, `staging.aviqr.com`, `staging-api.aviqr.com` all return nothing
 - A real GCP service-account key (`files/aviqr-503715-29ffb091e175.json`) is committed to git and pushed to GitHub
 - No `eas.json` build profiles — the mobile app only knows one API URL (production), so it can't be QA'd against staging before a store submission
 - No Apple Developer or Google Play Console enrollment yet
@@ -33,7 +33,7 @@ Companion doc: a cost report covering hosting/storage/domain/messaging/payment-g
 |---|---|---|
 | Compute | 1× EC2 `t3.xlarge`, `ap-south-1`, Ubuntu 22.04 | 1× Compute Engine `e2-standard-4`, `asia-south1`, Ubuntu 22.04 |
 | Storage | S3 bucket `aviqr-media` for menu photos/logos | local disk is fine — staging media is disposable |
-| Domains | `aviqr.in`, `api.aviqr.in` | `staging.aviqr.in`, `staging-api.aviqr.in` |
+| Domains | `aviqr.com`, `api.aviqr.com` | `staging.aviqr.com`, `staging-api.aviqr.com` |
 | Spring profile | `production` | `staging` (already shipped per service) |
 
 Two different cloud providers on purpose: a bad staging migration or load test can never reach the production box.
@@ -126,13 +126,13 @@ gcloud compute firewall-rules create aviqr-staging-ssh \
 ## Phase 7 — DNS & TLS
 
 ```
-aviqr.in              → <AWS Elastic IP>
-api.aviqr.in           → <AWS Elastic IP>
-staging.aviqr.in       → <GCP static IP>
-staging-api.aviqr.in   → <GCP static IP>
+aviqr.com              → <AWS Elastic IP>
+api.aviqr.com           → <AWS Elastic IP>
+staging.aviqr.com       → <GCP static IP>
+staging-api.aviqr.com   → <GCP static IP>
 ```
 
-- [ ] Confirm `aviqr.in` is actually registered (it currently returns no DNS records at all)
+- [ ] Confirm `aviqr.com` is actually registered (it currently returns no DNS records at all)
 - [ ] `sudo certbot --nginx -d <hostnames>` on each box independently
 
 ## Phase 8 — Wire the deploy pipeline
@@ -149,20 +149,20 @@ staging-api.aviqr.in   → <GCP static IP>
 
 ## Phase 10 — Legal review
 
-- [ ] Confirm `aviqr-ui-web/src/pages/legal/` Terms & Privacy copy is real and reviewed, at a resolving domain. This blocks phases 12 and 13 too — the mobile app's `privacyPolicyUrl`/`termsUrl` point at `https://aviqr.in/privacy` and `/terms`.
+- [ ] Confirm `aviqr-ui-web/src/pages/legal/` Terms & Privacy copy is real and reviewed, at a resolving domain. This blocks phases 12 and 13 too — the mobile app's `privacyPolicyUrl`/`termsUrl` point at `https://aviqr.com/privacy` and `/terms`.
 
 ## Phase 11 — Staging rehearsal (on GCP)
 
-- [ ] Run every suite against `staging.aviqr.in`, not localhost — confirm `UI_URL` actually points there (QA_STRATEGY.md's own cautionary tale: a prior run silently tested an unrelated app squatting on port 5173)
+- [ ] Run every suite against `staging.aviqr.com`, not localhost — confirm `UI_URL` actually points there (QA_STRATEGY.md's own cautionary tale: a prior run silently tested an unrelated app squatting on port 5173)
 - [ ] One real end-to-end order in live-mode: register → login → build a menu → scan QR → order → pay (real low-value Razorpay live transaction) → KOT/invoice → notification arrives
-- [ ] Build an EAS `preview` profile pointed at `staging-api.aviqr.in` and run the same walkthrough from a phone — first time the mobile client will have been tested against anything but `localhost`
+- [ ] Build an EAS `preview` profile pointed at `staging-api.aviqr.com` and run the same walkthrough from a phone — first time the mobile client will have been tested against anything but `localhost`
 - [ ] No load/perf testing exists anywhere (QA_STRATEGY §10) — at minimum a basic concurrent-order smoke (`k6`/`ab`) against the gateway
 - [ ] Rehearse the AWS rollback for real (deploy, then roll back one release) before a production incident is when you find out
 
 ## Phase 12 — Cutover: web & backend to AWS
 
 - [ ] Freeze `master`, tag the release, approve the Jenkins production gate — same jars already verified on GCP staging get promoted, no rebuild
-- [ ] Smoke test: `curl https://api.aviqr.in/actuator/health` → `{"status":"UP"}`, one real login, one real order
+- [ ] Smoke test: `curl https://api.aviqr.com/actuator/health` → `{"status":"UP"}`, one real login, one real order
 
 ## Phase 13 — Android (Play Store)
 
