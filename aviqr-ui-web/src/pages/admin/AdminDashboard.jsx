@@ -12,12 +12,13 @@ import {
   Download, RefreshCw, ToggleLeft, ToggleRight,
   Lock, Unlock, Star, Send, AlertTriangle, ChevronLeft, ChevronRight,
   BadgeCheck, Clock, Zap, Crown, ScanLine, ExternalLink,
-  Percent, Gift, Layers, BedDouble, UserCog, ClipboardList, UtensilsCrossed, Sparkles
+  Percent, Gift, Layers, BedDouble, UserCog, ClipboardList, UtensilsCrossed, Sparkles, Mail
 } from 'lucide-react';
 import { authApi, reportApi, shopApi, hotelApi, mallApi, orderApi, paymentApi, qrApi, planApi, offerApi } from '../../api/index.js';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
 import PermissionMatrixView from '../../components/shared/PermissionMatrixView.jsx';
+import AdminLeadsPage from './AdminLeadsPage.jsx';
 import '../admin/Admin.css';
 import './AdminExtra.css';
 
@@ -62,6 +63,7 @@ const NAV = [
   {key:'payments',      labelKey:'navPayments',      icon:CreditCard},
   {key:'qrcodes',       labelKey:'qrCodes',      icon:QrCode},
   {key:'subscription',  labelKey:'navSubscriptions', icon:Star},
+  {key:'leads',         labelKey:'navLeads',       icon:Mail},
   {key:'permissions',   labelKey:'navPermissions', icon:UserCog},
   {key:'reports',       labelKey:'reports',       icon:TrendingUp},
   {key:'settings',      labelKey:'settings',      icon:Settings},
@@ -176,6 +178,7 @@ export default function AdminDashboard() {
           {tab === 'payments'     && <AdminPaymentsPage/>}
           {tab === 'qrcodes'      && <AdminQRCodesPage/>}
           {tab === 'subscription' && <AdminSubscriptionManagement/>}
+          {tab === 'leads'        && <AdminLeadsPage/>}
           {tab === 'permissions'  && <PermissionMatrixView/>}
           {tab === 'reports'      && <AdminReports/>}
           {tab === 'settings'     && <AdminSettings/>}

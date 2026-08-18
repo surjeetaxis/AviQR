@@ -423,6 +423,21 @@ export const supportApi = {
   impersonate:  (body)       => api.post('/api/v1/support/impersonate', body),
 };
 
+// ── Sales lead CRM (internal — ADMIN/SUPPORT only) ────────────────────────────
+export const leadApi = {
+  list:        (p)           => api.get('/api/v1/leads', { params: p }),
+  getStats:    ()             => api.get('/api/v1/leads/stats'),
+  getById:     (id)           => api.get(`/api/v1/leads/${id}`),
+  create:      (d)            => api.post('/api/v1/leads', d),
+  update:      (id, d)        => api.put(`/api/v1/leads/${id}`, d),
+  updateStatus:(id, status)   => api.put(`/api/v1/leads/${id}/status?status=${status}`),
+  import:      (leads)        => api.post('/api/v1/leads/import', { leads }),
+  listEmails:  (id)           => api.get(`/api/v1/leads/${id}/emails`),
+  draftEmail:  (id, d)        => api.post(`/api/v1/leads/${id}/emails`, d),
+  editDraft:   (id, emailId, d) => api.put(`/api/v1/leads/${id}/emails/${emailId}`, d),
+  sendEmail:   (id, emailId)  => api.post(`/api/v1/leads/${id}/emails/${emailId}/send`),
+};
+
 // ── Notifications ─────────────────────────────────────────────────────────────
 export const notifApi = {
   getAll:      ()            => api.get('/api/v1/notifications'),

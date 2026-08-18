@@ -148,6 +148,27 @@ public class NotificationConsumer {
         email.send(to, "Welcome to AviQR! 🍽️", html);
     }
 
+    // ── Sales lead outreach (published by support-service, only after a staff
+    // member explicitly clicks "send" on one drafted email — see LeadController) ──
+    // The compliance footer (sender identity + opt-out) is appended here rather
+    // than stored on the draft, so every lead email carries it regardless of what
+    // staff typed, and editing a draft can never accidentally drop it.
+    @RabbitListener(queues = NotificationRabbitConfig.LEAD_EMAIL_SEND_QUEUE)
+    public void onLeadEmailSend(Map<String, Object> event) {
+        String to      = str(event, "to");
+        String subject = str(event, "subject");
+        String body    = str(event, "body");
+        if (to == null || to.isBlank() || body == null) return;
+
+        String html = body.replace("\n", "<br>") +
+            "<hr style=\"margin-top:24px;border:none;border-top:1px solid #E5E7EB\">" +
+            "<p style=\"font-size:12px;color:#6B7280\">" +
+            "AviQR Technologies Pvt Ltd, Bengaluru, Karnataka, India · " +
+            "<a href=\"mailto:partnerships@aviqr.com?subject=Unsubscribe\">Unsubscribe / opt out of future emails</a>" +
+            "</p>";
+        email.send(to, subject, html);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
     private void save(String userId, String title, String body, String type, String shopId, String orderId) {
         try {

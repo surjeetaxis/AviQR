@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { supportApi, orderApi, authApi, shopApi, paymentApi, ocrApi, auditApi, planApi, offerApi } from '../../api/index.js';
 import { AdminQRCodesPage, AdminReports } from '../admin/AdminDashboard.jsx';
+import AdminLeadsPage from '../admin/AdminLeadsPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import {
   Headphones, ShoppingBag, CreditCard, Users, Store, QrCode,
@@ -45,6 +46,7 @@ const NAV = [
   { key:'audit',       label:'Audit Logs',     icon:FileText },
   { key:'reports',     label:'Reports',        icon:TrendingUp },
   { key:'billing',     label:'Billing',        icon:Layers },
+  { key:'leads',       label:'Leads',          icon:Gift },
   { key:'permissions', label:'Permissions',    icon:UserCog },
   { key:'impersonate', label:'Impersonation',  icon:UserCheck },
 ];
@@ -168,6 +170,7 @@ export default function SupportDashboard() {
           {tab === 'audit'       && <AuditPanel logs={auditLogs} />}
           {tab === 'reports'     && <AdminReports/>}
           {tab === 'billing'     && <SupportBillingPanel />}
+          {tab === 'leads'       && <AdminLeadsPage />}
           {tab === 'permissions' && <PermissionMatrixView />}
           {tab === 'impersonate' && <ImpersonatePanel users={users} agent={user} />}
         </main>

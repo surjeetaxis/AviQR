@@ -3,42 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { Colors, FontSize, Radius } from '../../src/theme/index.js';
-
-function parseQuery(qs) {
-  const out = {};
-  if (!qs) return out;
-  qs.split('&').forEach(pair => {
-    const [k, v = ''] = pair.split('=');
-    if (k) out[decodeURIComponent(k)] = decodeURIComponent(v.replace(/\+/g, ' '));
-  });
-  return out;
-}
-
-// Mirrors QrService.buildUrl on the backend (order-qr-service/QrService.java)
-// — the URL shapes a shop/table/mall/brand/hotel QR code actually encodes
-// (https://aviqr.com/menu/{shopId}?table=…, /food-court/{mallId}, /brand/{brandId},
-// /hotel-services/{hotelId}?room=…). Parsed by hand rather than the URL global
-// to avoid depending on a Hermes polyfill that may not be present.
-function resolveTarget(raw) {
-  const m = /^https?:\/\/[^/]+(\/[^?#]*)(?:\?([^#]*))?/.exec((raw || '').trim());
-  if (!m) return null;
-  const [, path, qs] = m;
-  const q = parseQuery(qs);
-  let mm;
-  if ((mm = /^\/menu\/([^/]+)\/?$/.exec(path))) {
-    return { pathname: '/(customer)/shop/menu', params: { shopId: mm[1], tableNumber: q.table } };
-  }
-  if ((mm = /^\/food-court\/([^/]+)\/?$/.exec(path))) {
-    return { pathname: '/food-court/[mallId]', params: { mallId: mm[1] } };
-  }
-  if ((mm = /^\/brand\/([^/]+)\/?$/.exec(path))) {
-    return { pathname: '/brand/[brandId]', params: { brandId: mm[1] } };
-  }
-  if ((mm = /^\/hotel-services\/([^/]+)\/?$/.exec(path))) {
-    return { pathname: '/(customer)/hotel-services', params: { hotelId: mm[1], room: q.room, area: q.area } };
-  }
-  return null;
-}
+import { resolveTarget } from '../../src/utils/deepLink.js';
 
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();

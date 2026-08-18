@@ -17,6 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "in.aviqr.app",
       "buildNumber": "1",
+      "associatedDomains": ["applinks:aviqr.com"],
       "infoPlist": {
         "NSCameraUsageDescription": "AviQR uses your camera to scan QR codes and upload menu images for text recognition.",
         "NSPhotoLibraryUsageDescription": "AviQR accesses your photo library to upload menu images for automatic menu creation.",
@@ -35,6 +36,19 @@
       },
       "package": "in.aviqr.app",
       "versionCode": 1,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "aviqr.com", "pathPrefix": "/menu" },
+            { "scheme": "https", "host": "aviqr.com", "pathPrefix": "/food-court" },
+            { "scheme": "https", "host": "aviqr.com", "pathPrefix": "/brand" },
+            { "scheme": "https", "host": "aviqr.com", "pathPrefix": "/hotel-services" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.INTERNET",

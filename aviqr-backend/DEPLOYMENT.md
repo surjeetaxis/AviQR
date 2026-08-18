@@ -753,6 +753,14 @@ server {
         add_header Content-Type "application/xml";
     }
 
+    # iOS Universal Links verification file has no extension by spec, so
+    # nginx's default mime.types lookup can't identify it — without this,
+    # it's served as application/octet-stream, and some iOS versions
+    # refuse to trust the association file unless it's application/json.
+    location = /.well-known/apple-app-site-association {
+        default_type application/json;
+    }
+
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN";
     add_header X-Content-Type-Options "nosniff";
