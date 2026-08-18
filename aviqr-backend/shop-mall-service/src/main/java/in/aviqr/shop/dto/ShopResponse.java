@@ -14,5 +14,6 @@ public class ShopResponse {
     Integer minOrderAmount; Integer tableCount; String subscriptionPlan;
     SubscriptionStatus subscriptionStatus; LocalDateTime trialEndsAt; LocalDateTime planStartedAt; LocalDateTime cancelRequestedAt;
     BigDecimal rating; Integer ratingCount;
+    String referralCode; String referredByCode;
     LocalDateTime createdAt;
 }

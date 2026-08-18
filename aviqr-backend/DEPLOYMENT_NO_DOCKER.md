@@ -1215,6 +1215,16 @@ server {
         expires off;
     }
 
+    # Dynamically generated shops sitemap (every ACTIVE shop's /menu/{id}
+    # page), proxied to shop-mall-service via the gateway on the same box.
+    # Must be served from this origin, not api.yourdomain.com — the sitemap
+    # protocol requires a sitemap to be same-host as the URLs it lists.
+    location = /sitemap-shops.xml {
+        proxy_pass http://127.0.0.1:8080/api/v1/sitemap/shops.xml;
+        proxy_set_header Host $host;
+        add_header Content-Type "application/xml";
+    }
+
     # Gzip compression
     gzip on;
     gzip_types text/plain text/css application/json application/javascript

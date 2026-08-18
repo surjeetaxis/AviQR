@@ -58,7 +58,7 @@ jobs:
       - name: Production build
         run: npm run build
         env:
-          VITE_API_URL: https://api.aviqr.in
+          VITE_API_URL: https://api.aviqr.com
 
       - name: Upload dist (sanity artifact, not used for deploy)
         uses: actions/upload-artifact@v4

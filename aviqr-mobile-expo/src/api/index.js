@@ -150,6 +150,7 @@ export const shopApi = {
   getSubscription:     (id)         => api.get(`/api/v1/shops/${id}/subscription`),
   updateSubscription:  (id, status) => api.put(`/api/v1/shops/${id}/subscription/status`, { status }),
   requestCancellation: (id)         => api.post(`/api/v1/shops/${id}/subscription/cancel-request`),
+  getReferrals:        (id)         => api.get(`/api/v1/shops/${id}/referrals`),
 };
 
 // ── Menu ────────────────────────────────────────────────────────────────────

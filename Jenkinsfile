@@ -19,12 +19,12 @@ pipeline {
   }
 
   environment {
-    STAGING_HOST        = 'staging.aviqr.in'
+    STAGING_HOST        = 'staging.aviqr.com'
     STAGING_USER        = 'deploy'
-    STAGING_API_URL     = 'https://staging-api.aviqr.in'
-    PRODUCTION_HOST     = 'api.aviqr.in'
+    STAGING_API_URL     = 'https://staging-api.aviqr.com'
+    PRODUCTION_HOST     = 'api.aviqr.com'
     PRODUCTION_USER     = 'deploy'
-    PRODUCTION_API_URL  = 'https://api.aviqr.in'
+    PRODUCTION_API_URL  = 'https://api.aviqr.com'
     RELEASE_ID          = "${env.GIT_COMMIT ? env.GIT_COMMIT.take(12) : 'build-' + env.BUILD_NUMBER}"
   }
 

@@ -11,3 +11,4 @@ Disallow: /support/
 Disallow: /api/
 
 Sitemap: https://aviqr.com/sitemap.xml
+Sitemap: https://aviqr.com/sitemap-shops.xml

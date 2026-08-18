@@ -13,6 +13,20 @@ public interface ShopRepository extends JpaRepository<Shop, UUID> {
     Page<Shop> search(String q, Pageable pageable);
     long countByStatus(ShopStatus status);
     List<Shop> findBySubscriptionStatusAndTrialEndsAtBefore(SubscriptionStatus status, java.time.LocalDateTime cutoff);
+    Optional<Shop> findByReferralCode(String referralCode);
+    boolean existsByReferralCode(String referralCode);
+    List<Shop> findByReferredByCode(String referredByCode);
+
+    // Cheap projection for sitemap generation — avoids loading full Shop
+    // entities (and the EAGER shop_opening_hours collection) for what's
+    // ultimately just an id + a timestamp per row.
+    @Query("SELECT s.id AS id, s.updatedAt AS updatedAt FROM Shop s WHERE s.status = 'ACTIVE'")
+    List<ShopSitemapRow> findActiveForSitemap();
+
+    interface ShopSitemapRow {
+        UUID getId();
+        java.time.LocalDateTime getUpdatedAt();
+    }
 
     // Haversine distance in km. Wrapped in a subquery because the computed
     // distance_km column can't be filtered with WHERE in the same SELECT it's

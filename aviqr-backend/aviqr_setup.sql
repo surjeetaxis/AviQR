@@ -177,8 +177,8 @@ CREATE SEQUENCE IF NOT EXISTS seq_user_ref START 1001 INCREMENT 1;
 -- ── Dummy data — users ────────────────────────────────────────
 -- Passwords are all: Axis321#  (bcrypt $2a$12$)
 INSERT INTO users (id, email, phone, password_hash, name, role, status, avatar, shop_id, email_verified, phone_verified, preferred_language, created_at) VALUES
-  ('3cfd0b53-3eec-4285-af6a-9e0b115303ff', 'admin@aviqr.in',               '9999000001', '$2a$12$fU4Ge/h6XyV3Ou6lxUd6POwO1YoF6bBA1W4T.K0dUvsf0J68ZfWvW', 'Priya Mehta',       'ADMIN',    'ACTIVE', 'PM', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '180 days'),
-  ('d4eaf7a7-6cce-41eb-916c-6d52336107be', 'support@aviqr.in',      '9999000002', '$2a$12$fU4Ge/h6XyV3Ou6lxUd6POwO1YoF6bBA1W4T.K0dUvsf0J68ZfWvW', 'Arjun Nair',        'SUPPORT',  'ACTIVE', 'AN', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '150 days'),
+  ('3cfd0b53-3eec-4285-af6a-9e0b115303ff', 'admin@aviqr.com',               '9999000001', '$2a$12$fU4Ge/h6XyV3Ou6lxUd6POwO1YoF6bBA1W4T.K0dUvsf0J68ZfWvW', 'Priya Mehta',       'ADMIN',    'ACTIVE', 'PM', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '180 days'),
+  ('d4eaf7a7-6cce-41eb-916c-6d52336107be', 'support@aviqr.com',      '9999000002', '$2a$12$fU4Ge/h6XyV3Ou6lxUd6POwO1YoF6bBA1W4T.K0dUvsf0J68ZfWvW', 'Arjun Nair',        'SUPPORT',  'ACTIVE', 'AN', NULL,                                 TRUE,  TRUE,  'en', NOW() - INTERVAL '150 days'),
   ('6dbae4cc-5e11-48c1-a3cb-4baae5f344aa', 'sujeet@spiceroute.in',  '9845012345', '$2a$12$fU4Ge/h6XyV3Ou6lxUd6POwO1YoF6bBA1W4T.K0dUvsf0J68ZfWvW', 'Sujeet Narayanan',  'OWNER',    'ACTIVE', 'SN', 'ecdbc557-91fa-44ee-992f-03683ad8bbde', TRUE,  TRUE,  'kn', NOW() - INTERVAL '90 days'),
   ('3580a702-e960-4a40-83eb-a596c88595f7', 'meena@coconut.in',      '9876500001', '$2a$12$fU4Ge/h6XyV3Ou6lxUd6POwO1YoF6bBA1W4T.K0dUvsf0J68ZfWvW', 'Meena Pillai',      'OWNER',    'ACTIVE', 'MP', '44aeca17-767e-410b-868f-9fdd593fa091', TRUE,  TRUE,  'ml', NOW() - INTERVAL '80 days'),
   ('d7ad7958-b4dc-4b94-8a8f-f4cfe39f0179', 'farhan@biryani.in',     '9988776600', '$2a$12$fU4Ge/h6XyV3Ou6lxUd6POwO1YoF6bBA1W4T.K0dUvsf0J68ZfWvW', 'Farhan Khan',       'OWNER',    'SUSPENDED','FK', 'e8754df0-7965-400a-8923-35543d8a698b', TRUE,  TRUE,  'hi', NOW() - INTERVAL '70 days'),
@@ -1119,21 +1119,21 @@ CREATE SEQUENCE IF NOT EXISTS seq_qr_scan_batch START 1 INCREMENT 10;
 
 -- ── Dummy data — qr_codes ─────────────────────────────────────
 INSERT INTO qr_codes (id, qr_code, target_url, shop_id, label, type, group_param, scan_count, active) VALUES
-  ('7a507852-145c-4432-80e6-fd04895426ad', 'spiceroute',     'https://aviqr.in/menu/ecdbc557-91fa-44ee-992f-03683ad8bbde',           'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Main Shop QR',   'SHOP',  NULL,  2841, TRUE),
-  ('04383cdd-14e4-42e2-a45a-ecdfb42517dd', 'spiceroute-t1',  'https://aviqr.in/menu/ecdbc557-91fa-44ee-992f-03683ad8bbde?table=1',   'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Table 1',        'TABLE', '1',    284, TRUE),
-  ('53fe53eb-ef9c-405d-981c-f893825e06a6', 'spiceroute-t2',  'https://aviqr.in/menu/ecdbc557-91fa-44ee-992f-03683ad8bbde?table=2',   'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Table 2',        'TABLE', '2',    312, TRUE),
-  ('f56b63f2-b92d-43d3-aa1f-6e44bbeac52b', 'spiceroute-t3',  'https://aviqr.in/menu/ecdbc557-91fa-44ee-992f-03683ad8bbde?table=3',   'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Table 3',        'TABLE', '3',    198, TRUE),
-  ('3db703dc-5bd3-4e8b-a108-e734aabe1338', 'spiceroute-t4',  'https://aviqr.in/menu/ecdbc557-91fa-44ee-992f-03683ad8bbde?table=4',   'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Table 4',        'TABLE', '4',    421, TRUE),
-  ('44e8826d-0c17-4842-9baa-3ff4810c1483', 'coconutgrove',   'https://aviqr.in/menu/44aeca17-767e-410b-868f-9fdd593fa091',           '44aeca17-767e-410b-868f-9fdd593fa091', 'Main Shop QR',   'SHOP',  NULL,  1547, TRUE),
-  ('461d094f-9f54-4b0d-8870-077fed677b27', 'biryanihouse',   'https://aviqr.in/menu/e8754df0-7965-400a-8923-35543d8a698b',           'e8754df0-7965-400a-8923-35543d8a698b', 'Main Shop QR',   'SHOP',  NULL,   987, FALSE),
-  ('8b6d0bee-2372-41f2-9c15-3864bfab19bd', 'cakestudio-del', 'https://aviqr.in/menu/67685266-6b45-4e40-851c-8277ef650ca3',           '67685266-6b45-4e40-851c-8277ef650ca3', 'Main Shop QR',   'SHOP',  NULL,   234, TRUE)
+  ('7a507852-145c-4432-80e6-fd04895426ad', 'spiceroute',     'https://aviqr.com/menu/ecdbc557-91fa-44ee-992f-03683ad8bbde',           'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Main Shop QR',   'SHOP',  NULL,  2841, TRUE),
+  ('04383cdd-14e4-42e2-a45a-ecdfb42517dd', 'spiceroute-t1',  'https://aviqr.com/menu/ecdbc557-91fa-44ee-992f-03683ad8bbde?table=1',   'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Table 1',        'TABLE', '1',    284, TRUE),
+  ('53fe53eb-ef9c-405d-981c-f893825e06a6', 'spiceroute-t2',  'https://aviqr.com/menu/ecdbc557-91fa-44ee-992f-03683ad8bbde?table=2',   'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Table 2',        'TABLE', '2',    312, TRUE),
+  ('f56b63f2-b92d-43d3-aa1f-6e44bbeac52b', 'spiceroute-t3',  'https://aviqr.com/menu/ecdbc557-91fa-44ee-992f-03683ad8bbde?table=3',   'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Table 3',        'TABLE', '3',    198, TRUE),
+  ('3db703dc-5bd3-4e8b-a108-e734aabe1338', 'spiceroute-t4',  'https://aviqr.com/menu/ecdbc557-91fa-44ee-992f-03683ad8bbde?table=4',   'ecdbc557-91fa-44ee-992f-03683ad8bbde', 'Table 4',        'TABLE', '4',    421, TRUE),
+  ('44e8826d-0c17-4842-9baa-3ff4810c1483', 'coconutgrove',   'https://aviqr.com/menu/44aeca17-767e-410b-868f-9fdd593fa091',           '44aeca17-767e-410b-868f-9fdd593fa091', 'Main Shop QR',   'SHOP',  NULL,  1547, TRUE),
+  ('461d094f-9f54-4b0d-8870-077fed677b27', 'biryanihouse',   'https://aviqr.com/menu/e8754df0-7965-400a-8923-35543d8a698b',           'e8754df0-7965-400a-8923-35543d8a698b', 'Main Shop QR',   'SHOP',  NULL,   987, FALSE),
+  ('8b6d0bee-2372-41f2-9c15-3864bfab19bd', 'cakestudio-del', 'https://aviqr.com/menu/67685266-6b45-4e40-851c-8277ef650ca3',           '67685266-6b45-4e40-851c-8277ef650ca3', 'Main Shop QR',   'SHOP',  NULL,   234, TRUE)
 ON CONFLICT DO NOTHING;
 
 -- Supplier (Ramesh Tea House) QR codes
 INSERT INTO qr_codes (id, qr_code, target_url, shop_id, label, type, scan_count, active) VALUES
-  (gen_random_uuid(), 'rameshteas-mgrd', 'https://aviqr.in/menu/117390e3-f3dc-4ea7-a6e2-1b073f18bad7', '117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'MG Road — Main QR',     'SHOP', 412, TRUE),
-  (gen_random_uuid(), 'rameshteas-kora', 'https://aviqr.in/menu/da4440f6-1b19-48a4-8587-532474a3c258', 'da4440f6-1b19-48a4-8587-532474a3c258', 'Koramangala — Main QR', 'SHOP', 287, TRUE),
-  (gen_random_uuid(), 'rameshteas-wfld', 'https://aviqr.in/menu/79292444-6912-4336-9894-1d89c18894d4', '79292444-6912-4336-9894-1d89c18894d4', 'Whitefield — Main QR',  'SHOP', 143, TRUE)
+  (gen_random_uuid(), 'rameshteas-mgrd', 'https://aviqr.com/menu/117390e3-f3dc-4ea7-a6e2-1b073f18bad7', '117390e3-f3dc-4ea7-a6e2-1b073f18bad7', 'MG Road — Main QR',     'SHOP', 412, TRUE),
+  (gen_random_uuid(), 'rameshteas-kora', 'https://aviqr.com/menu/da4440f6-1b19-48a4-8587-532474a3c258', 'da4440f6-1b19-48a4-8587-532474a3c258', 'Koramangala — Main QR', 'SHOP', 287, TRUE),
+  (gen_random_uuid(), 'rameshteas-wfld', 'https://aviqr.com/menu/79292444-6912-4336-9894-1d89c18894d4', '79292444-6912-4336-9894-1d89c18894d4', 'Whitefield — Main QR',  'SHOP', 143, TRUE)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO qr_scan_logs (id, qr_code, ip_address, user_agent, scanned_at) VALUES

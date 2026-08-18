@@ -82,7 +82,7 @@ Nginx, systemd units), with two differences:
   `production`) and `ExecStart` uses `/var/www/aviqr/current/backend/<svc>.jar`
   from the start — do steps 1's stable-path setup as part of the initial
   install rather than retrofitting it.
-- DNS/TLS: `staging.aviqr.in` (web) and `staging-api.aviqr.in` (gateway),
+- DNS/TLS: `staging.aviqr.com` (web) and `staging-api.aviqr.com` (gateway),
   certbot cert for both.
 
 Every service already ships an `application-staging.properties` next to

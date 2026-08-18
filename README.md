@@ -144,12 +144,12 @@ with automatic health-check + rollback. One-time server/secrets setup: see
 
 **Quick summary (manual, first-time setup):**
 1. Provision server (Ubuntu 22.04, 8 vCPU / 16 GB RAM)
-2. Configure DNS: `aviqr.in` + `api.aviqr.in` → server IP
+2. Configure DNS: `aviqr.com` + `api.aviqr.com` → server IP
 3. Install Nginx, Certbot
 4. `cd aviqr-backend && ./aviqr.sh install --yes && ./aviqr.sh db-setup && ./aviqr.sh build && SPRING_PROFILES_ACTIVE=production ./aviqr.sh run all`
-5. Build frontend: `cd aviqr-ui-web && VITE_API_URL=https://api.aviqr.in npm run build`
+5. Build frontend: `cd aviqr-ui-web && VITE_API_URL=https://api.aviqr.com npm run build`
 6. Configure Nginx to serve `dist/` + proxy to port 8080
-7. `certbot --nginx -d aviqr.in -d api.aviqr.in`
+7. `certbot --nginx -d aviqr.com -d api.aviqr.com`
 
 **Important:** `./aviqr.sh run all` defaults to the `local` Spring profile (weak default JWT
 secret, OTP dev-mode bypass, mock payment keys). Always set `SPRING_PROFILES_ACTIVE=production`
@@ -175,4 +175,4 @@ no `Dockerfile`/`docker-compose.yml` in the repo yet — treat it as aspirationa
 
 ---
 
-© 2025 AviQR Technologies · support@aviqr.in
+© 2025 AviQR Technologies · support@aviqr.com

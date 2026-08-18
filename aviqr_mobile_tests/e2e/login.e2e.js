@@ -15,7 +15,7 @@ describe('Login flow', () => {
   });
 
   it('admin logs in and reaches the admin home (NOT owner dashboard)', async () => {
-    await element(by.id('login-email')).typeText('admin@aviqr.in');
+    await element(by.id('login-email')).typeText('admin@aviqr.com');
     await element(by.id('login-password')).typeText('Axis321#');
     await element(by.id('login-submit')).tap();
     await waitFor(element(by.id('admin-home'))).toBeVisible().withTimeout(10000);

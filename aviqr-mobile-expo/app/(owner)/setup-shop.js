@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { shopApi, menuApi, qrApi, planApi, ocrApi } from '../../src/api/index.js';
 import { Input } from '../../src/components/common/Input.js';
@@ -21,6 +21,7 @@ const KNOWN_PLAN_KEYS = ['STARTER'];
 // Onboarding.jsx (choose plan → create shop → add menu → QR → done).
 export default function SetupShopScreen() {
   const { user, linkShop } = useAuth();
+  const { ref: refParam } = useLocalSearchParams();
   const [step, setStep] = useState(1);
   const [busy, setBusy] = useState(false);
   const [shopId, setShopId] = useState(null);
@@ -31,6 +32,9 @@ export default function SetupShopScreen() {
 
   // Step 2
   const [shop, setShop] = useState({ name: '', phone: '', city: '', address: '' });
+  // Pre-fills from a ?ref= deep link if the app was opened that way; otherwise
+  // the owner can paste in a code another shop shared with them.
+  const [referralCode, setReferralCode] = useState(refParam ? String(refParam).toUpperCase() : '');
   const [coords, setCoords] = useState(null);
   const [locating, setLocating] = useState(false);
 
@@ -77,6 +81,7 @@ export default function SetupShopScreen() {
         name: shop.name.trim(), phone: shop.phone.trim(), city: shop.city.trim(), address: shop.address.trim(),
         latitude: coords?.latitude, longitude: coords?.longitude,
         subscriptionPlan: selectedPlan,
+        referredByCode: referralCode.trim() || undefined,
       });
       const newShopId = res.data?.data?.id;
       if (!newShopId) throw new Error('Shop created but no ID returned');
@@ -215,6 +220,7 @@ export default function SetupShopScreen() {
               <Input label="Phone number" placeholder="9900112233" keyboardType="phone-pad" value={shop.phone} onChangeText={v => setShop(s => ({ ...s, phone: v }))} />
               <Input label="City" placeholder="Bengaluru" value={shop.city} onChangeText={v => setShop(s => ({ ...s, city: v }))} />
               <Input label="Address" placeholder="123 MG Road" value={shop.address} onChangeText={v => setShop(s => ({ ...s, address: v }))} />
+              <Input label="Referral code (optional)" placeholder="e.g. AB12CD" value={referralCode} onChangeText={v => setReferralCode(v.toUpperCase())} autoCapitalize="characters" maxLength={6} />
               <Button title={locating ? 'Getting location…' : coords ? 'Location captured ✓' : 'Use current location'} variant="outline" size="sm" onPress={useCurrentLocation} disabled={locating} style={{ marginBottom: 12 }} />
               <Button title={busy ? 'Creating…' : 'Create my restaurant'} onPress={handleCreateShop} loading={busy} />
             </>

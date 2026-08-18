@@ -24,7 +24,7 @@ set -euo pipefail
 REPO_DIR="${AVIQR_REPO_DIR:-/var/www/aviqr}"
 BACKEND_DIR="$REPO_DIR/aviqr-backend"
 WEB_DIR="$REPO_DIR/aviqr-ui-web"
-VITE_API_URL="${VITE_API_URL:-https://api.aviqr.in}"
+VITE_API_URL="${VITE_API_URL:-https://api.aviqr.com}"
 DEPLOY_LOG="/var/log/aviqr-deploy.log"
 
 # Order matters: registry and gateway must be up before anything that

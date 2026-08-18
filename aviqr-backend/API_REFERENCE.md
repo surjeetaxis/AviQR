@@ -466,11 +466,11 @@ open http://localhost:8761
 # 7. Test auth endpoint
 curl -X POST http://localhost:8080/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"name":"Test","email":"test@aviqr.in","password":"Test@1234","role":"OWNER"}'
+  -d '{"name":"Test","email":"test@aviqr.com","password":"Test@1234","role":"OWNER"}'
 ```
 
 ## 🔑 Default Admin Credentials
-- Email: `admin@aviqr.in`
+- Email: `admin@aviqr.com`
 - Password: `Admin@1234`
 - Role: `ADMIN`
 

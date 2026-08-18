@@ -166,16 +166,17 @@ export default function Settings() {
 
   const planInfo = PLAN_INFO[(shop?.subscriptionPlan || 'STARTER').toUpperCase()] || PLAN_INFO.STARTER;
 
-  // Referral code is derived from the shop ID (same 8-char slice convention
-  // Onboarding.jsx already uses for the QR menu link) so it needs no backend
-  // field of its own. The `ref` query param is a hook for whenever the
-  // marketing site/signup flow starts attributing signups to it.
-  const referralCode = shopId ? shopId.slice(0, 8).toUpperCase() : '';
-  const referralLink = `https://aviqr.com/demo?ref=${referralCode}`;
+  // Server-issued code (shop-mall-service) — signing up with it credits both
+  // sides a free trial extension, tracked via Shop.referredByCode.
+  const referralCode = shop?.referralCode || '';
+  const referralLink = referralCode ? `https://aviqr.com/demo?ref=${referralCode}` : '';
+  const [referrals, setReferrals] = useState([]);
+  useEffect(() => { if (shopId) shopApi.getReferrals(shopId).then(res => setReferrals(res.data.data || [])).catch(() => {}); }, [shopId, shop?.referralCode]);
   const shareReferral = async () => {
+    if (!referralLink) return;
     try {
       await Share.share({
-        message: `I run my shop on AviQR — QR ordering, menu, and billing in one app. Try it free: ${referralLink}`,
+        message: `I run my shop on AviQR — QR ordering, menu, and billing in one app. Sign up with my code ${referralCode} and we both get a free trial extension: ${referralLink}`,
         url: referralLink,
         title: 'Try AviQR',
       });
@@ -231,6 +232,20 @@ export default function Settings() {
             <Input label="Table count" value={profileForm.tableCount} onChangeText={v => setProfileForm(f => ({ ...f, tableCount: v }))} keyboardType="numeric" style={{ flex: 1 }} />
           </View>
           <Button title={savingProfile ? 'Saving…' : 'Save Profile'} onPress={saveProfile} loading={savingProfile} style={{ marginTop: 4 }} />
+        </View>
+      </Section>
+
+      <Section title="🤝 Refer & Earn">
+        <View style={{ padding: 14 }}>
+          <Text style={ss.referralHint}>Know another shop, hotel, or mall that could use AviQR? Share your code — when they sign up with it, you both get a free trial extension.</Text>
+          <View style={ss.referralCodeBox}>
+            <Text style={ss.referralCodeLabel}>Your referral code</Text>
+            <Text style={ss.referralCode}>{referralCode || '…'}</Text>
+          </View>
+          {referrals.length > 0 && (
+            <Text style={ss.referralCount}>✓ {referrals.length} shop{referrals.length > 1 ? 's' : ''} signed up with your code</Text>
+          )}
+          <Button title="Share referral link" onPress={shareReferral} disabled={!referralCode} style={{ marginTop: 10 }} />
         </View>
       </Section>
 
@@ -417,6 +432,11 @@ const ss=StyleSheet.create({
   planPrice:{fontSize:FontSize.base,fontWeight:'700',color:Colors.gray700},
   planHint:{fontSize:FontSize.xs,color:Colors.gray400,marginTop:10},
   trialBanner:{backgroundColor:'#DBEAFE',borderWidth:1,borderColor:'#93C5FD',borderRadius:Radius.md,padding:12,marginBottom:12},
+  referralHint:{fontSize:FontSize.sm,color:Colors.gray600,lineHeight:19,marginBottom:12},
+  referralCodeBox:{backgroundColor:Colors.primaryLight,borderWidth:1.5,borderColor:Colors.primary,borderRadius:Radius.md,padding:14,alignItems:'center'},
+  referralCodeLabel:{fontSize:11,fontWeight:'700',color:Colors.gray500,textTransform:'uppercase',letterSpacing:0.5},
+  referralCode:{fontSize:FontSize['2xl'],fontWeight:'800',color:Colors.primary,letterSpacing:2,marginTop:4},
+  referralCount:{fontSize:FontSize.sm,fontWeight:'600',color:'#059669',marginTop:10,textAlign:'center'},
   trialBannerTxt:{fontSize:FontSize.xs,color:'#1E40AF',lineHeight:16},
   sheetTitle:{fontSize:FontSize.lg,fontWeight:'800',color:Colors.gray900,marginBottom:12},
   fieldLabel:{fontSize:FontSize.sm,fontWeight:'600',color:Colors.gray700,marginBottom:6,marginTop:2},
