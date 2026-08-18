@@ -74,7 +74,12 @@ deploy_at() {
 
 # ── Wait for the gateway + all services to report healthy via Eureka ─────────
 wait_healthy() {
-  local expected=${#SERVICES[@]}
+  # service-registry IS the Eureka server (eureka.client.register-with-eureka=false in its
+  # application.properties) so it never appears as a registered <instance> itself — the other
+  # 9 services are all that /eureka/apps can ever report. Using len(SERVICES)==10 here means
+  # this can never succeed, silently forcing every deploy into a "failed health check" rollback
+  # regardless of whether the new code is actually healthy.
+  local expected=$((${#SERVICES[@]} - 1))
   for i in $(seq 1 40); do
     if curl -sf http://localhost:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
       local registered
