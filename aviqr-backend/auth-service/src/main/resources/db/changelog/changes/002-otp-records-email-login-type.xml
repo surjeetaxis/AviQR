@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- OtpType gained EMAIL_LOGIN when login/register OTP moved from phone/SMS to email
+         (SMS/WhatsApp providers aren't production-ready — no DLT template, no WhatsApp
+         Business number). Hibernate ddl-auto never retroactively widens a check constraint,
+         so otp_records_type_check (created back when the table was first ddl-auto'd) still
+         only allows the original four values — every real INSERT with type=EMAIL_LOGIN was
+         rejected by Postgres until this widens it. -->
+    <changeSet id="002-otp-records-email-login-type" author="aviqr">
+        <sql>
+            ALTER TABLE otp_records DROP CONSTRAINT IF EXISTS otp_records_type_check;
+            ALTER TABLE otp_records ADD CONSTRAINT otp_records_type_check
+                CHECK (type IN ('PHONE_LOGIN', 'EMAIL_LOGIN', 'EMAIL_VERIFY', 'PHONE_VERIFY', 'PASSWORD_RESET'));
+        </sql>
+        <rollback>
+            <sql>
+                ALTER TABLE otp_records DROP CONSTRAINT IF EXISTS otp_records_type_check;
+                ALTER TABLE otp_records ADD CONSTRAINT otp_records_type_check
+                    CHECK (type IN ('PHONE_LOGIN', 'EMAIL_VERIFY', 'PHONE_VERIFY', 'PASSWORD_RESET'));
+            </sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>
