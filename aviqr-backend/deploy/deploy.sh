@@ -82,16 +82,31 @@ deploy_at() {
   cd "$BACKEND_DIR"
   ./gradlew build -x test --no-daemon
 
-  log "Restarting backend services in dependency order..."
+  # service-registry can't do the blue/green switch every other service below
+  # does (it IS the Eureka server — register-with-eureka=false, so it can't
+  # self-verify via "2 registered instances" — see blue-green-switch.sh's
+  # header). Plain restart, same as before; goes first since everything
+  # else's registration checks depend on it being up.
+  log "Restarting service-registry (plain restart — see blue-green-switch.sh for why)..."
+  sudo systemctl restart aviqr-service-registry
+  sleep 10
+  if ! sudo systemctl is-active --quiet aviqr-service-registry; then
+    log "systemd unit aviqr-service-registry failed to stay up after restart"
+    journalctl -u aviqr-service-registry -n 40 --no-pager | tee -a "$DEPLOY_LOG"
+    return 1
+  fi
+
+  # Everything else: zero-downtime blue/green switch (see blue-green-switch.sh)
+  # — alternates between each service's "primary"/"alt" systemd unit, waiting
+  # for the new one to be registered+healthy in Eureka before stopping the
+  # old one, so there's never a moment with zero healthy instances. No fixed
+  # ordering needed here (unlike the old restart loop) since a service being
+  # blue/green-switched never actually goes down.
+  log "Zero-downtime restarting remaining services..."
   for svc in "${SERVICES[@]}"; do
-    sudo systemctl restart "aviqr-${svc}"
-    case "$svc" in
-      service-registry|api-gateway) sleep 10 ;;
-      *) sleep 4 ;;
-    esac
-    if ! sudo systemctl is-active --quiet "aviqr-${svc}"; then
-      log "systemd unit aviqr-${svc} failed to stay up after restart"
-      journalctl -u "aviqr-${svc}" -n 40 --no-pager | tee -a "$DEPLOY_LOG"
+    [ "$svc" = "service-registry" ] && continue
+    if ! bash "$BACKEND_DIR/deploy/blue-green-switch.sh" "$svc" 2>&1 | tee -a "$DEPLOY_LOG"; then
+      log "blue-green switch failed for aviqr-${svc}"
       return 1
     fi
   done
