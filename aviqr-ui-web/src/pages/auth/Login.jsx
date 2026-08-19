@@ -89,7 +89,7 @@ export default function Login() {
       await authApi.sendOtp(otpEmail);
       setOtpSent(true);
     } catch {
-      setError('Could not send OTP. Use 123456 for dev mode.');
+      setError('Could not send OTP. Please try again.');
       setOtpSent(true);
     } finally {
       setLoading(false);
@@ -108,7 +108,7 @@ export default function Login() {
       setVerified(true);
       setTimeout(() => goHome(u.role), 1200);
     } catch {
-      setError('Invalid OTP. Dev code: 123456');
+      setError('Invalid OTP. Please try again.');
       setLoading(false);
     }
   };
@@ -217,7 +217,6 @@ export default function Login() {
               <h3 className="otp-verify-title">Let's verify your email</h3>
               <p className="otp-verify-sub">
                 We've sent a 6-digit code to {otpEmail}. It'll auto-verify once entered.
-                <br /><span className="otp-hint">Dev mode: 123456</span>
               </p>
               <OtpInput length={6} value={otp} onChange={setOtp} onComplete={handleOtp} disabled={loading} />
               <button type="button" className="btn-auth-primary" style={{ marginTop: 20 }}

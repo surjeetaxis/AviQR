@@ -129,8 +129,14 @@ public class AuthController {
     // POST /api/v1/auth/forgot-password
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestParam String email) {
-        // send reset link via email — integration point
-        return ResponseEntity.ok(ApiResponse.ok("Reset link sent to " + email, null));
+        return ResponseEntity.ok(ApiResponse.ok(authService.forgotPassword(email)));
+    }
+
+    // POST /api/v1/auth/reset-password
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
+        authService.resetPassword(req);
+        return ResponseEntity.ok(ApiResponse.ok("Password reset successful", null));
     }
 
     // PUT /api/v1/auth/language

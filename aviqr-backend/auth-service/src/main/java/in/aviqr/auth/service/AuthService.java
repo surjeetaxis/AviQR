@@ -125,6 +125,63 @@ public class AuthService {
         return "OTP sent to " + maskEmail(email);
     }
 
+    // Same delivery path as sendOtp (a 6-digit code via MSG91 email, reusing the "global_otp"
+    // template — a dedicated "password reset" template doesn't exist and isn't needed, the
+    // wording is generic enough) but never reveals whether the email is registered: a
+    // non-existent account gets the identical response and no OTP record, no event, no error.
+    @Transactional
+    public String forgotPassword(String email) {
+        String normalized = email.trim().toLowerCase();
+        userRepo.findByEmail(normalized).ifPresent(user -> {
+            long recentCount = otpRepo.countByTargetAndCreatedAtAfter(normalized, LocalDateTime.now().minusMinutes(10));
+            if (recentCount >= 3) return; // silently drop — an error here would itself leak that the email exists
+
+            String otp = String.format("%06d", new Random().nextInt(999999));
+            OtpRecord record = OtpRecord.builder()
+                    .target(normalized)
+                    .otp(passwordEncoder.encode(otp))
+                    .type(OtpType.PASSWORD_RESET)
+                    .expiresAt(LocalDateTime.now().plusMinutes(10))
+                    .createdAt(LocalDateTime.now())
+                    .used(false)
+                    .build();
+            otpRepo.save(record);
+
+            try {
+                var payload = new java.util.HashMap<String, Object>();
+                payload.put("email", normalized);
+                payload.put("otp", otp);
+                if (user.getName() != null && !user.getName().isBlank()) payload.put("name", user.getName());
+                rabbit.convertAndSend("aviqr.users", "otp.requested", payload);
+            } catch (Exception e) { log.warn("Failed to publish otp.requested event for password reset: {}", e.getMessage()); }
+            log.info("Password reset requested for {}", normalized);
+        });
+        return "If an account exists for " + email + ", we've sent a password reset code to it.";
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest req) {
+        String email = req.getEmail().trim().toLowerCase();
+
+        var candidates = otpRepo.findByTargetAndTypeAndUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
+                email, OtpType.PASSWORD_RESET, LocalDateTime.now());
+        var record = candidates.stream()
+                .filter(r -> passwordEncoder.matches(req.getOtp(), r.getOtp()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Invalid or expired code"));
+
+        User user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Invalid or expired code"));
+
+        record.setUsed(true);
+        otpRepo.save(record);
+
+        user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        userRepo.save(user);
+        refreshRepo.deleteByUserId(user.getId()); // invalidate all sessions, same as changePassword
+        auditService.log("PASSWORD_RESET", user.getId().toString(), "Password reset via forgot-password flow");
+    }
+
     @Transactional
     public AuthResponse loginWithOtp(OtpLoginRequest req) {
         return loginWithOtp(req, DeviceInfo.builder().build());

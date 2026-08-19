@@ -40,7 +40,7 @@ export default function Login() {
     if(!otpEmail) return setErr('Enter email address');
     setLoad(true); setErr('');
     try { await authApi.sendOtp(otpEmail); setSent(true); }
-    catch { setErr('Could not send OTP. Use 123456 for dev.'); setSent(true); }
+    catch { setErr('Could not send OTP. Please try again.'); setSent(true); }
     finally { setLoad(false); }
   };
 
@@ -88,7 +88,7 @@ export default function Login() {
             <Input label="Email" placeholder="sujeet@spiceroute.in" value={otpEmail} onChangeText={setOtpEmail} keyboardType="email-address" autoCapitalize="none"/>
             {sent?(
               <View>
-                <Input label="OTP (dev: 123456)" placeholder="123456" value={otp} onChangeText={setOtp} keyboardType="number-pad"/>
+                <Input label="OTP" placeholder="123456" value={otp} onChangeText={setOtp} keyboardType="number-pad"/>
                 <Button title={loading?'Verifying…':'Verify & Login'} onPress={verifyOtp} loading={loading}/>
                 <TouchableOpacity onPress={sendOtp} style={ss.resend}><Text style={ss.resendTxt}>Resend OTP</Text></TouchableOpacity>
               </View>
