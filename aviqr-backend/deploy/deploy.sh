@@ -40,6 +40,18 @@ TARGET_REF="${1:?Usage: deploy.sh <git-sha-or-ref>}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$DEPLOY_LOG"; }
 
+# A bare local branch name (e.g. "master") is a footgun here: deploy_at() does
+# `git fetch` then `git checkout "$ref"`, and checking out a *local* branch
+# leaves it exactly where it last was — fetch does not move it — so a stale
+# local master (last touched by some earlier manual `git checkout master`)
+# silently deploys old code while looking like a normal "deploy master" call.
+# This bit us in production once already. `origin/<branch>` is always the
+# just-fetched remote tip, so rewrite bare local branch names to it.
+if git -C "$REPO_DIR" show-ref --verify --quiet "refs/heads/$TARGET_REF" 2>/dev/null; then
+  log "WARNING: '$TARGET_REF' is a local branch, which can be stale — deploying origin/$TARGET_REF instead"
+  TARGET_REF="origin/$TARGET_REF"
+fi
+
 # ── Build + restart everything at a given git ref ────────────────────────────
 deploy_at() {
   local ref="$1"
