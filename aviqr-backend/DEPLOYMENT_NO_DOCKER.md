@@ -1311,6 +1311,18 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
 
+    # A Search Console "Domain property" for yourdomain.com covers every
+    # subdomain, including this one — without this, Googlebot hits
+    # api.yourdomain.com/robots.txt, gets a 404 from the gateway (no static
+    # files here, just a reverse proxy), and keeps re-trying it on every
+    # crawl pass. There's nothing here worth indexing anyway (pure JSON
+    # API), so just say so explicitly instead of wasting crawl budget on
+    # repeated 404s.
+    location = /robots.txt {
+        default_type text/plain;
+        return 200 "User-agent: *\nDisallow: /\n";
+    }
+
     location / {
         proxy_pass          http://127.0.0.1:8080;
         proxy_http_version  1.1;
