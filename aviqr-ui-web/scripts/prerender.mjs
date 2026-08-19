@@ -35,6 +35,9 @@ const PORT = 4173;
 const ROUTES = [
   '/', '/features', '/about', '/faq', '/contact',
   '/terms', '/privacy', '/refund', '/login', '/register', '/track-order',
+  '/partners', '/free-qr-menu-generator',
+  '/guides', '/guides/qr-code-menu-guide',
+  '/guides/qr-ordering-system-restaurants-india', '/guides/qr-menu-software-checklist',
 ];
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',

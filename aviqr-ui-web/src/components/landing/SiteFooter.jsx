@@ -24,7 +24,7 @@ export default function SiteFooter({ isHome = false }) {
             <a href={`${base}#pricing`}>Pricing</a>
             <a href={`${base}#verticals`}>Verticals</a>
             <a href="#" onClick={e => { e.preventDefault(); navigate('/free-qr-menu-generator'); }}>Free QR generator</a>
-            <a href="#" onClick={e => { e.preventDefault(); navigate('/guides/qr-code-menu-guide'); }}>QR menu guide</a>
+            <a href="#" onClick={e => { e.preventDefault(); navigate('/guides'); }}>Guides</a>
           </div>
           <div className="footer-col">
             <div className="footer-col-title">Company</div>
