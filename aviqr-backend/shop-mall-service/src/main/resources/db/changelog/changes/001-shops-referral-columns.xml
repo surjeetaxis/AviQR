@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Shop.referralCode/referredByCode were added to the entity without a migration —
+         this is shop-mall-service's first-ever Liquibase changeset (ddl-auto=update covered
+         it in dev, but production runs ddl-auto=none), so every GET /api/v1/shops call was
+         failing with "column s1_0.referral_code does not exist", confirmed live in
+         production. preConditions with onFail="MARK_RAN" makes this safe to run against the
+         production DB where these columns were already added by hand during the incident, as
+         well as against a fresh DB where they don't exist yet. -->
+    <changeSet id="001-shops-referral-code" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <and>
+                <tableExists tableName="shops"/>
+                <not><columnExists tableName="shops" columnName="referral_code"/></not>
+            </and>
+        </preConditions>
+        <addColumn tableName="shops">
+            <column name="referral_code" type="VARCHAR(8)"/>
+        </addColumn>
+        <addUniqueConstraint tableName="shops" columnNames="referral_code" constraintName="shops_referral_code_key"/>
+    </changeSet>
+
+    <changeSet id="001-shops-referred-by-code" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <and>
+                <tableExists tableName="shops"/>
+                <not><columnExists tableName="shops" columnName="referred_by_code"/></not>
+            </and>
+        </preConditions>
+        <addColumn tableName="shops">
+            <column name="referred_by_code" type="VARCHAR(255)"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>
