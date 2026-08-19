@@ -78,6 +78,7 @@ export default function AdminDashboard() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('aviqr_admin_sidebar_collapsed') === '1');
   const [platformStats, setPlatformStats] = useState(null);
   const [userStats, setUserStats] = useState(null);
+  const [platformLoading, setPlatformLoading] = useState(true);
   const [usersRoleFilter, setUsersRoleFilter] = useState('all');
 
   const goTo = useCallback((tabKey, role) => {
@@ -85,7 +86,12 @@ export default function AdminDashboard() {
     setTab(tabKey);
   }, []);
 
+  // "Backend not reachable" should only ever mean the request actually failed —
+  // ps/us start out null on every mount and on every refresh click, so gating
+  // that message on `!ps` alone made it flash for the normal fetch-in-flight
+  // window too, on every hard refresh, even though the backend was fine.
   const loadPlatform = useCallback(async () => {
+    setPlatformLoading(true);
     try {
       const [ps, us] = await Promise.allSettled([
         reportApi.getPlatform(),
@@ -94,6 +100,7 @@ export default function AdminDashboard() {
       if (ps.status === 'fulfilled') setPlatformStats(ps.value.data?.data);
       if (us.status === 'fulfilled') setUserStats(us.value.data?.data);
     } catch {}
+    finally { setPlatformLoading(false); }
   }, []);
 
   useEffect(() => { loadPlatform(); }, [loadPlatform]);
@@ -168,7 +175,7 @@ export default function AdminDashboard() {
         </header>
 
         <main className="admin-content">
-          {tab === 'overview'     && <AdminOverview ps={platformStats} us={userStats} onNav={goTo} onRefresh={loadPlatform}/>}
+          {tab === 'overview'     && <AdminOverview ps={platformStats} us={userStats} loading={platformLoading} onNav={goTo} onRefresh={loadPlatform}/>}
           {tab === 'users'        && <LiveUsersPage initialRole={usersRoleFilter}/>}
           {tab === 'shops'        && <AdminShopsPage/>}
           {tab === 'hotels'       && <AdminHotelsPage/>}
@@ -191,7 +198,7 @@ export default function AdminDashboard() {
 // ── Overview ─────────────────────────────────────────────────────────────────
 const ROLE_PIE_COLORS = ['#059669','#2563EB','#7C3AED','#D97706','#DC2626','#0EA5E9','#F59E0B','#10B981','#8B5CF6','#6B7280','#EC4899'];
 
-function AdminOverview({ ps, us, onNav, onRefresh }) {
+function AdminOverview({ ps, us, loading, onNav, onRefresh }) {
   const { lang } = useLang();
   const fmt = n => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
   const [trend, setTrend] = useState([]);
@@ -223,7 +230,7 @@ function AdminOverview({ ps, us, onNav, onRefresh }) {
         <button className="btn-refresh" onClick={onRefresh}><RefreshCw size={13}/> {t('refresh', lang)}</button>
       </div>
 
-      {!ps && (
+      {!ps && !loading && (
         <div className="demo-notice" style={{ marginBottom: 16 }}>
           ℹ Backend not reachable — connect your API to see live platform stats.
         </div>
