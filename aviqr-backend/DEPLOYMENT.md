@@ -732,9 +732,15 @@ server {
         try_files $uri /app-shell.html;
     }
 
-    # React Router — serve index.html for all routes
+    # React Router — serve index.html for all routes.
+    # $uri/index.html, not $uri/ — the prerendered marketing pages (see
+    # scripts/prerender.mjs) are real directories now (dist/features/,
+    # dist/faq/, ...), and $uri/ makes nginx treat a bare /features request
+    # as a directory match, which triggers its own 301-to-trailing-slash
+    # redirect before ever reaching this try_files. Referencing the file
+    # directly serves it in one hop, with no redirect.
     location / {
-        try_files $uri $uri/ /app-shell.html;
+        try_files $uri $uri/index.html /app-shell.html;
     }
 
     # Cache static assets
