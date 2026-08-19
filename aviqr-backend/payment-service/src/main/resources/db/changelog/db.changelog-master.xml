@@ -3,6 +3,5 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
     https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
-    <include file="db/changelog/changes/001-impersonation-log-session-id.xml" relativeToChangelogFile="false"/>
-    <include file="db/changelog/changes/002-leads-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/001-payments-target-settlement-columns.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

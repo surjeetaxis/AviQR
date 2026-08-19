@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Lead entity (sales-lead outreach tracking) shipped with no migration — production
+         runs ddl-auto=none so the "leads" table was never created there at all, confirmed
+         live: "relation \"leads\" does not exist" on every admin Leads page load. Local dev
+         never caught this because ddl-auto=update created it silently there. -->
+    <changeSet id="002-leads-table" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <not><tableExists tableName="leads"/></not>
+        </preConditions>
+        <createTable tableName="leads">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="business_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="contact_name" type="VARCHAR(255)"/>
+            <column name="phone" type="VARCHAR(255)"/>
+            <column name="email" type="VARCHAR(255)"/>
+            <column name="city" type="VARCHAR(255)"/>
+            <column name="consent_basis" type="VARCHAR(500)"/>
+            <column name="status" type="VARCHAR(20)" defaultValue="NEW">
+                <constraints nullable="false"/>
+            </column>
+            <column name="assigned_to" type="VARCHAR(255)"/>
+            <column name="notes" type="VARCHAR(2000)"/>
+            <column name="created_at" type="TIMESTAMP"/>
+            <column name="updated_at" type="TIMESTAMP"/>
+            <column name="last_contacted_at" type="TIMESTAMP"/>
+            <column name="follow_up_stage" type="INTEGER" defaultValueNumeric="0"/>
+        </createTable>
+        <sql>
+            ALTER TABLE leads ADD CONSTRAINT leads_status_check
+                CHECK (status IN ('NEW','CONTACTED','RESPONDED','CONVERTED','DECLINED','DO_NOT_CONTACT'));
+        </sql>
+    </changeSet>
+</databaseChangeLog>

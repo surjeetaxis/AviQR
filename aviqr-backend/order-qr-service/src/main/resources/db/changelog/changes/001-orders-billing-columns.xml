@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Order.discount/serviceCharge/confirmationCode/paymentConfirmedAt/billId were all
+         added to the entity without a migration — production runs ddl-auto=none (this
+         service had no Liquibase setup at all until now), so every admin Orders page load
+         failed with "column o1_0.bill_id does not exist" (Postgres reports only the first
+         missing column it hits; discount/service_charge/confirmation_code/
+         payment_confirmed_at were equally missing) — confirmed live in production. Local dev
+         never caught this because ddl-auto=update silently added them there. -->
+    <changeSet id="001-orders-discount" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <and><tableExists tableName="orders"/><not><columnExists tableName="orders" columnName="discount"/></not></and>
+        </preConditions>
+        <addColumn tableName="orders">
+            <column name="discount" type="NUMERIC(10,2)" defaultValueNumeric="0"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="001-orders-service-charge" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <and><tableExists tableName="orders"/><not><columnExists tableName="orders" columnName="service_charge"/></not></and>
+        </preConditions>
+        <addColumn tableName="orders">
+            <column name="service_charge" type="NUMERIC(10,2)" defaultValueNumeric="0"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="001-orders-confirmation-code" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <and><tableExists tableName="orders"/><not><columnExists tableName="orders" columnName="confirmation_code"/></not></and>
+        </preConditions>
+        <addColumn tableName="orders">
+            <column name="confirmation_code" type="VARCHAR(6)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="001-orders-payment-confirmed-at" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <and><tableExists tableName="orders"/><not><columnExists tableName="orders" columnName="payment_confirmed_at"/></not></and>
+        </preConditions>
+        <addColumn tableName="orders">
+            <column name="payment_confirmed_at" type="TIMESTAMP"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="001-orders-bill-id" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <and><tableExists tableName="orders"/><not><columnExists tableName="orders" columnName="bill_id"/></not></and>
+        </preConditions>
+        <addColumn tableName="orders">
+            <column name="bill_id" type="UUID"/>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>
