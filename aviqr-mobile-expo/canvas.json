@@ -1,0 +1,8 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1080, "h": 1080, "title": "1 — Product launch" },
+    { "file": "Post2.dc.html", "x": 1160, "y": 0, "w": 1080, "h": 1080, "title": "2 — Free QR generator" },
+    { "file": "Post3.dc.html", "x": 2320, "y": 0, "w": 1080, "h": 1080, "title": "3 — Refer & earn" }
+  ],
+  "launch": { "view": "canvas" }
+}
