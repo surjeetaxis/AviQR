@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Settlement (nightly/manual settlement audit trail — SettlementController/Service/
+         Repository are all live and wired) shipped with no migration at all — production runs
+         ddl-auto=none, so the "settlements" table was never created there, confirmed via a full
+         entity/schema sweep: "relation \"settlements\" does not exist" would fire on first use.
+         Local dev never caught this because ddl-auto=update created it silently there. -->
+    <changeSet id="002-settlements-table" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <not><tableExists tableName="settlements"/></not>
+        </preConditions>
+        <createTable tableName="settlements">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="shop_id" type="VARCHAR(255)"><constraints nullable="false"/></column>
+            <column name="settlement_date" type="DATE"><constraints nullable="false"/></column>
+            <column name="period_start" type="TIMESTAMP"><constraints nullable="false"/></column>
+            <column name="period_end" type="TIMESTAMP"><constraints nullable="false"/></column>
+            <column name="status" type="VARCHAR(20)"><constraints nullable="false"/></column>
+            <column name="trigger_type" type="VARCHAR(20)"><constraints nullable="false"/></column>
+            <column name="triggered_by" type="VARCHAR(255)"/>
+            <column name="transaction_count" type="INTEGER" defaultValueNumeric="0"/>
+            <column name="total_amount" type="NUMERIC(12,2)" defaultValueNumeric="0"/>
+            <column name="notes" type="VARCHAR(255)"/>
+            <column name="created_at" type="TIMESTAMP"/>
+            <column name="completed_at" type="TIMESTAMP"/>
+        </createTable>
+        <sql>ALTER TABLE settlements ADD CONSTRAINT settlements_status_check CHECK (status IN ('COMPLETED','FAILED','SKIPPED'));</sql>
+        <sql>ALTER TABLE settlements ADD CONSTRAINT settlements_trigger_type_check CHECK (trigger_type IN ('SCHEDULED','MANUAL'));</sql>
+    </changeSet>
+</databaseChangeLog>

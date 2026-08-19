@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Bill (consolidated table billing — BillController/BillService/BillRepository are all
+         live and wired) shipped with no migration at all — production runs ddl-auto=none, so
+         the "bills" table was never created there, confirmed via a full entity/schema sweep:
+         "relation \"bills\" does not exist" would fire on first use. Local dev never caught
+         this because ddl-auto=update created it silently there. -->
+    <changeSet id="002-bills-table" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <not><tableExists tableName="bills"/></not>
+        </preConditions>
+        <createTable tableName="bills">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="shop_id" type="VARCHAR(100)"><constraints nullable="false"/></column>
+            <column name="table_number" type="VARCHAR(10)"><constraints nullable="false"/></column>
+            <column name="status" type="VARCHAR(20)" defaultValue="OPEN"/>
+            <column name="subtotal" type="NUMERIC(10,2)"><constraints nullable="false"/></column>
+            <column name="discount" type="NUMERIC(10,2)" defaultValueNumeric="0"/>
+            <column name="service_charge" type="NUMERIC(10,2)" defaultValueNumeric="0"/>
+            <column name="tax" type="NUMERIC(10,2)" defaultValueNumeric="0"/>
+            <column name="total_amount" type="NUMERIC(10,2)"><constraints nullable="false"/></column>
+            <column name="payment_method" type="VARCHAR(20)"/>
+            <column name="created_at" type="TIMESTAMP"/>
+            <column name="generated_by" type="VARCHAR(255)"/>
+            <column name="paid_at" type="TIMESTAMP"/>
+            <column name="settled_by" type="VARCHAR(255)"/>
+        </createTable>
+        <sql>ALTER TABLE bills ADD CONSTRAINT bills_status_check CHECK (status IN ('OPEN','PAID'));</sql>
+        <sql>ALTER TABLE bills ADD CONSTRAINT bills_payment_method_check CHECK (payment_method IS NULL OR payment_method IN ('ONLINE','CASH','WALLET','UPI','CARD','QR','NETBANKING','ROOM_CHARGE'));</sql>
+    </changeSet>
+</databaseChangeLog>
