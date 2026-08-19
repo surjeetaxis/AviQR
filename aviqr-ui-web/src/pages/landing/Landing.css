@@ -3,18 +3,24 @@
 
 /* Nav */
 .land-nav { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--gray-100); }
-.land-nav-inner { max-width: 1200px; margin: 0 auto; padding: 0 32px; height: 64px; display: flex; align-items: center; gap: 32px; }
-.land-logo { display: flex; align-items: center; gap: 10px; }
+.land-nav-inner { max-width: 1200px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; gap: 16px; }
+.land-logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .land-logo-mark { width: 32px; height: 32px; border-radius: 8px; background: var(--gray-900); display: flex; align-items: center; justify-content: center; padding: 2px; }
 .land-wordmark { font-size: 20px; font-weight: 800; letter-spacing: -.02em; color: var(--gray-900); }
 .land-wordmark em { font-style: normal; color: var(--green); }
-.land-nav-links { display: flex; gap: 24px; margin-left: 32px; }
-.land-nav-links a { font-size: 14px; color: var(--gray-500); font-weight: 500; transition: color .15s; }
+/* Scoped to the nav (not .land-footer's wordmark) — 8 links now share this
+   row, so the nav's own wordmark is slightly smaller to leave them room. */
+.land-nav .land-wordmark { font-size: 17px; }
+/* white-space: nowrap so a link never wraps mid-phrase ("Who it's for" as
+   two lines) when the row is tight — see the max-width: 1024px rule below,
+   which is what actually keeps this row from running out of room instead. */
+.land-nav-links { display: flex; gap: 10px; margin-left: 0; }
+.land-nav-links a { font-size: 12.5px; color: var(--gray-500); font-weight: 500; transition: color .15s; white-space: nowrap; }
 .land-nav-links a:hover { color: var(--gray-900); }
-.land-nav-cta { margin-left: auto; display: flex; gap: 10px; align-items: center; }
-.btn-ghost-nav { height: 38px; padding: 0 16px; border-radius: var(--radius-md); font-size: 13.5px; font-weight: 500; color: var(--gray-700); transition: background .15s; }
+.land-nav-cta { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.btn-ghost-nav { height: 36px; padding: 0 12px; border-radius: var(--radius-md); font-size: 13px; font-weight: 500; color: var(--gray-700); transition: background .15s; white-space: nowrap; }
 .btn-ghost-nav:hover { background: var(--gray-100); }
-.btn-primary-nav { height: 38px; padding: 0 18px; border-radius: var(--radius-md); font-size: 13.5px; font-weight: 600; background: var(--gray-900); color: var(--white); transition: background .15s; }
+.btn-primary-nav { height: 36px; padding: 0 14px; border-radius: var(--radius-md); font-size: 13px; font-weight: 600; background: var(--gray-900); color: var(--white); transition: background .15s; white-space: nowrap; }
 .btn-primary-nav:hover { background: var(--green-dark); }
 
 /* Hero */
@@ -303,6 +309,13 @@
   .pricing-grid { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; }
   .testimonials-grid { grid-template-columns: 1fr; max-width: 500px; margin: 0 auto; }
   .trust-grid { grid-template-columns: repeat(2,1fr); }
+  /* 8 nav links no longer fit even at the compact spacing above once the
+     row itself drops below ~950px — measured directly against the live
+     nav (not guessed): the two lowest-priority links overflowed the CTA
+     buttons off the row first. Drop those two here, comfortably above
+     where that actually starts, down to the 720px breakpoint below where
+     the whole link row hides anyway. */
+  .land-nav-secondary { display: none; }
 }
 @media (max-width: 720px) {
   .land-nav-links { display: none; }
