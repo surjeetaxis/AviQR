@@ -26,6 +26,8 @@ BACKEND_DIR="$REPO_DIR/aviqr-backend"
 WEB_DIR="$REPO_DIR/aviqr-ui-web"
 VITE_API_URL="${VITE_API_URL:-https://api.aviqr.com}"
 DEPLOY_LOG="/var/log/aviqr-deploy.log"
+LOCK_FILE="/var/run/aviqr-deploy.lock"
+LOCK_TIMEOUT=900  # 15 min — long enough to wait out a legitimate deploy(+rollback) ahead of us
 
 # Order matters: registry and gateway must be up before anything that
 # registers with Eureka or routes through the gateway. Mirrors aviqr.sh's
@@ -39,6 +41,23 @@ SERVICES=(
 TARGET_REF="${1:?Usage: deploy.sh <git-sha-or-ref>}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$DEPLOY_LOG"; }
+
+# Nothing serialized concurrent deploys before this: a manual `deploy.sh` run
+# and the GitHub Actions auto-deploy (workflow_run after CI passes on master)
+# could both git-checkout/build/restart the SAME /var/www/aviqr tree at once,
+# stepping on each other's files and systemd restarts mid-flight — this is
+# exactly what produced a "deploy succeeded" log line whose on-disk files
+# didn't match what was actually being served, live in production. flock on
+# fd 200 (held for the whole script via this open redirect, released
+# automatically whenever the process exits, however it exits) means a second
+# invocation blocks here instead of racing, and gives up loudly rather than
+# hanging forever if the first one is somehow stuck.
+exec 200>"$LOCK_FILE"
+if ! flock -w "$LOCK_TIMEOUT" 200; then
+  log "ERROR: could not acquire deploy lock within ${LOCK_TIMEOUT}s — another deploy.sh appears stuck. Check: ps aux | grep deploy.sh"
+  exit 1
+fi
+log "Acquired deploy lock (pid $$)"
 
 # A bare local branch name (e.g. "master") is a footgun here: deploy_at() does
 # `git fetch` then `git checkout "$ref"`, and checking out a *local* branch
