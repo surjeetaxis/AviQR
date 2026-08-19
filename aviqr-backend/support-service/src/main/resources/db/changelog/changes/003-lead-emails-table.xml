@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Same gap as 002-leads-table.xml: LeadEmail also has no migration, and
+         production's ddl-auto=none means it was never created there either —
+         opening a lead's email thread on prod would fail with
+         "relation \"lead_emails\" does not exist" the same way leads did. -->
+    <changeSet id="003-lead-emails-table" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <not><tableExists tableName="lead_emails"/></not>
+        </preConditions>
+        <createTable tableName="lead_emails">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="lead_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="subject" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="body" type="VARCHAR(8000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(20)" defaultValue="DRAFT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="sent_by" type="VARCHAR(255)"/>
+            <column name="sent_at" type="TIMESTAMP"/>
+            <column name="auto_generated" type="BOOLEAN" defaultValueBoolean="false"/>
+            <column name="created_at" type="TIMESTAMP"/>
+        </createTable>
+        <sql>
+            ALTER TABLE lead_emails ADD CONSTRAINT lead_emails_status_check
+                CHECK (status IN ('DRAFT','SENT'));
+        </sql>
+    </changeSet>
+</databaseChangeLog>
