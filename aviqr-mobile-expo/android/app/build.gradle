@@ -132,6 +132,19 @@ android {
     }
 }
 
+// EAS Build writes this file at build time with the real release keystore
+// (from credentials.json) and reassigns both the release and debug build
+// types to use it. Guarded by existence check so local/dev gradle builds
+// (where this file never exists) keep using the debug.keystore fallback
+// above instead of failing on a missing file. Without this hook, `release`
+// stays hardcoded to signingConfigs.debug forever — EAS Build has no way to
+// inject real signing credentials, and any AAB built via `eas build` would
+// ship signed with the debug key, which Google Play rejects.
+def easBuildGradle = file("eas-build.gradle")
+if (easBuildGradle.exists()) {
+    apply from: easBuildGradle
+}
+
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
 // Accepts values in comma delimited lists, example:
 // android.packagingOptions.pickFirsts=/LICENSE,**/picasa.ini

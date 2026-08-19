@@ -4,13 +4,24 @@
   <uses-permission android:name="android.permission.CAMERA"/>
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+  <!-- expo-camera's own manifest unconditionally declares RECORD_AUDIO (for its
+       video-recording feature); this app only uses expo-camera for QR scanning
+       and still photo capture, no audio/video recording anywhere in the code.
+       tools:node="remove" actively cancels the library's declaration rather
+       than just omitting ours, which merge-priority alone wouldn't do — the
+       expo-camera plugin's recordAudioAndroid:false in app.json is the durable
+       fix for a future prebuild; this is what fixes the already-generated tree. -->
+  <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove"/>
+  <!-- Superseded by READ_MEDIA_IMAGES on API 33+ (declared below) — capped at 32
+       so these legacy storage permissions only apply on the older versions
+       (down to minSdk 24) where expo-file-system/expo-image-picker still need
+       them. Both libraries' own manifests declare these unrestricted; this
+       override (app manifest wins on merge) is what actually constrains them. -->
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
   <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-  <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
-  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>

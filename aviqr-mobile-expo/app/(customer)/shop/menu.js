@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, ScrollView, SectionList, FlatList, StyleSheet,
-  TouchableOpacity, TextInput, Image, Alert, Animated, Share, Linking, Modal, Dimensions
+  TouchableOpacity, TextInput, Image, Alert, Animated, Share, Linking, Modal, Dimensions, Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -407,6 +407,14 @@ export default function CustomerMenuScreen() {
         contentContainerStyle={{ paddingBottom: cartCount > 0 ? 190 : 100 }}
         showsVerticalScrollIndicator={false}
         stickySectionHeadersEnabled={false}
+        // Menus can run to 50+ items on the free plan alone — these keep
+        // scroll smooth on the budget Android devices most diners scan from,
+        // by only mounting what's near the viewport instead of the whole list.
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        updateCellsBatchingPeriod={50}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === 'android'}
         ListFooterComponent={
           // Mirrors .cm-footer-note on aviqr-ui-web's CustomerMenu, but
           // tappable here — every diner who scans a partner shop's QR is a
