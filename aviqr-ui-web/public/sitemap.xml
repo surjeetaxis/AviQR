@@ -2,12 +2,12 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://aviqr.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
   <url><loc>https://aviqr.com/register</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://aviqr.com/features</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://aviqr.com/features</loc><lastmod>2026-08-19</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://aviqr.com/free-qr-menu-generator</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://aviqr.com/guides</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://aviqr.com/guides/qr-code-menu-guide</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://aviqr.com/guides/qr-ordering-system-restaurants-india</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://aviqr.com/guides/qr-menu-software-checklist</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://aviqr.com/guides</loc><lastmod>2026-08-19</lastmod><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://aviqr.com/guides/qr-code-menu-guide</loc><lastmod>2026-08-19</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://aviqr.com/guides/qr-ordering-system-restaurants-india</loc><lastmod>2026-08-19</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://aviqr.com/guides/qr-menu-software-checklist</loc><lastmod>2026-08-19</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://aviqr.com/about</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://aviqr.com/faq</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://aviqr.com/contact</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
