@@ -63,7 +63,12 @@ sudo systemctl start "$inactive_unit"
 
 registered=0
 for i in $(seq 1 "$REGISTER_TIMEOUT_TRIES"); do
-  count=$(curl -s "http://localhost:8761/eureka/apps/${EUREKA_APP}" 2>/dev/null | grep -c '<instance>' || echo 0)
+  # grep -c always prints exactly one line (a count, possibly "0") regardless of
+  # whether it matched anything — its exit code is what reflects match/no-match.
+  # `|| echo 0` here would fire on that legitimate 0-matches exit code and print
+  # a SECOND "0" line, making $count "0\n0" and breaking the -ge comparison
+  # below with a real "integer expression expected" error — confirmed live.
+  count=$(curl -s "http://localhost:8761/eureka/apps/${EUREKA_APP}" 2>/dev/null | grep -c '<instance>')
   if [ "$count" -ge 2 ]; then registered=1; break; fi
   sleep 3
 done

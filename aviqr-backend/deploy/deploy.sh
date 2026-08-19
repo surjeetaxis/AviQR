@@ -156,9 +156,20 @@ wait_healthy() {
   # regardless of whether the new code is actually healthy.
   local expected=$((${#SERVICES[@]} - 1))
   for i in $(seq 1 40); do
-    if curl -sf http://localhost:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+    # api-gateway blue/green-alternates between :8080 (primary) and :8081 (alt)
+    # — see blue-green-switch.sh and nginx-aviqr.conf's aviqr_gateway upstream
+    # — so exactly one of these is up at any given time, never reliably 8080.
+    # Checking only 8080 meant this loop ran out its full 200s and forced a
+    # needless rollback every time a deploy happened to leave gateway on
+    # :8081, confirmed live in production.
+    if { curl -sf http://localhost:8080/actuator/health 2>/dev/null || curl -sf http://localhost:8081/actuator/health 2>/dev/null; } | grep -q '"status":"UP"'; then
       local registered
-      registered=$(curl -s http://localhost:8761/eureka/apps 2>/dev/null | grep -c '<instance>' || echo 0)
+      # grep -c always prints exactly one line (a count, possibly "0")
+      # regardless of match/no-match — its exit code is what reflects that,
+      # not its output. `|| echo 0` here would fire on a legitimate 0-matches
+      # exit code and print a SECOND "0" line, breaking the -ge comparison
+      # below with a real "integer expression expected" error.
+      registered=$(curl -s http://localhost:8761/eureka/apps 2>/dev/null | grep -c '<instance>')
       if [ "$registered" -ge "$expected" ]; then
         return 0
       fi
