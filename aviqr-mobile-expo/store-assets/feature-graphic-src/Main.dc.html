@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    body { margin: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    a { color: #ffffff; } a:hover { color: #E1F5EE; }
+  </style>
+</helmet>
+<div style="width:1024px;height:500px;position:relative;overflow:hidden;background:linear-gradient(120deg, #1D9E75 0%, #0F6E56 60%, #085041 100%);box-sizing:border-box;">
+
+  <!-- decorative QR watermark, right edge, same finder-square recipe as LogoMark.jsx scaled up -->
+  <div style="position:absolute;right:-70px;top:50%;transform:translateY(-50%);width:420px;height:420px;opacity:0.13;">
+    <svg viewBox="0 0 28 28" width="420" height="420" fill="none">
+      <rect x="3" y="3" width="9" height="9" rx="1.8" fill="#ffffff"/>
+      <rect x="16" y="3" width="9" height="9" rx="1.8" fill="#ffffff"/>
+      <rect x="3" y="16" width="9" height="9" rx="1.8" fill="#ffffff"/>
+      <rect x="5.5" y="5.5" width="4" height="4" rx="0.8" fill="#0F6E56"/>
+      <rect x="18.5" y="5.5" width="4" height="4" rx="0.8" fill="#0F6E56"/>
+      <rect x="5.5" y="18.5" width="4" height="4" rx="0.8" fill="#0F6E56"/>
+      <rect x="16" y="16" width="4" height="4" rx="0.8" fill="#ffffff"/>
+      <rect x="21" y="16" width="4" height="4" rx="0.8" fill="#ffffff"/>
+      <rect x="16" y="21" width="4" height="4" rx="0.8" fill="#ffffff"/>
+      <rect x="21" y="21" width="4" height="4" rx="0.8" fill="#ffffff"/>
+    </svg>
+  </div>
+
+  <div style="position:relative;display:flex;flex-direction:column;justify-content:center;height:100%;padding:0 56px;box-sizing:border-box;gap:18px;max-width:760px;">
+
+    <!-- wordmark, matching LogoMark.jsx exactly -->
+    <div style="display:flex;align-items:center;gap:11px;">
+      <svg viewBox="0 0 28 28" width="34" height="34" fill="none">
+        <rect x="3" y="3" width="9" height="9" rx="2" fill="#ffffff"/>
+        <rect x="16" y="3" width="9" height="9" rx="2" fill="#085041" opacity="0.9"/>
+        <rect x="3" y="16" width="9" height="9" rx="2" fill="#085041" opacity="0.9"/>
+        <rect x="5.5" y="5.5" width="4" height="4" rx="1" fill="#1D9E75"/>
+        <rect x="18.5" y="5.5" width="4" height="4" rx="1" fill="#ffffff"/>
+        <rect x="5.5" y="18.5" width="4" height="4" rx="1" fill="#ffffff"/>
+        <rect x="16" y="16" width="4" height="4" rx="1" fill="#ffffff"/>
+        <rect x="21" y="16" width="4" height="4" rx="1" fill="#ffffff"/>
+        <rect x="16" y="21" width="4" height="4" rx="1" fill="#ffffff"/>
+        <rect x="21" y="21" width="4" height="4" rx="1" fill="#5DCAA5"/>
+      </svg>
+      <div style="font-size:24px;font-weight:800;letter-spacing:-0.02em;color:#ffffff;">Avi<span style="color:#5DCAA5;">QR</span></div>
+    </div>
+
+    <!-- tagline -->
+    <div style="font-size:52px;font-weight:900;line-height:1.05;letter-spacing:-0.02em;color:#ffffff;">
+      Scan. Order.<br>Engage. Grow.
+    </div>
+
+    <!-- supporting line -->
+    <div style="font-size:19px;font-weight:500;color:rgba(255,255,255,0.85);line-height:1.4;">
+      QR ordering &amp; digital menus for restaurants, hotels &amp; malls in India
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -54,10 +54,14 @@ Get started free at aviqr.com or directly in the app.
 
 ---
 
-## 2. App icon and screenshots — ⚠️ Needs you (icon done, screenshots not)
+## 2. App icon and screenshots — ✅ Icon + 3 screenshots ready, feature graphic still needed
 
-- **App icon (512×512)**: generated and ready at `store-assets/play-store-icon-512.png` in this repo. Resized from your existing `assets/icon.png`, no alpha channel (correct — Play composites its own background, so a flat icon is right).
-- **Screenshots (min 2, phone)**: **not generated.** These need real captures of the running app (e.g. customer QR menu, owner dashboard, KOT screen). I can do this next by running the app in the Android emulator already installed on this machine and capturing real screens — say the word and I'll do it as a follow-up.
+- **App icon (512×512)**: ready at `store-assets/play-store-icon-512.png`. Resized from your existing `assets/icon.png`, no alpha channel (correct — Play composites its own background).
+- **Screenshots (min 2 required — 3 provided)**: real captures from the app actually running in the Android emulator against the local backend, not mockups. All three are 1080×2160 (exact 2:1 — Play's hard max ratio), alpha-free JPEG, in `store-assets/screenshots/`:
+  - `shot-1-landing.jpg` — the marketing landing screen
+  - `shot-2-customer-menu.jpg` — the guest QR-menu ordering flow (no login), showing the "Powered by AviQR" footer
+  - `shot-3-add-to-cart.jpg` — same screen with an item added, showing the live cart summary bar
+  - Note: I deliberately did **not** capture logged-in owner/admin screens — that would have required me to type a password into the login form, which I don't do even for local dev/test accounts. If you want owner-dashboard screenshots too, log in yourself on the running emulator and let me know — I can capture from there.
 - **Feature graphic (1024×500)**: **not generated** — a marketing banner, separate ask from the app icon. I can design one if you want it.
 
 ---
