@@ -68,7 +68,20 @@ for i in $(seq 1 "$REGISTER_TIMEOUT_TRIES"); do
   # `|| echo 0` here would fire on that legitimate 0-matches exit code and print
   # a SECOND "0" line, making $count "0\n0" and breaking the -ge comparison
   # below with a real "integer expression expected" error — confirmed live.
-  count=$(curl -s "http://localhost:8761/eureka/apps/${EUREKA_APP}" 2>/dev/null | grep -c '<instance>')
+  #
+  # That fix wasn't enough on its own, though: this script also runs under
+  # set -euo pipefail, and grep -c exits 1 on zero matches — completely
+  # normal here on an early iteration, since the new instance hasn't
+  # registered yet. Under pipefail that 1 propagates to this plain
+  # `count=$(...)` assignment, and set -e treats the assignment itself as a
+  # failed command, killing the whole script on the very first loop
+  # iteration — before it ever gets to sleep 3, let alone the 90s timeout.
+  # Confirmed live: two consecutive deploys (a real one, then its
+  # automatic rollback) both died here in under a second, while the
+  # service they were "failing" to start had actually started fine and
+  # was healthy seconds later. `|| true` neutralizes the pipeline's exit
+  # status without touching what grep already wrote to $count.
+  count=$(curl -s "http://localhost:8761/eureka/apps/${EUREKA_APP}" 2>/dev/null | grep -c '<instance>' || true)
   if [ "$count" -ge 2 ]; then registered=1; break; fi
   sleep 3
 done
