@@ -112,6 +112,14 @@ export default function QrMenuChecklistPage() {
         </div>
       </section>
 
+      <section className="company-section" style={{ maxWidth: 760 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--gray-900)', marginBottom: 12 }}>Related guides</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <a href="/guides/qr-ordering-system-restaurants-india" style={{ color: 'var(--green-dark)', fontWeight: 600 }}>QR Code Ordering System for Restaurants in India: The Complete 2026 Guide</a>
+          <a href="/guides/qr-code-menu-guide" style={{ color: 'var(--green-dark)', fontWeight: 600 }}>QR Code Menus for Restaurants: A Practical Guide</a>
+        </div>
+      </section>
+
       <SiteFooter />
     </div>
   );

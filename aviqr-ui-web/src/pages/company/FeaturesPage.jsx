@@ -99,6 +99,9 @@ export default function FeaturesPage() {
               Create your free account <ArrowRight size={16} style={{ display: 'inline', verticalAlign: 'middle' }} />
             </button>
           </div>
+          <p style={{ marginTop: 16, fontSize: 14 }}>
+            Not ready to sign up? Read the <a href="/guides" style={{ color: 'inherit', textDecoration: 'underline' }}>guides</a> first.
+          </p>
         </div>
       </section>
 
