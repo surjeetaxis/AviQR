@@ -72,8 +72,8 @@ export function AuthProvider({ children }) {
     return saveSession(res.data.data);
   };
 
-  const loginWithOtp = async (phone, otp) => {
-    const res = await authApi.loginOtp({ phone, otp });
+  const loginWithOtp = async (email, otp) => {
+    const res = await authApi.loginOtp({ email, otp });
     return saveSession(res.data.data);
   };
 

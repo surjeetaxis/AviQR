@@ -54,7 +54,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [pw,    setPw]    = useState('');
   const [showPw,setShowPw]= useState(false);
-  const [phone, setPhone] = useState('');
+  const [otpEmail, setOtpEmail] = useState('');
   const [otp,   setOtp]   = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [verified, setVerified] = useState(false);
@@ -83,10 +83,10 @@ export default function Login() {
   };
 
   const sendOtp = async () => {
-    if (!phone) return setError('Enter your mobile number');
+    if (!otpEmail) return setError('Enter your email address');
     setLoading(true); setError('');
     try {
-      await authApi.sendOtp(phone);
+      await authApi.sendOtp(otpEmail);
       setOtpSent(true);
     } catch {
       setError('Could not send OTP. Use 123456 for dev mode.');
@@ -104,7 +104,7 @@ export default function Login() {
     if (!value || value.length < 6) return;
     setLoading(true); setError('');
     try {
-      const u = await loginWithOtp(phone, value);
+      const u = await loginWithOtp(otpEmail, value);
       setVerified(true);
       setTimeout(() => goHome(u.role), 1200);
     } catch {
@@ -167,7 +167,7 @@ export default function Login() {
               🔑 Password
             </button>
             <button className={`mode-btn${tab==='otp'?' active':''}`} onClick={() => { setTab('otp'); setError(''); }}>
-              📱 OTP
+              📧 OTP
             </button>
           </div>
 
@@ -200,11 +200,10 @@ export default function Login() {
           ) : !otpSent ? (
             <div className="auth-form">
               <div className="field">
-                <label className="field-label">Mobile number</label>
+                <label className="field-label">Email address</label>
                 <div className="field-phone-wrap">
-                  <span className="field-dial">🇮🇳 +91</span>
-                  <input className="field-input field-input-phone" type="tel" placeholder="9845012345"
-                    value={phone} onChange={e => setPhone(e.target.value)}/>
+                  <input className="field-input" type="email" placeholder="you@restaurant.in"
+                    value={otpEmail} onChange={e => setOtpEmail(e.target.value)} autoComplete="email"/>
                   <button className="btn-send-otp" type="button" onClick={sendOtp} disabled={loading}>
                     {loading ? 'Sending…' : 'Send OTP'}
                   </button>
@@ -215,9 +214,9 @@ export default function Login() {
             <OtpSuccessCheck label="Verified successfully" sub="Signing you in…" />
           ) : (
             <div className="auth-form otp-verify-panel">
-              <h3 className="otp-verify-title">Let's verify your number</h3>
+              <h3 className="otp-verify-title">Let's verify your email</h3>
               <p className="otp-verify-sub">
-                We've sent a 6-digit code to +91 {phone}. It'll auto-verify once entered.
+                We've sent a 6-digit code to {otpEmail}. It'll auto-verify once entered.
                 <br /><span className="otp-hint">Dev mode: 123456</span>
               </p>
               <OtpInput length={6} value={otp} onChange={setOtp} onComplete={handleOtp} disabled={loading} />
