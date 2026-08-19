@@ -45,7 +45,14 @@ public class SitemapService {
     }
 
     private static String render(List<ShopSitemapRow> rows) {
-        DateTimeFormatter fmt = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+        // Date-only (not ISO_LOCAL_DATE_TIME) — the sitemap protocol's W3C
+        // Datetime <lastmod> requires either a full timestamp WITH a
+        // timezone offset, or just a bare date; ISO_LOCAL_DATE_TIME gives
+        // neither (no offset), which Google's sitemap parser rejects as
+        // "Invalid date" — confirmed live in Search Console. updatedAt is a
+        // LocalDateTime with no stored zone, so date-only sidesteps having
+        // to guess/assume a timezone rather than risk getting it wrong.
+        DateTimeFormatter fmt = DateTimeFormatter.ISO_LOCAL_DATE;
         StringBuilder sb = new StringBuilder();
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
         sb.append("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
