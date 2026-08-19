@@ -94,6 +94,16 @@ coverage/
 docker-compose.override.yml
 
 # =========================
+# Server-only deploy artifacts (deploy.sh / release model)
+# — live inside the repo root on the production/staging box (REPO_DIR), never
+# committed. Without this, a future commit that happened to add anything at
+# these exact paths could collide with them the same way an untracked
+# blue-green-switch.sh once blocked a git checkout mid-deploy, in production.
+# =========================
+/releases/
+/current
+
+# =========================
 # Generated / Temp files
 # =========================
 *.tmp

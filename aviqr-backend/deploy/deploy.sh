@@ -28,6 +28,10 @@ VITE_API_URL="${VITE_API_URL:-https://api.aviqr.com}"
 DEPLOY_LOG="/var/log/aviqr-deploy.log"
 LOCK_FILE="/var/run/aviqr-deploy.lock"
 LOCK_TIMEOUT=900  # 15 min — long enough to wait out a legitimate deploy(+rollback) ahead of us
+RELEASES_DIR="$REPO_DIR/releases"
+CURRENT_LINK="$REPO_DIR/current"
+KEEP_RELEASES=15  # generous: blue/green means an old release's jar can still be
+                  # open in a not-yet-switched instance well after `current` moves on
 
 # Order matters: registry and gateway must be up before anything that
 # registers with Eureka or routes through the gateway. Mirrors aviqr.sh's
@@ -100,6 +104,34 @@ deploy_at() {
   log "Building backend at $(git rev-parse --short HEAD)..."
   cd "$BACKEND_DIR" || { log "cd $BACKEND_DIR failed"; return 1; }
   ./gradlew build -x test --no-daemon || { log "gradle build failed"; return 1; }
+
+  # Stage every service's freshly-built jar into a release dir that's UNIQUE
+  # to this deploy_at() invocation (timestamp+pid+sha, not just sha) — every
+  # systemd unit's ExecStart reads from the stable $CURRENT_LINK path, not
+  # from build/libs directly, specifically so that overwriting build/libs on
+  # a LATER deploy_at() call (e.g. deploy fails -> automatic rollback calls
+  # deploy_at() again, confirmed live) can never rewrite a jar file a
+  # still-running instance already has open. Keying by sha alone isn't
+  # enough: a rollback to the SAME commit as a still-live instance was built
+  # from would reuse — and overwrite — that instance's exact release dir,
+  # reproducing the identical corruption one layer down. A symlink repoint
+  # is atomic and never touches an already-open file's bytes, however many
+  # times this runs.
+  local release_id release_dir
+  release_id="$(date +%Y%m%d%H%M%S)-$$-$(git rev-parse --short HEAD)"
+  release_dir="$RELEASES_DIR/$release_id"
+  mkdir -p "$release_dir" || { log "mkdir $release_dir failed"; return 1; }
+  for svc in "${SERVICES[@]}"; do
+    cp "$BACKEND_DIR/${svc}/build/libs/${svc}-1.0.0.jar" "$release_dir/${svc}.jar" \
+      || { log "staging release jar for $svc failed"; return 1; }
+  done
+  ln -sfn "$release_dir" "$CURRENT_LINK" || { log "symlinking $CURRENT_LINK -> $release_dir failed"; return 1; }
+  log "Release $release_id staged, $CURRENT_LINK now points there"
+  # Prune old releases (keep the most recent $KEEP_RELEASES by name, which
+  # sorts chronologically since release_id starts with a timestamp) — safe
+  # even if an old one is still open by a not-yet-switched instance, since
+  # deleting a directory entry doesn't invalidate an already-open fd.
+  ls -1dt "$RELEASES_DIR"/*/ 2>/dev/null | tail -n +$((KEEP_RELEASES + 1)) | xargs -r rm -rf
 
   # service-registry can't do the blue/green switch every other service below
   # does (it IS the Eureka server — register-with-eureka=false, so it can't
