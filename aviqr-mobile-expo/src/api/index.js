@@ -107,6 +107,7 @@ export const authApi = {
   sendOtp:       (email)=> api.post('/api/v1/auth/otp/send', { email }),
   register:      (d)    => api.post('/api/v1/auth/register', d),
   forgotPassword:(e)    => api.post(`/api/v1/auth/forgot-password?email=${encodeURIComponent(e)}`),
+  resetPassword: (d)    => api.post('/api/v1/auth/reset-password', d),
   logout:        ()     => api.post('/api/v1/auth/logout'),
   getProfile:    ()     => api.get('/api/v1/auth/profile'),
   updateProfile: (d)    => api.put('/api/v1/auth/profile', d),

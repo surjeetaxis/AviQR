@@ -94,6 +94,7 @@ export const authApi = {
   updateProfile:  (d, config={}) => api.put('/api/v1/auth/profile', d, config),
   deactivateAccount: (config={}) => api.put('/api/v1/auth/deactivate', {}, config),
   forgotPassword:  (e)    => api.post(`/api/v1/auth/forgot-password?email=${e}`),
+  resetPassword:   (d)    => api.post('/api/v1/auth/reset-password', d),
   changePassword:  (d)    => api.post('/api/v1/auth/change-password', d),
   linkShop:        (shopId) => api.put('/api/v1/auth/link-shop', { shopId }),
   // Admin
