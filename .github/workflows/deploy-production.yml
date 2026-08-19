@@ -1,13 +1,16 @@
 name: Deploy to Production
 
-# Runs after CI succeeds on master, or on demand via workflow_dispatch
-# (e.g. to redeploy the current master, or to roll back to an older SHA by
-# passing it as the `ref` input).
+# Manual only — on demand via workflow_dispatch (e.g. to deploy the current
+# master, or to roll back to an older SHA by passing it as the `ref` input).
+#
+# Previously also auto-triggered via workflow_run after CI succeeded on
+# master. Dropped: with deploys also happening by hand over SSH during
+# active work on this repo, the two paths raced on the same /var/www/aviqr
+# tree — confirmed live, redundant back-to-back deploys of the same commit,
+# harmless only because deploy.sh's flock + the release/symlink model
+# happened to already be in place by the time it was noticed. One trigger
+# is one less way to end up with two deploys stepping on each other.
 on:
-  workflow_run:
-    workflows: ['CI']
-    branches: [master]
-    types: [completed]
   workflow_dispatch:
     inputs:
       ref:
@@ -22,9 +25,6 @@ concurrency:
 jobs:
   deploy:
     name: Deploy (SSH + systemd)
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     # Requires a "production" Environment configured in repo Settings with
     # required reviewers — the job pauses here until someone approves it.
@@ -32,12 +32,7 @@ jobs:
     steps:
       - name: Resolve ref to deploy
         id: ref
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "value=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
-          fi
+        run: echo "value=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
 
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
