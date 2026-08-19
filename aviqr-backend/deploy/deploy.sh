@@ -68,6 +68,16 @@ deploy_at() {
   log "Building frontend..."
   cd "$WEB_DIR"
   npm ci --silent
+  # build:prerender needs Chromium, which npm ci does NOT download on its
+  # own (see scripts/prerender.mjs) — this is a no-op in well under a
+  # second if it's already cached from a prior deploy, so it's cheap to run
+  # every time rather than depending on someone having done the one-time
+  # `--with-deps` install by hand (DEPLOYMENT.md's documented step covers
+  # the OS-level shared libs that install needs sudo for; this covers just
+  # the browser binary itself, so a missing browser can never silently
+  # break every deploy — and every rollback attempt, since deploy_at() is
+  # reused for both).
+  npx playwright install chromium
   VITE_API_URL="$VITE_API_URL" npm run build:prerender --silent
   cd "$REPO_DIR"
 }
