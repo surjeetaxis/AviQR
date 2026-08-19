@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Seeds the Shop row at the fixed UUID aviqr-mobile-expo's customer menu
+         screen falls back to (app/(customer)/shop/menu.js's default shopId)
+         when no shopId param is supplied — used for the Play Console "App
+         Access" guest-flow demo. Deliberately shop-only: menu-ocr-service has
+         Liquibase disabled in production, so this shop's menu stays empty
+         until that's addressed separately — reviewers/testers will see the
+         business info but no items. sqlCheck guards against re-inserting if
+         this changeset ever runs again. -->
+    <changeSet id="002-demo-shop" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <and>
+                <tableExists tableName="shops"/>
+                <sqlCheck expectedResult="0">SELECT COUNT(*) FROM shops WHERE id = '00000000-0000-0000-0000-000000000101'</sqlCheck>
+            </and>
+        </preConditions>
+        <insert tableName="shops">
+            <column name="id" value="00000000-0000-0000-0000-000000000101"/>
+            <column name="name" value="AviQR Demo Kitchen"/>
+            <column name="tagline" value="See AviQR in action — no login needed"/>
+            <column name="phone" value="9900000000"/>
+            <column name="email" value="demo@aviqr.com"/>
+            <column name="address" value="123 Demo Street"/>
+            <column name="city" value="Bengaluru"/>
+            <column name="state" value="Karnataka"/>
+            <column name="status" value="ACTIVE"/>
+            <column name="subscription_plan" value="STARTER"/>
+            <column name="subscription_status" value="ACTIVE"/>
+            <column name="tier" value="NEW"/>
+            <column name="rating" valueNumeric="4.5"/>
+            <column name="rating_count" valueNumeric="0"/>
+            <column name="created_at" valueComputed="NOW()"/>
+            <column name="updated_at" valueComputed="NOW()"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>
