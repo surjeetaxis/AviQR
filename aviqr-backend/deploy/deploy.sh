@@ -72,15 +72,34 @@ if git -C "$REPO_DIR" show-ref --verify --quiet "refs/heads/$TARGET_REF" 2>/dev/
 fi
 
 # ── Build + restart everything at a given git ref ────────────────────────────
+# NOTE on error handling: this function is always called as `deploy_at ... &&
+# wait_healthy` inside an `if`/`&&` — and bash's `set -e` does NOT apply inside
+# the condition of an if/while/until or the left side of &&/||, for the WHOLE
+# duration of whatever command sits there, including every command run inside
+# a function called from there. That's not a hypothetical: a `git checkout`
+# failure here (untracked file collision, real incident) was silently
+# swallowed, and the rest of the function happily kept building and
+# "successfully" deploying whatever the OLD checkout already was, because
+# nothing after that line checked its exit code. Every step that must not be
+# allowed to fail silently is therefore checked explicitly below instead of
+# relying on set -e — do the same for any step added here in future.
 deploy_at() {
   local ref="$1"
-  cd "$REPO_DIR"
-  git fetch --all --tags --quiet
-  git checkout --quiet "$ref"
+  cd "$REPO_DIR" || { log "cd $REPO_DIR failed"; return 1; }
+  git fetch --all --tags --quiet || { log "git fetch failed"; return 1; }
+  git checkout --quiet "$ref" || { log "git checkout of '$ref' failed"; return 1; }
+
+  local checked_out want
+  checked_out=$(git rev-parse HEAD)
+  want=$(git rev-parse "$ref" 2>/dev/null || echo "$ref")
+  if [ "$checked_out" != "$want" ]; then
+    log "checkout verification failed: HEAD is $checked_out, expected $want"
+    return 1
+  fi
 
   log "Building backend at $(git rev-parse --short HEAD)..."
-  cd "$BACKEND_DIR"
-  ./gradlew build -x test --no-daemon
+  cd "$BACKEND_DIR" || { log "cd $BACKEND_DIR failed"; return 1; }
+  ./gradlew build -x test --no-daemon || { log "gradle build failed"; return 1; }
 
   # service-registry can't do the blue/green switch every other service below
   # does (it IS the Eureka server — register-with-eureka=false, so it can't
@@ -112,8 +131,8 @@ deploy_at() {
   done
 
   log "Building frontend..."
-  cd "$WEB_DIR"
-  npm ci --silent
+  cd "$WEB_DIR" || { log "cd $WEB_DIR failed"; return 1; }
+  npm ci --silent || { log "npm ci failed"; return 1; }
   # build:prerender needs Chromium, which npm ci does NOT download on its
   # own (see scripts/prerender.mjs) — this is a no-op in well under a
   # second if it's already cached from a prior deploy, so it's cheap to run
@@ -123,9 +142,9 @@ deploy_at() {
   # the browser binary itself, so a missing browser can never silently
   # break every deploy — and every rollback attempt, since deploy_at() is
   # reused for both).
-  npx playwright install chromium
-  VITE_API_URL="$VITE_API_URL" npm run build:prerender --silent
-  cd "$REPO_DIR"
+  npx playwright install chromium || { log "playwright install chromium failed"; return 1; }
+  VITE_API_URL="$VITE_API_URL" npm run build:prerender --silent || { log "frontend build failed"; return 1; }
+  cd "$REPO_DIR" || { log "cd $REPO_DIR failed"; return 1; }
 }
 
 # ── Wait for the gateway + all services to report healthy via Eureka ─────────
