@@ -9,6 +9,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -73,6 +74,32 @@ public class LeadController {
         Map<String, Long> m = new LinkedHashMap<>();
         for (LeadStatus s : LeadStatus.values()) m.put(s.name().toLowerCase(), leadRepo.countByStatus(s));
         return ResponseEntity.ok(ApiResponse.ok(m));
+    }
+
+    // GET /api/v1/leads/stats/daily?days=14 — new-lead volume per calendar
+    // day, oldest first, zero-filled for days with no leads (the repository
+    // query only returns days that had at least one) so the frontend trend
+    // chart always renders a fixed-width window with no gaps to fill itself.
+    @GetMapping("/api/v1/leads/stats/daily")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> dailyStats(
+            @RequestParam(defaultValue = "14") int days,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!isStaff(role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        LocalDate today = LocalDate.now();
+        LocalDateTime since = today.minusDays(days - 1L).atStartOfDay();
+        Map<LocalDate, Long> counts = new HashMap<>();
+        for (Object[] row : leadRepo.countDailyNewSince(since)) {
+            counts.put(((java.sql.Date) row[0]).toLocalDate(), ((Number) row[1]).longValue());
+        }
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (int i = days - 1; i >= 0; i--) {
+            LocalDate day = today.minusDays(i);
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("date", day.toString());
+            m.put("count", counts.getOrDefault(day, 0L));
+            result.add(m);
+        }
+        return ResponseEntity.ok(ApiResponse.ok(result));
     }
 
     @GetMapping("/api/v1/leads/{id}")

@@ -3,6 +3,7 @@ import {
   Search, RefreshCw, Plus, Upload, Mail, Send, Edit2, X,
   Building2, TrendingUp, UserCheck, Ban,
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { leadApi } from '../../api/index.js';
 
 // Internal sales-lead CRM — AviQR staff working prospective restaurant/hotel/
@@ -38,6 +39,8 @@ function parseCsv(text) {
 export default function AdminLeadsPage() {
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState({});
+  const [dailyStats, setDailyStats] = useState([]);
+  const [dailyLoading, setDailyLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -75,8 +78,15 @@ export default function AdminLeadsPage() {
     try { setStats((await leadApi.getStats()).data?.data || {}); } catch { /* stats are best-effort */ }
   }, []);
 
+  const loadDailyStats = useCallback(async () => {
+    setDailyLoading(true);
+    try { setDailyStats((await leadApi.getDailyStats(14)).data?.data || []); }
+    catch { /* trend chart is best-effort */ }
+    finally { setDailyLoading(false); }
+  }, []);
+
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { loadStats(); }, [loadStats]);
+  useEffect(() => { loadStats(); loadDailyStats(); }, [loadStats, loadDailyStats]);
 
   // ── Add lead ───────────────────────────────────────────────────────────────
   const submitAdd = async () => {
@@ -85,7 +95,7 @@ export default function AdminLeadsPage() {
     try {
       await leadApi.create(addForm);
       setAddOpen(false); setAddForm(EMPTY_FORM);
-      load(); loadStats();
+      load(); loadStats(); loadDailyStats();
     } catch (e) { alert(e.response?.data?.message || 'Could not save lead'); }
     finally { setSaving(false); }
   };
@@ -98,7 +108,7 @@ export default function AdminLeadsPage() {
     try {
       await leadApi.import(importResult.rows);
       setImportOpen(false); setImportText(''); setImportResult(null);
-      load(); loadStats();
+      load(); loadStats(); loadDailyStats();
     } catch (e) { alert(e.response?.data?.message || 'Import failed'); }
     finally { setImporting(false); }
   };
@@ -169,6 +179,25 @@ export default function AdminLeadsPage() {
           <button className="btn btn-secondary" onClick={() => setImportOpen(true)}><Upload size={14} style={{ verticalAlign: -2, marginRight: 4 }} />Import CSV</button>
           <button className="btn btn-primary" onClick={() => setAddOpen(true)}><Plus size={14} style={{ verticalAlign: -2, marginRight: 4 }} />Add lead</button>
         </div>
+      </div>
+
+      <div className="admin-chart-card" style={{ marginBottom: 16 }}>
+        <h3 style={{ marginBottom: 12 }}>New leads — last 14 days</h3>
+        {dailyLoading ? (
+          <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gray-400)', fontSize: 13 }}>Loading…</div>
+        ) : dailyStats.every(d => !d.count) ? (
+          <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gray-400)', fontSize: 13 }}>No new leads in this window</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={dailyStats.map(d => ({ ...d, label: new Date(d.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) }))} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false}/>
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false}/>
+              <Tooltip formatter={v => [v, 'New leads']} contentStyle={{ borderRadius: 8, fontSize: 12 }}/>
+              <Bar dataKey="count" fill="#2563EB" radius={[4, 4, 0, 0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       <div className="admin-kpi-grid" style={{ marginBottom: 16 }}>

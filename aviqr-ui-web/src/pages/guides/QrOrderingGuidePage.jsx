@@ -52,6 +52,16 @@ const ARTICLE_SCHEMA = {
   mainEntityOfPage: "https://aviqr.com/guides/qr-ordering-system-restaurants-india",
 };
 
+const BREADCRUMB_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: "https://aviqr.com/" },
+    { "@type": "ListItem", position: 2, name: "Guides", item: "https://aviqr.com/guides" },
+    { "@type": "ListItem", position: 3, name: "QR Code Ordering System for Restaurants in India", item: "https://aviqr.com/guides/qr-ordering-system-restaurants-india" },
+  ],
+};
+
 export default function QrOrderingGuidePage() {
   const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState(0);
@@ -62,7 +72,7 @@ export default function QrOrderingGuidePage() {
         title="QR Code Ordering System for Restaurants in India: The Complete 2026 Guide"
         description="How QR code ordering actually works for restaurants in India — setup, costs, what customers see, and how to pick a system. A practical 2026 guide."
         canonical="https://aviqr.com/guides/qr-ordering-system-restaurants-india"
-        schema={[ARTICLE_SCHEMA, FAQ_SCHEMA]}
+        schema={[ARTICLE_SCHEMA, FAQ_SCHEMA, BREADCRUMB_SCHEMA]}
       />
       <SiteHeader />
 

@@ -35,6 +35,26 @@ export default function GuidesIndexPage() {
         title="Guides — QR Ordering & Digital Menus for Restaurants"
         description="Practical guides on QR code ordering, digital menus, and choosing restaurant software — written for owners in India."
         canonical="https://aviqr.com/guides"
+        schema={[
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: "https://aviqr.com/" },
+              { "@type": "ListItem", position: 2, name: "Guides", item: "https://aviqr.com/guides" },
+            ],
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            itemListElement: GUIDES.map((g, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              name: g.title,
+              url: `https://aviqr.com${g.href}`,
+            })),
+          },
+        ]}
       />
       <SiteHeader />
 

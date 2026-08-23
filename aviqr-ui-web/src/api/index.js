@@ -428,6 +428,7 @@ export const supportApi = {
 export const leadApi = {
   list:        (p)           => api.get('/api/v1/leads', { params: p }),
   getStats:    ()             => api.get('/api/v1/leads/stats'),
+  getDailyStats: (days = 14)  => api.get('/api/v1/leads/stats/daily', { params: { days } }),
   getById:     (id)           => api.get(`/api/v1/leads/${id}`),
   create:      (d)            => api.post('/api/v1/leads', d),
   update:      (id, d)        => api.put(`/api/v1/leads/${id}`, d),

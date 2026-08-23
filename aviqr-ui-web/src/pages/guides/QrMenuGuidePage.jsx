@@ -27,6 +27,28 @@ export default function QrMenuGuidePage() {
         title="QR Code Menus for Restaurants: A Practical Guide"
         description="What a QR code menu actually is, why small restaurants and cafes in India are switching to one, and how to set one up — free or paid."
         canonical="https://aviqr.com/guides/qr-code-menu-guide"
+        schema={[
+          {
+            "@context": "https://schema.org",
+            "@type": "Article",
+            headline: "QR Code Menus for Restaurants: A Practical Guide",
+            description: "What a QR code menu actually is, why small restaurants and cafes in India are switching to one, and how to set one up — free or paid.",
+            datePublished: "2026-08-19",
+            dateModified: "2026-08-19",
+            author: { "@type": "Organization", name: "AviQR" },
+            publisher: { "@type": "Organization", name: "AviQR", logo: { "@type": "ImageObject", url: "https://aviqr.com/favicon.svg" } },
+            mainEntityOfPage: "https://aviqr.com/guides/qr-code-menu-guide",
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: "https://aviqr.com/" },
+              { "@type": "ListItem", position: 2, name: "Guides", item: "https://aviqr.com/guides" },
+              { "@type": "ListItem", position: 3, name: "QR Code Menus for Restaurants", item: "https://aviqr.com/guides/qr-code-menu-guide" },
+            ],
+          },
+        ]}
       />
       <SiteHeader />
 

@@ -47,17 +47,28 @@ export default function QrMenuChecklistPage() {
         title="What to Look for in QR Menu Software: A 2026 Buyer's Checklist"
         description="A practical checklist for choosing QR menu software for your restaurant — commission model, setup time, kitchen integration, and what's easy to overlook."
         canonical="https://aviqr.com/guides/qr-menu-software-checklist"
-        schema={{
-          "@context": "https://schema.org",
-          "@type": "Article",
-          headline: "What to Look for in QR Menu Software: A 2026 Buyer's Checklist",
-          description: "A practical checklist for choosing QR menu software for your restaurant.",
-          datePublished: "2026-08-19",
-          dateModified: "2026-08-19",
-          author: { "@type": "Organization", name: "AviQR" },
-          publisher: { "@type": "Organization", name: "AviQR", logo: { "@type": "ImageObject", url: "https://aviqr.com/favicon.svg" } },
-          mainEntityOfPage: "https://aviqr.com/guides/qr-menu-software-checklist",
-        }}
+        schema={[
+          {
+            "@context": "https://schema.org",
+            "@type": "Article",
+            headline: "What to Look for in QR Menu Software: A 2026 Buyer's Checklist",
+            description: "A practical checklist for choosing QR menu software for your restaurant.",
+            datePublished: "2026-08-19",
+            dateModified: "2026-08-19",
+            author: { "@type": "Organization", name: "AviQR" },
+            publisher: { "@type": "Organization", name: "AviQR", logo: { "@type": "ImageObject", url: "https://aviqr.com/favicon.svg" } },
+            mainEntityOfPage: "https://aviqr.com/guides/qr-menu-software-checklist",
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: "https://aviqr.com/" },
+              { "@type": "ListItem", position: 2, name: "Guides", item: "https://aviqr.com/guides" },
+              { "@type": "ListItem", position: 3, name: "QR Menu Software Buyer's Checklist", item: "https://aviqr.com/guides/qr-menu-software-checklist" },
+            ],
+          },
+        ]}
       />
       <SiteHeader />
 
