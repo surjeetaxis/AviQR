@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth, ROLE_PERMISSIONS, ROLE_DEFAULT_ROUTE } from './context/AuthContext.jsx';
+import usePageViews from './hooks/useAnalytics.js';
 
 import DashboardLayout   from './layouts/DashboardLayout.jsx';
 import Landing           from './pages/landing/Landing.jsx';
@@ -101,6 +102,8 @@ function SupportRoute({ children }) {
 }
 
 export default function App() {
+  usePageViews();
+
   return (
     <Routes>
       {/* Public */}

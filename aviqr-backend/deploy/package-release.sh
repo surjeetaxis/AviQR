@@ -23,6 +23,12 @@ STAGE_DIR="$ROOT_DIR/.release/$RELEASE_ID"
 BACKEND_DIR="$ROOT_DIR/aviqr-backend"
 WEB_DIR="$ROOT_DIR/aviqr-ui-web"
 
+# GA4 Measurement ID — not a secret (it's inlined into the public JS bundle
+# for every visitor), so it's fine to hardcode here rather than as a Jenkins
+# credential. Production only: staging builds omit it below so test/QA
+# traffic never lands in the real property.
+GA_MEASUREMENT_ID="G-GVW95252XV"
+
 # Mirrors deploy.sh's SERVICES array — keep both in sync.
 SERVICES=(
   service-registry api-gateway auth-service shop-mall-service menu-ocr-service
@@ -47,7 +53,7 @@ echo "Building web bundle for staging ($STAGING_API_URL)..."
 (cd "$WEB_DIR" && VITE_API_URL="$STAGING_API_URL" npx vite build --outDir "$STAGE_DIR/web/dist-staging" --emptyOutDir)
 
 echo "Building web bundle for production ($PRODUCTION_API_URL)..."
-(cd "$WEB_DIR" && VITE_API_URL="$PRODUCTION_API_URL" npx vite build --outDir "$STAGE_DIR/web/dist-production" --emptyOutDir)
+(cd "$WEB_DIR" && VITE_API_URL="$PRODUCTION_API_URL" VITE_GA_MEASUREMENT_ID="$GA_MEASUREMENT_ID" npx vite build --outDir "$STAGE_DIR/web/dist-production" --emptyOutDir)
 
 cat > "$STAGE_DIR/manifest.txt" <<EOF
 release_id=$RELEASE_ID

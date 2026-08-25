@@ -8,10 +8,12 @@ import { CartProvider } from './context/CartContext.jsx';
 import OfflineBanner from './components/OfflineBanner.jsx';
 import UpdateAvailableBanner from './components/UpdateAvailableBanner.jsx';
 import { registerServiceWorker } from './pwa/registerServiceWorker.js';
+import { initAnalytics } from './analytics.js';
 import App from './App.jsx';
 import './styles/index.css';
 
 registerServiceWorker();
+initAnalytics();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
