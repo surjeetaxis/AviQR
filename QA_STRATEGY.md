@@ -243,15 +243,20 @@ A `ui-e2e` job would follow the same shape, additionally starting
 landing `api-integration` first (it's self-contained — service containers
 only), validate its stability for a week or two, then add `ui-e2e`.
 
-### 4.2 Two parallel production-deploy pipelines
+### 4.2 Two parallel production-deploy pipelines — resolved
 
-`Jenkinsfile` (root) and `.github/workflows/deploy-production.yml` are both
-live, independent paths to production. `aviqr-backend/deploy/JENKINS_PIPELINE.md`
-already documents this and says one should be retired once Jenkins is
-verified — as of this audit, neither has been. Not a test-coverage gap, but a
-real operational risk (the same push could theoretically be deployed twice by
-two different systems); flagging here since it affects which pipeline any new
-CI smoke-test gate (§4.1) should hook into.
+`Jenkinsfile` (root) and `.github/workflows/deploy-production.yml` were
+briefly two independent, live-looking paths to production, despite only
+`deploy-production.yml` → `deploy.sh` ever actually being wired up on the
+server (confirmed by inspecting the box directly: release-dir naming, flat
+jar layout, and nginx's static root all match `deploy.sh`, not the
+`current/backend/`+`current/web/dist-current` layout the Jenkins scripts
+expected — that one-time server migration in `JENKINS_PIPELINE.md` was never
+run, and no Jenkins server was ever provisioned). The Jenkins pipeline files
+(`Jenkinsfile`, `aviqr-backend/deploy/package-release.sh`,
+`aviqr-backend/deploy/release.sh`, `aviqr-backend/deploy/JENKINS_PIPELINE.md`)
+have been removed; `deploy-production.yml` + `deploy.sh` is the one deploy
+path. Any new CI smoke-test gate (§4.1) should hook into that.
 
 ### 4.3 Fixed this pass
 

@@ -1,6 +1,6 @@
 # AviQR — Go-Live Plan
 
-**Scope:** core QR ordering platform (web + backend), AWS for production, GCP for staging, plus Android and iOS store submission. Compiled from README.md, CHANGES.md, QA_STRATEGY.md, QA_GAP_ANALYSIS.md, Jenkinsfile, JENKINS_PIPELINE.md, DEPLOYMENT_NO_DOCKER.md, aviqr-mobile-expo's app.json/README.md/SETUP.md, and live checks (DNS resolution, git-tracked files) against this repo.
+**Scope:** core QR ordering platform (web + backend), AWS for production, GCP for staging, plus Android and iOS store submission. Compiled from README.md, CHANGES.md, QA_STRATEGY.md, QA_GAP_ANALYSIS.md, .github/workflows/deploy-production.yml, aviqr-backend/deploy/deploy.sh, DEPLOYMENT_NO_DOCKER.md, aviqr-mobile-expo's app.json/README.md/SETUP.md, and live checks (DNS resolution, git-tracked files) against this repo.
 
 Companion doc: a cost report covering hosting/storage/domain/messaging/payment-gateway pricing was produced alongside this plan (not checked into the repo — ask if you want it saved too).
 
@@ -11,7 +11,7 @@ Companion doc: a cost report covering hosting/storage/domain/messaging/payment-g
 **Built & working**
 - 10 Spring Boot microservices + Eureka + Gateway (Java 21)
 - React 18/Vite dashboard, Expo mobile app with native `android/` and `ios/` projects already committed
-- `Jenkinsfile`: build → package once → staging → smoke test → manual approval → production. The pipeline only needs an SSH host + key, so it's already cloud-agnostic.
+- `.github/workflows/deploy-production.yml`: manual `workflow_dispatch`, gated by a required-reviewer GitHub Environment, SSHes in and runs `aviqr-backend/deploy/deploy.sh` (git checkout ref → build → blue/green systemd restart, with automatic rollback on failed health check). This is the one live deploy path — an earlier, more elaborate Jenkins pipeline (build-once-deploy-twice, staging→production promotion) was designed and documented but never actually stood up, and its files have been removed from the repo.
 - Mobile `app.json`: real bundle ID (`in.aviqr.app`), all iOS usage-description strings, Android permissions — store metadata is largely already in place.
 
 **Tested**
@@ -92,7 +92,7 @@ Per `DEPLOYMENT_NO_DOCKER.md` Part 2.
 - [ ] Launch EC2 `t3.xlarge`, Ubuntu 22.04, `ap-south-1`, 100GB gp3, Elastic IP
 - [ ] Security group: 22 from your IP only, 80/443 public, DB ports closed (Postgres/Mongo/Redis/RabbitMQ bind to localhost)
 - [ ] Install Java 21, Postgres 17 (9 per-service DBs), MongoDB 8.0, Redis 7.4 (`requirepass` set), RabbitMQ 3.13 (default `guest` user deleted), Nginx, certbot
-- [ ] systemd units target `/var/www/aviqr/current/backend/<svc>.jar` from day one (not retrofitted later) — `release.sh`'s symlink-swap rollback depends on this path existing from the first deploy
+- [ ] systemd units target `/var/www/aviqr/current/<svc>.jar` from day one (not retrofitted later) — `deploy.sh`'s blue/green symlink-swap rollback depends on this path existing from the first deploy
 - [ ] Create S3 bucket `aviqr-media` in `ap-south-1` (region default now fixed in code, see below) and set `AWS_S3_REGION=ap-south-1`
 - [ ] Prefer an instance IAM role over static AWS keys on disk for S3 access
 
@@ -137,9 +137,11 @@ staging-api.aviqr.com   → <GCP static IP>
 
 ## Phase 8 — Wire the deploy pipeline
 
-- [ ] **Pick one deploy path** — Jenkins or GitHub Actions. `JENKINS_PIPELINE.md` §4: once Jenkins is verified, disable `deploy-production.yml`'s triggers so the same push can't deploy twice.
-- [ ] Jenkins credentials: `production-ssh-key` (AWS `.pem`-style), `staging-ssh-key` (GCP — add the key via `~/.ssh/authorized_keys` or `gcloud compute os-login ssh-keys add`, a different mechanism than AWS)
-- [ ] Dry run to the approval gate: push to `master`, watch Build&Test → Package → Deploy to (GCP) Staging → smoke test, stop before approving the (AWS) production promotion
+Deploy path is decided: GitHub Actions (`deploy-production.yml`) → `deploy.sh` over SSH. The earlier Jenkins alternative was designed but never adopted and has been removed from the repo.
+
+- [ ] `production` GitHub Environment configured with required reviewers, and `PRODUCTION_SSH_HOST`/`PRODUCTION_SSH_USER`/`PRODUCTION_SSH_KEY`(/`PORT`) secrets set for the AWS box
+- [ ] Add the same for a `staging` environment/workflow once the GCP box exists, pointed at `deploy.sh` there too (or a staging-specific variant if the two boxes need different behavior)
+- [ ] Dry run: trigger `workflow_dispatch` with `ref=master`, confirm the required-reviewer gate blocks until approved, then watch `deploy.sh`'s blue/green restart and health check succeed
 
 ## Phase 9 — Data, migrations, first admin, backups
 
