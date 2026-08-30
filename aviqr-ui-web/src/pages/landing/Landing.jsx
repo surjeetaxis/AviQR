@@ -442,17 +442,22 @@ export default function Landing() {
         </div>
         <div className="pricing-grid">
           {plans.map(plan => {
+            // Paid-tier prices are hidden pre-launch — real ₹ amounts go live at launch.
+            // Starter stays "Free" since that's not a price to reveal.
+            const priceHidden = plan.price > 0;
             const offer = offers.find(o => o.applicablePlans === 'ALL'
               || (o.applicablePlans || '').split(',').map(s => s.trim()).includes(plan.planKey));
             const discounted = offer ? Math.round(plan.price * (1 - offer.discountPercent / 100)) : null;
             return (
               <div key={plan.planKey || plan.name} className={`pricing-card ${plan.primary ? 'pricing-primary' : ''}`}>
-                {offer
+                {(!priceHidden && offer)
                   ? <div className="pricing-tag" style={{ background: '#DC2626' }}>{offer.discountPercent}% OFF</div>
                   : (plan.tag && <div className="pricing-tag">{plan.tag}</div>)}
                 <div className="pricing-name">{plan.name}</div>
                 <div className="pricing-price">
-                  {plan.price === 0 ? 'Free' : (
+                  {priceHidden ? (
+                    <span style={{ fontSize: '0.5em' }}>Launching soon</span>
+                  ) : plan.price === 0 ? 'Free' : (
                     offer ? (
                       <>
                         <span style={{ textDecoration: 'line-through', opacity: .5, fontSize: '0.55em', marginRight: 6 }}>
@@ -462,9 +467,9 @@ export default function Landing() {
                       </>
                     ) : `₹${plan.price.toLocaleString('en-IN')}`
                   )}
-                  {plan.price > 0 && <span className="pricing-period">/month</span>}
+                  {!priceHidden && plan.price > 0 && <span className="pricing-period">/month</span>}
                 </div>
-                {offer && <div style={{ fontSize: 12, color: '#DC2626', fontWeight: 600, margin: '-8px 0 8px' }}>🎉 {offer.title}</div>}
+                {!priceHidden && offer && <div style={{ fontSize: 12, color: '#DC2626', fontWeight: 600, margin: '-8px 0 8px' }}>🎉 {offer.title}</div>}
                 <div className="pricing-desc">{plan.desc}</div>
                 <ul className="pricing-features">
                   {plan.features.map(f => (

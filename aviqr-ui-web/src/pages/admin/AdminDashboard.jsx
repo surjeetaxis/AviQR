@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
@@ -23,6 +23,7 @@ import '../admin/Admin.css';
 import './AdminExtra.css';
 
 const ROLES_ALL = ['owner','manager','cashier','kitchen','admin','support','supplier','hotel','mall','customer'];
+const ROLE_CLR = { owner:'green',manager:'blue',cashier:'blue',kitchen:'green',admin:'purple',support:'amber',supplier:'blue',hotel:'purple',mall:'blue',customer:'gray' };
 
 const PLANS = {
   STARTER:    { label:'Starter',    color:'#6B7280', bg:'#F3F4F6', price:0       },
@@ -294,6 +295,123 @@ function AdminOverview({ ps, us, loading, onNav, onRefresh }) {
           </div>
         </div>
       </div>
+
+      <RecentUserProgress onNav={onNav}/>
+    </div>
+  );
+}
+
+// ── Recent user signups & onboarding progress ─────────────────────────────────
+// Computed client-side from the same admin/users list the Users tab uses — there's
+// no dedicated signup-trend endpoint, and bucketing ~500 users by day is cheap.
+function RecentUserProgress({ onNav }) {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState('7'); // '7' | '30' | 'all'
+
+  useEffect(() => {
+    authApi.getUsers({ size: 500 })
+      .then(res => {
+        const d = res.data?.data;
+        setUsers(Array.isArray(d) ? d : d?.content || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const trend = useMemo(() => {
+    const days = [];
+    const today = new Date();
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      days.push({ date: d.toISOString().slice(0, 10), count: 0, label: d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) });
+    }
+    const byDate = Object.fromEntries(days.map(d => [d.date, d]));
+    users.forEach(u => {
+      const key = u.createdAt?.slice(0, 10);
+      if (key && byDate[key]) byDate[key].count += 1;
+    });
+    return days;
+  }, [users]);
+
+  const cutoffMs = range === 'all' ? null : Date.now() - Number(range) * 86400000;
+  const recent = useMemo(() => users
+    .filter(u => !cutoffMs || (u.createdAt && new Date(u.createdAt).getTime() >= cutoffMs))
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    .slice(0, 15), [users, cutoffMs]);
+
+  // Onboarding stages an admin cares about — "shop linked" doesn't apply to
+  // plain customers, so it's dropped from their stage list rather than shown
+  // as a permanently-failed step.
+  const stagesFor = (u) => {
+    const stages = [
+      { label: 'Signed up', done: true },
+      { label: 'Verified',  done: u.status === 'ACTIVE' },
+    ];
+    if (u.role?.toLowerCase() !== 'customer') stages.push({ label: 'Shop linked', done: !!u.shopId });
+    const pct = Math.round((stages.filter(s => s.done).length / stages.length) * 100);
+    return { stages, pct };
+  };
+
+  return (
+    <div className="admin-chart-card" style={{ marginTop: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <h3 style={{ margin: 0 }}>Recent user signups &amp; progress</h3>
+        <select className="admin-filter-select" value={range} onChange={e => setRange(e.target.value)}>
+          <option value="7">New — last 7 days</option>
+          <option value="30">New — last 30 days</option>
+          <option value="all">All users</option>
+        </select>
+      </div>
+
+      {loading ? (
+        <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gray-400)', fontSize: 13 }}>Loading…</div>
+      ) : (
+        <>
+          <ResponsiveContainer width="100%" height={150}>
+            <BarChart data={trend} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
+              <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} interval={1}/>
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false}/>
+              <Tooltip formatter={v => [v, 'New signups']} contentStyle={{ borderRadius: 8, fontSize: 12 }}/>
+              <Bar dataKey="count" fill="#2563EB" radius={[4, 4, 0, 0]}/>
+            </BarChart>
+          </ResponsiveContainer>
+
+          <div style={{ marginTop: 14 }}>
+            {recent.length === 0 ? (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--gray-400)', fontSize: 13 }}>No users in this range</div>
+            ) : recent.map(u => {
+              const { stages, pct } = stagesFor(u);
+              return (
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--gray-100)' }}>
+                  <div className="admin-avatar sm">{u.name?.[0] || '?'}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, fontSize: 13 }}>{u.name || u.email}</span>
+                      <span className={`role-badge-sm role-${ROLE_CLR[u.role?.toLowerCase()] || 'gray'}`}>{u.role?.toLowerCase()}</span>
+                      <span style={{ fontSize: 11, color: 'var(--gray-400)', marginLeft: 'auto' }}>
+                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN') : '—'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
+                      <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--gray-100)', overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#059669' : '#2563EB' }}/>
+                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--gray-500)', minWidth: 32, textAlign: 'right' }}>{pct}%</span>
+                    </div>
+                    <div style={{ fontSize: 10.5, color: 'var(--gray-400)', marginTop: 2 }}>
+                      {stages.filter(s => s.done).map(s => s.label).join(' → ')}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <button className="btn btn-secondary" style={{ marginTop: 10 }} onClick={() => onNav('users')}>View all users →</button>
+        </>
+      )}
     </div>
   );
 }
@@ -373,8 +491,6 @@ function LiveUsersPage({ initialRole }) {
     } catch {}
     setEdit(null);
   };
-
-  const ROLE_CLR = { owner:'green',manager:'blue',cashier:'blue',kitchen:'green',admin:'purple',support:'amber',supplier:'blue',hotel:'purple',mall:'blue',customer:'gray' };
 
   const filtered = users.filter(u => {
     if (statF !== 'all' && u.status?.toLowerCase() !== statF) return false;
