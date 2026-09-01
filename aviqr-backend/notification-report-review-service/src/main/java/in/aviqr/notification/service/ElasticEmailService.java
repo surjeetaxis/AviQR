@@ -34,11 +34,11 @@ public class ElasticEmailService {
     @Value("${app.email.enabled:false}")
     private boolean enabled;
 
-    /** Send a transactional HTML email. */
-    public void send(String to, String subject, String htmlBody) {
+    /** Send a transactional HTML email. Returns true on success (or mock mode). */
+    public boolean send(String to, String subject, String htmlBody) {
         if (!enabled) {
             log.info("[Email MOCK] → {} | {}", to, subject);
-            return;
+            return true;
         }
         try {
             var conn = (HttpURLConnection) new URL(apiUrl).openConnection();
@@ -74,11 +74,13 @@ public class ElasticEmailService {
             if (code >= 200 && code < 300) {
                 JsonNode json = MAPPER.readTree(responseBody);
                 log.info("Email sent to {} — messageId {}", to, json.path("MessageID").asText(""));
-            } else {
-                log.warn("Email send to {} failed: HTTP {} — {}", to, code, responseBody);
+                return true;
             }
+            log.warn("Email send to {} failed: HTTP {} — {}", to, code, responseBody);
+            return false;
         } catch (Exception e) {
             log.error("Email send failed to {}: {}", to, e.getMessage());
+            return false;
         }
     }
 }

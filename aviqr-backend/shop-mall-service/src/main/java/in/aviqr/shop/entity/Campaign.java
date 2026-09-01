@@ -34,6 +34,19 @@ public class Campaign {
 
     private String audienceLabel;
 
+    // Radius (km) used only when audienceType == NEARBY, measured from this
+    // shop's own Shop.latitude/longitude.
+    private Double radiusKm;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private CampaignChannel channel = CampaignChannel.SMS;
+
+    // Email subject line — required when channel == EMAIL, ignored for SMS.
+    // Supports the same {name} placeholder as messageTemplate.
+    private String subject;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

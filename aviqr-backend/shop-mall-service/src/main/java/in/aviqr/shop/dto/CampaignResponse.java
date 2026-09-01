@@ -2,6 +2,7 @@ package in.aviqr.shop.dto;
 
 import in.aviqr.shop.entity.Campaign;
 import in.aviqr.shop.entity.CampaignAudienceType;
+import in.aviqr.shop.entity.CampaignChannel;
 import in.aviqr.shop.entity.CampaignStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,6 +19,9 @@ public class CampaignResponse {
     private String messageTemplate;
     private CampaignAudienceType audienceType;
     private String audienceLabel;
+    private Double radiusKm;
+    private CampaignChannel channel;
+    private String subject;
     private CampaignStatus status;
     private LocalDateTime scheduledAt;
     private LocalDateTime lastRunAt;
@@ -32,6 +36,9 @@ public class CampaignResponse {
             .messageTemplate(c.getMessageTemplate())
             .audienceType(c.getAudienceType())
             .audienceLabel(c.getAudienceLabel())
+            .radiusKm(c.getRadiusKm())
+            .channel(c.getChannel())
+            .subject(c.getSubject())
             .status(c.getStatus())
             .scheduledAt(c.getScheduledAt())
             .lastRunAt(c.getLastRunAt())

@@ -2,11 +2,14 @@ package in.aviqr.auth.controller;
 
 import in.aviqr.auth.dto.ApiResponse;
 import in.aviqr.auth.dto.ImpersonationTokenResponse;
+import in.aviqr.auth.dto.NearbyCustomerResponse;
+import in.aviqr.auth.repository.CustomerAddressRepository;
 import in.aviqr.auth.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,6 +28,7 @@ import java.util.UUID;
 public class AuthInternalController {
 
     private final AuthService authService;
+    private final CustomerAddressRepository addressRepo;
 
     @Value("${internal.sync.secret:}")
     private String internalSyncSecret;
@@ -47,5 +51,32 @@ public class AuthInternalController {
 
         return ResponseEntity.ok(ApiResponse.ok(
                 authService.mintImpersonationToken(UUID.fromString(targetUserId), agentId)));
+    }
+
+    // Used by shop-mall-service's CampaignService to resolve a NEARBY-audience
+    // promotion campaign: customers whose default saved address falls within
+    // radiusKm of the shop's own lat/lng. Secret-gated only (no X-User-Role
+    // check) — same trust level as notification-report-review-service's
+    // SmsController, since the caller here is a service, not an acting agent.
+    @GetMapping("/nearby-customers")
+    public ResponseEntity<ApiResponse<List<NearbyCustomerResponse>>> nearbyCustomers(
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam(defaultValue = "10") double radiusKm,
+            @RequestHeader(value = "X-Internal-Secret", required = false) String secret) {
+
+        if (!internalSyncSecret.isBlank() && !internalSyncSecret.equals(secret))
+            return ResponseEntity.status(401).body(ApiResponse.error("Invalid internal secret"));
+
+        List<NearbyCustomerResponse> result = addressRepo.findNearby(lat, lng, radiusKm).stream()
+            .map(row -> NearbyCustomerResponse.builder()
+                .userId((UUID) row[0])
+                .name((String) row[1])
+                .email((String) row[2])
+                .phone((String) row[3])
+                .distanceKm(((Number) row[4]).doubleValue())
+                .build())
+            .toList();
+        return ResponseEntity.ok(ApiResponse.ok(result));
     }
 }

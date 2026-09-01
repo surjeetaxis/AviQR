@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Adds the NEARBY-audience / EMAIL-channel campaign feature: Campaign gained
+         radiusKm/channel/subject, CampaignLog gained customerEmail and its
+         customerPhone became nullable (a NEARBY/EMAIL recipient sourced from
+         auth-service may have no phone on file). ddl-auto=update covers dev, but
+         production runs ddl-auto=none, same situation as 001-shops-referral-columns. -->
+
+    <changeSet id="003-campaigns-radius-km" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <and>
+                <tableExists tableName="campaigns"/>
+                <not><columnExists tableName="campaigns" columnName="radius_km"/></not>
+            </and>
+        </preConditions>
+        <addColumn tableName="campaigns">
+            <column name="radius_km" type="DOUBLE PRECISION"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="003-campaigns-channel" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <and>
+                <tableExists tableName="campaigns"/>
+                <not><columnExists tableName="campaigns" columnName="channel"/></not>
+            </and>
+        </preConditions>
+        <addColumn tableName="campaigns">
+            <column name="channel" type="VARCHAR(20)" defaultValue="SMS">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="003-campaigns-subject" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <and>
+                <tableExists tableName="campaigns"/>
+                <not><columnExists tableName="campaigns" columnName="subject"/></not>
+            </and>
+        </preConditions>
+        <addColumn tableName="campaigns">
+            <column name="subject" type="TEXT"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="003-campaign-logs-customer-email" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <and>
+                <tableExists tableName="campaign_logs"/>
+                <not><columnExists tableName="campaign_logs" columnName="customer_email"/></not>
+            </and>
+        </preConditions>
+        <addColumn tableName="campaign_logs">
+            <column name="customer_email" type="VARCHAR(255)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="003-campaign-logs-customer-phone-nullable" author="aviqr">
+        <preConditions onFail="MARK_RAN" onError="MARK_RAN">
+            <tableExists tableName="campaign_logs"/>
+        </preConditions>
+        <dropNotNullConstraint tableName="campaign_logs" columnName="customer_phone" columnDataType="VARCHAR(255)"/>
+    </changeSet>
+</databaseChangeLog>

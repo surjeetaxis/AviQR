@@ -21,10 +21,12 @@ public class CampaignLog {
     @Column(nullable = false)
     private String shopId;
 
-    @Column(nullable = false)
+    // Nullable: a NEARBY/EMAIL campaign's recipient may have no phone on file
+    // (auth-service's User.phone isn't required), only an email.
     private String customerPhone;
 
     private String customerName;
+    private String customerEmail;
 
     @Column(nullable = false, length = 20)
     private String status; // SENT | FAILED
