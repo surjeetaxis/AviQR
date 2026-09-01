@@ -117,3 +117,17 @@ docker-compose.override.yml
 *.xlsx
 *.pdf
 Pasted\ image*.png
+
+# =========================
+# Cloud credentials — never commit these
+# — a GCP service-account key (aviqr-503715-29ffb091e175.json) was committed
+# under aviqr files/ and pushed to a public repo; this was removed from HEAD
+# but the key itself must be rotated in GCP Console since it's still exposed
+# in git history. Ignoring the naming shape here so it can't happen again —
+# GCP's downloaded-key filename is <project-id>-<12 hex chars>.json.
+# =========================
+*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].json
+*service-account*.json
+*-key.json
+gcp-*.json
+/aviqr\ files/aviqr-503715-29ffb091e175.json
