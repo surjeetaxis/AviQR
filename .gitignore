@@ -130,4 +130,10 @@ Pasted\ image*.png
 *service-account*.json
 *-key.json
 gcp-*.json
-/aviqr\ files/aviqr-503715-29ffb091e175.json
+
+# =========================
+# Personal/business reference docs — pitch decks, WhatsApp images, deployment
+# notes, DLT templates. Not meant to be public; kept locally only. This is
+# also where the exposed GCP key above lived, hence its own rule staying put.
+# =========================
+/aviqr files/
