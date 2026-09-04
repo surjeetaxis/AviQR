@@ -36,8 +36,16 @@ public class ElasticEmailService {
 
     /** Send a transactional HTML email. Returns true on success (or mock mode). */
     public boolean send(String to, String subject, String htmlBody) {
+        return send(to, subject, htmlBody, null, null, null);
+    }
+
+    /** Same as above, with one optional attachment (e.g. the scheduled night-audit
+     *  PDF) — attachmentName/attachmentContentType/attachmentBase64 must all be
+     *  non-null together, or all left null for a plain email. */
+    public boolean send(String to, String subject, String htmlBody,
+                         String attachmentName, String attachmentContentType, String attachmentBase64) {
         if (!enabled) {
-            log.info("[Email MOCK] → {} | {}", to, subject);
+            log.info("[Email MOCK] → {} | {}{}", to, subject, attachmentName != null ? " (attachment: " + attachmentName + ")" : "");
             return true;
         }
         try {
@@ -55,6 +63,13 @@ public class ElasticEmailService {
             content.put("From", fromEmail);
             content.put("Subject", subject);
             content.putArray("Body").add(bodyBlock);
+            if (attachmentBase64 != null) {
+                ObjectNode attachment = MAPPER.createObjectNode();
+                attachment.put("Name", attachmentName);
+                attachment.put("ContentType", attachmentContentType);
+                attachment.put("BinaryContent", attachmentBase64);
+                content.putArray("Attachments").add(attachment);
+            }
 
             ObjectNode recipients = MAPPER.createObjectNode();
             recipients.putArray("To").add(to);

@@ -10,6 +10,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import java.time.LocalDateTime;
@@ -66,6 +67,7 @@ public class HotelController {
     }
 
     @PutMapping("/api/v1/hotels/{id}")
+    @Transactional
     public ResponseEntity<ApiResponse<Hotel>> updateHotel(
             @PathVariable UUID id, @RequestBody Hotel req,
             @RequestHeader("X-User-Id") String uid,
@@ -76,7 +78,17 @@ public class HotelController {
             h.setName(req.getName()); h.setPhone(req.getPhone()); h.setEmail(req.getEmail()); h.setAddress(req.getAddress());
             h.setLatitude(req.getLatitude()); h.setLongitude(req.getLongitude());
             h.setCheckInTime(req.getCheckInTime()); h.setCheckOutTime(req.getCheckOutTime());
-            if(req.getEnabledServices()!=null) h.setEnabledServices(req.getEnabledServices());
+            // Mutate the existing managed collection in place rather than replacing the
+            // List reference — this method wasn't @Transactional before, so `h` was
+            // detached by the time save() ran, and Hibernate's merge of a replaced
+            // @ElementCollection reference silently failed to delete the old rows,
+            // leaving hotel_enabled_services accumulating a duplicate row per save
+            // instead of replacing its contents (found via a real hotel with 14-15x
+            // duplicated rows per service after repeated settings saves).
+            if (req.getEnabledServices() != null) {
+                h.getEnabledServices().clear();
+                h.getEnabledServices().addAll(req.getEnabledServices());
+            }
             return ResponseEntity.ok(ApiResponse.ok("Updated", hotelRepo.save(h)));
         }).orElse(ResponseEntity.notFound().build());
     }

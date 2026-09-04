@@ -1,6 +1,5 @@
 import { FloatingPillNav } from './FloatingPillNav.js';
 import { HomeIcon, BookOpenIcon, UserIcon, BedIcon, SettingsIcon } from './NavIcons.js';
-import { Colors } from '../../theme/index.js';
 
 // Custom tabBar for app/(hotel)/_layout.js's <Tabs>. Same FloatingPillNav
 // engine as OwnerTabBar.js/CustomerBottomNav.js — one shared bottom-nav
@@ -35,7 +34,11 @@ export function HotelTabBar({ state, descriptors, navigation }) {
     Icon: ICONS[route.name],
   }));
   const activeRouteKey = state.routes[state.index].key;
-  const activeIndex = Math.max(0, visibleRoutes.findIndex(route => route.key === activeRouteKey));
+  // -1 (none of the 5 primary tabs) is left as-is rather than clamped to 0 —
+  // FloatingPillNav already treats a negative index as "no tab active", and
+  // falsely lighting up Home while the user is on e.g. PMS > Reservations
+  // (reached via the Home screen's nav grid, not a tab) would be worse.
+  const activeIndex = visibleRoutes.findIndex(route => route.key === activeRouteKey);
 
   const handlePress = (tab) => {
     const event = navigation.emit({ type: 'tabPress', target: tab.key, canPreventDefault: true });
@@ -49,7 +52,6 @@ export function HotelTabBar({ state, descriptors, navigation }) {
       tabs={tabs}
       activeIndex={activeIndex}
       onPressTab={handlePress}
-      pageBackground={Colors.background}
       reserveSpace
     />
   );

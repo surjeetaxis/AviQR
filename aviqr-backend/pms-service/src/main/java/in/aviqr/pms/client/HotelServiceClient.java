@@ -73,6 +73,33 @@ public class HotelServiceClient {
             .constructCollectionType(List.class, HotelSummaryDto.class));
     }
 
+    /** Every active hotel with an email on file — used by the scheduled night-audit
+     *  email job, which runs platform-wide rather than for one caller's own hotels.
+     *  Calls hotel-service's admin listing directly (bypassing the gateway, same as
+     *  every other method here) with a service-internal SUPPORT role, matching the
+     *  ADMIN/SUPPORT check on that endpoint. A single large page is fine at this
+     *  platform's current hotel count; revisit with real pagination if that changes. */
+    public List<HotelInfoDto> getAllActiveHotels() {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-User-Role", "SUPPORT");
+            ResponseEntity<Map> resp = restTemplate.exchange(
+                hotelServiceUrl + "/api/v1/hotels/admin/all?size=1000",
+                HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            Object data = resp.getBody() != null ? resp.getBody().get("data") : null;
+            Object content = data instanceof Map<?, ?> m ? m.get("content") : null;
+            if (content == null) return List.of();
+            List<HotelInfoDto> hotels = objectMapper.convertValue(content, objectMapper.getTypeFactory()
+                .constructCollectionType(List.class, HotelInfoDto.class));
+            return hotels.stream()
+                .filter(h -> Boolean.TRUE.equals(h.getActive()) && h.getEmail() != null && !h.getEmail().isBlank())
+                .toList();
+        } catch (Exception e) {
+            log.warn("Could not fetch hotel list for night-audit email job: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
     public Optional<UUID> findRoomId(UUID hotelId, String roomNumber) {
         return getRooms(hotelId).stream()
             .filter(r -> roomNumber.equals(r.getRoomNumber()))

@@ -12,6 +12,13 @@ public class RabbitMQConfig {
 
     public static final String ORDERS_EXCHANGE = "aviqr.orders";
 
+    // Publish-only from here — notification-report-review-service declares the same
+    // exchange name (and the queue/binding that consumes "pms.balance-due") on its own
+    // side, the same fan-out convention as ORDERS_EXCHANGE above. Declaring it here too
+    // just makes sure the exchange exists even if pms-service starts before that
+    // service does; RabbitMQ treats redeclaring an identical exchange as a no-op.
+    public static final String HOTEL_EXCHANGE = "aviqr.hotel";
+
     // Own queue name — hotel-service already binds a "order.new.room-charge.queue" to
     // this same exchange/routing key for its own RoomCharge ledger; a distinctly-named
     // queue here lets pms-service also receive every order.new event instead of the two
@@ -21,6 +28,9 @@ public class RabbitMQConfig {
 
     @Bean
     public TopicExchange ordersExchange() { return new TopicExchange(ORDERS_EXCHANGE); }
+
+    @Bean
+    public TopicExchange hotelExchange() { return new TopicExchange(HOTEL_EXCHANGE); }
 
     @Bean
     public Queue orderNewQueue() { return QueueBuilder.durable(ORDER_NEW_QUEUE).build(); }

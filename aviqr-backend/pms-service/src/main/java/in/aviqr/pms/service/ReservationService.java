@@ -35,6 +35,7 @@ public class ReservationService {
     private final InvoiceService invoiceService;
     private final RegistrationCardService registrationCardService;
     private final LoyaltyService loyaltyService;
+    private final WaitlistService waitlistService;
 
     @Transactional
     public Reservation create(CreateReservationRequest req, String createdBy) {
@@ -285,7 +286,9 @@ public class ReservationService {
         reservation.setStatus(ReservationStatus.CANCELLED);
         reservation.setCancelledAt(LocalDateTime.now());
         commissionService.voidForReservation(reservationId);
-        return reservationRepo.save(reservation);
+        Reservation saved = reservationRepo.save(reservation);
+        notifyWaitlistOfFreedRoomTypes(reservationId, reservation.getHotelId());
+        return saved;
     }
 
     @Transactional
@@ -297,7 +300,23 @@ public class ReservationService {
         // Room revenue was never actually collected for a no-show, so any commission
         // booked at creation time against the quoted rate is voided too.
         commissionService.voidForReservation(reservationId);
-        return reservationRepo.save(reservation);
+        Reservation saved = reservationRepo.save(reservation);
+        notifyWaitlistOfFreedRoomTypes(reservationId, reservation.getHotelId());
+        return saved;
+    }
+
+    // A cancellation or no-show frees up whatever room type(s) this reservation held
+    // — re-check the waitlist for each one. Best-effort: a waitlist hiccup should
+    // never fail the cancel/no-show action itself.
+    private void notifyWaitlistOfFreedRoomTypes(UUID reservationId, UUID hotelId) {
+        try {
+            roomReservationRepo.findByReservationId(reservationId).stream()
+                .map(RoomReservation::getRoomTypeId)
+                .distinct()
+                .forEach(roomTypeId -> waitlistService.checkAndNotify(hotelId, roomTypeId));
+        } catch (Exception e) {
+            // logged inside WaitlistService; nothing further to do here
+        }
     }
 
     public Reservation get(UUID id) {

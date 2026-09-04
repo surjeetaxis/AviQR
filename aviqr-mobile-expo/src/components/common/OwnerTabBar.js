@@ -1,7 +1,6 @@
 import { View, Text } from 'react-native';
 import { FloatingPillNav, badgeStyles } from './FloatingPillNav.js';
 import { DashboardIcon, ShoppingBagIcon, BookOpenIcon, BarChartIcon, SettingsIcon } from './NavIcons.js';
-import { Colors } from '../../theme/index.js';
 
 // Custom tabBar for app/(owner)/_layout.js's <Tabs>. Built on the same
 // FloatingPillNav engine as the web owner dashboard's mobile-width nav
@@ -32,7 +31,11 @@ export function OwnerTabBar({ state, descriptors, navigation, newOrderCount = 0 
     Icon: ICONS[route.name],
   }));
   const activeRouteKey = state.routes[state.index].key;
-  const activeIndex = Math.max(0, visibleRoutes.findIndex(route => route.key === activeRouteKey));
+  // -1 (none of the 5 primary tabs) is left as-is rather than clamped to 0 —
+  // FloatingPillNav already treats a negative index as "no tab active", and
+  // falsely lighting up Home while the user is on e.g. staff/campaigns
+  // (reached via a Quick action, not a tab) would be worse.
+  const activeIndex = visibleRoutes.findIndex(route => route.key === activeRouteKey);
 
   const handlePress = (tab) => {
     const event = navigation.emit({ type: 'tabPress', target: tab.key, canPreventDefault: true });
@@ -46,7 +49,6 @@ export function OwnerTabBar({ state, descriptors, navigation, newOrderCount = 0 
       tabs={tabs}
       activeIndex={activeIndex}
       onPressTab={handlePress}
-      pageBackground={Colors.background}
       reserveSpace
       renderBadge={(tab, i, isActive) => (
         tab.routeName === 'orders' && newOrderCount > 0 && !isActive ? (

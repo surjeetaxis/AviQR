@@ -14,7 +14,7 @@ export const NAV_TABS = [
   { key: 'profile', label: 'Profile', Icon: UserIcon },
 ];
 
-export function CustomerBottomNav({ activeTab, onChangeTab, cartCount = 0, pageBackground }) {
+export function CustomerBottomNav({ activeTab, onChangeTab, cartCount = 0 }) {
   const activeIndex = Math.max(0, NAV_TABS.findIndex(t => t.key === activeTab));
 
   return (
@@ -22,7 +22,6 @@ export function CustomerBottomNav({ activeTab, onChangeTab, cartCount = 0, pageB
       tabs={NAV_TABS}
       activeIndex={activeIndex}
       onPressTab={tab => onChangeTab(tab.key)}
-      pageBackground={pageBackground}
       renderBadge={(tab, i, isActive) => (
         tab.key === 'cart' && cartCount > 0 && !isActive ? (
           <View style={badgeStyles.badge}>

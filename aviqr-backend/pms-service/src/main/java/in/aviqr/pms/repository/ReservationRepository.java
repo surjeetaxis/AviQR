@@ -18,4 +18,9 @@ public interface ReservationRepository extends JpaRepository<Reservation, UUID> 
     // can tell arrivals from no-shows/cancellations itself — see NightAuditService.
     List<Reservation> findByHotelIdAndCheckInDate(UUID hotelId, LocalDate checkInDate);
     List<Reservation> findByHotelIdAndCheckOutDate(UUID hotelId, LocalDate checkOutDate);
+
+    // Cross-hotel — used by ReservationLifecycleScheduler's daily jobs, which run
+    // once for the whole platform rather than being triggered per hotel.
+    List<Reservation> findByStatusAndCheckInDateBefore(ReservationStatus status, LocalDate checkInDate);
+    List<Reservation> findByStatusAndCheckOutDate(ReservationStatus status, LocalDate checkOutDate);
 }
