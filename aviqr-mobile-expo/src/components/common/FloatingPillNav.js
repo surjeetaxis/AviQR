@@ -1,9 +1,24 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../theme/index.js';
+
+// A flat, single-opacity color wash over a blur reads as muddy fog, not
+// glass — real glass/water has depth (a gradient, not a flat tint) and a
+// highlight where light catches the surface. `mix` blends accentColor
+// toward white (t>0) or black (t<0) so the gradient/shine below can be
+// built from the caller's own color instead of a hardcoded one.
+function mix(hex, t, alpha = 1) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const target = t > 0 ? 255 : 0;
+  const amt = Math.abs(t);
+  const lerp = (c) => Math.round(c + (target - c) * amt);
+  return `rgba(${lerp(r)}, ${lerp(g)}, ${lerp(b)}, ${alpha})`;
+}
 
 // Shared engine behind every bottom nav in the app — mobile port of
 // aviqr-ui-web/src/layouts/CustomerPortalShell.jsx (customer portal) and
@@ -82,12 +97,33 @@ export function FloatingPillNav({
   const pill = (
     <View style={[styles.navShadow, { bottom: resolvedBottomOffset, shadowColor: accentColor }]}>
       <BlurView
-        intensity={40}
+        intensity={65}
         tint="dark"
         experimentalBlurMethod="dimezisBlurView"
-        style={styles.navBlur}
+        style={[styles.navBlur, { borderColor: mix(accentColor, 0.4, 0.6) }]}
       >
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: accentColor, opacity: 0.55 }]} />
+        {/* Depth wash — a gradient, not a flat opacity fill, so the tint
+            itself reads as glass with volume rather than a fogged-over
+            color swatch. High opacity + only a slight lift toward white at
+            the top keeps this saturated/vivid — the earlier version mixed
+            too far toward white with too little opacity and just looked
+            pale, not like tinted glass. */}
+        <LinearGradient
+          colors={[mix(accentColor, 0.08, 0.88), mix(accentColor, -0.4, 0.96)]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* Shine — a tight specular streak along the top edge, not a broad
+            wash, so it reads as light catching one edge of the glass
+            rather than fogging the whole surface pale. */}
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(255,255,255,0.4)', 'rgba(255,255,255,0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 0.3 }}
+          style={StyleSheet.absoluteFill}
+        />
         <View style={styles.row}>
           {indicatorX != null && (
             <Animated.View
@@ -169,6 +205,7 @@ const styles = StyleSheet.create({
   navBlur: {
     flex: 1,
     borderRadius: 22,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   row: {
@@ -203,9 +240,11 @@ const styles = StyleSheet.create({
   uShape: {
     width: U_WIDTH,
     height: U_HEIGHT,
+    borderTopLeftRadius: 10, // softened, not a sharp 90° corner — reads as a liquid blob merging into the bar, not a badge stamped on top
+    borderTopRightRadius: 10,
     borderBottomLeftRadius: U_RADIUS,
     borderBottomRightRadius: U_RADIUS,
-    backgroundColor: Colors.white,
+    backgroundColor: 'rgba(255,255,255,0.94)', // slightly translucent rather than flat opaque white, so it still reads as glass, not plastic
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',

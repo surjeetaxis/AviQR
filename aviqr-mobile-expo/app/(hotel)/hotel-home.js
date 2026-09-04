@@ -33,6 +33,7 @@ const NAV_ITEMS = [
   { icon: '🛏️', label: 'Room Types',   href: '/(hotel)/pms/room-types' },
   { icon: '👨‍👩‍👧', label: 'Group Bookings', href: '/(hotel)/pms/group-bookings' },
   { icon: '🌐', label: 'Channel Mgr',  href: '/(hotel)/pms/channel-manager' },
+  { icon: '🏨', label: 'Chain Templates', href: '/(hotel)/pms/chain-templates' },
   { icon: '🧳', label: 'Agents',       href: '/(hotel)/pms/agents' },
   { icon: '🎁', label: 'Extras',       href: '/(hotel)/pms/extras' },
   { icon: '📇', label: 'PMS Guests',   href: '/(hotel)/pms/guests' },
@@ -241,7 +242,7 @@ export default function HotelHomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <LinearGradient colors={['#4C1D95','#7C3AED']} style={styles.headerGrad}>
+      <LinearGradient colors={[Colors.primaryDark, Colors.primary]} style={styles.headerGrad}>
         <View style={styles.headerRow}>
           <View style={styles.brandRow}>
             <Logo size={30} />
@@ -462,13 +463,13 @@ const styles = StyleSheet.create({
   statValue:    { fontSize: FontSize['2xl'], fontWeight: '800', color: Colors.white },
   statLabel:    { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.65)', marginTop: 3 },
   statDivider:  { width: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginVertical: 4 },
-  navGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10, padding: Spacing.base, paddingBottom: 4, backgroundColor: Colors.white },
-  navItem:      { width: '18%', alignItems: 'center', gap: 6, paddingVertical: Spacing.sm, backgroundColor: Colors.background, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border },
+  navGrid:      { flexDirection: 'row', flexWrap: 'wrap', rowGap: 10, justifyContent: 'space-between', padding: Spacing.base, paddingBottom: 4, backgroundColor: Colors.white },
+  navItem:      { width: '18.5%', alignItems: 'center', gap: 6, paddingVertical: Spacing.sm, backgroundColor: Colors.background, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border },
   navEmoji:     { fontSize: 20 },
   navLabel:     { fontSize: 10, fontWeight: '600', color: Colors.gray700, textAlign: 'center' },
   tabRow:       { flexDirection: 'row', backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
   tabBtn:       { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center' },
-  tabActive:    { borderBottomWidth: 2.5, borderBottomColor: Colors.purple || '#7C3AED' },
+  tabActive:    { borderBottomWidth: 2.5, borderBottomColor: Colors.primary },
   tabText:      { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray500 },
   tabActiveText:{ color: Colors.gray900, fontWeight: '800' },
   reqCard:      { padding: Spacing.base, gap: 8 },
@@ -481,7 +482,7 @@ const styles = StyleSheet.create({
   priorityText: { fontSize: FontSize.xs, fontWeight: '700' },
   reqBottom:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   reqTime:      { fontSize: FontSize.xs, color: Colors.gray400 },
-  advBtn:       { backgroundColor: '#7C3AED', paddingVertical: 5, paddingHorizontal: 12, borderRadius: Radius.md },
+  advBtn:       { backgroundColor: Colors.primary, paddingVertical: 5, paddingHorizontal: 12, borderRadius: Radius.md },
   advBtnText:   { color: Colors.white, fontSize: FontSize.xs, fontWeight: '700' },
   roomCard:     { padding: Spacing.md },
   roomTop:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
@@ -494,8 +495,8 @@ const styles = StyleSheet.create({
   billBtnText:  { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
   qrBtn:        { alignSelf: 'flex-start', backgroundColor: Colors.gray100, paddingVertical: 5, paddingHorizontal: 10, borderRadius: Radius.md },
   qrBtnText:    { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray700 },
-  addRoomBtn:   { alignItems: 'center', paddingVertical: 12, margin: 5, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: '#7C3AED', borderStyle: 'dashed' },
-  addRoomBtnText: { color: '#7C3AED', fontWeight: '700', fontSize: FontSize.sm },
+  addRoomBtn:   { alignItems: 'center', paddingVertical: 12, margin: 5, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.primary, borderStyle: 'dashed' },
+  addRoomBtnText: { color: Colors.primary, fontWeight: '700', fontSize: FontSize.sm },
   emptyWrap:    { alignItems: 'center', paddingTop: 60 },
   emptyEmoji:   { fontSize: 48, marginBottom: 12 },
   emptyText:    { fontSize: FontSize.base, color: Colors.gray400, textAlign: 'center' },
