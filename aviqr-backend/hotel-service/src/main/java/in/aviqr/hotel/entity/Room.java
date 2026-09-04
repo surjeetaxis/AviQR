@@ -11,6 +11,9 @@ public class Room {
     private String roomType;
     private String floor;
     @Enumerated(EnumType.STRING) @Builder.Default private RoomStatus status = RoomStatus.VACANT;
+    // Independent of `status` (occupancy) — a checked-out room is VACANT but stays DIRTY
+    // until housekeeping (and ideally a supervisor) clears it, so it isn't resold dirty.
+    @Enumerated(EnumType.STRING) @Builder.Default private HousekeepingStatus housekeepingStatus = HousekeepingStatus.CLEAN;
     private String guestName;
     private String checkInDate; private String checkOutDate;
     @Builder.Default private Boolean qrActive = true;

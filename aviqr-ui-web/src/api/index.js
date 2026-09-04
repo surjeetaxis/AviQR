@@ -332,9 +332,117 @@ export const hotelApi = {
   toggleRoomQr:   (id, active) => api.put(`/api/v1/rooms/${id}/qr?active=${active}`),
   createRoomQr:   (id)         => api.post(`/api/v1/rooms/${id}/qr-code`),
   createHotelQr:  (id)         => api.post(`/api/v1/hotels/${id}/qr-code`),
+  regenerateRoomQr:  (id)      => api.post(`/api/v1/rooms/${id}/qr-code/regenerate`),
+  regenerateHotelQr: (id)      => api.post(`/api/v1/hotels/${id}/qr-code/regenerate`),
+  getHotelQrCodes:   (hotelId) => api.get(`/api/v1/hotels/${hotelId}/qr-codes`),
+  qrScanTrend:    (hotelId, days=30) => api.get(`/api/v1/hotels/${hotelId}/qr-analytics/trend`, { params: { days } }),
+  qrScansByRoom:  (hotelId)          => api.get(`/api/v1/hotels/${hotelId}/qr-analytics/by-room`),
+  qrRecentScans:  (hotelId, limit=50) => api.get(`/api/v1/hotels/${hotelId}/qr-analytics/recent`, { params: { limit } }),
   getRequests:    (hId, p)   => api.get(`/api/v1/room-requests/hotel/${hId}`, { params: p }),
   updateRequest:  (id, s)    => api.put(`/api/v1/room-requests/${id}/status?status=${s}`),
   createRequest:  (d)        => api.post('/api/v1/room-requests', d),
+};
+
+// ── PMS (room types/rates, reservations, front-desk, folio) ───────────────────
+export const pmsApi = {
+  // Room types
+  listRoomTypes:   (hotelId)      => api.get(`/api/v1/pms/room-types/hotel/${hotelId}`),
+  createRoomType:  (d)            => api.post('/api/v1/pms/room-types', d),
+  updateRoomType:  (id, d)        => api.put(`/api/v1/pms/room-types/${id}`, d),
+  // Rate plans
+  listRatePlans:   (roomTypeId)   => api.get(`/api/v1/pms/rate-plans/room-type/${roomTypeId}`),
+  createRatePlan:  (d)            => api.post('/api/v1/pms/rate-plans', d),
+  updateRatePlan:  (id, d)        => api.put(`/api/v1/pms/rate-plans/${id}`, d),
+  // Day prices & restrictions (min/max stay, closed to arrival/departure)
+  setDayPrice:     (ratePlanId, d)      => api.post(`/api/v1/pms/rate-plans/${ratePlanId}/day-prices`, d),
+  listDayPrices:   (ratePlanId, from, to) => api.get(`/api/v1/pms/rate-plans/${ratePlanId}/day-prices`, { params: { from, to } }),
+  // Availability
+  availability:    (params)       => api.get('/api/v1/pms/availability', { params }),
+  // Reservations
+  listReservations:(hotelId)      => api.get(`/api/v1/pms/reservations/hotel/${hotelId}`),
+  getReservation:  (id)           => api.get(`/api/v1/pms/reservations/${id}`),
+  createReservation:(d)           => api.post('/api/v1/pms/reservations', d),
+  checkIn:         (id)           => api.post(`/api/v1/pms/reservations/${id}/check-in`),
+  checkOut:        (id)           => api.post(`/api/v1/pms/reservations/${id}/check-out`),
+  cancel:          (id)           => api.post(`/api/v1/pms/reservations/${id}/cancel`),
+  noShow:          (id)           => api.post(`/api/v1/pms/reservations/${id}/no-show`),
+  extendStay:      (id, newCheckOutDate) => api.post(`/api/v1/pms/reservations/${id}/extend`, null, { params: { newCheckOutDate } }),
+  getRegistrationCard: (id)              => api.get(`/api/v1/pms/reservations/${id}/registration-card`),
+  // Payment gateway — card pre-authorization on a reservation's folio
+  createPreAuth:  (id, amount)           => api.post(`/api/v1/pms/reservations/${id}/pre-auth`, { amount }),
+  verifyPreAuth:  (id, d)                => api.post(`/api/v1/pms/reservations/${id}/pre-auth/verify`, d),
+  getPreAuth:     (id)                   => api.get(`/api/v1/pms/reservations/${id}/pre-auth`),
+  capturePreAuth: (id)                   => api.post(`/api/v1/pms/reservations/${id}/pre-auth/capture`),
+  // Revenue reports
+  revenueReport: (hotelId, from, to)     => api.get(`/api/v1/pms/reports/revenue/${hotelId}`, { params: { from, to } }),
+  // Loyalty program
+  getLoyaltyConfig:    (hotelId)         => api.get(`/api/v1/pms/loyalty/hotel/${hotelId}`),
+  updateLoyaltyConfig: (hotelId, d)      => api.put(`/api/v1/pms/loyalty/hotel/${hotelId}`, d),
+  // Dynamic pricing
+  getPricingConfig:    (hotelId)                              => api.get(`/api/v1/pms/pricing/hotel/${hotelId}/config`),
+  updatePricingConfig: (hotelId, d)                            => api.put(`/api/v1/pms/pricing/hotel/${hotelId}/config`, d),
+  suggestPrice:        (hotelId, roomTypeId, ratePlanId, date) => api.get(`/api/v1/pms/pricing/hotel/${hotelId}/suggest`, { params: { roomTypeId, ratePlanId, date } }),
+  // Folio
+  getFolio:        (id)           => api.get(`/api/v1/pms/reservations/${id}/folio`),
+  addFolioCharge:  (id, d)        => api.post(`/api/v1/pms/reservations/${id}/folio/charges`, d),
+  addFolioPayment: (id, d)        => api.post(`/api/v1/pms/reservations/${id}/folio/payments`, d),
+  // Channel manager
+  listChannelMappings: (hotelId)  => api.get(`/api/v1/pms/channels/mappings/hotel/${hotelId}`),
+  createChannelMapping:(d)        => api.post('/api/v1/pms/channels/mappings', d),
+  updateChannelMapping:(id, d)    => api.put(`/api/v1/pms/channels/mappings/${id}`, d),
+  pushChannelSync:     (hotelId)  => api.post(`/api/v1/pms/channels/${hotelId}/push`),
+  getChannelSyncLog:   (hotelId)  => api.get(`/api/v1/pms/channels/${hotelId}/sync-log`),
+  // Group bookings
+  listGroups:      (hotelId)      => api.get(`/api/v1/pms/groups/hotel/${hotelId}`),
+  createGroup:     (d)            => api.post('/api/v1/pms/groups', d),
+  getGroup:        (id)           => api.get(`/api/v1/pms/groups/${id}`),
+  groupCheckIn:    (id)           => api.post(`/api/v1/pms/groups/${id}/check-in`),
+  groupCheckOut:   (id)           => api.post(`/api/v1/pms/groups/${id}/check-out`),
+  getGroupFolio:   (id)           => api.get(`/api/v1/pms/groups/${id}/folio`),
+  addGroupPayment: (id, d)        => api.post(`/api/v1/pms/groups/${id}/folio/payments`, d),
+  // Agents & commission
+  listAgents:      (hotelId)      => api.get(`/api/v1/pms/agents/hotel/${hotelId}`),
+  createAgent:     (d)            => api.post('/api/v1/pms/agents', d),
+  updateAgent:     (id, d)        => api.put(`/api/v1/pms/agents/${id}`, d),
+  listCommissions: (hotelId, status) => api.get(`/api/v1/pms/commissions/hotel/${hotelId}`, { params: { status } }),
+  payCommission:   (id, reference)   => api.put(`/api/v1/pms/commissions/${id}/pay`, null, { params: { reference } }),
+  // Night audit & reporting
+  nightAudit:      (hotelId, date)      => api.get(`/api/v1/pms/reports/night-audit/${hotelId}`, { params: { date } }),
+  nightAuditRange: (hotelId, from, to)  => api.get(`/api/v1/pms/reports/night-audit/${hotelId}/range`, { params: { from, to } }),
+  chainNightAudit: (chainId, date)      => api.get(`/api/v1/pms/reports/chain/${chainId}`, { params: { date } }),
+  // Guest profile & stay history
+  listGuests:      (hotelId, query)  => api.get(`/api/v1/pms/guests/hotel/${hotelId}`, { params: { query } }),
+  getGuest:        (id)              => api.get(`/api/v1/pms/guests/${id}`),
+  updateGuest:     (id, d)           => api.put(`/api/v1/pms/guests/${id}`, d),
+  guestStayHistory:(id)              => api.get(`/api/v1/pms/guests/${id}/reservations`),
+  // Surcharges, discounts & add-ons
+  listSurcharges:  (hotelId)      => api.get(`/api/v1/pms/surcharges/hotel/${hotelId}`),
+  createSurcharge: (d)            => api.post('/api/v1/pms/surcharges', d),
+  updateSurcharge: (id, d)        => api.put(`/api/v1/pms/surcharges/${id}`, d),
+  listDiscounts:   (hotelId)      => api.get(`/api/v1/pms/discounts/hotel/${hotelId}`),
+  createDiscount:  (d)            => api.post('/api/v1/pms/discounts', d),
+  updateDiscount:  (id, d)        => api.put(`/api/v1/pms/discounts/${id}`, d),
+  applyDiscount:   (reservationId, discountId) => api.post(`/api/v1/pms/reservations/${reservationId}/discounts/${discountId}`),
+  listAddOns:      (hotelId)      => api.get(`/api/v1/pms/addons/hotel/${hotelId}`),
+  createAddOn:     (d)            => api.post('/api/v1/pms/addons', d),
+  updateAddOn:     (id, d)        => api.put(`/api/v1/pms/addons/${id}`, d),
+  applyAddOn:      (reservationId, addOnId, quantity) => api.post(`/api/v1/pms/reservations/${reservationId}/addons/${addOnId}`, null, { params: { quantity } }),
+  // Vouchers
+  issueVoucher:    (d)            => api.post('/api/v1/pms/vouchers', d),
+  listVouchers:    (hotelId)      => api.get(`/api/v1/pms/vouchers/hotel/${hotelId}`),
+  // Invoices
+  getInvoice:      (reservationId)  => api.get(`/api/v1/pms/reservations/${reservationId}/invoice`),
+  listInvoices:    (hotelId)        => api.get(`/api/v1/pms/invoices/hotel/${hotelId}`),
+  getInvoiceConfig:(hotelId)        => api.get(`/api/v1/pms/invoice-settings/hotel/${hotelId}`),
+  updateInvoiceConfig:(hotelId, d)  => api.put(`/api/v1/pms/invoice-settings/hotel/${hotelId}`, d),
+  // Contactless check-in (public, guest-facing — no auth headers)
+  publicReservationSummary: (id, phone) => api.get(`/api/v1/pms/public/reservations/${id}/summary`, { params: { phone } }),
+  publicContactlessCheckIn: (id, d)     => api.post(`/api/v1/pms/public/reservations/${id}/contactless-checkin`, d),
+  // Direct booking engine (guest-facing, unauthenticated)
+  publicHotelInfo:        (hotelId)                     => api.get(`/api/v1/public/hotel/${hotelId}/info`),
+  publicRoomTypes:        (hotelId)                     => api.get(`/api/v1/pms/public/booking-engine/${hotelId}/room-types`),
+  publicAvailability:     (hotelId, roomTypeId, checkIn, checkOut) => api.get(`/api/v1/pms/public/booking-engine/${hotelId}/availability`, { params: { roomTypeId, checkIn, checkOut } }),
+  publicBook:             (hotelId, d)                  => api.post(`/api/v1/pms/public/booking-engine/${hotelId}/book`, d),
 };
 
 // ── Hotel Guest Services (QR service hub, requests, bookings, folio) ──────────
@@ -350,6 +458,9 @@ export const guestServiceApi = {
   folio:      (hotelId, room)       => api.get(`/api/v1/public/hotel/${hotelId}/folio`, { params: { room } }),
   // Record a direct payment (card/UPI/wallet)
   payDirect:  (hotelId, body)       => api.post(`/api/v1/public/hotel/${hotelId}/pay-direct`, body),
+  // Two-way messaging with the front desk
+  messages:     (hotelId, room)     => api.get(`/api/v1/public/hotel/${hotelId}/messages`, { params: { room } }),
+  sendMessage:  (hotelId, body)     => api.post(`/api/v1/public/hotel/${hotelId}/messages`, body),
 };
 
 // ── Hotel staff ops (dashboard) ──────────────────────────────────────────────
@@ -360,6 +471,29 @@ export const hotelOpsApi = {
   updateBooking:  (id, status)      => api.put(`/api/v1/hotel/bookings/${id}/status?status=${status}`),
   roomCharges:    (roomId)          => api.get(`/api/v1/rooms/${roomId}/charges`),
   settleCharges:  (roomId)          => api.post(`/api/v1/rooms/${roomId}/settle-charges`),
+  // Two-way guest messaging — staff side
+  messageInbox:   (hotelId)                 => api.get(`/api/v1/hotel/${hotelId}/messages`),
+  messageThread:  (hotelId, roomNumber)     => api.get(`/api/v1/hotel/${hotelId}/messages/room/${roomNumber}`),
+  replyToRoom:    (hotelId, roomNumber, d)  => api.post(`/api/v1/hotel/${hotelId}/messages/room/${roomNumber}/reply`, d),
+};
+
+// ── Housekeeping (room-turnover cleaning task queue) ──────────────────────────
+export const housekeepingApi = {
+  list:      (hotelId, status)   => api.get(`/api/v1/housekeeping/hotel/${hotelId}`, { params: { status } }),
+  markDirty: (roomId, priority, notes) => api.post('/api/v1/housekeeping/tasks', null, { params: { roomId, priority, notes } }),
+  assign:    (id, assignee)      => api.put(`/api/v1/housekeeping/tasks/${id}/assign`, null, { params: { assignee } }),
+  start:     (id)                => api.put(`/api/v1/housekeeping/tasks/${id}/start`),
+  complete:  (id)                => api.put(`/api/v1/housekeeping/tasks/${id}/complete`),
+  inspect:   (id, inspectedBy)   => api.put(`/api/v1/housekeeping/tasks/${id}/inspect`, null, { params: { inspectedBy } }),
+};
+
+// ── Maintenance work orders (staff-assignable, distinct from a guest's raw request) ─
+export const maintenanceApi = {
+  list:     (hotelId, status)             => api.get(`/api/v1/maintenance/hotel/${hotelId}`, { params: { status } }),
+  raise:    (hotelId, roomId, title, notes, priority) => api.post('/api/v1/maintenance/tasks', null, { params: { hotelId, roomId, title, notes, priority } }),
+  assign:   (id, assignee)                => api.put(`/api/v1/maintenance/tasks/${id}/assign`, null, { params: { assignee } }),
+  start:    (id)                          => api.put(`/api/v1/maintenance/tasks/${id}/start`),
+  complete: (id)                          => api.put(`/api/v1/maintenance/tasks/${id}/complete`),
 };
 
 // ── Hotel Outlets (restaurants/spas/bars inside the hotel, each backed by a shop-service Shop) ─
@@ -372,6 +506,8 @@ export const hotelOutletApi = {
   delete:       (id)           => api.delete(`/api/v1/hotel-outlets/${id}`),
   createQr:     (id)           => api.post(`/api/v1/hotel-outlets/${id}/qr-code`),
   enter:        (id)           => api.post(`/api/v1/hotel-outlets/${id}/enter`),
+  // Live kitchen queue (table number + KOT status) for the outlet's restaurant
+  liveOrders:   (id)           => api.get(`/api/v1/hotel-outlets/${id}/live-orders`),
 };
 
 // ── Hotel Access (hotel-wide staff roles: OWNER/GENERAL_MANAGER/OUTLET_MANAGER/STAFF) ─────

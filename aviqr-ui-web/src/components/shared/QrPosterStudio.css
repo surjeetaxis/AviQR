@@ -100,7 +100,7 @@
 .qps-preview-bg { background: #f0ede8; padding: 22px; }
 
 .qps-footer { display: flex; align-items: center; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--gray-200, #e5e7eb); background: #fafafa; }
-.qps-footer-actions { display: grid; grid-template-columns: 1fr 1fr; }
+.qps-footer-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; }
 .qps-print-hint { text-align: center; font-size: 11px; color: var(--gray-400, #9ca3af); padding: 0 22px 14px; }
 
 .pt-doc { box-shadow: 0 20px 50px rgba(0,0,0,.18); border-radius: 16px; overflow: hidden; font-family: 'Inter', system-ui, sans-serif; }
@@ -110,5 +110,13 @@
   #qps-print-zone { display: block !important; position: static !important; width: 100% !important; }
   .qps-print-single { display: flex; justify-content: center; align-items: flex-start; padding: 1cm; }
   .pt-doc { box-shadow: none !important; }
+  /* Without this, browsers strip all background colors/gradients when printing
+     or saving as PDF, so the poster's brand colors vanish and white-on-color
+     text turns unreadable. */
+  #qps-print-zone, #qps-print-zone * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
 }
 #qps-print-zone { display: none; }

@@ -70,16 +70,32 @@ public class QrService {
 
     @Transactional
     public String resolveAndTrack(String code, String ip, String ua) {
-        return repo.findByQrCode(code).map(qr -> {
-            qr.setScanCount(qr.getScanCount() + 1);
-            repo.save(qr);
-            try {
-                scanRepo.save(QrScanLog.builder().qrCode(code).ipAddress(ip).userAgent(ua)
-                    .scannedAt(java.time.LocalDateTime.now()).build());
-            } catch (Exception ignored) {}
-            return qr.getTargetUrl();
-        }).orElseThrow(() -> new RuntimeException("QR code not found"));
+        in.aviqr.order.entity.QrCode qr = repo.findByQrCode(code)
+            .orElseThrow(() -> new QrNotFoundException());
+        if (!Boolean.TRUE.equals(qr.getActive())) throw new QrInactiveException();
+        qr.setScanCount(qr.getScanCount() + 1);
+        repo.save(qr);
+        try {
+            scanRepo.save(QrScanLog.builder().qrCode(code).ipAddress(ip).userAgent(ua)
+                .scannedAt(java.time.LocalDateTime.now()).build());
+        } catch (Exception ignored) {}
+        return qr.getTargetUrl();
     }
+
+    // Rotates a QR's slug while keeping the same shopId/type/groupParam binding —
+    // the old code is deactivated (resolveAndTrack now rejects it with 410) rather
+    // than deleted, so its scan history/log rows are preserved.
+    @Transactional
+    public in.aviqr.order.entity.QrCode regenerate(java.util.UUID id) {
+        in.aviqr.order.entity.QrCode old = repo.findById(id)
+            .orElseThrow(() -> new QrNotFoundException());
+        old.setActive(false);
+        repo.save(old);
+        return create(old.getShopId(), old.getLabel(), old.getType(), old.getGroupParam());
+    }
+
+    public static class QrNotFoundException extends RuntimeException {}
+    public static class QrInactiveException extends RuntimeException {}
 
     public byte[] generateQrImage(String code) throws Exception {
         String url = repo.findByQrCode(code).map(q -> q.getTargetUrl())

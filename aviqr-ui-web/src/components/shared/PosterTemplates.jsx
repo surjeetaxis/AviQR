@@ -31,6 +31,18 @@ export const DESTINATIONS = [
 
 const money = n => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 
+// Compact WiFi / room-service info chip — opt-in via the "Extra Info" toggles in
+// QrPosterStudio's custom-URL mode (hotel/room/mall/supplier "simple mode" posters).
+function ExtraInfoStrip({ form, fontSize = 9 }) {
+  if (!form.wifiOn && !(form.contactOn && form.contactPhone)) return null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 8, padding: '6px 10px', background: form.accentColor + '14', border: `1px solid ${form.accentColor}28`, borderRadius: 8, fontSize, color: form.color, textAlign: 'left', width: '100%' }}>
+      {form.wifiOn && <div>📶 <strong>{form.wifiName || 'WiFi'}</strong>{form.wifiPass ? ` · ${form.wifiPass}` : ''}</div>}
+      {form.contactOn && form.contactPhone && <div>📞 {form.contactPhone}</div>}
+    </div>
+  );
+}
+
 // ─── Live scaled preview — shop / product / custom (all 4 layouts) ──────────
 export function PosterPreview({ form, item, shopName, qrImg }) {
   const layout = LAYOUTS.find(l => l.value === form.layout) || LAYOUTS[0];
@@ -99,6 +111,7 @@ export function PosterPreview({ form, item, shopName, qrImg }) {
                 <Smartphone style={{ width: 12, height: 12, color: form.color, opacity: 0.35 }} />
                 <p style={{ fontSize: 9, color: form.color, opacity: 0.45, margin: 0 }}>Scan QR to explore</p>
               </div>}
+              <ExtraInfoStrip form={form} fontSize={8} />
             </div>
           )}
 
@@ -123,6 +136,7 @@ export function PosterPreview({ form, item, shopName, qrImg }) {
                   </p>
                 </div>
               )}
+              <ExtraInfoStrip form={form} fontSize={8} />
             </>
           )}
         </div>
@@ -229,6 +243,7 @@ export function PosterDoc({ form, item, shopName, qrImg }) {
                 Point your phone camera at the QR code to view full details & order online
               </p>
             </div>
+            <ExtraInfoStrip form={form} fontSize={11} />
           </div>
         </div>
 

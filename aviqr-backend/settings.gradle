@@ -10,5 +10,6 @@ include(
     'payment-service',
     'notification-report-review-service',
     'hotel-service',
-    'support-service'
+    'support-service',
+    'pms-service'
 )

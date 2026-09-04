@@ -1,7 +1,11 @@
 package in.aviqr.order.controller;
 import in.aviqr.order.dto.ApiResponse;
+import in.aviqr.order.dto.RoomScanRow;
+import in.aviqr.order.dto.ScanEventRow;
+import in.aviqr.order.dto.ScanTrendRow;
 import in.aviqr.order.entity.*;
 import in.aviqr.order.repository.QrCodeRepository;
+import in.aviqr.order.repository.QrScanLogRepository;
 import in.aviqr.order.service.QrService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -14,6 +18,7 @@ import java.util.Map;
 public class QrController {
     private final QrService service;
     private final QrCodeRepository qrRepo;
+    private final QrScanLogRepository scanLogRepo;
 
     // Admin — list all QR codes platform-wide
     @GetMapping("/admin/all")
@@ -93,6 +98,30 @@ public class QrController {
         return ResponseEntity.ok(ApiResponse.ok(service.getByShop(shopId)));
     }
 
+    // Scan analytics — called only via a service-to-service Eureka URL (e.g.
+    // hotel-service's /qr-analytics/* proxy, which does its own ownership check
+    // before calling here), not routed through the gateway to end users, same
+    // trust model as the internal/** endpoints below.
+    @GetMapping("/shop/{shopId}/analytics/trend")
+    public ResponseEntity<ApiResponse<List<ScanTrendRow>>> scanTrend(
+            @PathVariable String shopId,
+            @RequestParam(defaultValue = "30") int days) {
+        return ResponseEntity.ok(ApiResponse.ok(
+            scanLogRepo.trendForShop(shopId, java.time.LocalDateTime.now().minusDays(days))));
+    }
+
+    @GetMapping("/shop/{shopId}/analytics/by-room")
+    public ResponseEntity<ApiResponse<List<RoomScanRow>>> scansByRoom(@PathVariable String shopId) {
+        return ResponseEntity.ok(ApiResponse.ok(qrRepo.scansByRoom(shopId)));
+    }
+
+    @GetMapping("/shop/{shopId}/analytics/recent")
+    public ResponseEntity<ApiResponse<List<ScanEventRow>>> recentScans(
+            @PathVariable String shopId,
+            @RequestParam(defaultValue = "50") int limit) {
+        return ResponseEntity.ok(ApiResponse.ok(scanLogRepo.recentForShop(shopId, Math.min(limit, 200))));
+    }
+
     // Internal, service-to-service only (not exposed through the gateway to end users).
     // Callers such as hotel-service have already verified the caller owns/manages the
     // parent hotel/outlet before invoking this, so no X-User-* ownership check applies here.
@@ -106,16 +135,42 @@ public class QrController {
             service.create(shopId, label, QrType.valueOf(type.toUpperCase()), group)));
     }
 
+    // Internal — rotate a QR's slug (old one stops resolving), same trust model as
+    // createInternal above: the caller has already verified ownership.
+    @PostMapping("/internal/{id}/regenerate")
+    public ResponseEntity<ApiResponse<QrCode>> regenerateInternal(@PathVariable java.util.UUID id) {
+        try {
+            return ResponseEntity.ok(ApiResponse.ok("QR regenerated", service.regenerate(id)));
+        } catch (QrService.QrNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // Internal — flip active/inactive without the ADMIN/SUPPORT check that the
+    // end-user-facing /{id}/active endpoint enforces (caller already verified access).
+    @PutMapping("/internal/{id}/active")
+    public ResponseEntity<ApiResponse<Void>> toggleActiveInternal(
+            @PathVariable java.util.UUID id, @RequestParam boolean active) {
+        qrRepo.findById(id).ifPresent(q -> { q.setActive(active); qrRepo.save(q); });
+        return ResponseEntity.ok(ApiResponse.ok("Updated", null));
+    }
+
     // Redirect — called when customer scans QR
     @GetMapping("/r/{code}")
     public ResponseEntity<Void> redirect(
             @PathVariable String code,
             @RequestHeader(value="X-Forwarded-For", required=false) String ip,
             @RequestHeader(value="User-Agent", required=false) String ua) {
-        String url = service.resolveAndTrack(code, ip, ua);
-        return ResponseEntity.status(HttpStatus.FOUND)
-            .header(HttpHeaders.LOCATION, url)
-            .build();
+        try {
+            String url = service.resolveAndTrack(code, ip, ua);
+            return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, url)
+                .build();
+        } catch (QrService.QrInactiveException e) {
+            return ResponseEntity.status(HttpStatus.GONE).build();
+        } catch (QrService.QrNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     // Download QR as PNG

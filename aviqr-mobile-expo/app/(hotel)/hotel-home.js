@@ -27,7 +27,20 @@ const SERVICE_TYPES = [
 const STATUS_NEXT = { NEW:'ACCEPTED', ACCEPTED:'PREPARING', PREPARING:'CONFIRMED', CONFIRMED:'DONE' };
 const PRIORITY_COLOR = { HIGH:'#DC2626', NORMAL:'#6B7280', URGENT:'#DC2626' };
 const NAV_ITEMS = [
+  { icon: '📅', label: 'Reservations', href: '/(hotel)/pms/reservations' },
+  { icon: '🛎️', label: 'Front Desk',   href: '/(hotel)/pms/front-desk' },
+  { icon: '🧾', label: 'Folio',        href: '/(hotel)/pms/folio' },
+  { icon: '🛏️', label: 'Room Types',   href: '/(hotel)/pms/room-types' },
+  { icon: '👨‍👩‍👧', label: 'Group Bookings', href: '/(hotel)/pms/group-bookings' },
+  { icon: '🌐', label: 'Channel Mgr',  href: '/(hotel)/pms/channel-manager' },
+  { icon: '🧳', label: 'Agents',       href: '/(hotel)/pms/agents' },
+  { icon: '🎁', label: 'Extras',       href: '/(hotel)/pms/extras' },
+  { icon: '📇', label: 'PMS Guests',   href: '/(hotel)/pms/guests' },
+  { icon: '📈', label: 'PMS Reports',  href: '/(hotel)/pms/pms-reports' },
   { icon: '🧑‍🤝‍🧑', label: 'Guests',       href: '/(hotel)/guests' },
+  { icon: '🛏️', label: 'Housekeeping', href: '/(hotel)/housekeeping' },
+  { icon: '🔧', label: 'Maintenance',  href: '/(hotel)/maintenance' },
+  { icon: '💬', label: 'Messages',     href: '/(hotel)/messages' },
   { icon: '🧹', label: 'Service Desk', href: '/(hotel)/service-desk' },
   { icon: '👔', label: 'Hotel Staff',  href: '/(hotel)/hotel-staff' },
   { icon: '📱', label: 'QR Mgmt',      href: '/(hotel)/qr-management' },

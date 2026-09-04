@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
-import { Sparkles, X, ChevronRight, Search, Download, Printer, Eye, Package } from 'lucide-react';
+import { toPng } from 'html-to-image';
+import { Sparkles, X, ChevronRight, Search, Download, FileImage, Printer, Eye, Package } from 'lucide-react';
 import { shopApi, menuApi, shopPromotionApi, qrApi } from '../../api/index.js';
 import { PALETTES, LAYOUTS, DESTINATIONS, PosterPreview, CatalogPosterPreview, PosterDoc, CatalogPosterDoc } from './PosterTemplates.jsx';
 import './QrPosterStudio.css';
@@ -37,6 +38,7 @@ const DEFAULT_FORM = {
   layout: 'portrait', preset: 0, color: PALETTES[0].color, bgColor: PALETTES[0].bg, accentColor: PALETTES[0].accent,
   showItemName: true, showPrice: true, showTag: true,
   showMap: true, showOffers: true, showFeatured: true, showShopName: true, showCTA: true,
+  wifiOn: false, wifiName: '', wifiPass: '', contactOn: false, contactPhone: '',
 };
 
 // Three modes:
@@ -70,6 +72,9 @@ export default function QrPosterStudio({
   const [editId, setEditId] = useState(null);
   const [saveErr, setSaveErr] = useState('');
   const [previewQrImg, setPreviewQrImg] = useState('');
+  const [posterDownloading, setPosterDownloading] = useState(false);
+  const [posterErr, setPosterErr] = useState('');
+  const posterRef = useRef(null);
 
   const [shop, setShop] = useState(null);
   const [promotions, setPromotions] = useState([]);
@@ -244,6 +249,25 @@ export default function QrPosterStudio({
   };
   const handlePrint = () => window.print();
 
+  // Exports the rendered .pt-doc node (the actual on-screen poster, gradient
+  // header/QR card/branding and all) as a PNG, not just the bare QR square.
+  const downloadPoster = async () => {
+    const node = posterRef.current?.querySelector('.pt-doc');
+    if (!node) return;
+    setPosterErr(''); setPosterDownloading(true);
+    try {
+      const dataUrl = await toPng(node, { pixelRatio: 3, cacheBust: true });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `poster-${(form.label || 'poster').toLowerCase().replace(/\s+/g, '-')}.png`;
+      a.click();
+    } catch (e) {
+      setPosterErr('Could not export the poster image — try Print / Save PDF instead.');
+    } finally {
+      setPosterDownloading(false);
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -415,6 +439,40 @@ export default function QrPosterStudio({
                         </label>
                       ))}
                     </div>
+
+                    {form.type === 'custom' && (
+                      <>
+                        <label className="qps-section-label">Extra Info (optional)</label>
+                        <div className="qps-elements-grid">
+                          <label className={`qps-element-row ${form.wifiOn ? 'active' : ''}`}>
+                            <input type="checkbox" checked={form.wifiOn} onChange={e => set('wifiOn', e.target.checked)} />
+                            <span>📶 WiFi Details</span>
+                          </label>
+                          <label className={`qps-element-row ${form.contactOn ? 'active' : ''}`}>
+                            <input type="checkbox" checked={form.contactOn} onChange={e => set('contactOn', e.target.checked)} />
+                            <span>📞 Contact / Room Service</span>
+                          </label>
+                        </div>
+                        {form.wifiOn && (
+                          <div className="qps-field-row" style={{ marginTop: 8 }}>
+                            <div className="qps-field">
+                              <label>WiFi Network</label>
+                              <input value={form.wifiName} onChange={e => set('wifiName', e.target.value)} placeholder="Network name (SSID)" />
+                            </div>
+                            <div className="qps-field">
+                              <label>WiFi Password</label>
+                              <input value={form.wifiPass} onChange={e => set('wifiPass', e.target.value)} placeholder="Leave blank if open" />
+                            </div>
+                          </div>
+                        )}
+                        {form.contactOn && (
+                          <div className="qps-field" style={{ marginTop: 8 }}>
+                            <label>Contact / Room Service</label>
+                            <input value={form.contactPhone} onChange={e => set('contactPhone', e.target.value)} placeholder="e.g. Dial 0 for reception" />
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -465,14 +523,18 @@ export default function QrPosterStudio({
                     <p>Code <b>{finalPoster.savedQr.qrCode}</b> — trackable in the QR Codes list, scan link: {qrApi.redirectUrl(finalPoster.savedQr.qrCode)}</p>
                   </div>
                 )}
-                <div className="qps-preview-center">
+                <div className="qps-preview-center" ref={posterRef}>
                   {form.type === 'catalog'
                     ? <CatalogPosterDoc form={form} shop={shop} shopName={shopName} qrImg={finalPoster.qrImg} mapQrImg={finalPoster.mapQrImg} promotions={promotions} featuredItems={featuredItems} />
                     : <PosterDoc form={form} item={selectedItem} shopName={shopName} qrImg={finalPoster.qrImg} />}
                 </div>
+                {posterErr && <p className="qps-warn" style={{ textAlign: 'center' }}>{posterErr}</p>}
               </div>
               <div className="qps-footer qps-footer-actions">
                 <button className="btn btn-secondary" onClick={downloadQr}><Download size={14} /> Download QR</button>
+                <button className="btn btn-secondary" disabled={posterDownloading} onClick={downloadPoster}>
+                  <FileImage size={14} /> {posterDownloading ? 'Preparing…' : 'Download Poster'}
+                </button>
                 <button className="btn btn-primary" onClick={handlePrint}><Printer size={14} /> Print / Save PDF</button>
               </div>
               <p className="qps-print-hint">Print opens the browser dialog → choose <strong>Save as PDF</strong> for a digital file.</p>

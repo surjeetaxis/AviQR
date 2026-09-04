@@ -10,6 +10,8 @@ public class Hotel {
     @Id @GeneratedValue(strategy=GenerationType.UUID) private UUID id;
     @Column(nullable=false) private String name;
     private String ownerId; private String phone; private String email;
+    // Set when this property belongs to a multi-property Chain — see ChainController.
+    private UUID chainId;
     private String address; private String city; private String logoUrl;
     private Double latitude; private Double longitude;
     private Integer totalRooms;

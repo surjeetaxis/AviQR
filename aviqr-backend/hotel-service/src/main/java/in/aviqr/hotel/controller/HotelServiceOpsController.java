@@ -23,6 +23,7 @@ public class HotelServiceOpsController {
     private final GuestServiceRequestRepository requestRepo;
     private final OutletBookingRepository bookingRepo;
     private final HotelAccessService accessService;
+    private final in.aviqr.hotel.service.GuestMessageService messageService;
 
     // ── Service requests ────────────────────────────────────────────────────────
     @GetMapping("/{hotelId}/service-requests")
@@ -54,6 +55,41 @@ public class HotelServiceOpsController {
         if (ns == RequestStatus.DONE) req.setCompletedAt(LocalDateTime.now());
         if (req.getAssignedTo() == null) req.setAssignedTo(uid);
         return ResponseEntity.ok(ApiResponse.ok(requestRepo.save(req)));
+    }
+
+    // ── Two-way guest messaging ──────────────────────────────────────────────────
+    @GetMapping("/{hotelId}/messages")
+    public ResponseEntity<ApiResponse<List<GuestMessage>>> messageInbox(
+            @PathVariable UUID hotelId,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!accessService.hasAccess(hotelId, uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return ResponseEntity.ok(ApiResponse.ok(messageService.inbox(hotelId)));
+    }
+
+    @GetMapping("/{hotelId}/messages/room/{roomNumber}")
+    public ResponseEntity<ApiResponse<List<GuestMessage>>> messageThread(
+            @PathVariable UUID hotelId, @PathVariable String roomNumber,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!accessService.hasAccess(hotelId, uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        messageService.markThreadRead(hotelId, roomNumber);
+        return ResponseEntity.ok(ApiResponse.ok(messageService.thread(hotelId, roomNumber)));
+    }
+
+    @PostMapping("/{hotelId}/messages/room/{roomNumber}/reply")
+    public ResponseEntity<ApiResponse<GuestMessage>> replyToRoom(
+            @PathVariable UUID hotelId, @PathVariable String roomNumber, @RequestBody Map<String,String> body,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!accessService.hasAccess(hotelId, uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        String text = body.get("message");
+        if (text == null || text.isBlank())
+            return ResponseEntity.badRequest().body(ApiResponse.error("message is required"));
+        return ResponseEntity.ok(ApiResponse.ok(messageService.send(hotelId, roomNumber, "Front Desk", MessageSender.STAFF, text)));
     }
 
     // ── Outlet bookings ─────────────────────────────────────────────────────────

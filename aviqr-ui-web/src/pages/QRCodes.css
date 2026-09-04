@@ -758,6 +758,15 @@
 
   /* Remove box shadows in print */
   .tpl { box-shadow: 0 0 0 1px #e5e7eb !important; }
+
+  /* Without this, browsers strip all background colors/gradients when printing
+     or saving as PDF, so the template's brand colors vanish and white-on-color
+     text turns unreadable. */
+  #qr-print-zone, #qr-print-zone * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
 }
 
 /* ── Advertise QR ─────────────────────────────────────────────────────────── */

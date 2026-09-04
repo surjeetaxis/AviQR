@@ -82,7 +82,7 @@ export default function GuestServices() {
 
       {/* Tab bar */}
       <div style={sx.tabs}>
-        {[['hub','Services'],['request','Requests'],['folio','My Bill']].map(([k,l]) => (
+        {[['hub','Services'],['request','Requests'],['messages','Messages'],['folio','My Bill']].map(([k,l]) => (
           <button key={k} onClick={() => setView(k)}
             style={{ ...sx.tab, ...(view===k ? sx.tabActive : {}) }}>{l}</button>
         ))}
@@ -93,6 +93,7 @@ export default function GuestServices() {
                                         onBooked={() => { flash('Booking requested — front desk will confirm shortly'); }} />}
         {view === 'request' && <RequestView hotelId={hotelId} room={room} guestName={hub.room?.guestName}
                                         onDone={() => { flash('Request sent to hotel staff'); setView('hub'); }} />}
+        {view === 'messages' && <MessagesView hotelId={hotelId} room={room} guestName={hub.room?.guestName} />}
         {view === 'folio'   && <FolioView hotelId={hotelId} room={room} canCharge={hub.canChargeToRoom} />}
       </div>
 
@@ -262,6 +263,53 @@ function RequestView({ hotelId, room, guestName, onDone }) {
       <button style={{ ...sx.primaryBtn, opacity:saving?0.6:1 }} onClick={submit} disabled={saving}>
         {saving ? 'Sending…' : 'Send request'}
       </button>
+    </div>
+  );
+}
+
+// ── Two-way messaging with the front desk ────────────────────────────────────
+function MessagesView({ hotelId, room, guestName }) {
+  const [thread, setThread] = useState([]);
+  const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const load = () => { if (room) guestServiceApi.messages(hotelId, room).then(r => setThread(r.data.data || [])).catch(() => {}); };
+  useEffect(load, [hotelId, room]);
+
+  const send = async (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    setSending(true);
+    try {
+      await guestServiceApi.sendMessage(hotelId, { roomNumber: room, guestName, message: text });
+      setText('');
+      load();
+    } catch { /* keep the draft so the guest can retry */ }
+    finally { setSending(false); }
+  };
+
+  if (!room) return <p style={{ textAlign:'center', color:'#9CA3AF', fontSize:14, marginTop:30 }}>
+    Scan your room QR to message the front desk.</p>;
+
+  return (
+    <div>
+      <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:16 }}>
+        {thread.map(m => (
+          <div key={m.id} style={{ alignSelf: m.sender==='GUEST' ? 'flex-end' : 'flex-start', maxWidth:'80%' }}>
+            <div style={{ background: m.sender==='GUEST' ? '#1D9E75' : '#F3F4F6', color: m.sender==='GUEST' ? '#fff' : '#111', padding:'10px 14px', borderRadius:14, fontSize:14 }}>
+              {m.message}
+            </div>
+            <div style={{ fontSize:11, color:'#9CA3AF', marginTop:3, textAlign: m.sender==='GUEST' ? 'right' : 'left' }}>
+              {m.sender==='GUEST' ? 'You' : 'Front Desk'} · {new Date(m.createdAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}
+            </div>
+          </div>
+        ))}
+        {thread.length===0 && <p style={{ textAlign:'center', color:'#9CA3AF', fontSize:13, marginTop:20 }}>No messages yet — say hello!</p>}
+      </div>
+      <form onSubmit={send} style={{ display:'flex', gap:8, position:'sticky', bottom:0 }}>
+        <input style={{ ...sx.input, flex:1 }} placeholder="Message the front desk…" value={text} onChange={e => setText(e.target.value)} />
+        <button style={{ ...sx.primaryBtn, width:'auto', padding:'0 18px' }} disabled={sending}>Send</button>
+      </form>
     </div>
   );
 }
