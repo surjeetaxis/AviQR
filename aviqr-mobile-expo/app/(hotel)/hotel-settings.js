@@ -63,14 +63,14 @@ export default function HotelSettingsScreen() {
 
   if (loading) return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <PageHeader title="Hotel Settings" />
+      <PageHeader title="Hotel Settings" showBack={false} />
       <ActivityIndicator style={{ marginTop: 60 }} size="large" color={Colors.primary} />
     </View>
   );
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: Colors.background }}>
-      <PageHeader title="Hotel Settings" />
+      <PageHeader title="Hotel Settings" showBack={false} />
       <View style={ss.section}>
         <Text style={ss.secTitle}>Property details</Text>
         <View style={ss.card}>

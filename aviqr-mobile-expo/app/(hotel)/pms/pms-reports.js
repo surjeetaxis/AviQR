@@ -13,16 +13,19 @@ export default function PmsReportsScreen() {
   const [report, setReport] = useState(null);
   const [range, setRange] = useState([]);
   const [revenue, setRevenue] = useState(null);
+  const [chainReport, setChainReport] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (hId) => {
+  const load = useCallback(async (hId, chainId) => {
     const date = today();
-    const [r, rg, rev] = await Promise.allSettled([
+    const [r, rg, rev, cr] = await Promise.allSettled([
       pmsApi.nightAudit(hId, date), pmsApi.nightAuditRange(hId, daysAgo(6), date), pmsApi.revenueReport(hId, daysAgo(29), date),
+      chainId ? pmsApi.chainNightAudit(chainId, date) : Promise.resolve(null),
     ]);
     if (r.status === 'fulfilled') setReport(r.value.data.data);
     if (rg.status === 'fulfilled') setRange(rg.value.data.data || []);
     if (rev.status === 'fulfilled') setRevenue(rev.value.data.data);
+    if (cr.status === 'fulfilled') setChainReport(cr.value?.data.data || null);
   }, []);
 
   useEffect(() => {
@@ -32,7 +35,7 @@ export default function PmsReportsScreen() {
         const hotel = (hRes.data.data || [])[0];
         if (!hotel) return;
         setHotelId(hotel.id);
-        await load(hotel.id);
+        await load(hotel.id, hotel.chainId);
       } catch {}
       finally { setLoading(false); }
     })();
@@ -62,6 +65,26 @@ export default function PmsReportsScreen() {
             <Kpi value={report.noShows} label="No-shows" />
             <Kpi value={report.cancellations} label="Cancellations" />
           </View>
+        )}
+
+        {chainReport && (
+          <>
+            <Text style={ss.cardTitle}>Chain-wide (all properties combined)</Text>
+            <View style={ss.kpiGrid}>
+              <Kpi value={`${chainReport.occupancyPercent}%`} label={`Occupancy (${chainReport.roomsSold}/${chainReport.totalRooms})`} />
+              <Kpi value={`₹${Number(chainReport.adr).toLocaleString('en-IN')}`} label="ADR" />
+              <Kpi value={`₹${Number(chainReport.revPar).toLocaleString('en-IN')}`} label="RevPAR" />
+              <Kpi value={`₹${Number(chainReport.roomRevenue).toLocaleString('en-IN')}`} label="Room revenue" />
+            </View>
+            <Card style={{ marginBottom: 16 }}>
+              {chainReport.hotels.map(h => (
+                <View key={h.hotelId} style={ss.row}>
+                  <Text style={ss.rowLabel}>{h.hotelName}</Text>
+                  <Text style={ss.rowMeta}>{h.report.occupancyPercent}% ({h.report.roomsSold}/{h.report.totalRooms}) · ₹{Number(h.report.roomRevenue).toLocaleString('en-IN')}</Text>
+                </View>
+              ))}
+            </Card>
+          </>
         )}
 
         <Text style={ss.cardTitle}>Last 7 nights</Text>

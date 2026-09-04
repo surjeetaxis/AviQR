@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../theme/index.js';
 
 // Shared engine behind every bottom nav in the app — mobile port of
@@ -40,7 +41,13 @@ const NOTCH_WIDTH = NOTCH_HALF_W * 2;
 const NOTCH_PATH = `M0,0 C${NOTCH_WIDTH * 0.25},0 ${NOTCH_WIDTH * 0.413},${NOTCH_DEPTH} ${NOTCH_WIDTH * 0.5},${NOTCH_DEPTH} C${NOTCH_WIDTH * 0.587},${NOTCH_DEPTH} ${NOTCH_WIDTH * 0.75},0 ${NOTCH_WIDTH},0 Z`;
 const DEFAULT_PAGE_BG = '#F9FAFB';
 
-export function FloatingPillNav({ tabs, activeIndex, onPressTab, renderBadge, pageBackground = DEFAULT_PAGE_BG, bottomOffset = 16, reserveSpace = false }) {
+export function FloatingPillNav({ tabs, activeIndex, onPressTab, renderBadge, pageBackground = DEFAULT_PAGE_BG, bottomOffset, reserveSpace = false }) {
+  // Clear the home indicator on notched iPhones and the gesture-nav strip
+  // on modern Android — a bare `bottom: 16` (the pre-safe-area default)
+  // sits the pill flush against, or partly under, both. Callers can still
+  // pass an explicit bottomOffset to opt out.
+  const insets = useSafeAreaInsets();
+  const resolvedBottomOffset = bottomOffset ?? Math.max(16, insets.bottom + 8);
   const [tabCenters, setTabCenters] = useState({});
   const indicatorX = tabCenters[activeIndex];
 
@@ -61,7 +68,7 @@ export function FloatingPillNav({ tabs, activeIndex, onPressTab, renderBadge, pa
   const ActiveIcon = tabs[activeIndex]?.Icon;
 
   const pill = (
-    <View style={[styles.nav, { bottom: bottomOffset }]}>
+    <View style={[styles.nav, { bottom: resolvedBottomOffset }]}>
       <View style={styles.row}>
         {indicatorX != null && (
           <Animated.View
@@ -119,7 +126,7 @@ export function FloatingPillNav({ tabs, activeIndex, onPressTab, renderBadge, pa
   // (an absolutely-positioned root contributes nothing to a parent's
   // intrinsic layout size). Used by OwnerTabBar.js.
   if (!reserveSpace) return pill;
-  return <View style={{ height: NAV_HEIGHT + bottomOffset }}>{pill}</View>;
+  return <View style={{ height: NAV_HEIGHT + resolvedBottomOffset }}>{pill}</View>;
 }
 
 const styles = StyleSheet.create({

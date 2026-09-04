@@ -121,6 +121,19 @@ export function BarChartIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
   );
 }
 
+export function BedIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" {...base} stroke={color} strokeWidth={strokeWidth}>
+      <Path d="M2 18v-6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v6" />
+      <Path d="M2 18v2" />
+      <Path d="M22 18v2" />
+      <Path d="M4 12V7a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v3" />
+      <Circle cx="7.5" cy="9" r="1.2" fill={color} stroke="none" />
+      <Path d="M14 12V8a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v4" />
+    </Svg>
+  );
+}
+
 export function SettingsIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
   const spokes = Array.from({ length: 8 }, (_, i) => {
     const angle = (i * Math.PI) / 4;

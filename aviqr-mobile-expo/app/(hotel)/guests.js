@@ -37,7 +37,7 @@ export default function HotelGuestsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <PageHeader title={`Guests · ${guestRooms.length}`} />
+      <PageHeader title={`Guests · ${guestRooms.length}`} showBack={false} />
       {offline && <OfflineBadge onRetry={load} />}
       <FlatList
         data={guestRooms}

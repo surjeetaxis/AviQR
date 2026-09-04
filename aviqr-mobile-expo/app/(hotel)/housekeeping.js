@@ -77,14 +77,14 @@ export default function HousekeepingScreen() {
 
   if (loading) return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <PageHeader title="Housekeeping" />
+      <PageHeader title="Housekeeping" showBack={false} />
       <ActivityIndicator style={{ marginTop: 60 }} size="large" color={Colors.primary} />
     </View>
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <PageHeader title="Housekeeping" />
+      <PageHeader title="Housekeeping" showBack={false} />
       <ScrollView contentContainerStyle={{ padding: Spacing.base, paddingBottom: 40 }}>
         <View style={ss.kpiGrid}>
           {ROOM_STATUS_META.map(m => (

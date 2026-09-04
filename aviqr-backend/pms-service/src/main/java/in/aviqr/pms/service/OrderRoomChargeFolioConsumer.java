@@ -11,6 +11,7 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -52,7 +53,12 @@ public class OrderRoomChargeFolioConsumer {
             return;
         }
 
-        RoomReservation activeStay = roomReservationRepo.findActiveStayByRoomId(roomId).orElse(null);
+        List<RoomReservation> activeStays = roomReservationRepo.findActiveStaysByRoomId(roomId);
+        if (activeStays.size() > 1) {
+            log.warn("Room {} (hotel {}) has {} reservations simultaneously CHECKED_IN — attributing order {} to the most recently checked-in one",
+                roomNumber, hotelId, activeStays.size(), orderId);
+        }
+        RoomReservation activeStay = activeStays.isEmpty() ? null : activeStays.get(0);
         if (activeStay == null) {
             // No PMS reservation covers this room right now — hotel-service's own
             // RoomCharge ledger (already updated by its own consumer) remains the

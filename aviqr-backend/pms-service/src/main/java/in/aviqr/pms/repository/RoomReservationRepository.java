@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 public interface RoomReservationRepository extends JpaRepository<RoomReservation, UUID> {
@@ -26,8 +25,14 @@ public interface RoomReservationRepository extends JpaRepository<RoomReservation
                                            @Param("checkInDate") LocalDate checkInDate,
                                            @Param("checkOutDate") LocalDate checkOutDate);
 
-    // The one room-stay currently in progress for a physical room (set at check-in,
+    // The room-stay(s) currently in progress for a physical room (set at check-in,
     // cleared at check-out) — used to attribute a POS/room-charge order to a folio.
+    // Ordered most-recent-check-in-first: normally there's exactly one, but nothing
+    // in the check-in flow enforces that a room can't end up with more than one
+    // CHECKED_IN reservation open against it (e.g. a guest checked in without the
+    // prior occupant being checked out first) — callers should take the first
+    // result rather than assume uniqueness, so that case degrades to "attribute the
+    // charge to whoever checked in most recently" instead of throwing.
     @Query("""
         select rr from RoomReservation rr
         join Reservation r on r.id = rr.reservationId
@@ -35,8 +40,9 @@ public interface RoomReservationRepository extends JpaRepository<RoomReservation
           and r.status = 'CHECKED_IN'
           and rr.actualCheckInAt is not null
           and rr.actualCheckOutAt is null
+        order by rr.actualCheckInAt desc
         """)
-    Optional<RoomReservation> findActiveStayByRoomId(@Param("roomId") UUID roomId);
+    List<RoomReservation> findActiveStaysByRoomId(@Param("roomId") UUID roomId);
 
     // Rooms actually occupied on a given night, for the night-audit report — only a
     // real stay counts (CHECKED_IN or already CHECKED_OUT), not a future BOOKED
