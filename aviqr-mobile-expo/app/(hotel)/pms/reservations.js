@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
 import { hotelApi, pmsApi } from '../../../src/api/index.js';
 import { PageHeader } from '../../../src/components/common/PageHeader.js';
@@ -26,15 +27,22 @@ export default function ReservationsScreen() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
+  const [waitlist, setWaitlist] = useState([]);
+  const [joiningWaitlist, setJoiningWaitlist] = useState(false);
+  const [waitlistGuest, setWaitlistGuest] = useState({ guestName: '', guestPhone: '' });
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+
   const load = useCallback(async (hId) => {
-    const [rtRes, gRes, aRes, resvRes] = await Promise.allSettled([
-      pmsApi.listRoomTypes(hId), pmsApi.listGroups(hId), pmsApi.listAgents(hId), pmsApi.listReservations(hId),
+    const [rtRes, gRes, aRes, resvRes, wlRes] = await Promise.allSettled([
+      pmsApi.listRoomTypes(hId), pmsApi.listGroups(hId), pmsApi.listAgents(hId), pmsApi.listReservations(hId), pmsApi.listWaitlist(hId),
     ]);
     const types = rtRes.status === 'fulfilled' ? (rtRes.value.data.data || []) : [];
     setRoomTypes(types);
     if (gRes.status === 'fulfilled') setGroups(gRes.value.data.data || []);
     if (aRes.status === 'fulfilled') setAgents(aRes.value.data.data || []);
     if (resvRes.status === 'fulfilled') setReservations(resvRes.value.data.data || []);
+    if (wlRes.status === 'fulfilled') setWaitlist(wlRes.value.data.data || []);
     const plans = {};
     await Promise.all(types.map(async rt => {
       try { plans[rt.id] = (await pmsApi.listRatePlans(rt.id)).data.data || []; } catch { plans[rt.id] = []; }
@@ -89,6 +97,37 @@ export default function ReservationsScreen() {
     Share.share({ message: `Complete your pre-check-in for your stay: ${url}`, url }).catch(() => {});
   };
 
+  const roomTypeName = (id) => roomTypes.find(rt => rt.id === id)?.name || id;
+
+  const joinWaitlist = async () => {
+    if (!avail.roomTypeId) return Alert.alert('Pick a room type first');
+    if (!waitlistGuest.guestName.trim()) return Alert.alert('Guest name is required to join the waitlist');
+    setJoiningWaitlist(true);
+    try {
+      await pmsApi.joinWaitlist(hotelId, {
+        roomTypeId: avail.roomTypeId, guestName: waitlistGuest.guestName, guestPhone: waitlistGuest.guestPhone,
+        checkInDate: avail.checkIn, checkOutDate: avail.checkOut,
+      });
+      setWaitlistGuest({ guestName: '', guestPhone: '' });
+      await load(hotelId);
+      Alert.alert('Added to waitlist — the guest will be notified if a room opens up for these dates.');
+    } catch (err) { Alert.alert(err?.response?.data?.message || 'Could not join waitlist'); }
+    finally { setJoiningWaitlist(false); }
+  };
+
+  const importCsv = async () => {
+    const res = await DocumentPicker.getDocumentAsync({ type: ['text/csv', 'text/comma-separated-values', '*/*'], copyToCacheDirectory: true });
+    if (res.canceled || !res.assets?.[0]) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const uploadRes = await pmsApi.importReservationsCsv(hotelId, res.assets[0]);
+      setImportResult(uploadRes.data.data);
+      await load(hotelId);
+    } catch (err) { Alert.alert(err?.response?.data?.message || 'Import failed'); }
+    finally { setImporting(false); }
+  };
+
   if (loading) return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <PageHeader title="Reservations" />
@@ -109,9 +148,30 @@ export default function ReservationsScreen() {
           </View>
           <Button title="Check Availability" onPress={checkAvailability} />
           {avail.count !== null && <Text style={ss.availResult}>{avail.count} room(s) available</Text>}
+          {avail.count === 0 && (
+            <View style={ss.waitlistJoinBox}>
+              <Text style={ss.fieldLabel}>No rooms free for these dates — add a guest to the waitlist</Text>
+              <Input label="Guest name" value={waitlistGuest.guestName} onChangeText={v => setWaitlistGuest(g => ({ ...g, guestName: v }))} />
+              <Input label="Phone" keyboardType="phone-pad" value={waitlistGuest.guestPhone} onChangeText={v => setWaitlistGuest(g => ({ ...g, guestPhone: v }))} />
+              <Button title={joiningWaitlist ? 'Adding…' : 'Join Waitlist'} variant="outline" loading={joiningWaitlist} onPress={joinWaitlist} />
+            </View>
+          )}
         </Card>
 
-        <Button title={showForm ? 'Cancel' : '+ New Reservation'} variant={showForm ? 'ghost' : 'primary'} onPress={() => setShowForm(s => !s)} style={{ marginBottom: 16 }} />
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+          <Button title={showForm ? 'Cancel' : '+ New Reservation'} variant={showForm ? 'ghost' : 'primary'} onPress={() => setShowForm(s => !s)} style={{ flex: 1 }} />
+          <Button title={importing ? 'Importing…' : 'Import CSV'} variant="outline" loading={importing} onPress={importCsv} style={{ flex: 1 }} />
+        </View>
+
+        {importResult && (
+          <Card style={{ marginBottom: 16 }}>
+            <Text style={ss.cardTitle}>Import result</Text>
+            <Text style={ss.availResult}>{importResult.succeeded} of {importResult.totalRows} row(s) imported</Text>
+            {(importResult.errors || []).map((e, i) => (
+              <Text key={i} style={ss.errorRow}>Row {e.rowNumber}: {e.message}</Text>
+            ))}
+          </Card>
+        )}
 
         {showForm && (
           <Card style={{ marginBottom: 16 }}>
@@ -183,6 +243,21 @@ export default function ReservationsScreen() {
           </Card>
         ))}
         {reservations.length === 0 && <Text style={ss.emptyTxt}>No reservations yet.</Text>}
+
+        <Text style={[ss.cardTitle, { marginTop: 16 }]}>Waitlist ({waitlist.length})</Text>
+        {waitlist.map(w => (
+          <Card key={w.id} style={ss.resvCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={ss.guestName}>{w.guestName}</Text>
+              <Text style={ss.resvDates}>{roomTypeName(w.roomTypeId)} · {w.checkInDate} → {w.checkOutDate}</Text>
+              {w.status === 'NOTIFIED' && w.notifiedAt && (
+                <Text style={ss.resvDates}>Notified {new Date(w.notifiedAt).toLocaleString()}</Text>
+              )}
+            </View>
+            <StatusBadge status={w.status} />
+          </Card>
+        ))}
+        {waitlist.length === 0 && <Text style={ss.emptyTxt}>No one waiting.</Text>}
       </ScrollView>
     </View>
   );
@@ -216,6 +291,8 @@ const ss = StyleSheet.create({
   cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 10 },
   fieldLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500, marginBottom: 6 },
   availResult: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary, marginTop: 8, textAlign: 'center' },
+  waitlistJoinBox: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.border },
+  errorRow: { fontSize: FontSize.xs, color: Colors.error, marginTop: 4 },
   chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: Radius.full, backgroundColor: Colors.gray100, maxWidth: 220 },
   chipActive: { backgroundColor: Colors.primaryLight },
   chipTxt: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },

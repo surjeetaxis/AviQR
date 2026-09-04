@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   BedDouble, CalendarCheck, Receipt,
   Plus, LogIn, DoorOpen, Ban, UserX, Search, Wifi, RefreshCw, Copy, Users, Briefcase, IndianRupee, TrendingUp, UserCircle, Tag, CalendarClock,
-  AlertCircle, Clock, CheckCircle2, Bell, PenTool, X, CreditCard,
+  AlertCircle, Clock, CheckCircle2, Bell, PenTool, X, CreditCard, Hourglass, Building2, Upload, Send,
 } from 'lucide-react';
 import { pmsApi } from '../../api/index.js';
 import '../admin/Admin.css';
@@ -17,6 +17,7 @@ const STATUS_CLS = {
 };
 
 function today() { return new Date().toISOString().slice(0, 10); }
+function tomorrow() { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); }
 
 // Same lazy-load-once pattern as CustomerMenu.jsx's checkout flow — Razorpay's
 // widget is only needed on the handful of screens that actually collect a card.
@@ -348,6 +349,8 @@ export function ReservationsTab({ hotelId, roomTypes, reservations, groups, agen
   const [form, setForm] = useState({ guestName: '', guestPhone: '', checkInDate: today(), checkOutDate: today(), adults: 1, children: 0, rooms: [], groupId: '', agentId: '' });
   const [ratePlansByType, setRatePlansByType] = useState({});
   const [saving, setSaving] = useState(false);
+  const [waitlistForm, setWaitlistForm] = useState({ guestName: '', guestPhone: '' });
+  const [joiningWaitlist, setJoiningWaitlist] = useState(false);
 
   useEffect(() => { roomTypes.forEach(rt => pmsApi.listRatePlans(rt.id).then(res => setRatePlansByType(p => ({ ...p, [rt.id]: res.data.data || [] }))).catch(() => {})); }, [roomTypes]);
 
@@ -357,6 +360,21 @@ export function ReservationsTab({ hotelId, roomTypes, reservations, groups, agen
       const res = await pmsApi.availability({ hotelId, roomTypeId: avail.roomTypeId, checkIn: avail.checkIn, checkOut: avail.checkOut });
       setAvail(a => ({ ...a, count: res.data.data.availableRooms }));
     } catch { setAvail(a => ({ ...a, count: null })); }
+  };
+
+  const joinWaitlist = async (e) => {
+    e.preventDefault();
+    if (!waitlistForm.guestName.trim()) return;
+    setJoiningWaitlist(true);
+    try {
+      await pmsApi.joinWaitlist(hotelId, {
+        roomTypeId: avail.roomTypeId, guestName: waitlistForm.guestName, guestPhone: waitlistForm.guestPhone,
+        checkInDate: avail.checkIn, checkOutDate: avail.checkOut,
+      });
+      setWaitlistForm({ guestName: '', guestPhone: '' });
+      alert('Added to the waitlist — they\'ll be notified automatically if a room frees up for these dates.');
+    } catch (err) { alert(err?.response?.data?.message || 'Could not join the waitlist'); }
+    finally { setJoiningWaitlist(false); }
   };
 
   const addRoomRow = () => setForm(f => ({ ...f, rooms: [...f.rooms, { roomTypeId: '', ratePlanId: '' }] }));
@@ -391,6 +409,14 @@ export function ReservationsTab({ hotelId, roomTypes, reservations, groups, agen
           <button className="admin-row-btn" style={btnPrimary} onClick={checkAvailability}><Search size={14} /> Check</button>
           {avail.count !== null && <span style={{ fontWeight: 700 }}>{avail.count} room(s) available</span>}
         </div>
+        {avail.count === 0 && (
+          <form onSubmit={joinWaitlist} style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center', padding: 10, background: '#FFFBEB', borderRadius: 8 }}>
+            <span style={{ fontSize: 12.5, color: 'var(--gray-600)' }}>No rooms free for these dates — join the waitlist:</span>
+            <input placeholder="Guest name" value={waitlistForm.guestName} onChange={e => setWaitlistForm({ ...waitlistForm, guestName: e.target.value })} style={inputStyle} />
+            <input placeholder="Phone" value={waitlistForm.guestPhone} onChange={e => setWaitlistForm({ ...waitlistForm, guestPhone: e.target.value })} style={inputStyle} />
+            <button type="submit" className="admin-row-btn" style={btnPrimary} disabled={joiningWaitlist}><Plus size={14} /> {joiningWaitlist ? 'Adding…' : 'Join waitlist'}</button>
+          </form>
+        )}
       </div>
 
       <form onSubmit={submit} className="admin-table-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1449,6 +1475,259 @@ export function ExtrasTab({ hotelId }) {
             <button type="submit" className="admin-row-btn" style={btnPrimary} disabled={savingLoyalty}>{savingLoyalty ? 'Saving…' : 'Save'}</button>
           </form>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Waitlist — guests waiting for a room type/dates that's currently full ──────
+export function WaitlistTab({ hotelId, roomTypes }) {
+  const [entries, setEntries] = useState([]);
+  const emptyForm = { roomTypeId: '', guestName: '', guestPhone: '', checkInDate: today(), checkOutDate: tomorrow() };
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+
+  const roomTypeName = (id) => roomTypes.find(rt => rt.id === id)?.name || id;
+
+  const load = useCallback(() => {
+    if (!hotelId) return;
+    pmsApi.listWaitlist(hotelId).then(res => setEntries(res.data.data || [])).catch(() => {});
+  }, [hotelId]);
+  useEffect(() => { load(); }, [load]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.roomTypeId || !form.guestName.trim()) return;
+    setSaving(true);
+    try {
+      await pmsApi.joinWaitlist(hotelId, form);
+      setForm(emptyForm);
+      load();
+    } catch (err) { alert(err?.response?.data?.message || 'Could not add to the waitlist'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="page-header"><div><h1 className="page-title">Waitlist</h1><p className="page-subtitle">Guests waiting for a room type/dates that's currently full — notified automatically when a cancellation or no-show frees one up.</p></div></div>
+
+      <form onSubmit={submit} className="admin-table-card" style={{ padding: 16, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <select value={form.roomTypeId} onChange={e => setForm({ ...form, roomTypeId: e.target.value })} style={inputStyle}>
+          <option value="">Room type…</option>
+          {roomTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
+        </select>
+        <input placeholder="Guest name" value={form.guestName} onChange={e => setForm({ ...form, guestName: e.target.value })} style={inputStyle} />
+        <input placeholder="Phone" value={form.guestPhone} onChange={e => setForm({ ...form, guestPhone: e.target.value })} style={inputStyle} />
+        <input type="date" value={form.checkInDate} onChange={e => setForm({ ...form, checkInDate: e.target.value })} style={inputStyle} />
+        <input type="date" value={form.checkOutDate} onChange={e => setForm({ ...form, checkOutDate: e.target.value })} style={inputStyle} />
+        <button type="submit" className="admin-row-btn" style={btnPrimary} disabled={saving}><Plus size={14} /> Add to waitlist</button>
+      </form>
+
+      <div className="admin-table-card">
+        <table className="admin-table">
+          <thead><tr><th>Guest</th><th>Room type</th><th>Dates</th><th>Status</th><th>Joined</th></tr></thead>
+          <tbody>
+            {entries.map(w => (
+              <tr key={w.id}>
+                <td className="admin-td-shop">{w.guestName}{w.guestPhone ? ` · ${w.guestPhone}` : ''}</td>
+                <td>{roomTypeName(w.roomTypeId)}</td>
+                <td>{w.checkInDate} → {w.checkOutDate}</td>
+                <td>
+                  <span className={w.status === 'NOTIFIED' ? 'status-pill st-active' : 'plan-pill'}>
+                    {w.status === 'NOTIFIED' ? <><Bell size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />Notified</> : <><Hourglass size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />Waiting</>}
+                  </span>
+                  {w.notifiedAt && <div style={{ fontSize: 11, color: 'var(--gray-500)', marginTop: 2 }}>{new Date(w.notifiedAt).toLocaleString()}</div>}
+                </td>
+                <td style={{ fontSize: 12 }}>{new Date(w.createdAt).toLocaleDateString()}</td>
+              </tr>
+            ))}
+            {entries.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 20 }}>No one is on the waitlist right now</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Chain-level rate templates — define once, push to every member property ────
+export function ChainTemplatesTab({ chainId }) {
+  const [roomTypeTemplates, setRoomTypeTemplates] = useState([]);
+  const [ratePlanTemplates, setRatePlanTemplates] = useState([]);
+  const rtEmpty = { name: '', description: '', maxOccupancy: 2 };
+  const [rtForm, setRtForm] = useState(rtEmpty);
+  const rpEmpty = {};
+  const [rpForm, setRpForm] = useState(rpEmpty);
+  const [pushing, setPushing] = useState(false);
+  const [pushResult, setPushResult] = useState(null);
+
+  const load = useCallback(() => {
+    if (!chainId) return;
+    pmsApi.listChainRoomTypeTemplates(chainId).then(res => setRoomTypeTemplates(res.data.data || [])).catch(() => {});
+    pmsApi.listChainRatePlanTemplates(chainId).then(res => setRatePlanTemplates(res.data.data || [])).catch(() => {});
+  }, [chainId]);
+  useEffect(() => { load(); }, [load]);
+
+  if (!chainId) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div className="page-header"><div><h1 className="page-title">Chain Rate Templates</h1><p className="page-subtitle">Define a room type or rate plan once and push it to every property in the chain.</p></div></div>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-500)', fontSize: 13 }}>This hotel isn't part of a chain, so there's nothing to push templates to.</div>
+      </div>
+    );
+  }
+
+  const addRoomTypeTemplate = async (e) => {
+    e.preventDefault();
+    if (!rtForm.name.trim()) return;
+    try {
+      await pmsApi.createChainRoomTypeTemplate(chainId, { ...rtForm, maxOccupancy: Number(rtForm.maxOccupancy) || 2 });
+      setRtForm(rtEmpty);
+      load();
+    } catch { alert('Could not create room type template'); }
+  };
+
+  const addRatePlanTemplate = async (e, roomTypeTemplateId) => {
+    e.preventDefault();
+    const rp = rpForm[roomTypeTemplateId] || {};
+    if (!rp.name || !rp.baseRate) return;
+    try {
+      await pmsApi.createChainRatePlanTemplate(chainId, { roomTypeTemplateId, name: rp.name, baseRate: Number(rp.baseRate), mealPlan: rp.mealPlan || 'ROOM_ONLY' });
+      setRpForm(prev => ({ ...prev, [roomTypeTemplateId]: { name: '', baseRate: '', mealPlan: 'ROOM_ONLY' } }));
+      load();
+    } catch { alert('Could not create rate plan template'); }
+  };
+
+  const pushToProperties = async () => {
+    setPushing(true);
+    setPushResult(null);
+    try {
+      const res = await pmsApi.pushChainTemplates(chainId);
+      setPushResult(res.data.data);
+    } catch (err) { alert(err?.response?.data?.message || 'Push failed'); }
+    finally { setPushing(false); }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="page-header">
+        <div><h1 className="page-title">Chain Rate Templates</h1><p className="page-subtitle">Define a room type or rate plan once and push it to every property in the chain.</p></div>
+        <button className="admin-row-btn" style={btnPrimary} onClick={pushToProperties} disabled={pushing || roomTypeTemplates.length === 0}><Send size={14} /> {pushing ? 'Pushing…' : 'Push to all properties'}</button>
+      </div>
+
+      {pushResult && (
+        <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)' }}>
+          <div className="admin-kpi-card"><div className="admin-kpi-value">{pushResult.hotelsProcessed}</div><div className="admin-kpi-label">Properties updated</div></div>
+          <div className="admin-kpi-card"><div className="admin-kpi-value">{pushResult.roomTypesCreated}</div><div className="admin-kpi-label">Room types created</div></div>
+          <div className="admin-kpi-card"><div className="admin-kpi-value">{pushResult.roomTypesUpdated}</div><div className="admin-kpi-label">Room types updated</div></div>
+          <div className="admin-kpi-card"><div className="admin-kpi-value">{pushResult.ratePlansCreated}</div><div className="admin-kpi-label">Rate plans created</div></div>
+          <div className="admin-kpi-card"><div className="admin-kpi-value">{pushResult.ratePlansUpdated}</div><div className="admin-kpi-label">Rate plans updated</div></div>
+        </div>
+      )}
+
+      <form onSubmit={addRoomTypeTemplate} className="admin-table-card" style={{ padding: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div><label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Name</label><br />
+          <input value={rtForm.name} onChange={e => setRtForm({ ...rtForm, name: e.target.value })} placeholder="e.g. Deluxe" style={inputStyle} /></div>
+        <div><label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Max occupancy</label><br />
+          <input type="number" min="1" value={rtForm.maxOccupancy} onChange={e => setRtForm({ ...rtForm, maxOccupancy: e.target.value })} style={{ ...inputStyle, width: 90 }} /></div>
+        <div style={{ flex: 1, minWidth: 160 }}><label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Description</label><br />
+          <input value={rtForm.description} onChange={e => setRtForm({ ...rtForm, description: e.target.value })} style={inputStyle} /></div>
+        <button type="submit" className="admin-row-btn" style={btnPrimary}><Plus size={14} /> Add room type template</button>
+      </form>
+
+      {roomTypeTemplates.map(rtt => (
+        <div key={rtt.id} className="admin-table-card" style={{ padding: 16 }}>
+          <div style={{ marginBottom: 10 }}>
+            <strong>{rtt.name}</strong> <span style={{ color: 'var(--gray-500)', fontSize: 12.5 }}>· up to {rtt.maxOccupancy} guests</span>
+            {rtt.description && <span style={{ color: 'var(--gray-500)', fontSize: 12.5 }}> · {rtt.description}</span>}
+          </div>
+          <table className="admin-table">
+            <thead><tr><th>Rate plan</th><th>Base rate / night</th><th>Meal plan</th></tr></thead>
+            <tbody>
+              {ratePlanTemplates.filter(rp => rp.roomTypeTemplateId === rtt.id).map(rp => (
+                <tr key={rp.id}><td>{rp.name}</td><td>₹{Number(rp.baseRate).toLocaleString('en-IN')}</td><td>{(rp.mealPlan || 'ROOM_ONLY').replace('_', ' ')}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <form onSubmit={(e) => addRatePlanTemplate(e, rtt.id)} style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            <input placeholder="Plan name" value={rpForm[rtt.id]?.name || ''}
+              onChange={e => setRpForm(prev => ({ ...prev, [rtt.id]: { ...prev[rtt.id], name: e.target.value } }))} style={inputStyle} />
+            <input placeholder="Base rate" type="number" value={rpForm[rtt.id]?.baseRate || ''}
+              onChange={e => setRpForm(prev => ({ ...prev, [rtt.id]: { ...prev[rtt.id], baseRate: e.target.value } }))} style={{ ...inputStyle, width: 110 }} />
+            <select value={rpForm[rtt.id]?.mealPlan || 'ROOM_ONLY'}
+              onChange={e => setRpForm(prev => ({ ...prev, [rtt.id]: { ...prev[rtt.id], mealPlan: e.target.value } }))} style={inputStyle}>
+              <option value="ROOM_ONLY">Room only</option><option value="BREAKFAST">Breakfast included</option>
+              <option value="HALF_BOARD">Half board</option><option value="FULL_BOARD">Full board</option>
+            </select>
+            <button type="submit" className="admin-row-btn" style={btnPrimary}><Plus size={14} /> Add rate plan template</button>
+          </form>
+        </div>
+      ))}
+      {roomTypeTemplates.length === 0 && <div style={{ textAlign: 'center', padding: 20, color: 'var(--gray-500)', fontSize: 13 }}>No chain templates yet — add a room type template above, then push it to every property.</div>}
+    </div>
+  );
+}
+
+// ── Bulk CSV reservation import ──────────────────────────────────────────────
+const IMPORT_CSV_HEADER = 'guestName,guestPhone,checkInDate,checkOutDate,roomTypeName,ratePlanName,adults,children,status,notes';
+
+export function ImportTab({ hotelId, onImported }) {
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const copyTemplate = () => {
+    navigator.clipboard?.writeText(IMPORT_CSV_HEADER).then(() => alert('CSV header copied — paste it as the first line of your file.')).catch(() => {});
+  };
+
+  const upload = async () => {
+    if (!file) return;
+    setUploading(true);
+    setResult(null);
+    try {
+      const res = await pmsApi.importReservationsCsv(hotelId, file);
+      setResult(res.data.data);
+      onImported?.();
+    } catch (err) { alert(err?.response?.data?.message || 'Import failed'); }
+    finally { setUploading(false); }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="page-header"><div><h1 className="page-title">Import Reservations</h1><p className="page-subtitle">Bulk-load historical reservations from a CSV — each row books real inventory the same way a live reservation would.</p></div></div>
+
+      <div className="admin-table-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <strong>Expected CSV header</strong>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <code style={{ fontSize: 12, background: 'var(--gray-100)', padding: '6px 10px', borderRadius: 6, overflowX: 'auto' }}>{IMPORT_CSV_HEADER}</code>
+          <button className="admin-row-btn" style={btnSecondary} onClick={copyTemplate}><Copy size={12} /> Copy</button>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--gray-500)', margin: 0 }}>
+          Comma-separated, no embedded commas in a field. <code>roomTypeName</code> must match an existing room type exactly.
+          <code>ratePlanName</code>, <code>adults</code>, <code>children</code>, <code>status</code> (defaults to BOOKED) and <code>notes</code> are optional.
+        </p>
+      </div>
+
+      <div className="admin-table-card" style={{ padding: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input type="file" accept=".csv,text/csv" onChange={e => { setFile(e.target.files?.[0] || null); setResult(null); }} />
+        <button className="admin-row-btn" style={btnPrimary} onClick={upload} disabled={!file || uploading}><Upload size={14} /> {uploading ? 'Importing…' : 'Import'}</button>
+      </div>
+
+      {result && (
+        <>
+          <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+            <div className="admin-kpi-card"><div className="admin-kpi-value">{result.totalRows}</div><div className="admin-kpi-label">Rows processed</div></div>
+            <div className="admin-kpi-card"><div className="admin-kpi-value">{result.succeeded}</div><div className="admin-kpi-label">Imported</div></div>
+            <div className="admin-kpi-card"><div className="admin-kpi-value">{result.failed}</div><div className="admin-kpi-label">Failed</div></div>
+          </div>
+          {result.errors && result.errors.length > 0 && (
+            <div className="admin-table-card">
+              <table className="admin-table">
+                <thead><tr><th>Row</th><th>Error</th></tr></thead>
+                <tbody>{result.errors.map((e, i) => <tr key={i}><td>{e.rowNumber}</td><td>{e.message}</td></tr>)}</tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

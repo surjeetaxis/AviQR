@@ -13,7 +13,7 @@ import { createPortal } from 'react-dom';
 import {
   Overview as PmsOverview, ReservationsTab, GroupsTab, FrontDeskTab, FolioTab,
   ChannelsTab, GuestsTab as PmsGuestsTab, ExtrasTab, AgentsTab, ReportsTab as PmsReportsTab,
-  RoomTypesTab,
+  RoomTypesTab, WaitlistTab, ChainTemplatesTab, ImportTab, ReviewsTab,
 } from '../pms/PmsDashboard.jsx';
 import {
   Hotel, BedDouble, UtensilsCrossed, Shirt, Sparkles, Wrench,
@@ -22,6 +22,7 @@ import {
   Star, Phone, Save, X, Coffee, Car, RefreshCw, Store, UserCog, QrCode,
   Users, Flower2, TrendingUp, Eye, Download, Printer, MapPin, Loader2,
   CalendarCheck, DoorOpen, Receipt, UserCircle, Tag, Wifi, Briefcase, MessageSquare,
+  Hourglass, Building2, Upload,
 } from 'lucide-react';
 import '../admin/Admin.css';
 import './Hotel.css';
@@ -64,7 +65,9 @@ const NAV = [
   {key:'frontdesk',    group:'Front Office', label:'Front Desk',        icon:DoorOpen},
   {key:'groups',       group:'Front Office', label:'Group Bookings',    icon:Users},
   {key:'folio',        group:'Front Office', label:'Folio',             icon:Receipt},
+  {key:'waitlist',     group:'Front Office', label:'Waitlist',          icon:Hourglass},
   {key:'guests',       group:'Front Office', label:'Guests',            icon:UserCircle},
+  {key:'reviews',      group:'Front Office', label:'Reviews',           icon:Star},
 
   // ── Guest Services (QR-raised, in-stay) ──────────────────────────────────
   {key:'requests',     group:'Guest Services', labelKey:'navGuestRequests', icon:Bell, badge:3},
@@ -79,10 +82,12 @@ const NAV = [
   {key:'rooms',        group:'Inventory & Rates', labelKey:'rooms',           icon:BedDouble},
   {key:'roomtypes',    group:'Inventory & Rates', label:'Room Types & Rates', icon:BedDouble},
   {key:'extras',       group:'Inventory & Rates', label:'Surcharges, Discounts & Add-ons', icon:Tag},
+  {key:'import',       group:'Inventory & Rates', label:'Import Reservations', icon:Upload},
 
   // ── Distribution ──────────────────────────────────────────────────────────
   {key:'channels',     group:'Distribution', label:'Channel Manager',     icon:Wifi},
   {key:'agents',       group:'Distribution', label:'Agents & Commission', icon:Briefcase},
+  {key:'chaintemplates', group:'Distribution', label:'Chain Rate Templates', icon:Building2},
 
   // ── Operations ────────────────────────────────────────────────────────────
   {key:'outlets',      group:'Operations', labelKey:'outlets',      icon:Store},
@@ -332,7 +337,9 @@ export default function HotelDashboard() {
                                       onOpenFolio={(id)=>{setSelectedReservationId(id);setTab('folio');}}/>}
           {tab==='groups'       && <GroupsTab hotelId={hotelId} groups={groups} onChange={()=>loadGroups(hotelId)} onReservationsChanged={refreshReservations}/>}
           {tab==='folio'        && <FolioTab hotelId={hotelId} reservations={reservations} selectedId={selectedReservationId} onSelect={setSelectedReservationId}/>}
+          {tab==='waitlist'     && <WaitlistTab hotelId={hotelId} roomTypes={roomTypes}/>}
           {tab==='guests'       && <PmsGuestsTab hotelId={hotelId}/>}
+          {tab==='reviews'      && <ReviewsTab hotelId={hotelId}/>}
 
           {/* ── Guest Services (QR, in-stay) ── */}
           {tab==='requests'     && <AllRequests requests={roomFilter ? requests.filter(r=>r.room===roomFilter) : requests} onAdvance={advanceRequest} roomFilter={roomFilter} onClearFilter={()=>setRoomFilter(null)}/>}
@@ -347,10 +354,12 @@ export default function HotelDashboard() {
           {tab==='rooms'        && <RoomsPage rooms={rooms} setRooms={setRooms} hotelId={hotelId} onNav={setTab} onRequestsFilter={setRoomFilter}/>}
           {tab==='roomtypes'    && <RoomTypesTab hotelId={hotelId} roomTypes={roomTypes} onChange={()=>loadRoomTypes(hotelId)}/>}
           {tab==='extras'       && <ExtrasTab hotelId={hotelId}/>}
+          {tab==='import'       && <ImportTab hotelId={hotelId} onImported={refreshReservations}/>}
 
           {/* ── Distribution ── */}
           {tab==='channels'     && <ChannelsTab hotelId={hotelId} roomTypes={roomTypes}/>}
           {tab==='agents'       && <AgentsTab hotelId={hotelId} agents={agents} onChange={()=>loadAgents(hotelId)}/>}
+          {tab==='chaintemplates' && <ChainTemplatesTab chainId={chainId}/>}
 
           {/* ── Operations ── */}
           {tab==='outlets'      && <OutletsPage hotelId={hotelId}/>}

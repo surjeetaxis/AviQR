@@ -31,6 +31,7 @@ import SupplierDashboard from './pages/supplier/SupplierDashboard.jsx';
 import HotelDashboard    from './pages/hotel/HotelDashboard.jsx';
 import ContactlessCheckin from './pages/pms/ContactlessCheckin.jsx';
 import BookingEngine from './pages/pms/BookingEngine.jsx';
+import StayReview from './pages/pms/StayReview.jsx';
 import MallDashboard     from './pages/mall/MallDashboard.jsx';
 import VendorQrCodes     from './pages/mall/VendorQrCodes.jsx';
 import CustomerMenu      from './pages/customer/CustomerMenu.jsx';
@@ -129,6 +130,7 @@ export default function App() {
       <Route path="/track-order"     element={<TrackOrder />} />
       <Route path="/pms/contactless-checkin/:reservationId" element={<ContactlessCheckin />} />
       <Route path="/book/:hotelId" element={<BookingEngine />} />
+      <Route path="/review/:hotelId" element={<StayReview />} />
       <Route path="/onboarding"      element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
       {/* Customer Portal — persistent bottom-nav shell (Home/Search/Cart/Orders/Profile)

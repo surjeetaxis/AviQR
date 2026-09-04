@@ -27,6 +27,8 @@ const MAP = {
   NO_SHOW:     {bg:'#FEE2E2',text:'#DC2626',dot:'#DC2626',label:'No-show'},
   AUTHORIZED:  {bg:'#FEF3C7',text:'#D97706',dot:'#D97706',label:'Authorized'},
   CAPTURED:    {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Captured'},
+  WAITING:     {bg:'#FEF3C7',text:'#D97706',dot:'#D97706',label:'Waiting'},
+  NOTIFIED:    {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Notified'},
 };
 export function StatusBadge({ status }) {
   const c=MAP[status]||{bg:'#F3F4F6',text:'#6B7280',dot:'#9CA3AF',label:status};

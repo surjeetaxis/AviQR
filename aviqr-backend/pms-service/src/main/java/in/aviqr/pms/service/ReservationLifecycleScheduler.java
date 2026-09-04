@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,10 @@ public class ReservationLifecycleScheduler {
     private boolean noShowEnabled;
     @Value("${pms.balancedue.job.enabled:true}")
     private boolean balanceDueEnabled;
+    @Value("${pms.reviewinvite.job.enabled:true}")
+    private boolean reviewInviteEnabled;
+    @Value("${app.base-url:https://aviqr.com}")
+    private String appBaseUrl;
 
     // A BOOKED reservation whose check-in date has already passed was never checked in
     // and never explicitly resolved by staff (cancelled/no-show) — auto-resolve it so
@@ -90,5 +96,32 @@ public class ReservationLifecycleScheduler {
             sent++;
         }
         if (sent > 0) log.info("Published {} balance-due reminder event(s)", sent);
+    }
+
+    // A guest who checked out yesterday gets one review-invite link the day after —
+    // same cadence as the balance-due reminder, but unconditional (every checkout,
+    // not just ones with an outstanding balance).
+    @Scheduled(cron = "${pms.reviewinvite.job.cron:0 40 2 * * *}")
+    public void sendReviewInvites() {
+        if (!reviewInviteEnabled) return;
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        List<Reservation> checkedOut = reservationRepo.findByStatusAndCheckOutDate(ReservationStatus.CHECKED_OUT, yesterday);
+        int sent = 0;
+        for (Reservation r : checkedOut) {
+            if (r.getGuestPhone() == null || r.getGuestPhone().isBlank()) continue;
+            String reviewLink = appBaseUrl + "/review/" + r.getHotelId() + "?reservationId=" + r.getId()
+                + "&guestName=" + URLEncoder.encode(
+                    r.getGuestName() == null ? "" : r.getGuestName(), StandardCharsets.UTF_8);
+
+            rabbitTemplate.convertAndSend(RabbitMQConfig.HOTEL_EXCHANGE, "pms.review-invite", Map.of(
+                "hotelId", r.getHotelId().toString(),
+                "reservationId", r.getId().toString(),
+                "guestName", r.getGuestName() == null ? "" : r.getGuestName(),
+                "guestPhone", r.getGuestPhone(),
+                "reviewLink", reviewLink
+            ));
+            sent++;
+        }
+        if (sent > 0) log.info("Published {} review-invite event(s)", sent);
     }
 }

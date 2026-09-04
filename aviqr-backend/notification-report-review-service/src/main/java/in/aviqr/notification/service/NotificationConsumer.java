@@ -163,6 +163,20 @@ public class NotificationConsumer {
         }
     }
 
+    // ── PMS post-checkout review invite (published by pms-service's
+    // ReservationLifecycleScheduler.sendReviewInvites, the day after checkout) ──
+    @RabbitListener(queues = RabbitMQConfig.PMS_REVIEW_INVITE_QUEUE)
+    public void onPmsReviewInvite(Map<String, Object> event) {
+        String guestPhone = str(event, "guestPhone");
+        String guestName  = str(event, "guestName");
+        String reviewLink = str(event, "reviewLink");
+        if (guestPhone == null || guestPhone.isBlank()) return;
+
+        whatsApp.send(guestPhone, String.format(
+            "Hi %s, thanks for staying with us! We'd love to hear about your experience — please take a moment to leave a review: %s",
+            (guestName == null || guestName.isBlank()) ? "there" : guestName, reviewLink));
+    }
+
     // ── Low stock alert ───────────────────────────────────────────────────────
     @RabbitListener(queues = RabbitMQConfig.STOCK_LOW_QUEUE)
     public void onLowStock(Map<String, Object> event) {

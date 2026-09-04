@@ -264,6 +264,11 @@ export const reviewApi = {
   submit:         (d)          => api.post('/api/v1/reviews', d),
   getShopSummary: (shopId)     => api.get(`/api/v1/reviews/public/shop/${shopId}/summary`),
   getShopReviews: (shopId, p)  => api.get(`/api/v1/reviews/public/shop/${shopId}`, { params: p }),
+  // Hotel-stay reviews (public, unauthenticated submit — guest reaches this from
+  // a post-checkout WhatsApp link, identity proven by knowing the reservationId)
+  getHotelSummary:  (hotelId)     => api.get(`/api/v1/reviews/public/hotel/${hotelId}/summary`),
+  getHotelReviews:  (hotelId, p)  => api.get(`/api/v1/reviews/public/hotel/${hotelId}`, { params: p }),
+  submitHotelStay:  (d)           => api.post('/api/v1/reviews/public/hotel-stay', d),
 };
 
 // ── Table Bills — consolidated bill for a dine-in table, paid by the customer ────
@@ -530,6 +535,23 @@ export const pmsApi = {
   publicRoomTypes:        (hotelId)                     => api.get(`/api/v1/pms/public/booking-engine/${hotelId}/room-types`),
   publicAvailability:     (hotelId, roomTypeId, checkIn, checkOut) => api.get(`/api/v1/pms/public/booking-engine/${hotelId}/availability`, { params: { roomTypeId, checkIn, checkOut } }),
   publicBook:             (hotelId, d)                  => api.post(`/api/v1/pms/public/booking-engine/${hotelId}/book`, d),
+  // Waitlist — notified when a cancellation/no-show frees up matching inventory
+  joinWaitlist:    (hotelId, d)   => api.post(`/api/v1/pms/hotels/${hotelId}/waitlist`, d),
+  listWaitlist:    (hotelId)      => api.get(`/api/v1/pms/hotels/${hotelId}/waitlist`),
+  // Chain-level room-type/rate-plan templates, pushed to every member property
+  listChainRoomTypeTemplates: (chainId)     => api.get(`/api/v1/pms/chains/${chainId}/room-type-templates`),
+  createChainRoomTypeTemplate:(chainId, d)  => api.post(`/api/v1/pms/chains/${chainId}/room-type-templates`, d),
+  listChainRatePlanTemplates: (chainId)     => api.get(`/api/v1/pms/chains/${chainId}/rate-plan-templates`),
+  createChainRatePlanTemplate:(chainId, d)  => api.post(`/api/v1/pms/chains/${chainId}/rate-plan-templates`, d),
+  pushChainTemplates:         (chainId)     => api.post(`/api/v1/pms/chains/${chainId}/push`),
+  // Bulk CSV reservation import (onboarding a hotel's historical bookings)
+  importReservationsCsv: (hotelId, asset) => {
+    const fd = new FormData();
+    fd.append('file', { uri: asset.uri, name: asset.name || 'reservations.csv', type: asset.mimeType || 'text/csv' });
+    return api.post(`/api/v1/pms/hotels/${hotelId}/import/reservations`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // ── Hotel Access (group-level dashboard access — GM/outlet-manager/staff, ──

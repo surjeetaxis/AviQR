@@ -14,6 +14,7 @@ const PMS_ITEMS = [
   { icon: '🛏️', label: 'Room Types',     sub: 'Types & rate plans',      href: '/(hotel)/pms/room-types' },
   { icon: '👨‍👩‍👧', label: 'Group Bookings', sub: 'Block reservations',      href: '/(hotel)/pms/group-bookings' },
   { icon: '🌐', label: 'Channel Manager',sub: 'OTA connections',         href: '/(hotel)/pms/channel-manager' },
+  { icon: '🏨', label: 'Chain Templates',sub: 'Push rates to properties',href: '/(hotel)/pms/chain-templates' },
   { icon: '🧳', label: 'Agents',         sub: 'Travel agents',           href: '/(hotel)/pms/agents' },
   { icon: '🎁', label: 'Extras',         sub: 'Add-ons & packages',      href: '/(hotel)/pms/extras' },
   { icon: '📇', label: 'PMS Guests',     sub: 'Guest profiles',          href: '/(hotel)/pms/guests' },

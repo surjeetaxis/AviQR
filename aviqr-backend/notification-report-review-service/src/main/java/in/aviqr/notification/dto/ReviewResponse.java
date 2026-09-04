@@ -9,6 +9,8 @@ public class ReviewResponse {
     private String shopId;
     private UUID menuItemId;
     private UUID orderId;
+    private String hotelId;
+    private UUID reservationId;
     private String customerId;
     private String customerName;
     private Integer rating;

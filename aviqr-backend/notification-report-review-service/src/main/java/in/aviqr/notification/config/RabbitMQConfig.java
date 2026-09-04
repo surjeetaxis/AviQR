@@ -25,6 +25,7 @@ public class RabbitMQConfig {
     public static final String PMS_BALANCE_DUE_QUEUE = "pms.balance-due.queue";
     public static final String PMS_REPORT_READY_QUEUE = "pms.report-ready.queue";
     public static final String PMS_WAITLIST_AVAILABLE_QUEUE = "pms.waitlist-available.queue";
+    public static final String PMS_REVIEW_INVITE_QUEUE = "pms.review-invite.queue";
 
     @Bean public TopicExchange ordersExchange()   { return new TopicExchange(ORDERS_EXCHANGE); }
     @Bean public TopicExchange hotelExchange()    { return new TopicExchange(HOTEL_EXCHANGE); }
@@ -37,6 +38,7 @@ public class RabbitMQConfig {
     @Bean public Queue pmsBalanceDueQueue() { return QueueBuilder.durable(PMS_BALANCE_DUE_QUEUE).build(); }
     @Bean public Queue pmsReportReadyQueue() { return QueueBuilder.durable(PMS_REPORT_READY_QUEUE).build(); }
     @Bean public Queue pmsWaitlistAvailableQueue() { return QueueBuilder.durable(PMS_WAITLIST_AVAILABLE_QUEUE).build(); }
+    @Bean public Queue pmsReviewInviteQueue() { return QueueBuilder.durable(PMS_REVIEW_INVITE_QUEUE).build(); }
 
     @Bean public Binding orderNewBinding()    { return BindingBuilder.bind(orderNewQueue()).to(ordersExchange()).with("order.new"); }
     @Bean public Binding orderStatusBinding() { return BindingBuilder.bind(orderStatusQueue()).to(ordersExchange()).with("order.status"); }
@@ -45,6 +47,7 @@ public class RabbitMQConfig {
     @Bean public Binding pmsBalanceDueBinding() { return BindingBuilder.bind(pmsBalanceDueQueue()).to(hotelExchange()).with("pms.balance-due"); }
     @Bean public Binding pmsReportReadyBinding() { return BindingBuilder.bind(pmsReportReadyQueue()).to(hotelExchange()).with("pms.report.ready"); }
     @Bean public Binding pmsWaitlistAvailableBinding() { return BindingBuilder.bind(pmsWaitlistAvailableQueue()).to(hotelExchange()).with("pms.waitlist.available"); }
+    @Bean public Binding pmsReviewInviteBinding() { return BindingBuilder.bind(pmsReviewInviteQueue()).to(hotelExchange()).with("pms.review-invite"); }
 
     @Bean public Jackson2JsonMessageConverter converter() { return new Jackson2JsonMessageConverter(); }
     @Bean public RabbitTemplate rabbitTemplate(ConnectionFactory cf) {

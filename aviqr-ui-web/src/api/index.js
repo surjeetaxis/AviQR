@@ -188,6 +188,10 @@ export const reviewApi = {
   submit:         (d, config={})   => api.post('/api/v1/reviews', d, config),
   getShopSummary: (shopId)         => api.get(`/api/v1/reviews/public/shop/${shopId}/summary`),
   getShopReviews: (shopId, p)      => api.get(`/api/v1/reviews/public/shop/${shopId}`, { params: p }),
+  // Guest-stay reviews — hotelId-scoped, no code shared with the shop-review path above.
+  submitHotelStay: (d)              => api.post('/api/v1/reviews/public/hotel-stay', d),
+  getHotelSummary: (hotelId)        => api.get(`/api/v1/reviews/public/hotel/${hotelId}/summary`),
+  getHotelReviews: (hotelId, p)     => api.get(`/api/v1/reviews/public/hotel/${hotelId}`, { params: p }),
 };
 
 // ── Order confirmation code / QR — pay-at-counter gate & pickup handover ───────
@@ -443,6 +447,21 @@ export const pmsApi = {
   publicRoomTypes:        (hotelId)                     => api.get(`/api/v1/pms/public/booking-engine/${hotelId}/room-types`),
   publicAvailability:     (hotelId, roomTypeId, checkIn, checkOut) => api.get(`/api/v1/pms/public/booking-engine/${hotelId}/availability`, { params: { roomTypeId, checkIn, checkOut } }),
   publicBook:             (hotelId, d)                  => api.post(`/api/v1/pms/public/booking-engine/${hotelId}/book`, d),
+  // Waitlist — notified when a cancellation/no-show frees matching inventory
+  joinWaitlist:    (hotelId, d)   => api.post(`/api/v1/pms/hotels/${hotelId}/waitlist`, d),
+  listWaitlist:    (hotelId)      => api.get(`/api/v1/pms/hotels/${hotelId}/waitlist`),
+  // Chain-level rate templates — define once, push to every member property
+  listChainRoomTypeTemplates:  (chainId)    => api.get(`/api/v1/pms/chains/${chainId}/room-type-templates`),
+  createChainRoomTypeTemplate: (chainId, d) => api.post(`/api/v1/pms/chains/${chainId}/room-type-templates`, d),
+  listChainRatePlanTemplates:  (chainId)    => api.get(`/api/v1/pms/chains/${chainId}/rate-plan-templates`),
+  createChainRatePlanTemplate: (chainId, d) => api.post(`/api/v1/pms/chains/${chainId}/rate-plan-templates`, d),
+  pushChainTemplates:          (chainId)    => api.post(`/api/v1/pms/chains/${chainId}/push`),
+  // Bulk CSV reservation import
+  importReservationsCsv: (hotelId, file) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post(`/api/v1/pms/hotels/${hotelId}/import/reservations`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
 };
 
 // ── Hotel Guest Services (QR service hub, requests, bookings, folio) ──────────
