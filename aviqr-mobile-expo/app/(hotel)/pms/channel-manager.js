@@ -8,7 +8,7 @@ import { Input } from '../../../src/components/common/Input.js';
 import { Colors, FontSize, Spacing, Radius } from '../../../src/theme/index.js';
 
 const CHANNELS = ['BOOKING_COM', 'MMT', 'AGODA', 'EXPEDIA', 'GENERIC'];
-const EMPTY_FORM = { channel: 'BOOKING_COM', roomTypeId: '', externalPropertyId: '', externalRoomTypeId: '', externalRatePlanId: '' };
+const EMPTY_FORM = { channel: 'BOOKING_COM', roomTypeId: '', externalPropertyId: '', externalRoomTypeId: '', externalRatePlanId: '', accessKey: '', channelId: '', cmBaseUrl: '' };
 
 export default function ChannelManagerScreen() {
   const [hotelId, setHotelId] = useState(null);
@@ -110,6 +110,10 @@ export default function ChannelManagerScreen() {
             <Input label="External property ID" value={form.externalPropertyId} onChangeText={v => setForm(f => ({ ...f, externalPropertyId: v }))} />
             <Input label="External room type ID" value={form.externalRoomTypeId} onChangeText={v => setForm(f => ({ ...f, externalRoomTypeId: v }))} />
             <Input label="External rate plan ID (optional)" value={form.externalRatePlanId} onChangeText={v => setForm(f => ({ ...f, externalRatePlanId: v }))} />
+            <Text style={ss.liveConnNote}>Live connection (optional — leave blank to just simulate pushes):</Text>
+            <Input label="Access key" value={form.accessKey} onChangeText={v => setForm(f => ({ ...f, accessKey: v }))} />
+            <Input label="Channel ID" value={form.channelId} onChangeText={v => setForm(f => ({ ...f, channelId: v }))} />
+            <Input label="Channel manager base URL" value={form.cmBaseUrl} onChangeText={v => setForm(f => ({ ...f, cmBaseUrl: v }))} autoCapitalize="none" />
             <Button title={saving ? 'Saving…' : 'Add Mapping'} loading={saving} onPress={addMapping} />
           </Card>
         )}
@@ -151,6 +155,7 @@ const ss = StyleSheet.create({
   sub: { fontSize: FontSize.sm, color: Colors.gray500, marginBottom: 14 },
   cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 10, marginTop: 6 },
   fieldLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500, marginBottom: 6 },
+  liveConnNote: { fontSize: 11, color: Colors.gray500, marginTop: 4, marginBottom: 8, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10 },
   chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: Radius.full, backgroundColor: Colors.gray100 },
   chipActive: { backgroundColor: Colors.primaryLight },
   chipTxt: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },

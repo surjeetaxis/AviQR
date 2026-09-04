@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Switch } from 'react-native';
 import { hotelApi, pmsApi } from '../../../src/api/index.js';
 import { PageHeader } from '../../../src/components/common/PageHeader.js';
 import { Card } from '../../../src/components/common/Card.js';
@@ -14,6 +14,9 @@ const MEAL_PLANS = [
   { value: 'FULL_BOARD', label: 'Full board' },
 ];
 
+const today = () => new Date().toISOString().slice(0, 10);
+const emptyDateForm = () => ({ date: today(), price: '', minStay: '', maxStay: '', closedToArrival: false, closedToDeparture: false });
+
 export default function RoomTypesScreen() {
   const [hotelId, setHotelId] = useState(null);
   const [roomTypes, setRoomTypes] = useState([]);
@@ -25,6 +28,12 @@ export default function RoomTypesScreen() {
   const [rpForm, setRpForm] = useState({}); // roomTypeId -> { name, baseRate, mealPlan }
   const [rpFormOpenFor, setRpFormOpenFor] = useState(null);
   const [savingRp, setSavingRp] = useState(false);
+  const [dateManagerFor, setDateManagerFor] = useState(null); // ratePlanId currently expanded
+  const [dayRows, setDayRows] = useState({}); // ratePlanId -> rows
+  const [dateForm, setDateForm] = useState({}); // ratePlanId -> form
+  const [suggestion, setSuggestion] = useState({}); // ratePlanId -> suggestion
+  const [suggesting, setSuggesting] = useState(false);
+  const [savingDate, setSavingDate] = useState(false);
 
   const loadRoomTypes = useCallback(async (hId) => {
     const res = await pmsApi.listRoomTypes(hId);
@@ -76,6 +85,56 @@ export default function RoomTypesScreen() {
     finally { setSavingRp(false); }
   };
 
+  const loadDayPrices = async (ratePlanId) => {
+    const to = new Date(); to.setDate(to.getDate() + 30);
+    try {
+      const res = await pmsApi.listDayPrices(ratePlanId, today(), to.toISOString().slice(0, 10));
+      setDayRows(p => ({ ...p, [ratePlanId]: res.data.data || [] }));
+    } catch { setDayRows(p => ({ ...p, [ratePlanId]: [] })); }
+  };
+
+  const toggleDateManager = (ratePlanId) => {
+    if (dateManagerFor === ratePlanId) { setDateManagerFor(null); return; }
+    setDateManagerFor(ratePlanId);
+    if (!dateForm[ratePlanId]) setDateForm(p => ({ ...p, [ratePlanId]: emptyDateForm() }));
+    loadDayPrices(ratePlanId);
+  };
+
+  const suggestPriceFor = async (ratePlanId, roomTypeId) => {
+    const f = dateForm[ratePlanId] || emptyDateForm();
+    setSuggesting(true);
+    try {
+      const res = await pmsApi.suggestPrice(hotelId, roomTypeId, ratePlanId, f.date);
+      setSuggestion(p => ({ ...p, [ratePlanId]: res.data.data }));
+    } catch (err) { Alert.alert(err?.response?.data?.message || 'Could not compute a pricing suggestion'); }
+    finally { setSuggesting(false); }
+  };
+
+  const applySuggestion = (ratePlanId) => {
+    const s = suggestion[ratePlanId];
+    if (!s) return;
+    setDateForm(p => ({ ...p, [ratePlanId]: { ...(p[ratePlanId] || emptyDateForm()), price: String(s.suggestedPrice) } }));
+    setSuggestion(p => ({ ...p, [ratePlanId]: null }));
+  };
+
+  const submitDayPrice = async (ratePlanId) => {
+    const f = dateForm[ratePlanId] || emptyDateForm();
+    setSavingDate(true);
+    try {
+      await pmsApi.setDayPrice(ratePlanId, {
+        date: f.date,
+        price: f.price ? Number(f.price) : null,
+        minStay: f.minStay ? Number(f.minStay) : null,
+        maxStay: f.maxStay ? Number(f.maxStay) : null,
+        closedToArrival: f.closedToArrival,
+        closedToDeparture: f.closedToDeparture,
+      });
+      setDateForm(p => ({ ...p, [ratePlanId]: { ...emptyDateForm(), date: f.date } }));
+      loadDayPrices(ratePlanId);
+    } catch { Alert.alert('Could not save date rule'); }
+    finally { setSavingDate(false); }
+  };
+
   if (loading) return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <PageHeader title="Room Types & Rates" />
@@ -103,12 +162,56 @@ export default function RoomTypesScreen() {
             <Text style={ss.typeName}>{rt.name} <Text style={ss.typeMeta}>· up to {rt.maxOccupancy} guests</Text></Text>
 
             {(ratePlansByType[rt.id] || []).map(rp => (
-              <View key={rp.id} style={ss.rpRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={ss.rpName}>{rp.name}</Text>
-                  <Text style={ss.rpMeta}>{(rp.mealPlan || 'ROOM_ONLY').replace('_', ' ')}</Text>
+              <View key={rp.id}>
+                <View style={ss.rpRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={ss.rpName}>{rp.name}</Text>
+                    <Text style={ss.rpMeta}>{(rp.mealPlan || 'ROOM_ONLY').replace('_', ' ')}</Text>
+                  </View>
+                  <Text style={ss.rpRate}>₹{Number(rp.baseRate).toLocaleString('en-IN')}/night</Text>
                 </View>
-                <Text style={ss.rpRate}>₹{Number(rp.baseRate).toLocaleString('en-IN')}/night</Text>
+                <TouchableOpacity onPress={() => toggleDateManager(rp.id)} style={ss.dateManagerToggle}>
+                  <Text style={ss.dateManagerToggleTxt}>{dateManagerFor === rp.id ? 'Hide dates' : 'Manage dates'} — {rp.name}</Text>
+                </TouchableOpacity>
+                {dateManagerFor === rp.id && (
+                  <View style={ss.dateManagerBox}>
+                    <Text style={ss.dateManagerTitle}>{rp.name} — date rules (next 30 days)</Text>
+                    <Input label="Date (YYYY-MM-DD)" value={dateForm[rp.id]?.date || today()} onChangeText={v => setDateForm(p => ({ ...p, [rp.id]: { ...(p[rp.id] || emptyDateForm()), date: v } }))} />
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <Input label="Price override" keyboardType="number-pad" value={dateForm[rp.id]?.price || ''} onChangeText={v => setDateForm(p => ({ ...p, [rp.id]: { ...(p[rp.id] || emptyDateForm()), price: v } }))} style={{ flex: 1 }} />
+                      <Button title={suggesting ? '…' : 'Suggest'} size="sm" variant="outline" loading={suggesting} onPress={() => suggestPriceFor(rp.id, rt.id)} style={{ marginTop: 20 }} />
+                    </View>
+                    {suggestion[rp.id] && (
+                      <View style={ss.suggestionBox}>
+                        <Text style={ss.suggestionTxt}>
+                          Base ₹{Number(suggestion[rp.id].baseRate).toLocaleString('en-IN')} · {suggestion[rp.id].occupancyPercent}% occupied · <Text style={{ fontWeight: '800' }}>Suggested ₹{Number(suggestion[rp.id].suggestedPrice).toLocaleString('en-IN')}</Text> — {suggestion[rp.id].reason}
+                        </Text>
+                        <Button title="Use this price" size="sm" onPress={() => applySuggestion(rp.id)} />
+                      </View>
+                    )}
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <Input label="Min stay" keyboardType="number-pad" value={dateForm[rp.id]?.minStay || ''} onChangeText={v => setDateForm(p => ({ ...p, [rp.id]: { ...(p[rp.id] || emptyDateForm()), minStay: v } }))} style={{ flex: 1 }} />
+                      <Input label="Max stay" keyboardType="number-pad" value={dateForm[rp.id]?.maxStay || ''} onChangeText={v => setDateForm(p => ({ ...p, [rp.id]: { ...(p[rp.id] || emptyDateForm()), maxStay: v } }))} style={{ flex: 1 }} />
+                    </View>
+                    <View style={ss.switchRow}>
+                      <Text style={ss.switchLabel}>Closed to arrival</Text>
+                      <Switch value={!!dateForm[rp.id]?.closedToArrival} onValueChange={v => setDateForm(p => ({ ...p, [rp.id]: { ...(p[rp.id] || emptyDateForm()), closedToArrival: v } }))} trackColor={{ true: Colors.primary }} />
+                    </View>
+                    <View style={ss.switchRow}>
+                      <Text style={ss.switchLabel}>Closed to departure</Text>
+                      <Switch value={!!dateForm[rp.id]?.closedToDeparture} onValueChange={v => setDateForm(p => ({ ...p, [rp.id]: { ...(p[rp.id] || emptyDateForm()), closedToDeparture: v } }))} trackColor={{ true: Colors.primary }} />
+                    </View>
+                    <Button title={savingDate ? 'Saving…' : 'Save Date Rule'} loading={savingDate} onPress={() => submitDayPrice(rp.id)} style={{ marginBottom: 12 }} />
+
+                    {(dayRows[rp.id] || []).map(r => (
+                      <View key={r.id} style={ss.dayRow}>
+                        <Text style={ss.dayRowDate}>{r.date}</Text>
+                        <Text style={ss.dayRowMeta}>{r.price != null ? `₹${Number(r.price).toLocaleString('en-IN')}` : '—'}{r.minStay ? ` · min ${r.minStay}n` : ''}{r.maxStay ? ` · max ${r.maxStay}n` : ''}{r.closedToArrival ? ' · CTA' : ''}{r.closedToDeparture ? ' · CTD' : ''}</Text>
+                      </View>
+                    ))}
+                    {(dayRows[rp.id] || []).length === 0 && <Text style={ss.emptyTxt}>No date rules set.</Text>}
+                  </View>
+                )}
               </View>
             ))}
             {(ratePlansByType[rt.id] || []).length === 0 && <Text style={ss.emptyTxt}>No rate plans yet.</Text>}
@@ -159,6 +262,17 @@ const ss = StyleSheet.create({
   emptyTxt: { fontSize: FontSize.xs, color: Colors.gray400, textAlign: 'center', paddingVertical: 8 },
   addRpBtn: { marginTop: 8, alignItems: 'center', paddingVertical: 8, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.primary, borderStyle: 'dashed' },
   addRpTxt: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  dateManagerToggle: { paddingVertical: 6 },
+  dateManagerToggleTxt: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500 },
+  dateManagerBox: { marginTop: 4, marginBottom: 8, padding: 12, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
+  dateManagerTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.gray900, marginBottom: 8 },
+  suggestionBox: { backgroundColor: '#F0FDF4', borderRadius: Radius.md, padding: 10, marginBottom: 10, gap: 8 },
+  suggestionTxt: { fontSize: FontSize.xs, color: Colors.gray700 },
+  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
+  switchLabel: { fontSize: FontSize.sm, color: Colors.gray700 },
+  dayRow: { paddingVertical: 6, borderTopWidth: 1, borderTopColor: Colors.border },
+  dayRowDate: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray900 },
+  dayRowMeta: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 1 },
   chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: Radius.full, backgroundColor: Colors.gray100 },
   chipActive: { backgroundColor: Colors.primaryLight },
   chipTxt: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },
