@@ -124,6 +124,16 @@ export function FloatingPillNav({
           end={{ x: 0, y: 0.3 }}
           style={StyleSheet.absoluteFill}
         />
+        {/* Base shadow — a touch of darkness right at the bottom rim, the
+            way real glass/water reads as having some thickness rather than
+            being an infinitely thin painted-on tint. */}
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.22)']}
+          start={{ x: 0, y: 0.75 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
         <View style={styles.row}>
           {indicatorX != null && (
             <Animated.View
