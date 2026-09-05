@@ -6,9 +6,9 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   BedDouble, CalendarCheck, Receipt,
   Plus, LogIn, DoorOpen, Ban, UserX, Search, Wifi, RefreshCw, Copy, Users, Briefcase, IndianRupee, TrendingUp, UserCircle, Tag, CalendarClock,
-  AlertCircle, Clock, CheckCircle2, Bell, PenTool, X, CreditCard, Hourglass, Building2, Upload, Send,
+  AlertCircle, Clock, CheckCircle2, Bell, PenTool, X, CreditCard, Hourglass, Building2, Upload, Send, Star,
 } from 'lucide-react';
-import { pmsApi } from '../../api/index.js';
+import { pmsApi, reviewApi } from '../../api/index.js';
 import '../admin/Admin.css';
 
 const STATUS_CLS = {
@@ -1542,6 +1542,65 @@ export function WaitlistTab({ hotelId, roomTypes }) {
               </tr>
             ))}
             {entries.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 20 }}>No one is on the waitlist right now</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Guest-stay reviews — pms-service invites guests to review via WhatsApp the
+// day after checkout (ReservationLifecycleScheduler.sendReviewInvites); this is
+// the read-only owner-facing view of what comes back. Public endpoints, called
+// here from the authenticated dashboard just to scope by the current hotel.
+export function ReviewsTab({ hotelId }) {
+  const [summary, setSummary] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!hotelId) return;
+    setLoading(true);
+    Promise.all([
+      reviewApi.getHotelSummary(hotelId),
+      reviewApi.getHotelReviews(hotelId, { size: 50 }),
+    ]).then(([s, r]) => {
+      setSummary(s.data.data);
+      setReviews(r.data.data?.content || []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [hotelId]);
+
+  const stars = (n) => Array.from({ length: 5 }, (_, i) => (
+    <Star key={i} size={14} fill={i < n ? '#F59E0B' : 'none'} color={i < n ? '#F59E0B' : '#D1D5DB'} />
+  ));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="page-header"><div><h1 className="page-title">Reviews</h1><p className="page-subtitle">What guests said after their stay — collected via a WhatsApp review-invite sent the day after checkout.</p></div></div>
+
+      {summary && (
+        <div className="admin-table-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ fontSize: 32, fontWeight: 700 }}>{Number(summary.averageRating || 0).toFixed(1)}</div>
+          <div>
+            <div style={{ display: 'flex', gap: 2 }}>{stars(Math.round(summary.averageRating || 0))}</div>
+            <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 2 }}>{summary.ratingCount} review{summary.ratingCount === 1 ? '' : 's'}</div>
+          </div>
+        </div>
+      )}
+
+      <div className="admin-table-card">
+        <table className="admin-table">
+          <thead><tr><th>Guest</th><th>Rating</th><th>Comment</th><th>Date</th></tr></thead>
+          <tbody>
+            {reviews.map(r => (
+              <tr key={r.id}>
+                <td className="admin-td-shop">{r.customerName || 'Guest'}</td>
+                <td><div style={{ display: 'flex', gap: 1 }}>{stars(r.rating)}</div></td>
+                <td style={{ maxWidth: 400 }}>{r.comment || <span style={{ color: 'var(--gray-500)' }}>No comment</span>}</td>
+                <td style={{ fontSize: 12 }}>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}</td>
+              </tr>
+            ))}
+            {!loading && reviews.length === 0 && <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 20 }}>No reviews yet</td></tr>}
           </tbody>
         </table>
       </div>
