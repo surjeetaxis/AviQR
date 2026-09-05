@@ -80,6 +80,9 @@ public class PaymentController {
             orderReq.put("receipt",  "aviqr_" + System.currentTimeMillis());
             orderReq.put("notes",    new JSONObject().put("shopId", req.getShopId())
                                                      .put("orderId", req.getOrderId()));
+            // Auth-only hold (card pre-authorization): the order captures nothing until
+            // /{paymentId}/capture is called explicitly — see PaymentTargetType.PMS_PREAUTH.
+            if (Boolean.TRUE.equals(req.getPreAuth())) orderReq.put("payment_capture", 0);
 
             Order rzpOrder = razorpay.orders.create(orderReq);
             String rzpOrderId = rzpOrder.get("id");
@@ -136,11 +139,16 @@ public class PaymentController {
             var paymentOpt = repo.findByOrderId(req.getOrderId());
             paymentOpt.ifPresent(p -> {
                 p.setPaymentId(req.getRazorpayPaymentId());
-                p.setStatus(valid ? PaymentStatus.CAPTURED : PaymentStatus.FAILED);
-                p.setPaidAt(valid ? LocalDateTime.now() : null);
+                boolean isPreAuth = p.getTargetType() == PaymentTargetType.PMS_PREAUTH;
+                // A pre-auth order settles as AUTHORIZED (a held-but-uncaptured hold) — it
+                // only becomes CAPTURED once staff explicitly captures it at checkout.
+                p.setStatus(!valid ? PaymentStatus.FAILED : isPreAuth ? PaymentStatus.AUTHORIZED : PaymentStatus.CAPTURED);
+                p.setPaidAt(valid && !isPreAuth ? LocalDateTime.now() : null);
                 repo.save(p);
             });
-            if (valid) paymentOpt.ifPresent(p -> syncOrderPaymentCaptured(p.getOrderId(), p.getTargetType()));
+            if (valid) paymentOpt.ifPresent(p -> {
+                if (p.getTargetType() != PaymentTargetType.PMS_PREAUTH) syncOrderPaymentCaptured(p.getOrderId(), p.getTargetType());
+            });
 
             Map<String,Object> res = new HashMap<>();
             res.put("verified",  valid);
@@ -307,6 +315,52 @@ public class PaymentController {
             Map<String,Object> r = Map.of("paymentId", paymentId, "status", "REFUNDED");
             return ResponseEntity.ok(ApiResponse.ok("Refund initiated", r));
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    /** Settles a pre-authorized (AUTHORIZED) hold — the actual charge happens now,
+     *  not at the original card-hold time. Used at PMS checkout to collect what a
+     *  pre-auth secured at booking/check-in. */
+    @PostMapping("/{paymentId}/capture")
+    public ResponseEntity<ApiResponse<Payment>> capture(
+            @PathVariable String paymentId,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role,
+            @RequestHeader(value="X-Shop-Id", defaultValue="") String callerShopId) {
+        return repo.findByPaymentId(paymentId).map(p -> {
+            boolean allowed = PLATFORM_ROLES.contains(role)
+                || (SHOP_FINANCE_ROLES.contains(role) && p.getShopId().equals(callerShopId));
+            if (!allowed) return ResponseEntity.status(403).body(ApiResponse.<Payment>error("Forbidden"));
+            if (p.getStatus() != PaymentStatus.AUTHORIZED)
+                return ResponseEntity.badRequest().body(ApiResponse.<Payment>error("Only an AUTHORIZED hold can be captured (current status: " + p.getStatus() + ")"));
+            try {
+                if (!razorpayKeyId.startsWith("rzp_test_placeholder")) {
+                    RazorpayClient rzp = new RazorpayClient(razorpayKeyId, razorpaySecret);
+                    long amountPaise = p.getAmount().multiply(BigDecimal.valueOf(100)).longValue();
+                    rzp.payments.capture(p.getPaymentId(), new JSONObject().put("amount", amountPaise).put("currency", p.getCurrency()));
+                }
+            } catch (Exception e) {
+                log.error("Razorpay capture API error: {}", e.getMessage());
+                return ResponseEntity.status(500).body(ApiResponse.<Payment>error("Capture failed: " + e.getMessage()));
+            }
+            p.setStatus(PaymentStatus.CAPTURED);
+            p.setPaidAt(LocalDateTime.now());
+            repo.save(p);
+            return ResponseEntity.ok(ApiResponse.ok("Captured", p));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    /** Server-to-server lookup by orderId (e.g. pms-service checking a reservation's
+     *  pre-auth status) — trusts a shared secret instead of a caller JWT, same
+     *  X-Internal-Secret convention as order-qr-service/auth-service. */
+    @GetMapping("/by-order/{orderId}")
+    public ResponseEntity<ApiResponse<Payment>> byOrderId(
+            @PathVariable String orderId,
+            @RequestHeader(value="X-Internal-Secret", required=false) String secret) {
+        if (!internalSyncSecret.isBlank() && !internalSyncSecret.equals(secret))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return repo.findByOrderId(orderId)
+            .map(p -> ResponseEntity.ok(ApiResponse.ok(p)))
+            .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping

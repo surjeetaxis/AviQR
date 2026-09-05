@@ -21,6 +21,14 @@ const MAP = {
   CONFIRMED: {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Confirmed'},
   UP:        {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Up'},
   DOWN:      {bg:'#FEE2E2',text:'#DC2626',dot:'#DC2626',label:'Down'},
+  BOOKED:      {bg:'#EFF6FF',text:'#2563EB',dot:'#2563EB',label:'Booked'},
+  CHECKED_IN:  {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Checked in'},
+  CHECKED_OUT: {bg:'#F3F4F6',text:'#6B7280',dot:'#9CA3AF',label:'Checked out'},
+  NO_SHOW:     {bg:'#FEE2E2',text:'#DC2626',dot:'#DC2626',label:'No-show'},
+  AUTHORIZED:  {bg:'#FEF3C7',text:'#D97706',dot:'#D97706',label:'Authorized'},
+  CAPTURED:    {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Captured'},
+  WAITING:     {bg:'#FEF3C7',text:'#D97706',dot:'#D97706',label:'Waiting'},
+  NOTIFIED:    {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Notified'},
 };
 export function StatusBadge({ status }) {
   const c=MAP[status]||{bg:'#F3F4F6',text:'#6B7280',dot:'#9CA3AF',label:status};

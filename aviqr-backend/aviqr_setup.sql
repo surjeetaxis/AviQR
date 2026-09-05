@@ -5,7 +5,7 @@
 --
 --  Databases created: aviqr_auth, aviqr_shop, aviqr_menu, aviqr_order,
 --                      aviqr_payment, aviqr_qr, aviqr_hotel, aviqr_mall,
---                      aviqr_support, aviqr_report, aviqr_review  (11 total)
+--                      aviqr_support, aviqr_report, aviqr_review, aviqr_pms  (12 total)
 --
 --  Includes hand-written demo records (Spice Route, Coconut Grove, etc.)
 --  plus a bulk-generated block of 100+ customers and 100+ orders
@@ -60,6 +60,8 @@ SELECT 'CREATE DATABASE aviqr_report OWNER aviqr'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_report')\gexec
 SELECT 'CREATE DATABASE aviqr_review OWNER aviqr'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_review')\gexec
+SELECT 'CREATE DATABASE aviqr_pms OWNER aviqr'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'aviqr_pms')\gexec
 
 -- Grant all privileges
 GRANT ALL PRIVILEGES ON DATABASE aviqr_auth    TO aviqr;
@@ -73,6 +75,7 @@ GRANT ALL PRIVILEGES ON DATABASE aviqr_mall    TO aviqr;
 GRANT ALL PRIVILEGES ON DATABASE aviqr_support TO aviqr;
 GRANT ALL PRIVILEGES ON DATABASE aviqr_report  TO aviqr;
 GRANT ALL PRIVILEGES ON DATABASE aviqr_review  TO aviqr;
+GRANT ALL PRIVILEGES ON DATABASE aviqr_pms     TO aviqr;
 
 
 -- ============================================================
@@ -1179,6 +1182,19 @@ CREATE TABLE IF NOT EXISTS hotels (
 ALTER TABLE hotels ADD COLUMN IF NOT EXISTS latitude  DECIMAL(10,8);
 ALTER TABLE hotels ADD COLUMN IF NOT EXISTS longitude DECIMAL(11,8);
 
+-- ── chains (multi-property management) ─────────────────────────
+CREATE TABLE IF NOT EXISTS chains (
+    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    name       VARCHAR(255) NOT NULL,
+    owner_id   VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP    DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_chains_owner ON chains (owner_id);
+
+-- Chain column on hotels (run on existing DBs — table pre-dates chain management).
+ALTER TABLE hotels ADD COLUMN IF NOT EXISTS chain_id UUID;
+CREATE INDEX IF NOT EXISTS idx_hotels_chain ON hotels (chain_id);
+
 CREATE INDEX IF NOT EXISTS idx_hotels_owner_id ON hotels (owner_id);
 CREATE INDEX IF NOT EXISTS idx_hotels_city     ON hotels (city);
 CREATE INDEX IF NOT EXISTS idx_hotels_active   ON hotels (active);
@@ -1193,17 +1209,21 @@ CREATE INDEX IF NOT EXISTS idx_hotel_enabled_services ON hotel_enabled_services 
 
 -- ── rooms ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS rooms (
-    id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    hotel_id       UUID         NOT NULL,
-    room_number    VARCHAR(20)  NOT NULL,
-    room_type      VARCHAR(50),
-    floor          VARCHAR(50),
-    status         VARCHAR(20)  DEFAULT 'VACANT',
-    guest_name     VARCHAR(255),
-    check_in_date  VARCHAR(30),
-    check_out_date VARCHAR(30),
-    qr_active      BOOLEAN      DEFAULT TRUE
+    id                   UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id             UUID         NOT NULL,
+    room_number          VARCHAR(20)  NOT NULL,
+    room_type            VARCHAR(50),
+    floor                VARCHAR(50),
+    status               VARCHAR(20)  DEFAULT 'VACANT',
+    housekeeping_status  VARCHAR(20)  DEFAULT 'CLEAN',
+    guest_name           VARCHAR(255),
+    check_in_date        VARCHAR(30),
+    check_out_date       VARCHAR(30),
+    qr_active            BOOLEAN      DEFAULT TRUE
 );
+-- Housekeeping column (run on existing DBs — table pre-dates the housekeeping
+-- workflow milestone; see HousekeepingService/HousekeepingController).
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS housekeeping_status VARCHAR(20) DEFAULT 'CLEAN';
 
 CREATE INDEX IF NOT EXISTS idx_rooms_hotel_id ON rooms (hotel_id);
 CREATE INDEX IF NOT EXISTS idx_rooms_status   ON rooms (status);
@@ -1236,6 +1256,14 @@ INSERT INTO hotels (id, name, owner_id, phone, email, address, city, latitude, l
   ('0a035141-82b3-4e32-ae79-024ff06dba3f', 'The Leela Resort',   '640e1946-5ffe-41cb-8be5-8ba499c08bd2', '08322445566', 'gm@leela.in',       'Calangute Beach Road',      'Goa',       15.54970000, 73.75130000, 280, '15:00', '11:00', 'RESORT_SUITE',  TRUE),
   ('2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Budget Inn Jaipur',  '640e1946-5ffe-41cb-8be5-8ba499c08bd2', '01412223344', 'gm@budgetinn.in',   '12, MI Road',               'Jaipur',     26.91240000, 75.78730000,  40, '12:00', '10:00', 'HOTEL_BASIC',   TRUE)
 ON CONFLICT DO NOTHING;
+
+-- ── Dummy data — group the 3 seeded hotels under one chain ───────────────────
+INSERT INTO chains (id, name, owner_id) VALUES
+  ('f3000001-0000-4000-8000-000000000001', 'Grand Palace Hospitality Group', '640e1946-5ffe-41cb-8be5-8ba499c08bd2')
+ON CONFLICT DO NOTHING;
+UPDATE hotels SET chain_id = 'f3000001-0000-4000-8000-000000000001'
+  WHERE id IN ('ccbe65f3-bb7b-400c-81b3-af56495b6a08', '0a035141-82b3-4e32-ae79-024ff06dba3f', '2673d4b8-7f7c-4c61-8df9-2f775d482873')
+  AND chain_id IS NULL;
 
 INSERT INTO hotel_enabled_services (hotel_id, enabled_services) VALUES
   ('ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'ROOM_SERVICE'),
@@ -1431,6 +1459,81 @@ INSERT INTO hotel_access (id, hotel_id, user_id, role, outlet_id) VALUES
   ('f1000001-0000-4000-8000-000000000003', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', 'OWNER',           NULL),
   ('f1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '43ff4c07-a85e-4ec0-be79-9cd05b78f94a', 'OUTLET_MANAGER',  'b1000001-0000-4000-8000-000000000003')
 ON CONFLICT DO NOTHING;
+
+
+-- ============================================================
+--  SECTION 8c — Housekeeping (v2.5)
+--  Room-turnover cleaning task queue. Room.housekeeping_status
+--  (added above) is the room's current state; a task tracks who
+--  is/was doing the work. Tasks are auto-created on checkout
+--  (see HotelController#updateRoomOccupancy) or raised manually.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS housekeeping_tasks (
+    id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id      UUID          NOT NULL,
+    room_id       UUID          NOT NULL,
+    room_number   VARCHAR(20)   NOT NULL,
+    status        VARCHAR(20)   DEFAULT 'PENDING',
+    priority      VARCHAR(20)   DEFAULT 'NORMAL',
+    assigned_to   VARCHAR(100),
+    notes         VARCHAR(500),
+    created_at    TIMESTAMP     DEFAULT NOW(),
+    started_at    TIMESTAMP,
+    completed_at  TIMESTAMP,
+    inspected_at  TIMESTAMP,
+    inspected_by  VARCHAR(100)
+);
+CREATE INDEX IF NOT EXISTS idx_housekeeping_hotel ON housekeeping_tasks (hotel_id, status);
+CREATE INDEX IF NOT EXISTS idx_housekeeping_room  ON housekeeping_tasks (room_id);
+
+-- ── Dummy data — a couple of realistic tasks for Grand Palace ─────────────────
+-- Room 103 is already MAINTENANCE in the rooms table above; this gives it a
+-- matching in-progress cleaning task rather than an orphaned status.
+INSERT INTO housekeeping_tasks (id, hotel_id, room_id, room_number, status, priority, assigned_to, created_at, started_at) VALUES
+  ('f2000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '96fd94b6-abff-4063-b33a-988c80e695b3', '103', 'IN_PROGRESS', 'HIGH', 'Housekeeping — Priya', NOW() - INTERVAL '40 min', NOW() - INTERVAL '15 min')
+ON CONFLICT DO NOTHING;
+
+-- ============================================================
+--  maintenance_tasks — staff-assignable work orders (distinct from a guest's
+--  raw MAINTENANCE service request, which just reports a problem). Auto-created
+--  when a guest raises a MAINTENANCE request (see GuestServiceController) or
+--  raised manually by staff. room_id/room_number are nullable — a work order can
+--  target a non-room asset (lobby AC, pool pump).
+-- ============================================================
+CREATE TABLE IF NOT EXISTS maintenance_tasks (
+    id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id          UUID          NOT NULL,
+    room_id           UUID,
+    room_number       VARCHAR(20),
+    title             VARCHAR(200)  NOT NULL,
+    notes             VARCHAR(500),
+    status            VARCHAR(20)   DEFAULT 'OPEN',
+    priority          VARCHAR(20)   DEFAULT 'NORMAL',
+    assigned_to       VARCHAR(100),
+    source_request_id UUID,
+    created_at        TIMESTAMP     DEFAULT NOW(),
+    started_at        TIMESTAMP,
+    completed_at      TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_maintenance_hotel ON maintenance_tasks (hotel_id, status);
+
+-- ── Dummy data — a realistic open work order for Grand Palace ─────────────────
+INSERT INTO maintenance_tasks (id, hotel_id, room_number, title, notes, status, priority, created_at) VALUES
+  ('f2100001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '301', 'Room 301 maintenance', 'AC not cooling — temperature stuck at 28°C', 'OPEN', 'URGENT', NOW() - INTERVAL '20 min')
+ON CONFLICT DO NOTHING;
+
+-- ── guest_messages — two-way messaging, scoped to a room for the stay ─────────
+CREATE TABLE IF NOT EXISTS guest_messages (
+    id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id       UUID          NOT NULL,
+    room_number    VARCHAR(20)   NOT NULL,
+    guest_name     VARCHAR(255),
+    sender         VARCHAR(10)   NOT NULL,
+    message        VARCHAR(1000) NOT NULL,
+    read_by_staff  BOOLEAN       DEFAULT FALSE,
+    created_at     TIMESTAMP     DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_guest_messages_hotel_room ON guest_messages (hotel_id, room_number);
 
 
 -- ============================================================
@@ -2104,6 +2207,465 @@ CREATE TABLE IF NOT EXISTS tax_rules (
 
 CREATE INDEX IF NOT EXISTS idx_tax_rules_shop_id ON tax_rules (shop_id);
 CREATE INDEX IF NOT EXISTS idx_tax_rules_active  ON tax_rules (active);
+
+
+-- ============================================================
+--  SECTION 19 — aviqr_pms
+--  Hotel PMS: room types/rate plans, reservations, front-desk
+--  check-in/out, guest folio. Tables created explicitly so
+--  production (ddl-auto=none) and SQL-based imports both work.
+--  JPA will no-op on IF NOT EXISTS. pms_room_reservations.room_id
+--  references aviqr_hotel's rooms.id — a cross-database reference,
+--  not a DB-level FK (same convention hotel_service already uses
+--  for room_charges.hotel_id → aviqr_hotel isn't cross-DB, but the
+--  cross-service-reference-by-UUID idea is identical).
+-- ============================================================
+\connect "dbname=aviqr_pms host=localhost user=aviqr password=aviqr_secret"
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- ── pms_room_types ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_room_types (
+    id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id       UUID         NOT NULL,
+    name           VARCHAR(255) NOT NULL,
+    description    TEXT,
+    max_occupancy  INTEGER      DEFAULT 2,
+    active         BOOLEAN      DEFAULT TRUE,
+    created_at     TIMESTAMP    DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pms_room_types_hotel ON pms_room_types (hotel_id);
+
+-- ── pms_rate_plans ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_rate_plans (
+    id                  UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id            UUID          NOT NULL,
+    room_type_id        UUID          NOT NULL,
+    name                VARCHAR(255)  NOT NULL,
+    base_rate           NUMERIC(10,2) NOT NULL,
+    cancellation_policy TEXT,
+    meal_plan           VARCHAR(20)   DEFAULT 'ROOM_ONLY',
+    active              BOOLEAN       DEFAULT TRUE,
+    created_at          TIMESTAMP     DEFAULT NOW()
+);
+-- Meal plan column (run on existing DBs — table pre-dates this milestone).
+ALTER TABLE pms_rate_plans ADD COLUMN IF NOT EXISTS meal_plan VARCHAR(20) DEFAULT 'ROOM_ONLY';
+CREATE INDEX IF NOT EXISTS idx_pms_rate_plans_room_type ON pms_rate_plans (room_type_id);
+
+-- ── pms_surcharges ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_surcharges (
+    id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id    UUID          NOT NULL,
+    name        VARCHAR(255)  NOT NULL,
+    value_type  VARCHAR(10)   NOT NULL,
+    value       NUMERIC(10,2) NOT NULL,
+    active      BOOLEAN       DEFAULT TRUE,
+    created_at  TIMESTAMP     DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pms_surcharges_hotel ON pms_surcharges (hotel_id);
+
+-- ── pms_discount_packages ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_discount_packages (
+    id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id    UUID          NOT NULL,
+    name        VARCHAR(255)  NOT NULL,
+    value_type  VARCHAR(10)   NOT NULL,
+    value       NUMERIC(10,2) NOT NULL,
+    active      BOOLEAN       DEFAULT TRUE,
+    created_at  TIMESTAMP     DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pms_discount_packages_hotel ON pms_discount_packages (hotel_id);
+
+-- ── pms_addons ────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_addons (
+    id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id    UUID          NOT NULL,
+    name        VARCHAR(255)  NOT NULL,
+    description TEXT,
+    price       NUMERIC(10,2) NOT NULL,
+    active      BOOLEAN       DEFAULT TRUE,
+    created_at  TIMESTAMP     DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pms_addons_hotel ON pms_addons (hotel_id);
+
+-- ── Dummy data — a surcharge, a discount, and two add-ons for Grand Palace ────
+INSERT INTO pms_surcharges (id, hotel_id, name, value_type, value) VALUES
+  ('d8000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'City Tax', 'FIXED', 100.00)
+ON CONFLICT DO NOTHING;
+INSERT INTO pms_discount_packages (id, hotel_id, name, value_type, value) VALUES
+  ('d9000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Early Bird 10%', 'PERCENT', 10.00)
+ON CONFLICT DO NOTHING;
+INSERT INTO pms_addons (id, hotel_id, name, description, price) VALUES
+  ('da000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Airport Pickup', 'One-way transfer from the airport', 800.00),
+  ('da000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Late Checkout', 'Checkout until 4 PM', 500.00)
+ON CONFLICT DO NOTHING;
+
+-- ── pms_vouchers ──────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_vouchers (
+    id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id       UUID          NOT NULL,
+    code           VARCHAR(50)   NOT NULL,
+    initial_value  NUMERIC(10,2) NOT NULL,
+    balance        NUMERIC(10,2) NOT NULL,
+    active         BOOLEAN       DEFAULT TRUE,
+    created_at     TIMESTAMP     DEFAULT NOW(),
+    UNIQUE (hotel_id, code)
+);
+CREATE INDEX IF NOT EXISTS idx_pms_vouchers_hotel ON pms_vouchers (hotel_id);
+
+-- ── pms_invoice_number_configs ────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_invoice_number_configs (
+    id                  UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id            UUID          NOT NULL UNIQUE,
+    prefix              VARCHAR(50)   DEFAULT '',
+    suffix              VARCHAR(50)   DEFAULT '',
+    next_sequence_value BIGINT        DEFAULT 1,
+    digits_to_sequence  INTEGER       DEFAULT 5
+);
+
+-- ── pms_invoices ──────────────────────────────────────────────
+-- invoice_number is only unique WITHIN a hotel (each hotel's InvoiceNumberConfig
+-- sequence starts at 1), so the uniqueness constraint must be composite with
+-- hotel_id — a bare UNIQUE on invoice_number collides as soon as a second hotel
+-- issues its own "00001".
+CREATE TABLE IF NOT EXISTS pms_invoices (
+    id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id        UUID          NOT NULL,
+    reservation_id  UUID          NOT NULL UNIQUE,
+    invoice_number  VARCHAR(100)  NOT NULL,
+    total_charges   NUMERIC(10,2) NOT NULL,
+    total_payments  NUMERIC(10,2) NOT NULL,
+    balance         NUMERIC(10,2) NOT NULL,
+    issued_at       TIMESTAMP     DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pms_invoices_hotel ON pms_invoices (hotel_id);
+-- Existing DBs may still carry the old global-unique constraint from before this fix.
+ALTER TABLE pms_invoices DROP CONSTRAINT IF EXISTS pms_invoices_invoice_number_key;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'pms_invoices_hotel_invoice_number_key') THEN
+        ALTER TABLE pms_invoices ADD CONSTRAINT pms_invoices_hotel_invoice_number_key UNIQUE (hotel_id, invoice_number);
+    END IF;
+END $$;
+
+-- ── pms_registration_cards — signed digital registration card (Form-C equivalent) ─
+CREATE TABLE IF NOT EXISTS pms_registration_cards (
+    id               UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id         UUID          NOT NULL,
+    reservation_id   UUID          NOT NULL UNIQUE,
+    guest_name       VARCHAR(200)  NOT NULL,
+    id_proof_type    VARCHAR(50),
+    id_proof_number  VARCHAR(100),
+    address          VARCHAR(500),
+    signature_data   TEXT,
+    signed_at        TIMESTAMP     DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pms_reg_cards_hotel ON pms_registration_cards (hotel_id);
+
+-- ── Dummy data — a voucher for Grand Palace ────────────────────────────────────
+INSERT INTO pms_vouchers (id, hotel_id, code, initial_value, balance) VALUES
+  ('db000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'WELCOME500', 500.00, 500.00)
+ON CONFLICT DO NOTHING;
+
+-- ── pms_day_prices (date-specific rate overrides + restrictions) ─────────────
+-- price is nullable: a date can carry only min/max-stay or CTA/CTD with no price
+-- override — see DayPrice.
+CREATE TABLE IF NOT EXISTS pms_day_prices (
+    id                   UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    rate_plan_id         UUID          NOT NULL,
+    date                 DATE          NOT NULL,
+    price                NUMERIC(10,2),
+    min_stay             INTEGER,
+    max_stay             INTEGER,
+    closed_to_arrival    BOOLEAN       DEFAULT FALSE,
+    closed_to_departure  BOOLEAN       DEFAULT FALSE,
+    UNIQUE (rate_plan_id, date)
+);
+-- Restriction columns + relaxed price (run on existing DBs — table pre-dates the
+-- rate-restrictions milestone; see RatePlanService.validateStay).
+ALTER TABLE pms_day_prices ALTER COLUMN price DROP NOT NULL;
+ALTER TABLE pms_day_prices ADD COLUMN IF NOT EXISTS min_stay INTEGER;
+ALTER TABLE pms_day_prices ADD COLUMN IF NOT EXISTS max_stay INTEGER;
+ALTER TABLE pms_day_prices ADD COLUMN IF NOT EXISTS closed_to_arrival BOOLEAN DEFAULT FALSE;
+ALTER TABLE pms_day_prices ADD COLUMN IF NOT EXISTS closed_to_departure BOOLEAN DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_pms_day_prices_plan ON pms_day_prices (rate_plan_id);
+
+-- ── pms_guests ────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_guests (
+    id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id         UUID         NOT NULL,
+    name             VARCHAR(255) NOT NULL,
+    phone            VARCHAR(20),
+    email            VARCHAR(255),
+    id_proof_type    VARCHAR(50),
+    id_proof_number  VARCHAR(100),
+    address          TEXT,
+    created_at       TIMESTAMP    DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pms_guests_hotel ON pms_guests (hotel_id, phone);
+ALTER TABLE pms_guests ADD COLUMN IF NOT EXISTS loyalty_points INTEGER DEFAULT 0;
+
+-- ── pms_loyalty_configs — one per hotel, points-per-stay earn/redemption rate ──
+CREATE TABLE IF NOT EXISTS pms_loyalty_configs (
+    id                      UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id                UUID          NOT NULL UNIQUE,
+    earn_rate_percent       NUMERIC(5,2)  DEFAULT 5,
+    redemption_value        NUMERIC(10,2) DEFAULT 1,
+    active                  BOOLEAN       DEFAULT TRUE
+);
+
+-- ── pms_dynamic_pricing_configs — one per hotel, occupancy-threshold surge/discount ─
+CREATE TABLE IF NOT EXISTS pms_dynamic_pricing_configs (
+    id                                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id                          UUID          NOT NULL UNIQUE,
+    high_occupancy_threshold          NUMERIC(5,2)  DEFAULT 80,
+    high_occupancy_surcharge_percent  NUMERIC(5,2)  DEFAULT 20,
+    low_occupancy_threshold           NUMERIC(5,2)  DEFAULT 30,
+    low_occupancy_discount_percent    NUMERIC(5,2)  DEFAULT 10,
+    active                            BOOLEAN       DEFAULT TRUE
+);
+
+-- ── pms_reservations ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_reservations (
+    id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id        UUID         NOT NULL,
+    guest_id        UUID,
+    group_id        UUID,
+    agent_id        UUID,
+    guest_name      VARCHAR(255),
+    guest_phone     VARCHAR(20),
+    check_in_date   DATE         NOT NULL,
+    check_out_date  DATE         NOT NULL,
+    adults          INTEGER      DEFAULT 1,
+    children        INTEGER      DEFAULT 0,
+    status          VARCHAR(20)  DEFAULT 'BOOKED',
+    source          VARCHAR(20)  DEFAULT 'DIRECT',
+    notes           TEXT,
+    created_by      VARCHAR(100),
+    created_at      TIMESTAMP    DEFAULT NOW(),
+    cancelled_at    TIMESTAMP,
+    pre_checked_in  BOOLEAN      DEFAULT FALSE,
+    pre_check_in_at TIMESTAMP
+);
+-- Group-booking / agent / contactless-checkin columns (run on existing DBs — table
+-- pre-dates those milestones).
+ALTER TABLE pms_reservations ADD COLUMN IF NOT EXISTS group_id UUID;
+ALTER TABLE pms_reservations ADD COLUMN IF NOT EXISTS agent_id UUID;
+ALTER TABLE pms_reservations ADD COLUMN IF NOT EXISTS pre_checked_in BOOLEAN DEFAULT FALSE;
+ALTER TABLE pms_reservations ADD COLUMN IF NOT EXISTS pre_check_in_at TIMESTAMP;
+CREATE INDEX IF NOT EXISTS idx_pms_reservations_hotel  ON pms_reservations (hotel_id, status);
+CREATE INDEX IF NOT EXISTS idx_pms_reservations_dates  ON pms_reservations (check_in_date, check_out_date);
+CREATE INDEX IF NOT EXISTS idx_pms_reservations_group  ON pms_reservations (group_id);
+CREATE INDEX IF NOT EXISTS idx_pms_reservations_agent  ON pms_reservations (agent_id);
+
+-- ── pms_room_reservations ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_room_reservations (
+    id                    UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    reservation_id        UUID          NOT NULL,
+    room_type_id          UUID          NOT NULL,
+    rate_plan_id          UUID,
+    room_id               UUID,
+    room_number           VARCHAR(20),
+    rate_per_night        NUMERIC(10,2),
+    actual_check_in_at    TIMESTAMP,
+    actual_check_out_at   TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_pms_room_res_reservation ON pms_room_reservations (reservation_id);
+CREATE INDEX IF NOT EXISTS idx_pms_room_res_room        ON pms_room_reservations (room_id);
+
+-- ── pms_folio_charges ─────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_folio_charges (
+    id                  UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    reservation_id      UUID          NOT NULL,
+    room_reservation_id UUID,
+    type                VARCHAR(20)   DEFAULT 'OTHER',
+    description         VARCHAR(500)  NOT NULL,
+    amount              NUMERIC(10,2) NOT NULL,
+    external_order_id   VARCHAR(100),
+    created_at          TIMESTAMP     DEFAULT NOW()
+);
+-- POS/room-charge column (run on existing DBs — table pre-dates the in-house-POS
+-- milestone; see OrderRoomChargeFolioConsumer, which uses it for delivery idempotency).
+ALTER TABLE pms_folio_charges ADD COLUMN IF NOT EXISTS external_order_id VARCHAR(100);
+CREATE INDEX IF NOT EXISTS idx_pms_folio_charges_reservation ON pms_folio_charges (reservation_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pms_folio_charges_order ON pms_folio_charges (external_order_id) WHERE external_order_id IS NOT NULL;
+
+-- ── pms_folio_payments ────────────────────────────────────────
+-- reservation_id is nullable: a group-level payment (group_id set instead) isn't
+-- attributable to any single member's stay — see FolioService.addGroupPayment.
+CREATE TABLE IF NOT EXISTS pms_folio_payments (
+    id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    reservation_id  UUID,
+    group_id        UUID,
+    method          VARCHAR(20)   NOT NULL,
+    amount          NUMERIC(10,2) NOT NULL,
+    reference       VARCHAR(100),
+    created_by      VARCHAR(100),
+    created_at      TIMESTAMP     DEFAULT NOW()
+);
+-- Group-booking columns (run on existing DBs — table pre-dates the group-bookings
+-- milestone; reservation_id was NOT NULL before, now relaxed for group payments).
+ALTER TABLE pms_folio_payments ADD COLUMN IF NOT EXISTS group_id UUID;
+ALTER TABLE pms_folio_payments ALTER COLUMN reservation_id DROP NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_pms_folio_payments_reservation ON pms_folio_payments (reservation_id);
+CREATE INDEX IF NOT EXISTS idx_pms_folio_payments_group       ON pms_folio_payments (group_id);
+
+-- ── pms_reservation_groups ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_reservation_groups (
+    id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id         UUID         NOT NULL,
+    name             VARCHAR(255) NOT NULL,
+    organizer_name   VARCHAR(255),
+    organizer_phone  VARCHAR(20),
+    organizer_email  VARCHAR(255),
+    check_in_date    DATE,
+    check_out_date   DATE,
+    notes            TEXT,
+    created_by       VARCHAR(100),
+    created_at       TIMESTAMP    DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pms_res_groups_hotel ON pms_reservation_groups (hotel_id);
+
+-- ── pms_agents ────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_agents (
+    id                  UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id            UUID          NOT NULL,
+    name                VARCHAR(255)  NOT NULL,
+    contact_person      VARCHAR(255),
+    phone               VARCHAR(20),
+    email               VARCHAR(255),
+    commission_percent  NUMERIC(5,2)  NOT NULL,
+    tds_percent         NUMERIC(5,2)  DEFAULT 0,
+    active              BOOLEAN       DEFAULT TRUE,
+    notes               TEXT,
+    created_at          TIMESTAMP     DEFAULT NOW()
+);
+-- TDS column (run on existing DBs — table pre-dates this milestone).
+ALTER TABLE pms_agents ADD COLUMN IF NOT EXISTS tds_percent NUMERIC(5,2) DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_pms_agents_hotel ON pms_agents (hotel_id);
+
+-- ── pms_reservation_commissions ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_reservation_commissions (
+    id                  UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id            UUID          NOT NULL,
+    reservation_id      UUID          NOT NULL,
+    agent_id            UUID          NOT NULL,
+    commission_percent  NUMERIC(5,2)  NOT NULL,
+    room_revenue        NUMERIC(10,2) NOT NULL,
+    commission_amount   NUMERIC(10,2) NOT NULL,
+    tds_percent         NUMERIC(5,2)  DEFAULT 0,
+    tds_amount          NUMERIC(10,2) DEFAULT 0,
+    net_payable         NUMERIC(10,2),
+    status              VARCHAR(20)   DEFAULT 'PENDING',
+    paid_at             TIMESTAMP,
+    paid_by             VARCHAR(100),
+    paid_reference      VARCHAR(100),
+    created_at          TIMESTAMP     DEFAULT NOW()
+);
+-- TDS columns (run on existing DBs — table pre-dates this milestone).
+ALTER TABLE pms_reservation_commissions ADD COLUMN IF NOT EXISTS tds_percent NUMERIC(5,2) DEFAULT 0;
+ALTER TABLE pms_reservation_commissions ADD COLUMN IF NOT EXISTS tds_amount NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE pms_reservation_commissions ADD COLUMN IF NOT EXISTS net_payable NUMERIC(10,2);
+CREATE INDEX IF NOT EXISTS idx_pms_commissions_hotel ON pms_reservation_commissions (hotel_id, status);
+CREATE INDEX IF NOT EXISTS idx_pms_commissions_agent ON pms_reservation_commissions (agent_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pms_commissions_reservation ON pms_reservation_commissions (reservation_id);
+
+-- ── Dummy data — a travel agent for Grand Palace Hotel ────────────────────────
+INSERT INTO pms_agents (id, hotel_id, name, contact_person, phone, email, commission_percent) VALUES
+  ('d7000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Wanderlust Travels', 'Kavya Reddy', '9845066778', 'kavya@wanderlusttravels.example', 12.00)
+ON CONFLICT DO NOTHING;
+
+-- ── Dummy data — room types & rate plans for Grand Palace Hotel ──
+-- Room type names match the roomType strings already seeded on aviqr_hotel's
+-- rooms table (Standard/Deluxe/Suite/Presidential) for hotel_id ccbe65f3-...
+INSERT INTO pms_room_types (id, hotel_id, name, description, max_occupancy) VALUES
+  ('d1000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Standard',     'Comfortable city-view room',        2),
+  ('d1000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Deluxe',       'Larger room with lounge seating',   3),
+  ('d1000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Suite',        'Separate living area, premium view',4),
+  ('d1000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Presidential', 'Top-floor suite with butler service',4)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_rate_plans (id, hotel_id, room_type_id, name, base_rate, cancellation_policy) VALUES
+  ('d2000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd1000001-0000-4000-8000-000000000001', 'Standard — Flexible',     3500.00, 'Free cancellation until 24h before check-in'),
+  ('d2000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd1000001-0000-4000-8000-000000000002', 'Deluxe — Flexible',       5500.00, 'Free cancellation until 24h before check-in'),
+  ('d2000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd1000001-0000-4000-8000-000000000003', 'Suite — Flexible',        9000.00, 'Free cancellation until 48h before check-in'),
+  ('d2000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd1000001-0000-4000-8000-000000000004', 'Presidential — Flexible', 18000.00, 'Non-refundable')
+ON CONFLICT DO NOTHING;
+
+-- ── Dummy data — a checked-in reservation matching room 101's existing
+-- OCCUPIED/Anjali Singh dummy data in aviqr_hotel, plus one upcoming BOOKED
+-- reservation for room 102 (currently VACANT there) ────────────────────────
+INSERT INTO pms_reservations (id, hotel_id, guest_name, guest_phone, check_in_date, check_out_date, adults, status, source, created_by) VALUES
+  ('d3000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Anjali Singh', '9800011122', '2026-06-15', '2026-06-17', 1, 'CHECKED_IN', 'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2'),
+  ('d3000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Karan Mehta',  '9800033344', '2026-07-01', '2026-07-03', 2, 'BOOKED',     'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_room_reservations (id, reservation_id, room_type_id, rate_plan_id, room_id, room_number, rate_per_night, actual_check_in_at) VALUES
+  ('d4000001-0000-4000-8000-000000000001', 'd3000001-0000-4000-8000-000000000001', 'd1000001-0000-4000-8000-000000000001', 'd2000001-0000-4000-8000-000000000001', 'ad1a22ff-c4cd-424a-84ad-505f8847c610', '101', 3500.00, NOW() - INTERVAL '1 day'),
+  ('d4000001-0000-4000-8000-000000000002', 'd3000001-0000-4000-8000-000000000002', 'd1000001-0000-4000-8000-000000000001', 'd2000001-0000-4000-8000-000000000001', 'c581c211-34b7-49c4-87aa-30c5f82ecd6f', '102', 3500.00, NULL)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_folio_charges (id, reservation_id, room_reservation_id, type, description, amount) VALUES
+  ('d5000001-0000-4000-8000-000000000001', 'd3000001-0000-4000-8000-000000000001', 'd4000001-0000-4000-8000-000000000001', 'ROOM', 'Room 101 (2 night(s))', 7000.00)
+ON CONFLICT DO NOTHING;
+
+
+-- ============================================================
+--  SECTION 19b — aviqr_pms: Channel Manager (v2.4)
+--  Room-type <-> OTA/channel-manager mappings, inbound-webhook
+--  idempotency, and a push/pull sync audit log.
+-- ============================================================
+
+-- ── pms_channel_mappings ──────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_channel_mappings (
+    id                    UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id              UUID          NOT NULL,
+    room_type_id          UUID          NOT NULL,
+    channel               VARCHAR(20)   NOT NULL,
+    external_property_id  VARCHAR(100)  NOT NULL,
+    external_room_type_id VARCHAR(100)  NOT NULL,
+    external_rate_plan_id VARCHAR(100),
+    webhook_secret        VARCHAR(64)   NOT NULL,
+    access_key            VARCHAR(255),
+    channel_id            VARCHAR(100),
+    cm_base_url           VARCHAR(500),
+    active                BOOLEAN       DEFAULT TRUE,
+    created_at            TIMESTAMP     DEFAULT NOW()
+);
+-- Real ARI-style channel-manager connection columns (run on existing DBs — table
+-- pre-dates the accept-booking/inventory-push milestone; see ChannelService).
+ALTER TABLE pms_channel_mappings ADD COLUMN IF NOT EXISTS access_key  VARCHAR(255);
+ALTER TABLE pms_channel_mappings ADD COLUMN IF NOT EXISTS channel_id  VARCHAR(100);
+ALTER TABLE pms_channel_mappings ADD COLUMN IF NOT EXISTS cm_base_url VARCHAR(500);
+CREATE INDEX IF NOT EXISTS idx_pms_channel_map_hotel  ON pms_channel_mappings (hotel_id);
+CREATE INDEX IF NOT EXISTS idx_pms_channel_map_lookup ON pms_channel_mappings (channel, external_property_id, external_room_type_id);
+CREATE INDEX IF NOT EXISTS idx_pms_channel_map_access ON pms_channel_mappings (access_key, external_property_id, external_room_type_id);
+
+-- ── pms_channel_bookings (webhook idempotency) ────────────────
+CREATE TABLE IF NOT EXISTS pms_channel_bookings (
+    id                   UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    channel              VARCHAR(20)   NOT NULL,
+    external_booking_id  VARCHAR(100)  NOT NULL,
+    reservation_id       UUID          NOT NULL,
+    created_at           TIMESTAMP     DEFAULT NOW(),
+    UNIQUE (channel, external_booking_id)
+);
+
+-- ── pms_channel_sync_logs ─────────────────────────────────────
+CREATE TABLE IF NOT EXISTS pms_channel_sync_logs (
+    id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    hotel_id    UUID          NOT NULL,
+    channel     VARCHAR(20)   NOT NULL,
+    direction   VARCHAR(10)   NOT NULL,
+    status      VARCHAR(10)   NOT NULL,
+    message     VARCHAR(2000),
+    created_at  TIMESTAMP     DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pms_channel_log_hotel ON pms_channel_sync_logs (hotel_id, created_at DESC);
+
+-- ── Dummy data — a Booking.com mapping for Grand Palace's Standard rooms ──────
+INSERT INTO pms_channel_mappings (id, hotel_id, room_type_id, channel, external_property_id, external_room_type_id, external_rate_plan_id, webhook_secret, active) VALUES
+  ('d6000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd1000001-0000-4000-8000-000000000001', 'BOOKING_COM', 'BDC-GRANDPALACE-01', 'BDC-STD', 'BDC-RATE-STD-FLEX', 'demo0secret0webhook0key0standard', TRUE)
+ON CONFLICT DO NOTHING;
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aviqr;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aviqr;

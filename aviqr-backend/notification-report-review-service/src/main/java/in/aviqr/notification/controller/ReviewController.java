@@ -50,6 +50,28 @@ public class ReviewController {
         return ResponseEntity.ok(ApiResponse.ok(service.menuItemSummary(menuItemId)));
     }
 
+    @GetMapping("/public/hotel/{hotelId}")
+    public ResponseEntity<ApiResponse<Page<ReviewResponse>>> byHotel(
+            @PathVariable String hotelId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort) {
+        return ResponseEntity.ok(ApiResponse.ok(service.byHotel(hotelId, pageable(page, size, sort))));
+    }
+
+    @GetMapping("/public/hotel/{hotelId}/summary")
+    public ResponseEntity<ApiResponse<RatingSummary>> hotelSummary(@PathVariable String hotelId) {
+        return ResponseEntity.ok(ApiResponse.ok(service.hotelSummary(hotelId)));
+    }
+
+    // A hotel guest reaches this from a post-checkout WhatsApp link with no AviQR
+    // login — same unauthenticated-but-reservationId-scoped trust level already used
+    // by the public contactless check-in flow, not a new pattern for this codebase.
+    @PostMapping("/public/hotel-stay")
+    public ResponseEntity<ApiResponse<ReviewResponse>> submitHotelStay(@Valid @RequestBody ReviewRequest req) {
+        return ResponseEntity.ok(ApiResponse.ok("Review submitted", service.submitHotelStay(req)));
+    }
+
     // ── Protected (customer must be authenticated via gateway) ───────────
     @PostMapping
     public ResponseEntity<ApiResponse<ReviewResponse>> submit(

@@ -156,7 +156,7 @@ export default function PortalHomeScreen() {
               </TouchableOpacity>
             </View>
           )}
-          contentContainerStyle={{ paddingTop: 4, paddingHorizontal: Spacing.base, paddingBottom: 100 }}
+          contentContainerStyle={{ paddingTop: 4, paddingHorizontal: Spacing.base, paddingBottom: 124 }}
         />
       ) : showingResults ? (
         <FlatList
@@ -166,7 +166,7 @@ export default function PortalHomeScreen() {
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={!searching ? <Text style={[ss.sub, { marginTop: 24 }]}>No restaurants found for "{search.trim()}".</Text> : null}
           renderItem={({ item }) => <ShopCard shop={item} onPress={() => openShop(item.id)} />}
-          contentContainerStyle={{ padding: Spacing.base, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: Spacing.base, paddingBottom: 124 }}
         />
       ) : status === 'denied' ? (
         <View style={[ss.screen, { paddingTop: 8 }]}>
@@ -183,7 +183,7 @@ export default function PortalHomeScreen() {
           keyExtractor={s => s.id}
           keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => <ShopCard shop={item} onPress={() => openShop(item.id)} />}
-          contentContainerStyle={{ padding: Spacing.base, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: Spacing.base, paddingBottom: 124 }}
         />
       )}
 

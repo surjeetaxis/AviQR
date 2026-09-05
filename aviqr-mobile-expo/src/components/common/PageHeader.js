@@ -2,12 +2,14 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Colors, FontSize, Spacing } from '../../theme/index.js';
 
-export function PageHeader({ title }) {
+export function PageHeader({ title, showBack = true }) {
   return (
     <View style={ss.header}>
-      <TouchableOpacity onPress={() => router.back()} style={ss.backBtn} accessibilityLabel="Go back">
-        <Text style={ss.backTxt}>←</Text>
-      </TouchableOpacity>
+      {showBack ? (
+        <TouchableOpacity onPress={() => router.back()} style={ss.backBtn} accessibilityLabel="Go back">
+          <Text style={ss.backTxt}>←</Text>
+        </TouchableOpacity>
+      ) : <View style={{ width: 36 }} />}
       <Text style={ss.title} numberOfLines={1}>{title}</Text>
       <View style={{ width: 36 }} />
     </View>

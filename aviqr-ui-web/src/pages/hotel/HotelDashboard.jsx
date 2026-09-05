@@ -1,19 +1,28 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { hotelApi, hotelOpsApi, hotelOutletApi, hotelAccessApi, reportApi } from '../../api/index.js';
+import { hotelApi, hotelOpsApi, hotelOutletApi, hotelAccessApi, reportApi, housekeepingApi, maintenanceApi, pmsApi, qrApi } from '../../api/index.js';
 import { LangPicker, useLang } from '../../components/shared/LangPicker.jsx';
 import { t } from '../../i18n/translations.js';
 import SubscriptionPage from '../../components/shared/SubscriptionPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
+import { TentTemplate, THEMES } from '../../components/shared/QrTemplates.jsx';
 import QRCode from 'qrcode';
+import { createPortal } from 'react-dom';
+import {
+  Overview as PmsOverview, ReservationsTab, GroupsTab, FrontDeskTab, FolioTab,
+  ChannelsTab, GuestsTab as PmsGuestsTab, ExtrasTab, AgentsTab, ReportsTab as PmsReportsTab,
+  RoomTypesTab, WaitlistTab, ChainTemplatesTab, ImportTab, ReviewsTab,
+} from '../pms/PmsDashboard.jsx';
 import {
   Hotel, BedDouble, UtensilsCrossed, Shirt, Sparkles, Wrench,
   Bell, BarChart2, Settings, LogOut, Menu as MenuIcon, CheckCircle2,
   Clock, AlertCircle, Plus, Edit2, Trash2, ToggleLeft, ToggleRight,
   Star, Phone, Save, X, Coffee, Car, RefreshCw, Store, UserCog, QrCode,
-  Users, Flower2, TrendingUp, Eye, Download, Printer, MapPin, Loader2
+  Users, Flower2, TrendingUp, Eye, Download, Printer, MapPin, Loader2,
+  CalendarCheck, DoorOpen, Receipt, UserCircle, Tag, Wifi, Briefcase, MessageSquare,
+  Hourglass, Building2, Upload,
 } from 'lucide-react';
 import '../admin/Admin.css';
 import './Hotel.css';
@@ -50,22 +59,49 @@ const ROOM_MENU = [
 ];
 
 const NAV = [
-  {key:'overview',    labelKey:'overview',         icon:BarChart2},
-  {key:'requests',    labelKey:'navGuestRequests',   icon:Bell, badge:3},
-  {key:'bookings',    labelKey:'bookings',         icon:Star},
-  {key:'guests',      labelKey:'guests',           icon:Users},
-  {key:'outlets',     labelKey:'outlets',          icon:Store},
-  {key:'hotelstaff',  labelKey:'navHotelStaff',      icon:UserCog},
-  {key:'rooms',       labelKey:'rooms',            icon:BedDouble},
-  {key:'roomservice', labelKey:'navRoomService',icon:UtensilsCrossed},
-  {key:'housekeeping',labelKey:'housekeeping',     icon:Sparkles},
-  {key:'laundry',     labelKey:'laundry',          icon:Shirt},
-  {key:'spa',         labelKey:'spa',              icon:Flower2},
-  {key:'maintenance', labelKey:'maintenance',      icon:Wrench},
-  {key:'qrmanagement',labelKey:'groupQR',    icon:QrCode},
-  {key:'reports',     labelKey:'reports',          icon:TrendingUp},
-  {key:'subscription',labelKey:'subscription',     icon:Star},
-  {key:'settings',    labelKey:'settings',         icon:Settings},
+  // ── Front Office (PMS core) ──────────────────────────────────────────────
+  {key:'overview',     group:'Front Office', labelKey:'overview',       icon:BarChart2},
+  {key:'reservations', group:'Front Office', label:'Reservations',      icon:CalendarCheck},
+  {key:'frontdesk',    group:'Front Office', label:'Front Desk',        icon:DoorOpen},
+  {key:'groups',       group:'Front Office', label:'Group Bookings',    icon:Users},
+  {key:'folio',        group:'Front Office', label:'Folio',             icon:Receipt},
+  {key:'waitlist',     group:'Front Office', label:'Waitlist',          icon:Hourglass},
+  {key:'guests',       group:'Front Office', label:'Guests',            icon:UserCircle},
+  {key:'reviews',      group:'Front Office', label:'Reviews',           icon:Star},
+
+  // ── Guest Services (QR-raised, in-stay) ──────────────────────────────────
+  {key:'requests',     group:'Guest Services', labelKey:'navGuestRequests', icon:Bell, badge:3},
+  {key:'roomservice',  group:'Guest Services', labelKey:'navRoomService',   icon:UtensilsCrossed},
+  {key:'housekeeping', group:'Guest Services', labelKey:'housekeeping',     icon:Sparkles},
+  {key:'laundry',      group:'Guest Services', labelKey:'laundry',          icon:Shirt},
+  {key:'spa',          group:'Guest Services', labelKey:'spa',              icon:Flower2},
+  {key:'maintenance',  group:'Guest Services', labelKey:'maintenance',      icon:Wrench},
+  {key:'messages',     group:'Guest Services', label:'Messages',            icon:MessageSquare},
+
+  // ── Inventory & Rates ─────────────────────────────────────────────────────
+  {key:'rooms',        group:'Inventory & Rates', labelKey:'rooms',           icon:BedDouble},
+  {key:'roomtypes',    group:'Inventory & Rates', label:'Room Types & Rates', icon:BedDouble},
+  {key:'extras',       group:'Inventory & Rates', label:'Surcharges, Discounts & Add-ons', icon:Tag},
+  {key:'import',       group:'Inventory & Rates', label:'Import Reservations', icon:Upload},
+
+  // ── Distribution ──────────────────────────────────────────────────────────
+  {key:'channels',     group:'Distribution', label:'Channel Manager',     icon:Wifi},
+  {key:'agents',       group:'Distribution', label:'Agents & Commission', icon:Briefcase},
+  {key:'chaintemplates', group:'Distribution', label:'Chain Rate Templates', icon:Building2},
+
+  // ── Operations ────────────────────────────────────────────────────────────
+  {key:'outlets',      group:'Operations', labelKey:'outlets',      icon:Store},
+  {key:'bookings',     group:'Operations', label:'Outlet Bookings', icon:Star},
+  {key:'qrmanagement', group:'Operations', labelKey:'groupQR',      icon:QrCode},
+  {key:'hotelstaff',   group:'Operations', labelKey:'navHotelStaff',icon:UserCog},
+
+  // ── Insights ──────────────────────────────────────────────────────────────
+  {key:'nightaudit',   group:'Insights', label:'Night Audit & Reports', icon:TrendingUp},
+  {key:'reports',      group:'Insights', labelKey:'reports',            icon:TrendingUp},
+
+  // ── Account ───────────────────────────────────────────────────────────────
+  {key:'subscription', group:'Account', labelKey:'subscription', icon:Star},
+  {key:'settings',     group:'Account', labelKey:'settings',     icon:Settings},
 ];
 
 const STATUS_CFG = {
@@ -90,6 +126,8 @@ const fmtBookingDate = (d) => {
   return isNaN(parsed) ? d : parsed.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 };
 
+function today() { return new Date().toISOString().slice(0, 10); }
+
 export default function HotelDashboard() {
   const { user, logout } = useAuth();
   const { lang } = useLang();
@@ -100,9 +138,25 @@ export default function HotelDashboard() {
   const [rooms, setRooms] = useState(INITIAL_ROOMS);
   const [roomFilter, setRoomFilter] = useState(null);
   const [hotelId, setHotelId] = useState(null);
+  const [hotelName, setHotelName] = useState('');
   const [bookings, setBookings] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+  // PMS-side state (reservations, rates, distribution) — same hotel, one dashboard
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [reservations, setReservations] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [agents, setAgents] = useState([]);
+  const [chainId, setChainId] = useState(null);
+  const [audit, setAudit] = useState(null);
+  const [selectedReservationId, setSelectedReservationId] = useState(null);
+
+  const loadRoomTypes = (hid) => pmsApi.listRoomTypes(hid).then(res => setRoomTypes(res.data.data || [])).catch(() => {});
+  const loadReservations = (hid) => pmsApi.listReservations(hid).then(res => setReservations(res.data.data || [])).catch(() => {});
+  const loadGroups = (hid) => pmsApi.listGroups(hid).then(res => setGroups(res.data.data || [])).catch(() => {});
+  const loadAgents = (hid) => pmsApi.listAgents(hid).then(res => setAgents(res.data.data || [])).catch(() => {});
+  const loadAudit = (hid) => pmsApi.nightAudit(hid, today()).then(res => setAudit(res.data.data)).catch(() => {});
+  const refreshReservations = () => { if (hotelId) { loadReservations(hotelId); loadAudit(hotelId); } };
 
   // Normalise a backend room_requests row (legacy) into the shape this UI renders
   const mapRoomRequest = (r) => ({
@@ -151,9 +205,17 @@ export default function HotelDashboard() {
     hotelApi.getMyHotels()
       .then(res => {
         const hotels = res.data.data || [];
-        const hid = hotels[0]?.id;
-        if (!hid) { setLoadingData(false); return; }
+        const h = hotels[0];
+        if (!h) { setLoadingData(false); return; }
+        const hid = h.id;
         setHotelId(hid);
+        setHotelName(h.name);
+        setChainId(h.chainId || null);
+        loadRoomTypes(hid);
+        loadReservations(hid);
+        loadGroups(hid);
+        loadAgents(hid);
+        loadAudit(hid);
         return Promise.allSettled([
           hotelApi.getRooms(hid),
           hotelApi.getRequests(hid, { status: 'new,preparing,confirmed' }),
@@ -203,30 +265,38 @@ export default function HotelDashboard() {
     Promise.resolve(hotelOpsApi.updateBooking(id, status)).catch(() => {});
   };
 
+  let lastGroup = null;
+
   return (
     <div className="admin-layout">
       <aside className={`admin-sidebar ${sidebarOpen?'open':''}`}>
         <div className="admin-sidebar-header">
           <div className="admin-brand">
             <Hotel size={18} style={{color:'#C4B5FD'}}/>
-            <span className="admin-brand-name">Avi<em>QR</em></span>
-            <span className="admin-role-tag hotel-tag">HOTEL</span>
+            <span className="admin-brand-name">Avi<em>QR</em> PMS</span>
           </div>
         </div>
         <div className="admin-user-card">
           <div className="admin-avatar" style={{background:'var(--purple)'}}>{user?.avatar||'GP'}</div>
           <div>
-            <div className="admin-user-name">{user?.hotelName||'Grand Palace Hotel'}</div>
-            <div className="admin-user-role">Hotel Owner · {rooms.length} rooms</div>
+            <div className="admin-user-name">{hotelName || user?.hotelName || 'Hotel'}</div>
+            <div className="admin-user-role">Hotel &amp; Resort PMS · {rooms.length} rooms</div>
           </div>
         </div>
         <nav className="admin-nav">
-          {NAV.map(n=>(
-            <button key={n.key} className={`admin-nav-item ${tab===n.key?'active':''}`} onClick={()=>{setTab(n.key);setSidebarOpen(false);}}>
-              <n.icon size={16}/> <span>{t(n.labelKey, lang)}</span>
-              {n.badge && <span className="support-nav-badge">{n.badge}</span>}
-            </button>
-          ))}
+          {NAV.map(n=>{
+            const showHeader = n.group !== lastGroup;
+            lastGroup = n.group;
+            return (
+              <div key={n.key}>
+                {showHeader && <div className="admin-nav-group-header">{n.group}</div>}
+                <button className={`admin-nav-item ${tab===n.key?'active':''}`} onClick={()=>{setTab(n.key);setSidebarOpen(false);}}>
+                  <n.icon size={16}/> <span>{n.label || t(n.labelKey, lang)}</span>
+                  {n.badge && <span className="support-nav-badge">{n.badge}</span>}
+                </button>
+              </div>
+            );
+          })}
         </nav>
         <div className="admin-sidebar-footer">
           <button className="admin-logout" onClick={()=>{logout();navigate('/')}}><LogOut size={14}/> {t('logout',lang)}</button>
@@ -236,7 +306,7 @@ export default function HotelDashboard() {
       <div className="admin-main">
         <header className="admin-topbar">
           <button className="admin-mobile-menu" onClick={()=>setSidebarOpen(o=>!o)}><MenuIcon size={20}/></button>
-          <span style={{fontWeight:700,fontSize:15}}>{user?.hotelName||'Grand Palace Hotel'}</span>
+          <span style={{fontWeight:700,fontSize:15}}>{hotelName || user?.hotelName || 'Hotel'}</span>
           <div style={{display:'flex',alignItems:'center',gap:10,marginLeft:'auto'}}>
             <LangPicker/>
             <ProfileMenu
@@ -248,26 +318,60 @@ export default function HotelDashboard() {
               items={[
                 { label:t('profileAndSettings', lang), icon:Settings, onClick:() => setTab('settings') },
                 ...(hotelId ? [{ label:'Preview guest page', icon:Eye, onClick:() => navigate(`/hotel-services/${hotelId}`) }] : []),
+                ...(hotelId ? [{ label:'Copy direct booking link', icon:BedDouble, onClick:() => {
+                  const url = `${window.location.origin}/book/${hotelId}`;
+                  navigator.clipboard?.writeText(url);
+                  alert('Direct booking page link copied — add it to your website:\n' + url);
+                } }] : []),
                 { label:t('onboardingGuide', lang), icon:Sparkles, onClick:() => navigate('/onboarding') },
               ]}
             />
           </div>
         </header>
         <main className="admin-content">
-          {tab==='overview'     && <HotelOverview rooms={rooms} requests={requests} bookings={bookings} onAdvance={advanceRequest} onNav={setTab}/>}
+          {/* ── Front Office (PMS) ── */}
+          {tab==='overview'     && <PmsOverview hotelName={hotelName} reservations={reservations} audit={audit} requests={requests} onNav={setTab}/>}
+          {tab==='reservations' && <ReservationsTab hotelId={hotelId} roomTypes={roomTypes} reservations={reservations} groups={groups} agents={agents}
+                                      onCreated={refreshReservations} onOpenFolio={(id)=>{setSelectedReservationId(id);setTab('folio');}}/>}
+          {tab==='frontdesk'    && <FrontDeskTab reservations={reservations} onChanged={refreshReservations}
+                                      onOpenFolio={(id)=>{setSelectedReservationId(id);setTab('folio');}}/>}
+          {tab==='groups'       && <GroupsTab hotelId={hotelId} groups={groups} onChange={()=>loadGroups(hotelId)} onReservationsChanged={refreshReservations}/>}
+          {tab==='folio'        && <FolioTab hotelId={hotelId} reservations={reservations} selectedId={selectedReservationId} onSelect={setSelectedReservationId}/>}
+          {tab==='waitlist'     && <WaitlistTab hotelId={hotelId} roomTypes={roomTypes}/>}
+          {tab==='guests'       && <PmsGuestsTab hotelId={hotelId}/>}
+          {tab==='reviews'      && <ReviewsTab hotelId={hotelId}/>}
+
+          {/* ── Guest Services (QR, in-stay) ── */}
           {tab==='requests'     && <AllRequests requests={roomFilter ? requests.filter(r=>r.room===roomFilter) : requests} onAdvance={advanceRequest} roomFilter={roomFilter} onClearFilter={()=>setRoomFilter(null)}/>}
-          {tab==='bookings'     && <BookingsView bookings={bookings} onUpdate={updateBooking}/>}
-          {tab==='guests'       && <GuestsPage rooms={rooms} bookings={bookings}/>}
-          {tab==='outlets'      && <OutletsPage hotelId={hotelId}/>}
-          {tab==='hotelstaff'   && <HotelStaffPage hotelId={hotelId}/>}
-          {tab==='rooms'        && <RoomsPage rooms={rooms} setRooms={setRooms} hotelId={hotelId} onNav={setTab} onRequestsFilter={setRoomFilter}/>}
           {tab==='roomservice'  && <RoomServiceMenu menu={ROOM_MENU}/>}
-          {tab==='housekeeping' && <HousekeepingPage requests={requests.filter(r=>r.service==='Housekeeping')} rooms={rooms}/>}
+          {tab==='housekeeping' && <HousekeepingPage requests={requests.filter(r=>r.service==='Housekeeping')} rooms={rooms} hotelId={hotelId}/>}
           {tab==='laundry'      && <ServicePage title="Laundry" requests={requests.filter(r=>r.service==='Laundry')} onAdvance={advanceRequest}/>}
           {tab==='spa'          && <SpaPage bookings={bookings} outlets={outlets} hotelId={hotelId} onUpdate={updateBooking}/>}
-          {tab==='maintenance'  && <ServicePage title="Maintenance" requests={requests.filter(r=>r.service==='Maintenance')} onAdvance={advanceRequest}/>}
-          {tab==='qrmanagement' && <QRManagementPage rooms={rooms} setRooms={setRooms} outlets={outlets} hotelId={hotelId} hotelName={user?.hotelName}/>}
+          {tab==='maintenance'  && <MaintenancePage requests={requests.filter(r=>r.service==='Maintenance')} rooms={rooms} hotelId={hotelId}/>}
+          {tab==='messages'     && <MessagesPage hotelId={hotelId}/>}
+
+          {/* ── Inventory & Rates ── */}
+          {tab==='rooms'        && <RoomsPage rooms={rooms} setRooms={setRooms} hotelId={hotelId} onNav={setTab} onRequestsFilter={setRoomFilter}/>}
+          {tab==='roomtypes'    && <RoomTypesTab hotelId={hotelId} roomTypes={roomTypes} onChange={()=>loadRoomTypes(hotelId)}/>}
+          {tab==='extras'       && <ExtrasTab hotelId={hotelId}/>}
+          {tab==='import'       && <ImportTab hotelId={hotelId} onImported={refreshReservations}/>}
+
+          {/* ── Distribution ── */}
+          {tab==='channels'     && <ChannelsTab hotelId={hotelId} roomTypes={roomTypes}/>}
+          {tab==='agents'       && <AgentsTab hotelId={hotelId} agents={agents} onChange={()=>loadAgents(hotelId)}/>}
+          {tab==='chaintemplates' && <ChainTemplatesTab chainId={chainId}/>}
+
+          {/* ── Operations ── */}
+          {tab==='outlets'      && <OutletsPage hotelId={hotelId}/>}
+          {tab==='bookings'     && <BookingsView bookings={bookings} onUpdate={updateBooking}/>}
+          {tab==='qrmanagement' && <QRManagementPage rooms={rooms} setRooms={setRooms} outlets={outlets} hotelId={hotelId} hotelName={hotelName}/>}
+          {tab==='hotelstaff'   && <HotelStaffPage hotelId={hotelId}/>}
+
+          {/* ── Insights ── */}
+          {tab==='nightaudit'   && <PmsReportsTab hotelId={hotelId} chainId={chainId}/>}
           {tab==='reports'      && <HotelReportsTab outlets={outlets} hotelId={hotelId}/>}
+
+          {/* ── Account ── */}
           {tab==='subscription' && <SubscriptionPage userRole="hotel" currentPlan="HOTEL_PRO"/>}
           {tab==='settings'     && <HotelSettings user={user} lang={lang} hotelId={hotelId}/>}
         </main>
@@ -286,108 +390,7 @@ function isToday(dateStr) {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
 }
 
-function HotelOverview({rooms,requests,bookings,onAdvance,onNav}) {
-  const { lang } = useLang();
-  const [billRoom, setBillRoom] = useState(null);
-  const occupied = rooms.filter(r=>r.status==='occupied');
-  const activeReqs = requests.filter(r=>r.status!=='done').length;
-  const urgentReqs = requests.filter(r=>r.priority==='high'&&r.status!=='done').length;
-  const inHouseGuests = occupied.filter(r=>r.guest);
-  const checkingOutToday = inHouseGuests.filter(r=>isToday(r.checkOut));
-  const checkingInToday = inHouseGuests.filter(r=>isToday(r.checkIn));
-  const upcomingBookingsToday = (bookings||[]).filter(b=>b.status!=='COMPLETED'&&b.status!=='CANCELLED');
-
-  return (
-    <div style={{display:'flex',flexDirection:'column',gap:20}}>
-      <div className="page-header">
-        <div><h1 className="page-title">{t('hotelOverview', lang)}</h1><p className="page-subtitle">{occupied.length}/{rooms.length} rooms occupied · live</p></div>
-        <button className="btn-refresh" onClick={()=>onNav('requests')}><Bell size={13}/> {activeReqs} active requests</button>
-      </div>
-      {urgentReqs>0&&<div className="support-alert-banner"><AlertCircle size={16}/><span><strong>{urgentReqs} urgent request{urgentReqs>1?'s':''}</strong> need immediate attention.</span><button className="support-alert-action" onClick={()=>onNav('requests')}>View all →</button></div>}
-      <div className="hotel-services-grid">
-        {[
-          {label:'Rooms occupied',value:`${occupied.length}/${rooms.length}`,icon:BedDouble,color:'green'},
-          {label:'Guests in-house',value:inHouseGuests.length,icon:Phone,color:'blue'},
-          {label:'Checking out today',value:checkingOutToday.length,icon:Clock,color:'amber'},
-          {label:'Active requests',value:activeReqs,icon:Bell,color:'amber'},
-          {label:'Maintenance open',value:requests.filter(r=>r.service==='Maintenance'&&r.status!=='done').length,icon:Wrench,color:'red'},
-        ].map(k=>(
-          <div key={k.label} className="admin-kpi-card">
-            <div className={`admin-kpi-icon icon-${k.color}`}><k.icon size={18}/></div>
-            <div className="admin-kpi-value">{k.value}</div>
-            <div className="admin-kpi-label">{k.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {checkingOutToday.length>0 && (
-        <div>
-          <div className="sub-section-header" style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Checking out today</div>
-          <div className="requests-list">
-            {checkingOutToday.map(r=>(
-              <div key={r.id} className="request-row">
-                <div className="req-room">Room {r.number}</div>
-                <div className="req-info">
-                  <div className="req-service">{r.guest}</div>
-                  <div className="req-item">{r.type} · {r.floor} · Out: {r.checkOut}</div>
-                </div>
-                <button className="req-action-btn" onClick={()=>setBillRoom(r)}>View bill</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div>
-        <div className="sub-section-header" style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Guests in-house ({inHouseGuests.length})</div>
-        {inHouseGuests.length===0 ? (
-          <div style={{textAlign:'center',padding:24,color:'var(--gray-400)',fontSize:13}}>No guests currently checked in.</div>
-        ) : (
-          <div className="admin-table-card">
-            <table className="admin-table">
-              <thead><tr><th>Guest</th><th>Room</th><th>Check-in</th><th>Check-out</th><th></th></tr></thead>
-              <tbody>
-                {inHouseGuests.map(r=>(
-                  <tr key={r.id}>
-                    <td style={{fontWeight:600}}>{r.guest}</td>
-                    <td>{r.number} · {r.type}</td>
-                    <td>{r.checkIn}</td>
-                    <td>{isToday(r.checkOut) ? <strong style={{color:'var(--amber,#B45309)'}}>{r.checkOut} · Today</strong> : r.checkOut}</td>
-                    <td><button className="btn-room-action" onClick={()=>setBillRoom(r)}>💳 Bill</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {(checkingInToday.length>0 || upcomingBookingsToday.length>0) && (
-        <div className="hotel-services-grid">
-          {checkingInToday.length>0 && (
-            <div className="admin-kpi-card">
-              <div className="admin-kpi-icon icon-green"><CheckCircle2 size={18}/></div>
-              <div className="admin-kpi-value">{checkingInToday.length}</div>
-              <div className="admin-kpi-label">Checking in today</div>
-            </div>
-          )}
-          {upcomingBookingsToday.length>0 && (
-            <div className="admin-kpi-card">
-              <div className="admin-kpi-icon icon-blue"><Star size={18}/></div>
-              <div className="admin-kpi-value">{upcomingBookingsToday.length}</div>
-              <div className="admin-kpi-label">Active outlet bookings</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      <AllRequests requests={requests.slice(0,4)} onAdvance={onAdvance} compact/>
-      {billRoom && <RoomBillModal room={billRoom} onClose={()=>setBillRoom(null)}/>}
-    </div>
-  );
-}
-
-function AllRequests({requests,onAdvance,compact,roomFilter,onClearFilter}) {
+export function AllRequests({requests,onAdvance,compact,roomFilter,onClearFilter}) {
   const { lang } = useLang();
   return (
     <div>
@@ -421,7 +424,7 @@ function AllRequests({requests,onAdvance,compact,roomFilter,onClearFilter}) {
   );
 }
 
-function BookingsView({bookings,onUpdate,compact}) {
+export function BookingsView({bookings,onUpdate,compact}) {
   const { lang } = useLang();
   const badge = (s) => {
     const map = {
@@ -458,56 +461,9 @@ function BookingsView({bookings,onUpdate,compact}) {
   );
 }
 
-function GuestsPage({rooms,bookings}) {
-  const { lang } = useLang();
-  const occupied = rooms.filter(r=>r.status==='occupied' && r.guest);
-  const checkingIn = occupied.filter(r=>isToday(r.checkIn));
-  const checkingOut = occupied.filter(r=>isToday(r.checkOut));
-  const activeBookings = (bookings||[]).filter(b=>b.status!=='COMPLETED'&&b.status!=='CANCELLED');
-
-  return (
-    <div>
-      <div className="page-header"><div><h1 className="page-title">{t('guests', lang)}</h1><p className="page-subtitle">{occupied.length} in-house · {checkingIn.length} checking in today · {checkingOut.length} checking out today</p></div></div>
-      <div className="admin-table-card">
-        <table className="admin-table">
-          <thead><tr><th>Guest</th><th>Room</th><th>Check-in</th><th>Check-out</th><th>Status</th></tr></thead>
-          <tbody>
-            {occupied.map(r=>(
-              <tr key={r.id}>
-                <td style={{fontWeight:600}}>{r.guest}</td>
-                <td>{r.number} · {r.type}</td>
-                <td>{isToday(r.checkIn) ? <strong style={{color:'var(--green-darker)'}}>{r.checkIn} · Today</strong> : r.checkIn}</td>
-                <td>{isToday(r.checkOut) ? <strong style={{color:'var(--amber,#B45309)'}}>{r.checkOut} · Today</strong> : r.checkOut}</td>
-                <td><span className="status-pill st-active"><CheckCircle2 size={11}/> In-house</span></td>
-              </tr>
-            ))}
-            {occupied.length===0 && <tr><td colSpan={5} style={{textAlign:'center',color:'var(--gray-400)',padding:24}}>No guests currently checked in.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-      {activeBookings.length>0 && (
-        <div style={{marginTop:20}}>
-          <div className="sub-section-header" style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Active outlet bookings</div>
-          <div className="requests-list">
-            {activeBookings.map(b=>(
-              <div key={b.id} className="request-row">
-                <div className="req-room">Room {b.roomNumber}</div>
-                <div className="req-info">
-                  <div className="req-service">{b.guestName || 'Guest'} · {b.outletName}</div>
-                  <div className="req-item">{b.serviceName} · {fmtBookingDate(b.bookingDate)} at {b.bookingTime}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 const OUTLET_TYPES = ['RESTAURANT','BAR','SPA','GYM','POOL','SHOP','ACTIVITY','BANQUET','KIDS_CLUB','BUSINESS_CENTER','LAUNDRY','CONCIERGE','OTHER'];
 
-function OutletsPage({hotelId}) {
+export function OutletsPage({hotelId}) {
   const { lang } = useLang();
   const navigate = useNavigate();
   const [outlets,setOutlets] = useState([]);
@@ -515,6 +471,7 @@ function OutletsPage({hotelId}) {
   const [showForm,setShowForm] = useState(false);
   const [form,setForm] = useState({name:'',outletType:'RESTAURANT',location:''});
   const [saving,setSaving] = useState(false);
+  const [liveOrdersOutlet,setLiveOrdersOutlet] = useState(null);
 
   const load = () => {
     if (!hotelId) { setLoading(false); return; }
@@ -594,11 +551,73 @@ function OutletsPage({hotelId}) {
                 <button className="btn-room-action" onClick={()=>navigate(`/hotel/outlets/${o.id}/dashboard`)}>⚙️ Manage</button>
                 <button className="btn-room-action" onClick={()=>toggleActive(o)}>{o.active?'Deactivate':'Activate'}</button>
                 <button className="btn-room-action" onClick={()=>hotelOutletApi.createQr(o.id).then(()=>alert('QR created')).catch(()=>alert('Could not create QR'))}><QrCode size={12}/> QR</button>
+                {o.shopId && <button className="btn-room-action" onClick={()=>setLiveOrdersOutlet(liveOrdersOutlet===o.id?null:o.id)}>🍽️ Live orders</button>}
                 <button className="btn-room-action admin-row-btn-danger" onClick={()=>remove(o)}><Trash2 size={12}/></button>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {liveOrdersOutlet && <LiveOrdersPanel outletId={liveOrdersOutlet} outletName={outlets.find(o=>o.id===liveOrdersOutlet)?.name} onClose={()=>setLiveOrdersOutlet(null)}/>}
+    </div>
+  );
+}
+
+const KOT_STATUS_CFG = {
+  NEW:        {label:'New',        cls:'req-new'},
+  PREPARING:  {label:'Preparing',  cls:'req-preparing'},
+  READY:      {label:'Ready',      cls:'req-confirmed'},
+  COMPLETED:  {label:'Completed',  cls:'req-done'},
+  CANCELLED:  {label:'Cancelled',  cls:'req-done'},
+};
+
+// Table assignment + KOT status, surfaced from order-qr-service via hotel-service's
+// OutletShopProxyController — no separate POS domain, just visibility into the
+// outlet's existing live order queue from the hotel side.
+function LiveOrdersPanel({outletId,outletName,onClose}) {
+  const [orders,setOrders] = useState([]);
+  const [loading,setLoading] = useState(true);
+
+  const load = () => {
+    setLoading(true);
+    hotelOutletApi.liveOrders(outletId)
+      .then(res => setOrders(res.data.data || []))
+      .catch(() => setOrders([]))
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, [outletId]);
+
+  return (
+    <div className="admin-table-card" style={{marginTop:16,padding:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+        <strong style={{fontSize:13}}>{outletName} — live kitchen queue</strong>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn-room-action" onClick={load}><RefreshCw size={12}/> Refresh</button>
+          <button className="btn-room-action" onClick={onClose}>Close</button>
+        </div>
+      </div>
+      {loading ? (
+        <p style={{textAlign:'center',color:'var(--gray-400)',padding:12}}>Loading…</p>
+      ) : (
+        <table className="admin-table">
+          <thead><tr><th>Order #</th><th>Table</th><th>Status</th><th>Items</th><th>Total</th></tr></thead>
+          <tbody>
+            {orders.map(o => {
+              const cfg = KOT_STATUS_CFG[o.status] || {label:o.status,cls:''};
+              return (
+                <tr key={o.id}>
+                  <td className="admin-td-shop">{o.orderNumber}</td>
+                  <td>{o.tableNumber || (o.roomNumber ? `Room ${o.roomNumber}` : '—')}</td>
+                  <td><span className={`req-status ${cfg.cls}`}>{cfg.label}</span></td>
+                  <td>{(o.items||[]).length}</td>
+                  <td>₹{Number(o.totalAmount).toLocaleString('en-IN')}</td>
+                </tr>
+              );
+            })}
+            {orders.length===0 && <tr><td colSpan={5} style={{textAlign:'center',color:'var(--gray-500)',padding:16}}>No live orders right now</td></tr>}
+          </tbody>
+        </table>
       )}
     </div>
   );
@@ -606,7 +625,7 @@ function OutletsPage({hotelId}) {
 
 const HOTEL_ROLES = ['GENERAL_MANAGER','OUTLET_MANAGER','STAFF'];
 
-function HotelStaffPage({hotelId}) {
+export function HotelStaffPage({hotelId}) {
   const { lang } = useLang();
   const [access,setAccess] = useState([]);
   const [loading,setLoading] = useState(true);
@@ -680,7 +699,7 @@ function HotelStaffPage({hotelId}) {
   );
 }
 
-function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
+export function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
   const { lang } = useLang();
   const [filter,setFilter] = useState('all');
   const [billRoom,setBillRoom] = useState(null);
@@ -795,23 +814,28 @@ function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
 function RoomQrModal({room,onClose}) {
   const { user } = useAuth();
   const [qrImg,setQrImg] = useState('');
-  const [targetUrl,setTargetUrl] = useState('');
+  const [qr,setQr] = useState(null); // { id, qrCode, targetUrl, scanCount }
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState('');
   const [designing,setDesigning] = useState(false);
+  const [regenerating,setRegenerating] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true);
     hotelApi.createRoomQr(room.id)
-      .then(res => setTargetUrl(res.data.data?.targetUrl || ''))
+      .then(res => setQr(res.data.data || null))
       .catch(() => setError('Could not generate QR code'))
       .finally(() => setLoading(false));
-  }, [room.id]);
+  };
+  useEffect(load, [room.id]);
+
+  const scanUrl = qr?.qrCode ? qrApi.redirectUrl(qr.qrCode) : qr?.targetUrl;
 
   useEffect(() => {
-    if (!targetUrl) return;
-    QRCode.toDataURL(targetUrl, { width: 400, margin: 2, color: { dark: '#0F172A', light: '#ffffff' } })
+    if (!scanUrl) return;
+    QRCode.toDataURL(scanUrl, { width: 400, margin: 2, color: { dark: '#0F172A', light: '#ffffff' } })
       .then(setQrImg).catch(() => {});
-  }, [targetUrl]);
+  }, [scanUrl]);
 
   const download = () => {
     if (!qrImg) return;
@@ -822,11 +846,20 @@ function RoomQrModal({room,onClose}) {
   };
 
   const copyLink = () => {
-    if (!targetUrl) return;
-    navigator.clipboard?.writeText(targetUrl).then(
-      () => alert(`Guest QR link copied:\n${targetUrl}`),
-      () => prompt('Copy this guest QR link:', targetUrl)
+    if (!scanUrl) return;
+    navigator.clipboard?.writeText(scanUrl).then(
+      () => alert(`Guest QR link copied:\n${scanUrl}`),
+      () => prompt('Copy this guest QR link:', scanUrl)
     );
+  };
+
+  const regenerate = () => {
+    if (!confirm('This creates a new QR code and permanently deactivates the current one — any printed copies of the old QR will stop working. Continue?')) return;
+    setRegenerating(true);
+    hotelApi.regenerateRoomQr(room.id)
+      .then(res => setQr(res.data.data || null))
+      .catch(() => alert('Could not regenerate QR code'))
+      .finally(() => setRegenerating(false));
   };
 
   return (
@@ -843,13 +876,19 @@ function RoomQrModal({room,onClose}) {
         ) : (
           <div style={{display:'flex',flexDirection:'column',gap:14,alignItems:'center'}}>
             {qrImg ? <img src={qrImg} alt="Room QR" style={{width:220,height:220,borderRadius:8}}/> : <div style={{width:220,height:220,background:'var(--gray-100)',borderRadius:8}}/>}
-            <div style={{fontSize:11.5,color:'var(--gray-400)',fontFamily:'monospace',wordBreak:'break-all'}}>{targetUrl}</div>
+            <div style={{fontSize:12,color:'var(--gray-500)',display:'flex',alignItems:'center',gap:5}}>
+              <Eye size={13}/> {(qr?.scanCount || 0).toLocaleString('en-IN')} scans
+            </div>
+            <div style={{fontSize:11.5,color:'var(--gray-400)',fontFamily:'monospace',wordBreak:'break-all'}}>{scanUrl}</div>
             <div style={{display:'flex',gap:8,width:'100%'}}>
               <button className="btn-refresh" style={{flex:1,justifyContent:'center'}} onClick={download}><Download size={14}/> Download</button>
               <button className="btn-refresh" style={{flex:1,justifyContent:'center'}} onClick={()=>window.print()}><Printer size={14}/> Print</button>
             </div>
             <button className="btn-room-action" style={{width:'100%'}} onClick={copyLink}>🔗 Copy Link</button>
             <button className="btn-room-action" style={{width:'100%'}} onClick={()=>setDesigning(true)}>🎨 Design Banner & Print</button>
+            <button className="btn-room-action" style={{width:'100%'}} onClick={regenerate} disabled={regenerating || !qr?.id}>
+              <RefreshCw size={13}/> {regenerating ? 'Regenerating…' : 'Regenerate QR'}
+            </button>
           </div>
         )}
       </div>
@@ -857,7 +896,7 @@ function RoomQrModal({room,onClose}) {
         <QrPosterStudio
           open={designing}
           onClose={()=>setDesigning(false)}
-          targetUrlOverride={targetUrl}
+          targetUrlOverride={scanUrl}
           nameDefault={`${user?.hotelName || 'Our Hotel'} — Room ${room.number}`}
           taglineDefault="Scan for Room Service · Enjoy your stay!"
         />
@@ -932,7 +971,7 @@ function RoomBillModal({room,onClose}) {
   );
 }
 
-function RoomServiceMenu({menu:initialMenu}) {
+export function RoomServiceMenu({menu:initialMenu}) {
   const { lang } = useLang();
   const [menu,setMenu] = useState(initialMenu);
   const [showAdd,setShowAdd] = useState(false);
@@ -1016,7 +1055,7 @@ function RoomServiceMenu({menu:initialMenu}) {
   );
 }
 
-function HousekeepingPage({requests,rooms}) {
+export function HousekeepingPage({requests,rooms,hotelId}) {
   const { lang } = useLang();
   // Was previously 4 hardcoded literal numbers unconnected to any real data
   // (always summed to 30 regardless of the hotel's actual room count). Rooms
@@ -1041,12 +1080,99 @@ function HousekeepingPage({requests,rooms}) {
           </div>
         ))}
       </div>
+      <h2 style={{fontSize:15,fontWeight:700,margin:'8px 0 12px'}}>Room-turnover cleaning tasks</h2>
+      <HousekeepingBoard hotelId={hotelId} rooms={rooms}/>
+      <h2 style={{fontSize:15,fontWeight:700,margin:'24px 0 12px'}}>Guest-raised housekeeping requests</h2>
       <AllRequests requests={requests} onAdvance={()=>{}} compact/>
     </div>
   );
 }
 
-function ServicePage({title,requests,onAdvance}) {
+const HK_TASK_CFG = {
+  PENDING:     { label:'Pending',      cls:'req-new' },
+  IN_PROGRESS: { label:'In progress',  cls:'req-preparing' },
+  DONE:        { label:'Cleaned',      cls:'req-confirmed' },
+  INSPECTED:   { label:'Inspected',    cls:'req-done' },
+};
+
+function HousekeepingBoard({hotelId,rooms}) {
+  const [tasks,setTasks] = useState([]);
+  const [showForm,setShowForm] = useState(false);
+  const [form,setForm] = useState({roomId:'',priority:'NORMAL',notes:''});
+
+  const load = () => { if (hotelId) housekeepingApi.list(hotelId).then(res=>setTasks(res.data.data||[])).catch(()=>{}); };
+  useEffect(load, [hotelId]);
+
+  const act = (fn) => fn.then(load).catch(()=>alert('Action failed'));
+
+  const raiseTask = async (e) => {
+    e.preventDefault();
+    if (!form.roomId) return;
+    try {
+      await housekeepingApi.markDirty(form.roomId, form.priority, form.notes);
+      setForm({roomId:'',priority:'NORMAL',notes:''});
+      setShowForm(false);
+      load();
+    } catch { alert('Could not create task'); }
+  };
+
+  return (
+    <div>
+      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
+        <button className="btn-room-action" onClick={()=>setShowForm(s=>!s)}><Plus size={12}/> Flag room dirty</button>
+      </div>
+      {showForm && (
+        <form onSubmit={raiseTask} className="admin-table-card" style={{padding:14,display:'flex',gap:8,flexWrap:'wrap',alignItems:'flex-end',marginBottom:14}}>
+          <select value={form.roomId} onChange={e=>setForm({...form,roomId:e.target.value})} style={{height:34,padding:'0 10px',borderRadius:8,border:'1px solid var(--gray-200)'}}>
+            <option value="">Room…</option>
+            {(rooms||[]).map(r=><option key={r.id} value={r.id}>{r.number}</option>)}
+          </select>
+          <select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})} style={{height:34,padding:'0 10px',borderRadius:8,border:'1px solid var(--gray-200)'}}>
+            <option value="NORMAL">Normal</option><option value="HIGH">High</option><option value="URGENT">Urgent</option>
+          </select>
+          <input placeholder="Notes (optional)" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} style={{height:34,padding:'0 10px',borderRadius:8,border:'1px solid var(--gray-200)',flex:1,minWidth:160}}/>
+          <button type="submit" className="btn-room-action">Create task</button>
+        </form>
+      )}
+      <div className="admin-table-card">
+        <table className="admin-table">
+          <thead><tr><th>Room</th><th>Status</th><th>Priority</th><th>Assigned to</th><th>Created</th><th></th></tr></thead>
+          <tbody>
+            {tasks.map(task=>{
+              const cfg = HK_TASK_CFG[task.status] || {label:task.status,cls:''};
+              return (
+                <tr key={task.id}>
+                  <td className="admin-td-shop">{task.roomNumber}</td>
+                  <td><span className={`req-status ${cfg.cls}`}>{cfg.label}</span></td>
+                  <td>{task.priority}</td>
+                  <td>
+                    {task.assignedTo || <em style={{color:'var(--gray-400)'}}>Unassigned</em>}
+                    {task.status==='PENDING' && (
+                      <button className="btn-room-action" style={{marginLeft:6}} onClick={()=>{
+                        const name = prompt('Assign to:'); if (name) act(housekeepingApi.assign(task.id,name));
+                      }}>Assign</button>
+                    )}
+                  </td>
+                  <td style={{fontSize:12}}>{new Date(task.createdAt).toLocaleString()}</td>
+                  <td style={{display:'flex',gap:6}}>
+                    {task.status==='PENDING'    && <button className="btn-room-action" onClick={()=>act(housekeepingApi.start(task.id))}>Start</button>}
+                    {task.status==='IN_PROGRESS'&& <button className="btn-room-action" onClick={()=>act(housekeepingApi.complete(task.id))}>Mark clean</button>}
+                    {task.status==='DONE'       && <button className="btn-room-action" onClick={()=>{
+                      const name = prompt('Inspected by:'); if (name) act(housekeepingApi.inspect(task.id,name));
+                    }}>Inspect</button>}
+                  </td>
+                </tr>
+              );
+            })}
+            {tasks.length===0 && <tr><td colSpan={6} style={{textAlign:'center',color:'var(--gray-500)',padding:20}}>No housekeeping tasks</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export function ServicePage({title,requests,onAdvance}) {
   return (
     <div>
       <div className="page-header"><h1 className="page-title">{title}</h1><p className="page-subtitle">{requests.filter(r=>r.status!=='done').length} active</p></div>
@@ -1055,7 +1181,175 @@ function ServicePage({title,requests,onAdvance}) {
   );
 }
 
-function SpaPage({bookings,outlets,hotelId,onUpdate}) {
+const MT_TASK_CFG = {
+  OPEN:        { label:'Open',         cls:'req-new' },
+  IN_PROGRESS: { label:'In progress',  cls:'req-preparing' },
+  DONE:        { label:'Resolved',     cls:'req-confirmed' },
+};
+
+export function MaintenancePage({requests,rooms,hotelId}) {
+  return (
+    <div>
+      <div className="page-header"><h1 className="page-title">Maintenance</h1><p className="page-subtitle">Staff-assignable work orders.</p></div>
+      <MaintenanceBoard hotelId={hotelId} rooms={rooms}/>
+      <h2 style={{fontSize:15,fontWeight:700,margin:'24px 0 12px'}}>Guest-raised maintenance requests</h2>
+      <AllRequests requests={requests} onAdvance={()=>{}} compact/>
+    </div>
+  );
+}
+
+export function MessagesPage({hotelId}) {
+  const [inbox,setInbox] = useState([]);
+  const [openRoom,setOpenRoom] = useState(null);
+  const [thread,setThread] = useState([]);
+  const [reply,setReply] = useState('');
+  const [sending,setSending] = useState(false);
+
+  const loadInbox = () => { if (hotelId) hotelOpsApi.messageInbox(hotelId).then(res=>setInbox(res.data.data||[])).catch(()=>{}); };
+  useEffect(loadInbox, [hotelId]);
+
+  const openThread = (room) => {
+    setOpenRoom(room);
+    hotelOpsApi.messageThread(hotelId, room).then(res=>{ setThread(res.data.data||[]); loadInbox(); }).catch(()=>{});
+  };
+
+  const sendReply = async (e) => {
+    e.preventDefault();
+    if (!reply.trim()) return;
+    setSending(true);
+    try {
+      await hotelOpsApi.replyToRoom(hotelId, openRoom, { message: reply });
+      setReply('');
+      openThread(openRoom);
+    } catch { alert('Could not send reply'); }
+    finally { setSending(false); }
+  };
+
+  return (
+    <div>
+      <div className="page-header"><h1 className="page-title">Messages</h1><p className="page-subtitle">Two-way messages with guests, by room.</p></div>
+      <div className="admin-table-card">
+        <table className="admin-table">
+          <thead><tr><th>Room</th><th>From</th><th>Last message</th><th>When</th><th></th></tr></thead>
+          <tbody>
+            {inbox.map(m=>(
+              <tr key={m.id}>
+                <td className="admin-td-shop">{m.roomNumber}</td>
+                <td>{m.sender==='GUEST' ? (m.guestName||'Guest') : 'Front Desk'}</td>
+                <td>{m.message}</td>
+                <td style={{fontSize:12}}>{new Date(m.createdAt).toLocaleString()}</td>
+                <td><button className="btn-room-action" onClick={()=>openThread(m.roomNumber)}>Open</button></td>
+              </tr>
+            ))}
+            {inbox.length===0 && <tr><td colSpan={5} style={{textAlign:'center',color:'var(--gray-500)',padding:20}}>No messages yet</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      {openRoom && (
+        <div className="admin-table-card" style={{padding:16,marginTop:16}}>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
+            <strong>Room {openRoom}</strong>
+            <button className="btn-room-action" onClick={()=>setOpenRoom(null)}>Close</button>
+          </div>
+          <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:300,overflowY:'auto',marginBottom:12}}>
+            {thread.map(m=>(
+              <div key={m.id} style={{alignSelf: m.sender==='STAFF' ? 'flex-end' : 'flex-start', maxWidth:'70%'}}>
+                <div style={{background: m.sender==='STAFF' ? 'var(--green-darker)' : 'var(--gray-100)', color: m.sender==='STAFF' ? '#fff' : '#111', padding:'8px 12px', borderRadius:10, fontSize:13}}>
+                  {m.message}
+                </div>
+                <div style={{fontSize:10,color:'var(--gray-400)',marginTop:2,textAlign: m.sender==='STAFF' ? 'right' : 'left'}}>{new Date(m.createdAt).toLocaleString()}</div>
+              </div>
+            ))}
+            {thread.length===0 && <div style={{textAlign:'center',color:'var(--gray-400)',fontSize:13,padding:12}}>No messages in this thread yet</div>}
+          </div>
+          <form onSubmit={sendReply} style={{display:'flex',gap:8}}>
+            <input placeholder="Type a reply…" value={reply} onChange={e=>setReply(e.target.value)} style={{height:34,padding:'0 10px',borderRadius:8,border:'1px solid var(--gray-200)',flex:1}}/>
+            <button type="submit" className="btn-room-action" style={{background:'var(--blue)',color:'#fff',border:'none'}} disabled={sending}>{sending?'Sending…':'Send'}</button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MaintenanceBoard({hotelId,rooms}) {
+  const [tasks,setTasks] = useState([]);
+  const [showForm,setShowForm] = useState(false);
+  const [form,setForm] = useState({roomId:'',title:'',priority:'NORMAL',notes:''});
+
+  const load = () => { if (hotelId) maintenanceApi.list(hotelId).then(res=>setTasks(res.data.data||[])).catch(()=>{}); };
+  useEffect(load, [hotelId]);
+
+  const act = (fn) => fn.then(load).catch(()=>alert('Action failed'));
+
+  const raiseTask = async (e) => {
+    e.preventDefault();
+    if (!form.title.trim()) return;
+    try {
+      await maintenanceApi.raise(hotelId, form.roomId || null, form.title, form.notes, form.priority);
+      setForm({roomId:'',title:'',priority:'NORMAL',notes:''});
+      setShowForm(false);
+      load();
+    } catch { alert('Could not create task'); }
+  };
+
+  return (
+    <div>
+      <div style={{display:'flex',justifyContent:'flex-end',marginBottom:10}}>
+        <button className="btn-room-action" onClick={()=>setShowForm(s=>!s)}><Plus size={12}/> Raise work order</button>
+      </div>
+      {showForm && (
+        <form onSubmit={raiseTask} className="admin-table-card" style={{padding:14,display:'flex',gap:8,flexWrap:'wrap',alignItems:'flex-end',marginBottom:14}}>
+          <select value={form.roomId} onChange={e=>setForm({...form,roomId:e.target.value})} style={{height:34,padding:'0 10px',borderRadius:8,border:'1px solid var(--gray-200)'}}>
+            <option value="">Room (optional)…</option>
+            {(rooms||[]).map(r=><option key={r.id} value={r.id}>{r.number}</option>)}
+          </select>
+          <input placeholder="Title (e.g. Lobby AC not cooling)" value={form.title} onChange={e=>setForm({...form,title:e.target.value})} style={{height:34,padding:'0 10px',borderRadius:8,border:'1px solid var(--gray-200)',flex:1,minWidth:180}}/>
+          <select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})} style={{height:34,padding:'0 10px',borderRadius:8,border:'1px solid var(--gray-200)'}}>
+            <option value="NORMAL">Normal</option><option value="HIGH">High</option><option value="URGENT">Urgent</option>
+          </select>
+          <input placeholder="Notes (optional)" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} style={{height:34,padding:'0 10px',borderRadius:8,border:'1px solid var(--gray-200)',flex:1,minWidth:160}}/>
+          <button type="submit" className="btn-room-action">Create work order</button>
+        </form>
+      )}
+      <div className="admin-table-card">
+        <table className="admin-table">
+          <thead><tr><th>Title</th><th>Room</th><th>Status</th><th>Priority</th><th>Assigned to</th><th>Created</th><th></th></tr></thead>
+          <tbody>
+            {tasks.map(task=>{
+              const cfg = MT_TASK_CFG[task.status] || {label:task.status,cls:''};
+              return (
+                <tr key={task.id}>
+                  <td className="admin-td-shop">{task.title}</td>
+                  <td>{task.roomNumber || <em style={{color:'var(--gray-400)'}}>—</em>}</td>
+                  <td><span className={`req-status ${cfg.cls}`}>{cfg.label}</span></td>
+                  <td>{task.priority}</td>
+                  <td>
+                    {task.assignedTo || <em style={{color:'var(--gray-400)'}}>Unassigned</em>}
+                    {task.status==='OPEN' && (
+                      <button className="btn-room-action" style={{marginLeft:6}} onClick={()=>{
+                        const name = prompt('Assign to:'); if (name) act(maintenanceApi.assign(task.id,name));
+                      }}>Assign</button>
+                    )}
+                  </td>
+                  <td style={{fontSize:12}}>{new Date(task.createdAt).toLocaleString()}</td>
+                  <td style={{display:'flex',gap:6}}>
+                    {task.status==='OPEN'        && <button className="btn-room-action" onClick={()=>act(maintenanceApi.start(task.id))}>Start</button>}
+                    {task.status==='IN_PROGRESS' && <button className="btn-room-action" onClick={()=>act(maintenanceApi.complete(task.id))}>Mark done</button>}
+                  </td>
+                </tr>
+              );
+            })}
+            {tasks.length===0 && <tr><td colSpan={7} style={{textAlign:'center',color:'var(--gray-500)',padding:20}}>No maintenance work orders</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export function SpaPage({bookings,outlets,hotelId,onUpdate}) {
   const { lang } = useLang();
   // Don't rely solely on the parent's one-shot outlets fetch (loaded once on
   // dashboard mount, no retry) — refetch independently, same pattern as
@@ -1082,7 +1376,7 @@ function SpaPage({bookings,outlets,hotelId,onUpdate}) {
   );
 }
 
-function QRManagementPage({rooms,setRooms,outlets,hotelId,hotelName}) {
+export function QRManagementPage({rooms,setRooms,outlets,hotelId,hotelName}) {
   const { lang } = useLang();
   const navigate = useNavigate();
   const toggleRoomQR = (room) => {
@@ -1113,23 +1407,9 @@ function QRManagementPage({rooms,setRooms,outlets,hotelId,hotelName}) {
       <div className="sub-section-header" style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Main Hotel QR</div>
       <HotelQR hotelId={hotelId} hotelName={hotelName}/>
 
-      <div className="sub-section-header" style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Rooms</div>
-      <div className="admin-table-card" style={{marginBottom:20}}>
-        <table className="admin-table">
-          <thead><tr><th>Room</th><th>Type</th><th>Floor</th><th>QR Active</th></tr></thead>
-          <tbody>
-            {rooms.map(r=>(
-              <tr key={r.id}>
-                <td style={{fontWeight:600}}>Room {r.number}</td>
-                <td>{r.type}</td>
-                <td>{r.floor}</td>
-                <td><button className={`toggle-btn ${r.qrActive?'toggle-on':'toggle-off'}`} onClick={()=>toggleRoomQR(r)}>{r.qrActive?<ToggleRight size={18}/>:<ToggleLeft size={18}/>}</button></td>
-              </tr>
-            ))}
-            {rooms.length===0 && <tr><td colSpan={4} style={{textAlign:'center',color:'var(--gray-400)',padding:20}}>No rooms yet.</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <RoomQrGrid rooms={rooms} hotelId={hotelId} hotelName={hotelName} toggleRoomQR={toggleRoomQR}/>
+
+      <QrScanAnalytics hotelId={hotelId}/>
 
       <div className="sub-section-header" style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Outlets</div>
       <div className="admin-table-card">
@@ -1156,25 +1436,366 @@ function QRManagementPage({rooms,setRooms,outlets,hotelId,hotelName}) {
   );
 }
 
+// Card grid for every room's QR — one list call (getHotelQrCodes) instead of a
+// find-or-create round trip per room, plus a "Generate missing" and a batch
+// tent-card print flow so front-office isn't stuck opening RoomQrModal one
+// room at a time for a whole floor/property.
+function RoomQrGrid({ rooms, hotelId, hotelName, toggleRoomQR }) {
+  const [qrMap, setQrMap] = useState({});       // roomNumber -> qr row from qr-service
+  const [qrImgs, setQrImgs] = useState({});     // roomNumber -> thumbnail data-URL
+  const [loadingList, setLoadingList] = useState(true);
+  const [qrRoom, setQrRoom] = useState(null);
+  const [generatingAll, setGeneratingAll] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
+
+  const loadList = () => {
+    if (!hotelId) return;
+    setLoadingList(true);
+    hotelApi.getHotelQrCodes(hotelId)
+      .then(res => {
+        const map = {};
+        // The list has no guaranteed order, and a regenerated room keeps its
+        // deactivated old row (for scan history) alongside the new one — sort
+        // by createdAt first so the newest row per room always wins the map.
+        (res.data.data || [])
+          .filter(q => q.type === 'HOTEL_ROOM')
+          .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+          .forEach(q => { map[q.groupParam] = q; });
+        setQrMap(map);
+        setQrImgs({});
+      })
+      .catch(() => {})
+      .finally(() => setLoadingList(false));
+  };
+  useEffect(loadList, [hotelId]);
+
+  useEffect(() => {
+    Object.entries(qrMap).forEach(([roomNumber, qr]) => {
+      if (qrImgs[roomNumber] || !qr.qrCode) return;
+      QRCode.toDataURL(qrApi.redirectUrl(qr.qrCode), { width: 160, margin: 1, color: { dark: '#0F172A', light: '#ffffff' } })
+        .then(img => setQrImgs(prev => ({ ...prev, [roomNumber]: img })))
+        .catch(() => {});
+    });
+  }, [qrMap]);
+
+  const missingRooms = rooms.filter(r => !qrMap[r.number]);
+  const totalScans = Object.values(qrMap).reduce((n, q) => n + (q.scanCount || 0), 0);
+
+  const generateAll = async () => {
+    if (missingRooms.length === 0) return;
+    setGeneratingAll(true);
+    try {
+      await Promise.all(missingRooms.map(r => hotelApi.createRoomQr(r.id)));
+      loadList();
+    } catch { alert('Some QR codes could not be generated'); }
+    finally { setGeneratingAll(false); }
+  };
+
+  return (
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8,marginBottom:8}}>
+        <div className="sub-section-header" style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em'}}>
+          Rooms {totalScans > 0 && `· ${totalScans.toLocaleString('en-IN')} total scans`}
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          {missingRooms.length > 0 && (
+            <button className="btn btn-secondary" onClick={generateAll} disabled={generatingAll}>
+              {generatingAll ? 'Generating…' : `Generate ${missingRooms.length} missing QR${missingRooms.length===1?'':'s'}`}
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={()=>setBatchOpen(true)} disabled={rooms.length===0}>
+            <Printer size={13}/> Batch Print All Rooms
+          </button>
+        </div>
+      </div>
+
+      {loadingList ? (
+        <div className="admin-table-card" style={{padding:24,textAlign:'center',color:'var(--gray-400)',fontSize:13,marginBottom:20}}>Loading room QR codes…</div>
+      ) : rooms.length === 0 ? (
+        <div className="admin-table-card" style={{padding:20,textAlign:'center',color:'var(--gray-400)',marginBottom:20}}>No rooms yet.</div>
+      ) : (
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))',gap:12,marginBottom:20}}>
+          {rooms.map(r => {
+            const qr = qrMap[r.number];
+            return (
+              <div key={r.id} className="admin-chart-card" style={{padding:12,display:'flex',flexDirection:'column',gap:8,alignItems:'center',textAlign:'center'}}>
+                <div style={{width:88,height:88,background:'var(--gray-100)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',cursor:'pointer'}} onClick={()=>setQrRoom(r)}>
+                  {qrImgs[r.number]
+                    ? <img src={qrImgs[r.number]} alt={`Room ${r.number} QR`} width={88} height={88}/>
+                    : <QrCode size={28} color="var(--gray-400)"/>}
+                </div>
+                <div style={{fontWeight:700,fontSize:13}}>Room {r.number}</div>
+                <div style={{fontSize:11,color:'var(--gray-400)'}}>{r.type}</div>
+                {qr && (
+                  <div style={{fontSize:11,color:'var(--gray-500)',display:'flex',alignItems:'center',gap:4}}>
+                    <Eye size={11}/> {(qr.scanCount||0).toLocaleString('en-IN')} scans
+                  </div>
+                )}
+                <button className={`toggle-btn ${r.qrActive?'toggle-on':'toggle-off'}`} onClick={()=>toggleRoomQR(r)}>
+                  {r.qrActive?<ToggleRight size={16}/>:<ToggleLeft size={16}/>}
+                </button>
+                <button className="btn-room-action" style={{width:'100%'}} onClick={()=>setQrRoom(r)}>
+                  {qr ? 'Manage QR' : 'Generate QR'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {qrRoom && <RoomQrModal room={qrRoom} onClose={()=>{ setQrRoom(null); loadList(); }}/>}
+      {batchOpen && <BatchRoomQrPrint rooms={rooms} qrMap={qrMap} hotelName={hotelName} onClose={()=>{ setBatchOpen(false); loadList(); }}/>}
+    </div>
+  );
+}
+
+// Scans-over-time trend, most-scanned rooms, and a recent-activity log — reads
+// the qr-service scan data that resolveAndTrack has been writing all along but
+// nothing previously surfaced (only running totals per QR were shown before).
+function QrScanAnalytics({ hotelId }) {
+  const [trend, setTrend] = useState([]);
+  const [byRoom, setByRoom] = useState([]);
+  const [recent, setRecent] = useState([]);
+  const [days, setDays] = useState(14);
+  const [loading, setLoading] = useState(true);
+
+  const load = () => {
+    if (!hotelId) return;
+    setLoading(true);
+    Promise.all([
+      hotelApi.qrScanTrend(hotelId, days).then(r => r.data.data || []).catch(() => []),
+      hotelApi.qrScansByRoom(hotelId).then(r => r.data.data || []).catch(() => []),
+      hotelApi.qrRecentScans(hotelId, 20).then(r => r.data.data || []).catch(() => []),
+    ]).then(([t, r, rec]) => { setTrend(t); setByRoom(r); setRecent(rec); })
+      .finally(() => setLoading(false));
+  };
+  useEffect(load, [hotelId, days]);
+
+  const totalInPeriod = trend.reduce((n, d) => n + Number(d.count || 0), 0);
+  const maxCount = Math.max(1, ...trend.map(d => Number(d.count || 0)));
+  const hasRoomScans = byRoom.some(r => Number(r.total || 0) > 0);
+
+  const deviceLabel = (ua) => {
+    if (!ua) return 'Unknown device';
+    if (/ipad/i.test(ua)) return '📱 iPad';
+    if (/iphone/i.test(ua)) return '📱 iPhone';
+    if (/android/i.test(ua)) return '📱 Android';
+    if (/windows/i.test(ua)) return '💻 Windows';
+    if (/macintosh/i.test(ua)) return '💻 Mac';
+    return '🖥️ Other';
+  };
+
+  return (
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+        <div className="sub-section-header" style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em'}}>
+          Scan Analytics
+        </div>
+        <select className="form-input" style={{width:150}} value={days} onChange={e=>setDays(Number(e.target.value))}>
+          <option value={7}>Last 7 days</option>
+          <option value={14}>Last 14 days</option>
+          <option value={30}>Last 30 days</option>
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="admin-table-card" style={{padding:24,textAlign:'center',color:'var(--gray-400)',fontSize:13,marginBottom:20}}>Loading scan analytics…</div>
+      ) : (
+        <div style={{display:'grid',gridTemplateColumns:'1.3fr 1fr',gap:16,marginBottom:16}}>
+          <div className="admin-chart-card">
+            <div style={{fontSize:12,color:'var(--gray-500)',marginBottom:10}}>
+              {totalInPeriod.toLocaleString('en-IN')} scans in the last {days} days
+            </div>
+            {trend.length === 0 ? (
+              <div style={{fontSize:13,color:'var(--gray-400)',padding:'20px 0',textAlign:'center'}}>No scans in this period.</div>
+            ) : (
+              <div style={{display:'flex',alignItems:'flex-end',gap:4,height:110}}>
+                {trend.map(d => (
+                  <div key={d.day} title={`${d.day}: ${d.count} scans`} style={{flex:1,display:'flex',alignItems:'flex-end',justifyContent:'center',height:'100%'}}>
+                    <div style={{width:'100%',maxWidth:24,background:'var(--blue)',borderRadius:'3px 3px 0 0',height:`${Math.max(4,(Number(d.count)/maxCount)*100)}%`}}/>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="admin-table-card" style={{padding:0}}>
+            <table className="admin-table">
+              <thead><tr><th>Room</th><th>Total scans</th></tr></thead>
+              <tbody>
+                {hasRoomScans
+                  ? byRoom.filter(r => Number(r.total || 0) > 0).map(r => (
+                      <tr key={r.groupParam}>
+                        <td style={{fontWeight:600}}>{r.label || `Room ${r.groupParam}`}</td>
+                        <td>{Number(r.total).toLocaleString('en-IN')}</td>
+                      </tr>
+                    ))
+                  : <tr><td colSpan={2} style={{textAlign:'center',color:'var(--gray-400)',padding:20}}>No room scans yet.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {!loading && recent.length > 0 && (
+        <div className="admin-table-card" style={{marginBottom:20}}>
+          <table className="admin-table">
+            <thead><tr><th>When</th><th>QR</th><th>Device</th></tr></thead>
+            <tbody>
+              {recent.map((s, i) => (
+                <tr key={i}>
+                  <td>{new Date(s.scannedAt).toLocaleString('en-IN')}</td>
+                  <td>{s.type === 'HOTEL' ? 'Main Hotel QR' : (s.label || `Room ${s.groupParam}`)}</td>
+                  <td>{deviceLabel(s.userAgent)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Generates (find-or-create for any room missing one) + prints a tent card for
+// every room in one job — mirrors the shop side's Batch Print tab (QRCodes.jsx),
+// reusing the same TentTemplate/THEMES and print portal/CSS.
+function BatchRoomQrPrint({ rooms, qrMap, hotelName, onClose }) {
+  const [theme, setTheme] = useState('green');
+  const [tagline, setTagline] = useState('Scan for Room Service · Enjoy your stay!');
+  const [wifiOn, setWifiOn] = useState(false);
+  const [wifiName, setWifiName] = useState('');
+  const [wifiPass, setWifiPass] = useState('');
+  const [contactOn, setContactOn] = useState(false);
+  const [contactPhone, setContactPhone] = useState('');
+  const [preparing, setPreparing] = useState(true);
+  const [cards, setCards] = useState([]); // [{ number, img }]
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setPreparing(true);
+      let map = qrMap;
+      const missing = rooms.filter(r => !map[r.number]);
+      if (missing.length) {
+        const created = await Promise.all(missing.map(r =>
+          hotelApi.createRoomQr(r.id).then(res => [r.number, res.data.data]).catch(() => null)));
+        map = { ...map };
+        created.forEach(pair => { if (pair) map[pair[0]] = pair[1]; });
+      }
+      const imgs = await Promise.all(rooms.map(async r => {
+        const qr = map[r.number];
+        if (!qr?.qrCode) return null;
+        const img = await QRCode.toDataURL(qrApi.redirectUrl(qr.qrCode), { width: 300, margin: 2, color: { dark: THEMES[theme].qrDark, light: '#ffffff' } });
+        return { number: r.number, img };
+      }));
+      if (!cancelled) { setCards(imgs.filter(Boolean)); setPreparing(false); }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme]);
+
+  const design = {
+    theme, shopName: hotelName || 'Our Hotel', tagline, subLabel: 'Room',
+    discountOn: false, newItemOn: false, wifiOn, wifiName, wifiPass,
+    contactOn, contactPhone, contactAddress: '', contactWebsite: '',
+    footerOn: true, footerText: 'Enjoy your stay!',
+  };
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={onClose}>
+      <div className="admin-chart-card" style={{maxWidth:760,width:'92%',maxHeight:'88vh',overflow:'auto'}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <div style={{fontWeight:800,fontSize:16}}>Batch Print — All Room QR Codes ({rooms.length})</div>
+          <button onClick={onClose} style={{background:'var(--gray-100)',border:'none',borderRadius:8,padding:6,cursor:'pointer'}}><X size={18}/></button>
+        </div>
+
+        <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:12}}>
+          <div className="form-field">
+            <label className="form-label">Theme</label>
+            <select className="form-input" value={theme} onChange={e=>setTheme(e.target.value)}>
+              {Object.entries(THEMES).map(([k,v]) => <option key={k} value={k}>{v.name}</option>)}
+            </select>
+          </div>
+          <div className="form-field" style={{flex:1,minWidth:200}}>
+            <label className="form-label">Tagline</label>
+            <input className="form-input" value={tagline} onChange={e=>setTagline(e.target.value)}/>
+          </div>
+        </div>
+
+        <div style={{display:'flex',gap:16,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
+          <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}>
+            <input type="checkbox" checked={wifiOn} onChange={e=>setWifiOn(e.target.checked)}/> 📶 WiFi details
+          </label>
+          {wifiOn && <>
+            <input className="form-input" style={{width:140}} placeholder="Network name" value={wifiName} onChange={e=>setWifiName(e.target.value)}/>
+            <input className="form-input" style={{width:140}} placeholder="Password" value={wifiPass} onChange={e=>setWifiPass(e.target.value)}/>
+          </>}
+          <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13}}>
+            <input type="checkbox" checked={contactOn} onChange={e=>setContactOn(e.target.checked)}/> 📞 Room service number
+          </label>
+          {contactOn && <input className="form-input" style={{width:180}} placeholder="e.g. Dial 0 for reception" value={contactPhone} onChange={e=>setContactPhone(e.target.value)}/>}
+        </div>
+
+        {preparing ? (
+          <div style={{padding:32,textAlign:'center',color:'var(--gray-400)'}}>Generating {rooms.length} QR codes…</div>
+        ) : (
+          <>
+            <div className="qrd-batch-preview-grid">
+              {cards.map(c => (
+                <div key={c.number} className="qrd-batch-card-wrap">
+                  <TentTemplate d={{ ...design, tableNum: c.number }} qrImg={c.img} compact/>
+                </div>
+              ))}
+            </div>
+            <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',marginTop:14}} onClick={()=>window.print()} disabled={cards.length===0}>
+              <Printer size={14}/> Print All {cards.length} Room Cards
+            </button>
+          </>
+        )}
+      </div>
+
+      {createPortal(
+        <div id="qr-print-zone">
+          {!preparing && (
+            <div className="qr-print-batch-grid">
+              {cards.map(c => (
+                <TentTemplate key={c.number} d={{ ...design, tableNum: c.number }} qrImg={c.img}/>
+              ))}
+            </div>
+          )}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
 // One QR for the whole hotel (lobby/front-desk) — mirrors Supplier's Main Brand QR
 // and Mall's Food Court QR. Guests land on GuestServices.jsx with no room context.
 function HotelQR({ hotelId, hotelName }) {
   const [qrImg, setQrImg] = useState('');
-  const [targetUrl, setTargetUrl] = useState('');
+  const [qr, setQr] = useState(null); // { qrCode, targetUrl, scanCount, id }
   const [designing, setDesigning] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
     if (!hotelId) return;
     hotelApi.createHotelQr(hotelId)
-      .then(res => setTargetUrl(res.data.data?.targetUrl || `${window.location.origin}/hotel-services/${hotelId}`))
-      .catch(() => setTargetUrl(`${window.location.origin}/hotel-services/${hotelId}`));
-  }, [hotelId]);
+      .then(res => setQr(res.data.data || null))
+      .catch(() => setQr({ targetUrl: `${window.location.origin}/hotel-services/${hotelId}` }));
+  };
+  useEffect(load, [hotelId]);
+
+  // Scannable link tracked by qr-service (/r/{code}) so scans actually increment
+  // scanCount — falls back to the raw targetUrl if the QR row has no slug yet.
+  const scanUrl = qr?.qrCode ? qrApi.redirectUrl(qr.qrCode) : qr?.targetUrl;
 
   useEffect(() => {
-    if (!targetUrl) return;
-    QRCode.toDataURL(targetUrl, { width: 512, margin: 2, color: { dark: '#0F172A', light: '#ffffff' } })
+    if (!scanUrl) return;
+    QRCode.toDataURL(scanUrl, { width: 512, margin: 2, color: { dark: '#0F172A', light: '#ffffff' } })
       .then(setQrImg).catch(err => console.error('Hotel QR generation failed:', err));
-  }, [targetUrl]);
+  }, [scanUrl]);
 
   const download = () => {
     if (!qrImg) return;
@@ -1184,19 +1805,34 @@ function HotelQR({ hotelId, hotelName }) {
     a.click();
   };
 
+  const regenerate = () => {
+    if (!confirm('This creates a new QR code and permanently deactivates the current one — any printed copies of the old QR will stop working. Continue?')) return;
+    setRegenerating(true);
+    hotelApi.regenerateHotelQr(hotelId)
+      .then(res => setQr(res.data.data || null))
+      .catch(() => alert('Could not regenerate QR code'))
+      .finally(() => setRegenerating(false));
+  };
+
   return (
     <div className="admin-chart-card" style={{ maxWidth: 340, display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', textAlign: 'center', marginBottom: 20 }}>
       {qrImg ? <img src={qrImg} alt="Hotel QR" style={{ width: 200, height: 200, borderRadius: 8 }} /> : <div style={{ width: 200, height: 200, background: 'var(--gray-100)', borderRadius: 8 }} />}
-      <div style={{ fontSize: 11.5, color: 'var(--gray-400)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{targetUrl}</div>
+      <div style={{ fontSize: 12, color: 'var(--gray-500)', display: 'flex', alignItems: 'center', gap: 5 }}>
+        <Eye size={13} /> {(qr?.scanCount || 0).toLocaleString('en-IN')} scans
+      </div>
+      <div style={{ fontSize: 11.5, color: 'var(--gray-400)', fontFamily: 'monospace', wordBreak: 'break-all' }}>{scanUrl}</div>
       <button className="btn-primary" style={{ width: '100%' }} onClick={download}>Download PNG</button>
       <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setDesigning(true)}>
         🎨 Design Banner & Print
+      </button>
+      <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }} onClick={regenerate} disabled={regenerating || !qr?.id}>
+        <RefreshCw size={13} /> {regenerating ? 'Regenerating…' : 'Regenerate QR'}
       </button>
       {designing && (
         <QrPosterStudio
           open={designing}
           onClose={() => setDesigning(false)}
-          targetUrlOverride={targetUrl}
+          targetUrlOverride={scanUrl}
           nameDefault={hotelName || 'Our Hotel'}
           taglineDefault="Scan to explore our services · Enjoy your stay!"
         />
@@ -1205,7 +1841,7 @@ function HotelQR({ hotelId, hotelName }) {
   );
 }
 
-function HotelReportsTab({outlets,hotelId}) {
+export function HotelReportsTab({outlets,hotelId}) {
   const { lang } = useLang();
   const [revenueData,setRevenueData] = useState([]);
   const [loading,setLoading] = useState(true);
@@ -1298,7 +1934,7 @@ const SERVICE_OPTIONS = [
   {l:'Airport Transport', v:'TRANSPORT'},
 ];
 
-function HotelSettings({user,lang,hotelId}) {
+export function HotelSettings({user,lang,hotelId}) {
   const [form,setForm] = useState({hotelName:user?.hotelName||'',phone:'',email:'',address:'',checkinTime:'14:00',checkoutTime:'12:00',currency:'INR',taxPercent:'18',latitude:null,longitude:null});
   const [enabledServices,setEnabledServices] = useState([]);
   const [saving,setSaving] = useState(false);

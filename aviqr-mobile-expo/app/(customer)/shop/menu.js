@@ -404,7 +404,7 @@ export default function CustomerMenuScreen() {
           </View>
         )}
         onScrollToIndexFailed={() => {}}
-        contentContainerStyle={{ paddingBottom: cartCount > 0 ? 190 : 100 }}
+        contentContainerStyle={{ paddingBottom: cartCount > 0 ? 214 : 124 }}
         showsVerticalScrollIndicator={false}
         stickySectionHeadersEnabled={false}
         // Menus can run to 50+ items on the free plan alone — these keep

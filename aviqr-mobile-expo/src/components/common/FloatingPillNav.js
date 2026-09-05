@@ -1,46 +1,80 @@
 import { useState, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
-import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../theme/index.js';
+
+// A flat, single-opacity color wash over a blur reads as muddy fog, not
+// glass — real glass/water has depth (a gradient, not a flat tint) and a
+// highlight where light catches the surface. `mix` blends accentColor
+// toward white (t>0) or black (t<0) so the gradient/shine below can be
+// built from the caller's own color instead of a hardcoded one.
+function mix(hex, t, alpha = 1) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const target = t > 0 ? 255 : 0;
+  const amt = Math.abs(t);
+  const lerp = (c) => Math.round(c + (target - c) * amt);
+  return `rgba(${lerp(r)}, ${lerp(g)}, ${lerp(b)}, ${alpha})`;
+}
 
 // Shared engine behind every bottom nav in the app — mobile port of
 // aviqr-ui-web/src/layouts/CustomerPortalShell.jsx (customer portal) and
 // src/components/OwnerBottomNav.jsx (owner web dashboard, mobile widths).
-// A single indicator (raised circle + notch cutout) slides between tabs
-// via one animated transform, instead of each tab button drawing its own
-// copy that would just pop in/out with no motion.
+// The active tab gets a "U" badge — flat top, deeply rounded bottom two
+// corners — that slides between tabs via one animated transform, instead
+// of each tab button drawing its own copy that would just pop in/out with
+// no motion. It sits fully inside the bar's own height (no part of it
+// floats above the bar's top edge — earlier versions raised a circle out
+// over the top, which read as detached rather than "part of the bar").
 //
 // The indicator's target position is the ACTIVE TAB'S OWN MEASURED CENTER
 // (via each tab's onLayout), not `index * (navWidth / tabCount)`. The
 // earlier percentage-based version put the first/last tab's center only a
-// few px past the pill's rounded corner — closer than the notch's own
-// half-width — so the notch cutout (sized for a tab in open space) rode
-// up over the corner and sliced a visible chunk out of the ring at the
-// edges. Measuring each tab's real position sidesteps that arithmetic
-// entirely; `ROW_PADDING` below gives the corner extra clearance too, as
-// a second line of defense.
+// few px past the pill's rounded corner, so a wide indicator rode up over
+// the corner at the edges. Measuring each tab's real position sidesteps
+// that arithmetic entirely; `ROW_PADDING` below gives the corner extra
+// clearance too, as a second line of defense.
 //
-// Domain-agnostic: callers supply `tabs`/`activeIndex`/`onPressTab` — see
-// CustomerBottomNav.js and OwnerTabBar.js for the two current wrappers.
-const NAV_HEIGHT = 60;
-const ROW_PADDING = 30; // horizontal inset so the notch/ring never reach the pill's rounded corners
-const BADGE_SIZE = 50;
-const RING_WIDTH = 4;
-const RING_SIZE = BADGE_SIZE + RING_WIDTH * 2;
-const RAISE = 18; // how far the ring's center sits above the pill's vertical center
-// Notch geometry: one continuous symmetric curve, both halves meeting at
-// the center with matching HORIZONTAL tangents (C1-smooth, zero kink) —
-// a flat-bottomed trough the ring (drawn on top) fully covers, rather than
-// two independently-positioned wing pieces with a straight vertical edge
-// that can't hug the ring's curved boundary everywhere.
-const NOTCH_HALF_W = 46;
-const NOTCH_DEPTH = 36;
-const NOTCH_WIDTH = NOTCH_HALF_W * 2;
-const NOTCH_PATH = `M0,0 C${NOTCH_WIDTH * 0.25},0 ${NOTCH_WIDTH * 0.413},${NOTCH_DEPTH} ${NOTCH_WIDTH * 0.5},${NOTCH_DEPTH} C${NOTCH_WIDTH * 0.587},${NOTCH_DEPTH} ${NOTCH_WIDTH * 0.75},0 ${NOTCH_WIDTH},0 Z`;
-const DEFAULT_PAGE_BG = '#F9FAFB';
+// Every tab always shows a text label under its icon, not just the active
+// one — an unlabeled icon-only bar leans entirely on icon recognition,
+// and a few of this app's hand-drawn icons (settings, PMS's book) aren't
+// unambiguous at 20px on their own. The bar is tall enough to fit both
+// without cramping either.
+//
+// Domain-agnostic: callers supply `tabs`/`activeIndex`/`onPressTab`, and
+// may override `accentColor` to match their own section's branding instead
+// of the app-default teal — see CustomerBottomNav.js, OwnerTabBar.js and
+// HotelTabBar.js for the current wrappers (all three stay on the shared
+// teal today, by not passing an override).
+//
+// The pill itself is frosted glass (iOS-style): a real backdrop blur
+// (expo-blur's BlurView) of whatever scrolls behind it, with a translucent
+// accentColor wash on top so it still reads as "the teal/purple nav", not
+// a plain gray blur. `experimentalBlurMethod="dimezisBlurView"` opts into
+// expo-blur's real-blur backend on Android — its default Android fallback
+// is a flat tinted rectangle with no actual blur, which would make the
+// "glass" look pointless there.
+const NAV_HEIGHT = 68;
+const ROW_PADDING = 30; // horizontal inset so the indicator never reaches the pill's rounded corners
+const U_WIDTH = 54;
+const U_HEIGHT = 33;
+const U_RADIUS = 15; // deep bottom-corner rounding — about half U_HEIGHT — for a pronounced "U", not just a rounded rect
+const U_TOP = 4; // small gap from the bar's own top edge; bottom edge (U_TOP + U_HEIGHT) must clear the label row below it
 
-export function FloatingPillNav({ tabs, activeIndex, onPressTab, renderBadge, pageBackground = DEFAULT_PAGE_BG, bottomOffset = 16, reserveSpace = false }) {
+export function FloatingPillNav({
+  tabs, activeIndex, onPressTab, renderBadge,
+  accentColor = Colors.primary,
+  bottomOffset, reserveSpace = false,
+}) {
+  // Clear the home indicator on notched iPhones and the gesture-nav strip
+  // on modern Android — a bare `bottom: 16` (the pre-safe-area default)
+  // sits the pill flush against, or partly under, both. Callers can still
+  // pass an explicit bottomOffset to opt out.
+  const insets = useSafeAreaInsets();
+  const resolvedBottomOffset = bottomOffset ?? Math.max(16, insets.bottom + 8);
   const [tabCenters, setTabCenters] = useState({});
   const indicatorX = tabCenters[activeIndex];
 
@@ -48,7 +82,7 @@ export function FloatingPillNav({ tabs, activeIndex, onPressTab, renderBadge, pa
 
   useEffect(() => {
     if (indicatorX == null) return;
-    translateX.value = withTiming(indicatorX - NOTCH_WIDTH / 2, {
+    translateX.value = withTiming(indicatorX - U_WIDTH / 2, {
       duration: 380,
       easing: Easing.bezier(0.34, 1.56, 0.64, 1),
     });
@@ -58,52 +92,92 @@ export function FloatingPillNav({ tabs, activeIndex, onPressTab, renderBadge, pa
     transform: [{ translateX: translateX.value }],
   }));
 
-  const ActiveIcon = tabs[activeIndex]?.Icon;
+  const activeTab = tabs[activeIndex];
 
   const pill = (
-    <View style={[styles.nav, { bottom: bottomOffset }]}>
-      <View style={styles.row}>
-        {indicatorX != null && (
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.indicator, { width: NOTCH_WIDTH }, indicatorStyle]}
-          >
-            <View style={styles.wing}>
-              <Svg width={NOTCH_WIDTH} height={NOTCH_DEPTH} viewBox={`0 0 ${NOTCH_WIDTH} ${NOTCH_DEPTH}`}>
-                <Path d={NOTCH_PATH} fill={pageBackground} />
-              </Svg>
-            </View>
-            <View style={[styles.ring, { left: NOTCH_WIDTH / 2 - RING_SIZE / 2 }]}>
-              <View style={styles.circle}>
-                {ActiveIcon && <ActiveIcon size={20} color={Colors.primary} strokeWidth={2} />}
-              </View>
-            </View>
-          </Animated.View>
-        )}
-
-        {tabs.map((tab, i) => {
-          const isActive = i === activeIndex;
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              style={styles.item}
-              activeOpacity={0.7}
-              onPress={() => onPressTab(tab, i)}
-              onLayout={e => {
-                const { x, width } = e.nativeEvent.layout;
-                setTabCenters(prev => (prev[i] === x + width / 2 ? prev : { ...prev, [i]: x + width / 2 }));
-              }}
-              accessibilityLabel={tab.label}
-              accessibilityRole="button"
+    <View style={[styles.navShadow, { bottom: resolvedBottomOffset, shadowColor: accentColor }]}>
+      <BlurView
+        intensity={65}
+        tint="dark"
+        experimentalBlurMethod="dimezisBlurView"
+        style={[styles.navBlur, { borderColor: mix(accentColor, 0.4, 0.6) }]}
+      >
+        {/* Depth wash — a gradient, not a flat opacity fill, so the tint
+            itself reads as glass with volume rather than a fogged-over
+            color swatch. High opacity + only a slight lift toward white at
+            the top keeps this saturated/vivid — the earlier version mixed
+            too far toward white with too little opacity and just looked
+            pale, not like tinted glass. */}
+        <LinearGradient
+          colors={[mix(accentColor, 0.08, 0.88), mix(accentColor, -0.4, 0.96)]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* Shine — a tight specular streak along the top edge, not a broad
+            wash, so it reads as light catching one edge of the glass
+            rather than fogging the whole surface pale. */}
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(255,255,255,0.4)', 'rgba(255,255,255,0)']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 0.3 }}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* Base shadow — a touch of darkness right at the bottom rim, the
+            way real glass/water reads as having some thickness rather than
+            being an infinitely thin painted-on tint. */}
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.22)']}
+          start={{ x: 0, y: 0.75 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.row}>
+          {indicatorX != null && (
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.indicator, indicatorStyle]}
             >
-              <View style={{ opacity: isActive ? 0 : 1 }}>
-                <tab.Icon size={20} color="rgba(255,255,255,0.85)" strokeWidth={2} />
+              <View style={styles.uShape}>
+                {activeTab && <activeTab.Icon size={20} color={accentColor} strokeWidth={2} />}
               </View>
-              {renderBadge?.(tab, i, isActive)}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+            </Animated.View>
+          )}
+
+          {tabs.map((tab, i) => {
+            const isActive = i === activeIndex;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={styles.item}
+                activeOpacity={0.7}
+                onPress={() => onPressTab(tab, i)}
+                onLayout={e => {
+                  const { x, width } = e.nativeEvent.layout;
+                  setTabCenters(prev => (prev[i] === x + width / 2 ? prev : { ...prev, [i]: x + width / 2 }));
+                }}
+                accessibilityLabel={tab.label}
+                accessibilityRole="button"
+              >
+                <View style={{ opacity: isActive ? 0 : 1 }}>
+                  <tab.Icon size={20} color="rgba(255,255,255,0.85)" strokeWidth={2} />
+                </View>
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                  style={[styles.label, isActive && styles.labelActive]}
+                >
+                  {tab.label}
+                </Text>
+                {renderBadge?.(tab, i, isActive)}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </BlurView>
     </View>
   );
 
@@ -119,22 +193,30 @@ export function FloatingPillNav({ tabs, activeIndex, onPressTab, renderBadge, pa
   // (an absolutely-positioned root contributes nothing to a parent's
   // intrinsic layout size). Used by OwnerTabBar.js.
   if (!reserveSpace) return pill;
-  return <View style={{ height: NAV_HEIGHT + bottomOffset }}>{pill}</View>;
+  return <View style={{ height: NAV_HEIGHT + resolvedBottomOffset }}>{pill}</View>;
 }
 
 const styles = StyleSheet.create({
-  nav: {
+  // Split from the blurred pill on purpose: iOS clips a shadow to nothing
+  // if it's drawn on the same view as `overflow:'hidden'` (needed below to
+  // clip the blur itself to the rounded corners), so the shadow lives on
+  // this plain, non-clipping wrapper instead.
+  navShadow: {
     position: 'absolute',
     left: 16,
     right: 16,
     height: NAV_HEIGHT,
-    backgroundColor: Colors.primary,
     borderRadius: 22, // matches web's BottomNav.css (26px on a 70px bar) — less curved than a full pill
-    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.35,
     shadowRadius: 20,
     elevation: 10,
+  },
+  navBlur: {
+    flex: 1,
+    borderRadius: 22,
+    borderWidth: 1,
+    overflow: 'hidden',
   },
   row: {
     flex: 1,
@@ -148,39 +230,38 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 3,
+  },
+  label: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+  },
+  labelActive: {
+    color: Colors.white,
+    fontWeight: '800',
   },
   indicator: {
     position: 'absolute',
-    top: 0,
+    top: U_TOP,
     left: 0,
-    height: NAV_HEIGHT,
+    width: U_WIDTH,
   },
-  wing: {
-    position: 'absolute',
-    top: -1,
-  },
-  ring: {
-    position: 'absolute',
-    top: NAV_HEIGHT / 2 - RAISE - RING_SIZE / 2,
-    width: RING_SIZE,
-    height: RING_SIZE,
-    borderRadius: RING_SIZE / 2,
-    backgroundColor: Colors.primaryDark,
+  uShape: {
+    width: U_WIDTH,
+    height: U_HEIGHT,
+    borderTopLeftRadius: 10, // softened, not a sharp 90° corner — reads as a liquid blob merging into the bar, not a badge stamped on top
+    borderTopRightRadius: 10,
+    borderBottomLeftRadius: U_RADIUS,
+    borderBottomRightRadius: U_RADIUS,
+    backgroundColor: 'rgba(255,255,255,0.94)', // slightly translucent rather than flat opaque white, so it still reads as glass, not plastic
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  circle: {
-    width: BADGE_SIZE,
-    height: BADGE_SIZE,
-    borderRadius: BADGE_SIZE / 2,
-    backgroundColor: Colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
   },
 });
 

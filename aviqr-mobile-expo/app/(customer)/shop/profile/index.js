@@ -94,7 +94,7 @@ export default function CustomerProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <PageHeader title="Profile" />
-      <ScrollView contentContainerStyle={{ padding: Spacing.base, paddingBottom: 100 }}>
+      <ScrollView contentContainerStyle={{ padding: Spacing.base, paddingBottom: 124 }}>
         <View style={ss.identityCard}>
           <View style={ss.avatar}><Text style={{ fontSize: 20 }}>🙋</Text></View>
           <View style={{ flex: 1 }}>

@@ -121,21 +121,28 @@ export function BarChartIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
   );
 }
 
-export function SettingsIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
-  const spokes = Array.from({ length: 8 }, (_, i) => {
-    const angle = (i * Math.PI) / 4;
-    const x1 = 12 + Math.cos(angle) * 7;
-    const y1 = 12 + Math.sin(angle) * 7;
-    const x2 = 12 + Math.cos(angle) * 9.5;
-    const y2 = 12 + Math.sin(angle) * 9.5;
-    return { x1, y1, x2, y2 };
-  });
+export function BedIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" {...base} stroke={color} strokeWidth={strokeWidth}>
-      <Circle cx="12" cy="12" r="3.5" />
-      {spokes.map((s, i) => (
-        <Line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />
-      ))}
+      <Path d="M2 18v-6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v6" />
+      <Path d="M2 18v2" />
+      <Path d="M22 18v2" />
+      <Path d="M4 12V7a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v3" />
+      <Circle cx="7.5" cy="9" r="1.2" fill={color} stroke="none" />
+      <Path d="M14 12V8a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v4" />
+    </Svg>
+  );
+}
+
+export function SettingsIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
+  // The previous version (8 bare spokes off a center circle, no outer ring
+  // or teeth) read as a sunburst/asterisk at 20px, not a gear — this is
+  // lucide's actual "settings" gear-with-teeth outline, which stays
+  // legible at nav-bar size.
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" {...base} stroke={color} strokeWidth={strokeWidth}>
+      <Path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <Circle cx="12" cy="12" r="3" />
     </Svg>
   );
 }

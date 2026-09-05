@@ -24,4 +24,14 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
 
     @Query("select count(r) from Review r where r.menuItemId = :menuItemId")
     long countForMenuItem(UUID menuItemId);
+
+    Page<Review> findByHotelIdOrderByCreatedAtDesc(String hotelId, Pageable pageable);
+
+    @Query("select coalesce(avg(r.rating), 0) from Review r where r.hotelId = :hotelId")
+    BigDecimal averageRatingForHotel(String hotelId);
+
+    @Query("select count(r) from Review r where r.hotelId = :hotelId")
+    long countForHotel(String hotelId);
+
+    boolean existsByReservationId(UUID reservationId);
 }

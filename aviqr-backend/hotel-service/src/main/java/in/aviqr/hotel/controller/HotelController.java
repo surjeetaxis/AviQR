@@ -3,12 +3,14 @@ import in.aviqr.hotel.dto.ApiResponse;
 import in.aviqr.hotel.entity.*;
 import in.aviqr.hotel.repository.*;
 import in.aviqr.hotel.service.HotelAccessService;
+import in.aviqr.hotel.service.HousekeepingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 import java.time.LocalDateTime;
@@ -21,6 +23,7 @@ public class HotelController {
     private final RoomRequestRepository reqRepo;
     private final HotelAccessRepository accessRepo;
     private final HotelAccessService accessService;
+    private final HousekeepingService housekeepingService;
     private final RabbitTemplate rabbit;
     private final RestTemplate restTemplate;
 
@@ -64,6 +67,7 @@ public class HotelController {
     }
 
     @PutMapping("/api/v1/hotels/{id}")
+    @Transactional
     public ResponseEntity<ApiResponse<Hotel>> updateHotel(
             @PathVariable UUID id, @RequestBody Hotel req,
             @RequestHeader("X-User-Id") String uid,
@@ -74,7 +78,17 @@ public class HotelController {
             h.setName(req.getName()); h.setPhone(req.getPhone()); h.setEmail(req.getEmail()); h.setAddress(req.getAddress());
             h.setLatitude(req.getLatitude()); h.setLongitude(req.getLongitude());
             h.setCheckInTime(req.getCheckInTime()); h.setCheckOutTime(req.getCheckOutTime());
-            if(req.getEnabledServices()!=null) h.setEnabledServices(req.getEnabledServices());
+            // Mutate the existing managed collection in place rather than replacing the
+            // List reference — this method wasn't @Transactional before, so `h` was
+            // detached by the time save() ran, and Hibernate's merge of a replaced
+            // @ElementCollection reference silently failed to delete the old rows,
+            // leaving hotel_enabled_services accumulating a duplicate row per save
+            // instead of replacing its contents (found via a real hotel with 14-15x
+            // duplicated rows per service after repeated settings saves).
+            if (req.getEnabledServices() != null) {
+                h.getEnabledServices().clear();
+                h.getEnabledServices().addAll(req.getEnabledServices());
+            }
             return ResponseEntity.ok(ApiResponse.ok("Updated", hotelRepo.save(h)));
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -119,6 +133,12 @@ public class HotelController {
         }
     }
 
+    // Picks the newest row for the type — after a regenerate, the deactivated old
+    // row for the same type/group is still in the list (kept for its scan
+    // history) and the list has no guaranteed order, so find-or-create/toggle
+    // must pick by recency rather than list position or it can resurrect a
+    // rotated-out QR. A merely-toggled-off room QR (no regenerate) is still the
+    // newest row, so this doesn't spawn a duplicate on next find-or-create.
     private Map<String, Object> findHotelQr(String syntheticShopId) {
         @SuppressWarnings("unchecked")
         Map<String, Object> listResp = restTemplate.getForObject(
@@ -126,7 +146,10 @@ public class HotelController {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> existing = listResp != null
             ? (List<Map<String, Object>>) listResp.get("data") : List.of();
-        return existing.stream().filter(q -> "HOTEL".equals(q.get("type"))).findFirst().orElse(null);
+        return existing.stream()
+            .filter(q -> "HOTEL".equals(q.get("type")))
+            .max(Comparator.comparing(q -> String.valueOf(q.get("createdAt"))))
+            .orElse(null);
     }
 
     // ── Rooms ─────────────────────────────────────────────────────────────────
@@ -151,10 +174,174 @@ public class HotelController {
         return ResponseEntity.ok(ApiResponse.ok("Updated", null));
     }
 
-    @PutMapping("/api/v1/rooms/{id}/qr")
-    public ResponseEntity<ApiResponse<Void>> toggleRoomQr(@PathVariable UUID id, @RequestParam boolean active) {
-        roomRepo.findById(id).ifPresent(r -> { r.setQrActive(active); roomRepo.save(r); });
+    // Occupancy snapshot sync from pms-service on check-in/check-out — keeps the QR
+    // guest-services dashboard (Room.guestName/checkInDate/checkOutDate/status) showing
+    // who's actually in the room without pms-service writing into this service's own
+    // tables directly. Internal call, not gateway-routed to end users.
+    @PutMapping("/api/v1/rooms/{id}/occupancy")
+    public ResponseEntity<ApiResponse<Void>> updateRoomOccupancy(@PathVariable UUID id, @RequestBody Map<String, String> body) {
+        roomRepo.findById(id).ifPresent(r -> {
+            r.setGuestName(blankToNull(body.get("guestName")));
+            r.setCheckInDate(blankToNull(body.get("checkInDate")));
+            r.setCheckOutDate(blankToNull(body.get("checkOutDate")));
+            if (body.get("status") != null) r.setStatus(RoomStatus.valueOf(body.get("status").toUpperCase()));
+            roomRepo.save(r);
+            // Checkout (occupancy going back to VACANT) hands the room to housekeeping —
+            // it isn't resold until DONE/INSPECTED, see AvailabilityService in pms-service.
+            if (r.getStatus() == RoomStatus.VACANT) {
+                housekeepingService.createTaskForCheckout(r.getHotelId(), r.getId(), r.getRoomNumber());
+            }
+        });
         return ResponseEntity.ok(ApiResponse.ok("Updated", null));
+    }
+
+    private String blankToNull(String s) { return (s == null || s.isBlank()) ? null : s; }
+
+    // Toggling the switch here also flips the underlying order-qr-service row's
+    // `active` flag (via the internal endpoint, no ADMIN/SUPPORT gate) so that
+    // scanning a "deactivated" room QR actually stops resolving (410) instead of
+    // the toggle being cosmetic — see qr-service's QrService#resolveAndTrack.
+    @PutMapping("/api/v1/rooms/{id}/qr")
+    public ResponseEntity<ApiResponse<Void>> toggleRoomQr(
+            @PathVariable UUID id, @RequestParam boolean active,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        Room room = roomRepo.findById(id).orElse(null);
+        if (room == null) return ResponseEntity.notFound().build();
+        if (!accessService.hasAccess(room.getHotelId(), uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        room.setQrActive(active); roomRepo.save(room);
+        try {
+            Map<String, Object> qr = findRoomQr("hotel-" + room.getHotelId(), room.getRoomNumber());
+            if (qr != null) {
+                restTemplate.put(qrServiceUrl + "/api/v1/qr-codes/internal/" + qr.get("id") + "/active?active=" + active, null);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to propagate QR active={} for room {}: {}", active, id, e.getMessage());
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Updated", null));
+    }
+
+    // Rotates a room's QR to a new slug — the old one is deactivated (scanning it
+    // now returns 410) so a compromised/leaked room QR can be invalidated without
+    // affecting the room's booking data. Staff must reprint/redisplay the new code.
+    @PostMapping("/api/v1/rooms/{id}/qr-code/regenerate")
+    public ResponseEntity<ApiResponse<Map>> regenerateRoomQrCode(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        Room room = roomRepo.findById(id).orElse(null);
+        if (room == null) return ResponseEntity.notFound().build();
+        if (!accessService.hasAccess(room.getHotelId(), uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        Map<String, Object> qr = findRoomQr("hotel-" + room.getHotelId(), room.getRoomNumber());
+        if (qr == null) return ResponseEntity.badRequest().body(ApiResponse.error("No QR code exists for this room yet"));
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resp = restTemplate.postForObject(
+                qrServiceUrl + "/api/v1/qr-codes/internal/" + qr.get("id") + "/regenerate", null, Map.class);
+            room.setQrActive(true); roomRepo.save(room);
+            Map<String, Object> data = resp != null ? (Map<String, Object>) resp.get("data") : null;
+            return ResponseEntity.ok(ApiResponse.ok("QR regenerated", data));
+        } catch (Exception e) {
+            log.warn("Failed to regenerate QR for room {}: {}", id, e.getMessage());
+            return ResponseEntity.status(502).body(ApiResponse.error("Could not reach qr-service"));
+        }
+    }
+
+    // All QR codes (hotel-wide + every room) in one call, for the QR Management
+    // grid — avoids one find-or-create round trip per room.
+    @GetMapping("/api/v1/hotels/{id}/qr-codes")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getHotelQrCodes(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!accessService.hasAccess(id, uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> listResp = restTemplate.getForObject(
+                qrServiceUrl + "/api/v1/qr-codes/shop/hotel-" + id, Map.class);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> existing = listResp != null
+                ? (List<Map<String, Object>>) listResp.get("data") : List.of();
+            return ResponseEntity.ok(ApiResponse.ok(existing));
+        } catch (Exception e) {
+            log.warn("Failed to list QR codes for hotel {}: {}", id, e.getMessage());
+            return ResponseEntity.status(502).body(ApiResponse.error("Could not reach qr-service"));
+        }
+    }
+
+    // Rotates the whole-hotel (lobby/front-desk) QR — same rationale as the
+    // per-room regenerate above.
+    @PostMapping("/api/v1/hotels/{id}/qr-code/regenerate")
+    public ResponseEntity<ApiResponse<Map>> regenerateHotelQrCode(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!accessService.hasAccess(id, uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        Map<String, Object> qr = findHotelQr("hotel-" + id);
+        if (qr == null) return ResponseEntity.badRequest().body(ApiResponse.error("No QR code exists for this hotel yet"));
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resp = restTemplate.postForObject(
+                qrServiceUrl + "/api/v1/qr-codes/internal/" + qr.get("id") + "/regenerate", null, Map.class);
+            Map<String, Object> data = resp != null ? (Map<String, Object>) resp.get("data") : null;
+            return ResponseEntity.ok(ApiResponse.ok("QR regenerated", data));
+        } catch (Exception e) {
+            log.warn("Failed to regenerate QR for hotel {}: {}", id, e.getMessage());
+            return ResponseEntity.status(502).body(ApiResponse.error("Could not reach qr-service"));
+        }
+    }
+
+    // ── QR scan analytics ────────────────────────────────────────────────────
+    // Thin authenticated proxies over qr-service's shop-scoped analytics
+    // endpoints (which have no auth check of their own — see the comment on
+    // those endpoints) — this access check is what makes them safe to expose.
+    @GetMapping("/api/v1/hotels/{id}/qr-analytics/trend")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> qrScanTrend(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "30") int days,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!accessService.hasAccess(id, uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return proxyAnalytics("/api/v1/qr-codes/shop/hotel-" + id + "/analytics/trend?days=" + days, id);
+    }
+
+    @GetMapping("/api/v1/hotels/{id}/qr-analytics/by-room")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> qrScansByRoom(
+            @PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!accessService.hasAccess(id, uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return proxyAnalytics("/api/v1/qr-codes/shop/hotel-" + id + "/analytics/by-room", id);
+    }
+
+    @GetMapping("/api/v1/hotels/{id}/qr-analytics/recent")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> qrRecentScans(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!accessService.hasAccess(id, uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return proxyAnalytics("/api/v1/qr-codes/shop/hotel-" + id + "/analytics/recent?limit=" + limit, id);
+    }
+
+    private ResponseEntity<ApiResponse<List<Map<String, Object>>>> proxyAnalytics(String path, UUID hotelId) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resp = restTemplate.getForObject(qrServiceUrl + path, Map.class);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> data = resp != null ? (List<Map<String, Object>>) resp.get("data") : List.of();
+            return ResponseEntity.ok(ApiResponse.ok(data));
+        } catch (Exception e) {
+            log.warn("Failed to fetch QR scan analytics for hotel {}: {}", hotelId, e.getMessage());
+            return ResponseEntity.status(502).body(ApiResponse.error("Could not reach qr-service"));
+        }
     }
 
     // Generates (or returns the already-existing) real, scannable QR for a room via
@@ -197,6 +384,7 @@ public class HotelController {
         }
     }
 
+    // Picks the newest row for the room — see findHotelQr's comment above for why.
     private Map<String, Object> findRoomQr(String syntheticShopId, String roomNumber) {
         @SuppressWarnings("unchecked")
         Map<String, Object> listResp = restTemplate.getForObject(
@@ -206,7 +394,8 @@ public class HotelController {
             ? (List<Map<String, Object>>) listResp.get("data") : List.of();
         return existing.stream()
             .filter(q -> "HOTEL_ROOM".equals(q.get("type")) && roomNumber.equals(q.get("groupParam")))
-            .findFirst().orElse(null);
+            .max(Comparator.comparing(q -> String.valueOf(q.get("createdAt"))))
+            .orElse(null);
     }
 
     // ── Room Requests ─────────────────────────────────────────────────────────

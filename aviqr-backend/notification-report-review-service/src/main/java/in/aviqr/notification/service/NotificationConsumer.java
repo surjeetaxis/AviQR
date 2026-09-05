@@ -19,6 +19,7 @@ public class NotificationConsumer {
     private final WaSenderWhatsAppService whatsApp;
     private final ElasticEmailService     email;
     private final Msg91Service            msg91;
+    private final NightAuditPdfService    nightAuditPdf;
 
     // ── New order placed ──────────────────────────────────────────────────────
     @SuppressWarnings("unchecked")
@@ -93,6 +94,87 @@ public class NotificationConsumer {
         String service    = str(event, "service");
         save(hotelId, "Guest Request — Room " + roomNumber,
              service + " request from Room " + roomNumber, "HOTEL_REQUEST", hotelId, null);
+    }
+
+    // ── PMS balance-due reminder (published daily by pms-service's
+    // ReservationLifecycleScheduler for a guest who checked out with an unpaid balance) ──
+    @RabbitListener(queues = RabbitMQConfig.PMS_BALANCE_DUE_QUEUE)
+    public void onPmsBalanceDue(Map<String, Object> event) {
+        String hotelId      = str(event, "hotelId");
+        String reservationId= str(event, "reservationId");
+        String guestName    = str(event, "guestName");
+        String guestPhone   = str(event, "guestPhone");
+        String balance      = str(event, "balance");
+
+        save(hotelId, "Balance Due — " + (guestName == null || guestName.isBlank() ? "Guest" : guestName),
+             "₹" + balance + " outstanding after checkout", "PMS_BALANCE_DUE", hotelId, reservationId);
+
+        if (guestPhone != null && !guestPhone.isBlank()) {
+            whatsApp.send(guestPhone, String.format(
+                "Hi %s, thanks for staying with us! Our records show a balance of ₹%s remaining on your folio. Please reach out to the front desk at your earliest convenience to settle it.",
+                (guestName == null || guestName.isBlank()) ? "there" : guestName, balance));
+        }
+    }
+
+    // ── PMS scheduled night-audit report (published daily by pms-service's
+    // NightAuditEmailScheduler for every active hotel with an email on file) ──
+    @RabbitListener(queues = RabbitMQConfig.PMS_REPORT_READY_QUEUE)
+    public void onPmsReportReady(Map<String, Object> event) {
+        String hotelId    = str(event, "hotelId");
+        String hotelEmail = str(event, "hotelEmail");
+        String hotelName  = str(event, "hotelName");
+        String date       = str(event, "date");
+        if (hotelEmail == null || hotelEmail.isBlank()) return;
+
+        byte[] pdf;
+        try {
+            pdf = nightAuditPdf.render(event);
+        } catch (Exception e) {
+            log.error("Could not render night-audit PDF for hotel {}: {}", hotelId, e.getMessage());
+            return;
+        }
+        String base64 = java.util.Base64.getEncoder().encodeToString(pdf);
+        String subject = "Night Audit — " + hotelName + " — " + date;
+        boolean sent = email.send(hotelEmail, subject,
+            "<p>Your night audit report for " + date + " is attached.</p>",
+            "night-audit-" + date + ".pdf", "application/pdf", base64);
+
+        save(hotelId, "Night Audit Emailed", subject, "PMS_REPORT_READY", hotelId, null);
+        if (!sent) log.warn("Night-audit email to {} failed for hotel {}", hotelEmail, hotelId);
+    }
+
+    // ── PMS waitlist slot opened up (published by pms-service's WaitlistService
+    // when a cancellation/no-show frees enough inventory for a waiting guest) ──
+    @RabbitListener(queues = RabbitMQConfig.PMS_WAITLIST_AVAILABLE_QUEUE)
+    public void onPmsWaitlistAvailable(Map<String, Object> event) {
+        String hotelId      = str(event, "hotelId");
+        String guestName    = str(event, "guestName");
+        String guestPhone   = str(event, "guestPhone");
+        String checkInDate  = str(event, "checkInDate");
+        String checkOutDate = str(event, "checkOutDate");
+
+        save(hotelId, "Waitlist Slot Available — " + (guestName == null || guestName.isBlank() ? "Guest" : guestName),
+             "Room now available for " + checkInDate + " to " + checkOutDate, "PMS_WAITLIST_AVAILABLE", hotelId, null);
+
+        if (guestPhone != null && !guestPhone.isBlank()) {
+            whatsApp.send(guestPhone, String.format(
+                "Hi %s, good news! A room is now available for your requested dates (%s to %s). Please contact the front desk soon to confirm your booking.",
+                (guestName == null || guestName.isBlank()) ? "there" : guestName, checkInDate, checkOutDate));
+        }
+    }
+
+    // ── PMS post-checkout review invite (published by pms-service's
+    // ReservationLifecycleScheduler.sendReviewInvites, the day after checkout) ──
+    @RabbitListener(queues = RabbitMQConfig.PMS_REVIEW_INVITE_QUEUE)
+    public void onPmsReviewInvite(Map<String, Object> event) {
+        String guestPhone = str(event, "guestPhone");
+        String guestName  = str(event, "guestName");
+        String reviewLink = str(event, "reviewLink");
+        if (guestPhone == null || guestPhone.isBlank()) return;
+
+        whatsApp.send(guestPhone, String.format(
+            "Hi %s, thanks for staying with us! We'd love to hear about your experience — please take a moment to leave a review: %s",
+            (guestName == null || guestName.isBlank()) ? "there" : guestName, reviewLink));
     }
 
     // ── Low stock alert ───────────────────────────────────────────────────────

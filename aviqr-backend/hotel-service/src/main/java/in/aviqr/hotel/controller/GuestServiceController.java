@@ -36,6 +36,22 @@ public class GuestServiceController {
     private final RoomChargeRepository chargeRepo;
     private final GuestServiceRequestRepository requestRepo;
     private final OutletBookingRepository bookingRepo;
+    private final in.aviqr.hotel.service.MaintenanceService maintenanceService;
+    private final in.aviqr.hotel.service.GuestMessageService messageService;
+
+    // ── 0. Minimal public hotel info — used by the direct booking engine header ──
+    @GetMapping("/{hotelId}/info")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> publicInfo(@PathVariable UUID hotelId) {
+        Hotel hotel = hotelRepo.findById(hotelId).orElse(null);
+        if (hotel == null) return ResponseEntity.notFound().build();
+        Map<String,Object> info = new HashMap<>();
+        info.put("id", hotel.getId());
+        info.put("name", hotel.getName());
+        info.put("city", hotel.getCity());
+        info.put("checkInTime", hotel.getCheckInTime());
+        info.put("checkOutTime", hotel.getCheckOutTime());
+        return ResponseEntity.ok(ApiResponse.ok(info));
+    }
 
     // ── 1. Service hub — what the QR scan lands on ──────────────────────────────
     @GetMapping("/{hotelId}/services")
@@ -120,7 +136,33 @@ public class GuestServiceController {
             .details(str(body.get("details")))
             .status(RequestStatus.NEW)
             .build();
-        return ResponseEntity.ok(ApiResponse.ok("Request received", requestRepo.save(req)));
+        GuestServiceRequest saved = requestRepo.save(req);
+        // A maintenance report needs a staff-assignable work order, not just a
+        // status flag on the request — auto-create one so it shows up on the
+        // Maintenance work-order board immediately.
+        if (type == ServiceRequestType.MAINTENANCE) {
+            maintenanceService.raise(hotelId, null, room, "Room " + room + " maintenance",
+                saved.getDetails(), pri, saved.getId());
+        }
+        return ResponseEntity.ok(ApiResponse.ok("Request received", saved));
+    }
+
+    // ── 2b. Two-way messaging with the front desk, scoped to the guest's room ────
+    @GetMapping("/{hotelId}/messages")
+    public ResponseEntity<ApiResponse<List<in.aviqr.hotel.entity.GuestMessage>>> messageThread(
+            @PathVariable UUID hotelId, @RequestParam String room) {
+        return ResponseEntity.ok(ApiResponse.ok(messageService.thread(hotelId, room)));
+    }
+
+    @PostMapping("/{hotelId}/messages")
+    public ResponseEntity<ApiResponse<in.aviqr.hotel.entity.GuestMessage>> sendMessage(
+            @PathVariable UUID hotelId, @RequestBody Map<String,Object> body) {
+        String room = str(body.get("roomNumber"));
+        String text = str(body.get("message"));
+        if (room == null || room.isBlank() || text == null || text.isBlank())
+            return ResponseEntity.badRequest().body(ApiResponse.error("roomNumber and message are required"));
+        return ResponseEntity.ok(ApiResponse.ok(messageService.send(
+            hotelId, room, str(body.get("guestName")), in.aviqr.hotel.entity.MessageSender.GUEST, text)));
     }
 
     // ── 3. Guest books a slot at a bookable outlet (spa / activity / table) ──────

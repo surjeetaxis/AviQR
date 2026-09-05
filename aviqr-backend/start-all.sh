@@ -56,8 +56,10 @@ sleep 6
 start_svc "payment-service"
 sleep 5
 
-# ── 6. Hotel ──────────────────────────────────────────────────────────────────
+# ── 6. Hotel + PMS (PMS calls hotel-service, so start it right after) ────────
 start_svc "hotel-service"
+sleep 5
+start_svc "pms-service"
 sleep 5
 
 # ── 7. Support, Notification+Report+Review ───────────────────────────────────
@@ -77,3 +79,5 @@ echo "  Watch a log:    tail -f logs/auth-service.log"
 echo "  Watch all:      tail -f logs/*.log"
 echo "  Stop all:       ./stop-all.sh"
 echo "  Service status: ./status.sh"
+echo "  Auto-recover from a LAN IP change (Wi-Fi roam/DHCP renewal):"
+echo "                  nohup ./watch-ip.sh > logs/watch-ip-stdout.log 2>&1 &"

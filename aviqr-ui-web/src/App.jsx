@@ -29,6 +29,9 @@ import AdminDashboard    from './pages/admin/AdminDashboard.jsx';
 import SupportDashboard  from './pages/support/SupportDashboard.jsx';
 import SupplierDashboard from './pages/supplier/SupplierDashboard.jsx';
 import HotelDashboard    from './pages/hotel/HotelDashboard.jsx';
+import ContactlessCheckin from './pages/pms/ContactlessCheckin.jsx';
+import BookingEngine from './pages/pms/BookingEngine.jsx';
+import StayReview from './pages/pms/StayReview.jsx';
 import MallDashboard     from './pages/mall/MallDashboard.jsx';
 import VendorQrCodes     from './pages/mall/VendorQrCodes.jsx';
 import CustomerMenu      from './pages/customer/CustomerMenu.jsx';
@@ -125,6 +128,9 @@ export default function App() {
       <Route path="/guides/qr-ordering-system-restaurants-india" element={<QrOrderingGuidePage />} />
       <Route path="/guides/qr-menu-software-checklist" element={<QrMenuChecklistPage />} />
       <Route path="/track-order"     element={<TrackOrder />} />
+      <Route path="/pms/contactless-checkin/:reservationId" element={<ContactlessCheckin />} />
+      <Route path="/book/:hotelId" element={<BookingEngine />} />
+      <Route path="/review/:hotelId" element={<StayReview />} />
       <Route path="/onboarding"      element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
       {/* Customer Portal — persistent bottom-nav shell (Home/Search/Cart/Orders/Profile)
@@ -207,6 +213,7 @@ export default function App() {
           QR-only here since mall has its own vendor-management UI elsewhere) */}
       <Route path="/mall/vendors/:vendorId/qr-codes" element={<ProtectedRoute><VendorQrCodes /></ProtectedRoute>} />
       <Route path="/hotel"    element={<ProtectedRoute><HotelDashboard /></ProtectedRoute>} />
+      <Route path="/pms"      element={<Navigate to="/hotel" replace />} />
       <Route path="/mall"     element={<ProtectedRoute><MallDashboard /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />

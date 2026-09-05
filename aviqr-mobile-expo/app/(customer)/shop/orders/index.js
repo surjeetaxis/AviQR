@@ -67,7 +67,7 @@ export default function CustomerOrdersScreen() {
         <FlatList
           data={orders}
           keyExtractor={o => o.id}
-          contentContainerStyle={{ padding: Spacing.base, gap: 8, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: Spacing.base, gap: 8, paddingBottom: 124 }}
           ListEmptyComponent={<EmptyState icon="📦" title="No orders yet" />}
           renderItem={({ item }) => (
             <TouchableOpacity style={ss.card} onPress={() => router.push(`/(customer)/shop/orders/${item.id}`)} activeOpacity={0.8}>

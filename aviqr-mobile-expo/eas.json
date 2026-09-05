@@ -15,7 +15,10 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_GA_MEASUREMENT_ID": "G-GVW95252XV"
+      }
     }
   },
   "submit": {
