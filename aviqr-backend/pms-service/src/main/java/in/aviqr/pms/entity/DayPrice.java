@@ -23,4 +23,8 @@ public class DayPrice {
     @Builder.Default private Boolean closedToArrival = false;
     // Departure not permitted on this date (guests must stay through it).
     @Builder.Default private Boolean closedToDeparture = false;
+    // This rate plan is not sellable on this date at all (distinct from CTA: a
+    // stop-sell blocks new bookings entirely, e.g. taken offline for a private
+    // event, whereas CTA only blocks a stay from starting that day).
+    @Builder.Default private Boolean stopSell = false;
 }

@@ -6,6 +6,7 @@ import in.aviqr.pms.entity.DayPrice;
 import in.aviqr.pms.entity.RatePlan;
 import in.aviqr.pms.repository.DayPriceRepository;
 import in.aviqr.pms.repository.RatePlanRepository;
+import in.aviqr.pms.service.RateChangeLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,7 @@ public class RatePlanController {
     private final RatePlanRepository ratePlanRepo;
     private final DayPriceRepository dayPriceRepo;
     private final HotelServiceClient hotelServiceClient;
+    private final RateChangeLogService changeLog;
 
     @PostMapping("/api/v1/pms/rate-plans")
     public ResponseEntity<ApiResponse<RatePlan>> create(
@@ -69,16 +71,48 @@ public class RatePlanController {
         // override, and vice versa (price and restrictions are typically edited separately).
         DayPrice existing = dayPriceRepo.findByRatePlanIdAndDate(id, req.getDate()).orElse(null);
         if (existing != null) {
-            if (req.getPrice() != null) existing.setPrice(req.getPrice());
-            if (req.getMinStay() != null) existing.setMinStay(req.getMinStay());
-            if (req.getMaxStay() != null) existing.setMaxStay(req.getMaxStay());
-            if (req.getClosedToArrival() != null) existing.setClosedToArrival(req.getClosedToArrival());
-            if (req.getClosedToDeparture() != null) existing.setClosedToDeparture(req.getClosedToDeparture());
+            if (req.getPrice() != null) {
+                changeLog.logIfChanged(plan.getHotelId(), plan.getRoomTypeId(), id, req.getDate(),
+                    "price", existing.getPrice(), req.getPrice(), uid);
+                existing.setPrice(req.getPrice());
+            }
+            if (req.getMinStay() != null) {
+                changeLog.logIfChanged(plan.getHotelId(), plan.getRoomTypeId(), id, req.getDate(),
+                    "minStay", existing.getMinStay(), req.getMinStay(), uid);
+                existing.setMinStay(req.getMinStay());
+            }
+            if (req.getMaxStay() != null) {
+                changeLog.logIfChanged(plan.getHotelId(), plan.getRoomTypeId(), id, req.getDate(),
+                    "maxStay", existing.getMaxStay(), req.getMaxStay(), uid);
+                existing.setMaxStay(req.getMaxStay());
+            }
+            if (req.getClosedToArrival() != null) {
+                changeLog.logIfChanged(plan.getHotelId(), plan.getRoomTypeId(), id, req.getDate(),
+                    "closedToArrival", existing.getClosedToArrival(), req.getClosedToArrival(), uid);
+                existing.setClosedToArrival(req.getClosedToArrival());
+            }
+            if (req.getClosedToDeparture() != null) {
+                changeLog.logIfChanged(plan.getHotelId(), plan.getRoomTypeId(), id, req.getDate(),
+                    "closedToDeparture", existing.getClosedToDeparture(), req.getClosedToDeparture(), uid);
+                existing.setClosedToDeparture(req.getClosedToDeparture());
+            }
+            if (req.getStopSell() != null) {
+                changeLog.logIfChanged(plan.getHotelId(), plan.getRoomTypeId(), id, req.getDate(),
+                    "stopSell", existing.getStopSell(), req.getStopSell(), uid);
+                existing.setStopSell(req.getStopSell());
+            }
             return ResponseEntity.ok(ApiResponse.ok("Saved", dayPriceRepo.save(existing)));
         }
         req.setId(null);
         req.setRatePlanId(id);
-        return ResponseEntity.ok(ApiResponse.ok("Saved", dayPriceRepo.save(req)));
+        DayPrice saved = dayPriceRepo.save(req);
+        if (req.getPrice() != null) changeLog.logIfChanged(plan.getHotelId(), plan.getRoomTypeId(), id, req.getDate(), "price", null, req.getPrice(), uid);
+        if (req.getMinStay() != null) changeLog.logIfChanged(plan.getHotelId(), plan.getRoomTypeId(), id, req.getDate(), "minStay", null, req.getMinStay(), uid);
+        if (req.getMaxStay() != null) changeLog.logIfChanged(plan.getHotelId(), plan.getRoomTypeId(), id, req.getDate(), "maxStay", null, req.getMaxStay(), uid);
+        if (Boolean.TRUE.equals(req.getClosedToArrival())) changeLog.logIfChanged(plan.getHotelId(), plan.getRoomTypeId(), id, req.getDate(), "closedToArrival", false, true, uid);
+        if (Boolean.TRUE.equals(req.getClosedToDeparture())) changeLog.logIfChanged(plan.getHotelId(), plan.getRoomTypeId(), id, req.getDate(), "closedToDeparture", false, true, uid);
+        if (Boolean.TRUE.equals(req.getStopSell())) changeLog.logIfChanged(plan.getHotelId(), plan.getRoomTypeId(), id, req.getDate(), "stopSell", false, true, uid);
+        return ResponseEntity.ok(ApiResponse.ok("Saved", saved));
     }
 
     @GetMapping("/api/v1/pms/rate-plans/{id}/day-prices")
