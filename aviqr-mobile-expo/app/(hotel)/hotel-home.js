@@ -31,6 +31,8 @@ const NAV_ITEMS = [
   { icon: '🛎️', label: 'Front Desk',   href: '/(hotel)/pms/front-desk' },
   { icon: '🧾', label: 'Folio',        href: '/(hotel)/pms/folio' },
   { icon: '🛏️', label: 'Room Types',   href: '/(hotel)/pms/room-types' },
+  { icon: '🗓️', label: 'Booking Calendar', href: '/(hotel)/pms/booking-calendar' },
+  { icon: '📜', label: 'Rate & Inventory Log', href: '/(hotel)/pms/rate-change-log' },
   { icon: '👨‍👩‍👧', label: 'Group Bookings', href: '/(hotel)/pms/group-bookings' },
   { icon: '🌐', label: 'Channel Mgr',  href: '/(hotel)/pms/channel-manager' },
   { icon: '🏨', label: 'Chain Templates', href: '/(hotel)/pms/chain-templates' },

@@ -258,10 +258,11 @@ export function RoomTypesTab({ hotelId, roomTypes, onChange }) {
 function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
   const [expanded, setExpanded] = useState(false);
   const [rows, setRows] = useState([]);
-  const emptyForm = { date: today(), price: '', minStay: '', maxStay: '', closedToArrival: false, closedToDeparture: false };
+  const emptyForm = { date: today(), price: '', minStay: '', maxStay: '', closedToArrival: false, closedToDeparture: false, stopSell: false, allotment: '' };
   const [form, setForm] = useState(emptyForm);
   const [suggestion, setSuggestion] = useState(null);
   const [suggesting, setSuggesting] = useState(false);
+  const [inventoryRows, setInventoryRows] = useState([]);
 
   const suggestPrice = async () => {
     setSuggesting(true);
@@ -273,7 +274,9 @@ function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
 
   const load = () => {
     const to = new Date(); to.setDate(to.getDate() + 30);
-    pmsApi.listDayPrices(ratePlan.id, today(), to.toISOString().slice(0, 10)).then(res => setRows(res.data.data || [])).catch(() => {});
+    const toStr = to.toISOString().slice(0, 10);
+    pmsApi.listDayPrices(ratePlan.id, today(), toStr).then(res => setRows(res.data.data || [])).catch(() => {});
+    pmsApi.listRoomTypeInventory(roomTypeId, today(), toStr).then(res => setInventoryRows(res.data.data || [])).catch(() => {});
   };
   useEffect(() => { if (expanded) load(); }, [expanded]);
 
@@ -287,11 +290,17 @@ function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
         maxStay: form.maxStay ? Number(form.maxStay) : null,
         closedToArrival: form.closedToArrival,
         closedToDeparture: form.closedToDeparture,
+        stopSell: form.stopSell,
       });
+      if (form.allotment !== '') {
+        await pmsApi.setRoomTypeInventory(roomTypeId, { date: form.date, allotment: Number(form.allotment) });
+      }
       setForm({ ...emptyForm, date: form.date });
       load();
     } catch { alert('Could not save date rule'); }
   };
+
+  const allotmentForDate = (date) => inventoryRows.find(r => r.date === date)?.allotment;
 
   if (!expanded) {
     return <button type="button" className="admin-row-btn" style={{ ...btnSecondary, marginTop: 6, marginRight: 6 }} onClick={() => setExpanded(true)}>Manage dates — {ratePlan.name}</button>;
@@ -315,6 +324,11 @@ function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
         <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
           <input type="checkbox" checked={form.closedToDeparture} onChange={e => setForm({ ...form, closedToDeparture: e.target.checked })} /> Closed to departure
         </label>
+        <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input type="checkbox" checked={form.stopSell} onChange={e => setForm({ ...form, stopSell: e.target.checked })} /> Stop sell
+        </label>
+        <input type="number" min="0" placeholder="Allotment (rooms)" title="Cap on sellable rooms of this type on this date, independent of physical room count"
+          value={form.allotment} onChange={e => setForm({ ...form, allotment: e.target.value })} style={{ ...inputStyle, width: 130 }} />
         <button type="submit" className="admin-row-btn" style={btnPrimary}>Save</button>
       </form>
       {suggestion && (
@@ -324,7 +338,7 @@ function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
         </div>
       )}
       <table className="admin-table">
-        <thead><tr><th>Date</th><th>Price</th><th>Min stay</th><th>Max stay</th><th>CTA</th><th>CTD</th></tr></thead>
+        <thead><tr><th>Date</th><th>Price</th><th>Min stay</th><th>Max stay</th><th>CTA</th><th>CTD</th><th>Stop sell</th><th>Allotment</th></tr></thead>
         <tbody>
           {rows.map(r => (
             <tr key={r.id}>
@@ -334,9 +348,11 @@ function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
               <td>{r.maxStay ?? '—'}</td>
               <td>{r.closedToArrival ? 'Yes' : ''}</td>
               <td>{r.closedToDeparture ? 'Yes' : ''}</td>
+              <td>{r.stopSell ? 'Yes' : ''}</td>
+              <td>{allotmentForDate(r.date) ?? '—'}</td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 12 }}>No date rules set</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 12 }}>No date rules set</td></tr>}
         </tbody>
       </table>
     </div>
@@ -1604,6 +1620,219 @@ export function ReviewsTab({ hotelId }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ── Rate/inventory change log — audit trail written by RateChangeLogService
+// whenever a day-price field, stop-sell flag or inventory allotment actually
+// changes value. Filterable by room type, server-paginated (Spring Page).
+const RATE_LOG_FIELD_LABELS = {
+  price: 'Price', minStay: 'Min stay', maxStay: 'Max stay',
+  closedToArrival: 'Closed to arrival', closedToDeparture: 'Closed to departure',
+  stopSell: 'Stop sell', allotment: 'Allotment',
+};
+
+export function RateChangeLogTab({ hotelId, roomTypes }) {
+  const [roomTypeId, setRoomTypeId] = useState('');
+  const [logs, setLogs] = useState([]);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const roomTypeName = (id) => roomTypes.find(rt => rt.id === id)?.name || id;
+  const formatValue = (v) => (v === null || v === undefined || v === '') ? '—' : String(v);
+
+  const load = useCallback(() => {
+    if (!hotelId) return;
+    setLoading(true);
+    const params = { page, size: 20 };
+    if (roomTypeId) params.roomTypeId = roomTypeId;
+    pmsApi.listRateChangeLogs(hotelId, params).then(res => {
+      const data = res.data.data || {};
+      setLogs(data.content || []);
+      setTotalPages(data.totalPages || 0);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [hotelId, roomTypeId, page]);
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="page-header"><div><h1 className="page-title">Rate & Inventory Change Log</h1><p className="page-subtitle">Every edit to a date's price, stay restrictions, stop-sell or allotment — who changed what and when.</p></div></div>
+
+      <div className="admin-table-card" style={{ padding: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <select value={roomTypeId} onChange={e => { setPage(0); setRoomTypeId(e.target.value); }} style={inputStyle}>
+          <option value="">All room types</option>
+          {roomTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
+        </select>
+      </div>
+
+      <div className="admin-table-card">
+        <table className="admin-table">
+          <thead><tr><th>Date</th><th>Room type</th><th>Field</th><th>Old value</th><th>New value</th><th>Changed by</th><th>Changed at</th></tr></thead>
+          <tbody>
+            {logs.map((l, i) => (
+              <tr key={l.id || i}>
+                <td>{l.date}</td>
+                <td>{roomTypeName(l.roomTypeId)}</td>
+                <td>{RATE_LOG_FIELD_LABELS[l.field] || l.field}</td>
+                <td>{formatValue(l.oldValue)}</td>
+                <td>{formatValue(l.newValue)}</td>
+                <td style={{ fontSize: 12 }}>{l.changedBy}</td>
+                <td style={{ fontSize: 12 }}>{l.changedAt ? new Date(l.changedAt).toLocaleString() : ''}</td>
+              </tr>
+            ))}
+            {!loading && logs.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 20 }}>No rate or inventory changes recorded yet</td></tr>}
+          </tbody>
+        </table>
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: 12, borderTop: '1px solid var(--gray-100)' }}>
+            <button className="admin-row-btn" style={btnSecondary} disabled={page === 0} onClick={() => setPage(p => p - 1)}>Prev</button>
+            <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>Page {page + 1} of {totalPages}</span>
+            <button className="admin-row-btn" style={btnSecondary} disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Booking calendar (tape chart) — physical rooms as rows, each stay a
+// colored bar spanning check-in..check-out, grouped by room type. v1 scope:
+// read-only (no drag-and-drop, no room-type roll-up availability counts —
+// see CRS's reservationCalendar for that fuller design), prev/next week
+// navigation, and a click-to-view detail popup for each bar.
+const CALENDAR_STATUS_CFG = {
+  BOOKED:      { label: 'Booked',      color: 'var(--blue)' },
+  CHECKED_IN:  { label: 'Checked in',  color: 'var(--green-dark)' },
+  CHECKED_OUT: { label: 'Checked out', color: 'var(--gray-400)' },
+  NO_SHOW:     { label: 'No-show',     color: 'var(--red)' },
+};
+const CAL_DAY_WIDTH = 64;
+const CAL_ROW_HEIGHT = 36;
+const CAL_NUM_DAYS = 7;
+
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function daysBetween(a, b) {
+  return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
+}
+
+export function BookingCalendarTab({ hotelId }) {
+  const [from, setFrom] = useState(today());
+  const [rooms, setRooms] = useState([]);
+  const [stays, setStays] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const to = addDays(from, CAL_NUM_DAYS);
+  const days = Array.from({ length: CAL_NUM_DAYS }, (_, i) => addDays(from, i));
+
+  const load = useCallback(() => {
+    if (!hotelId) return;
+    pmsApi.getBookingCalendar(hotelId, from, to).then(res => {
+      const data = res.data.data || {};
+      setRooms(data.rooms || []);
+      setStays(data.stays || []);
+    }).catch(() => {});
+  }, [hotelId, from, to]);
+  useEffect(() => { load(); }, [load]);
+
+  const staysByRoom = {};
+  stays.forEach(s => { (staysByRoom[s.roomId] ||= []).push(s); });
+
+  const roomTypeGroups = [];
+  rooms.forEach(r => {
+    let group = roomTypeGroups.find(x => x.roomType === r.roomType);
+    if (!group) { group = { roomType: r.roomType, rooms: [] }; roomTypeGroups.push(group); }
+    group.rooms.push(r);
+  });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="page-header"><div><h1 className="page-title">Booking Calendar</h1><p className="page-subtitle">Every physical room, one row each — a colored bar shows where a stay currently sits.</p></div></div>
+
+      <div className="admin-table-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button className="admin-row-btn" style={btnSecondary} onClick={() => setFrom(f => addDays(f, -CAL_NUM_DAYS))}>← Prev week</button>
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={inputStyle} />
+          <button className="admin-row-btn" style={btnSecondary} onClick={() => setFrom(today())}>Today</button>
+          <button className="admin-row-btn" style={btnSecondary} onClick={() => setFrom(f => addDays(f, CAL_NUM_DAYS))}>Next week →</button>
+        </div>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginLeft: 'auto' }}>
+          {Object.entries(CALENDAR_STATUS_CFG).map(([k, cfg]) => (
+            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--gray-500)' }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: cfg.color, display: 'inline-block' }} /> {cfg.label}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="admin-table-card" style={{ overflowX: 'auto', padding: 0 }}>
+        <div style={{ minWidth: 180 + CAL_NUM_DAYS * CAL_DAY_WIDTH }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
+            <div style={{ width: 180, flexShrink: 0, padding: '8px 12px', fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase' }}>Room</div>
+            {days.map(d => (
+              <div key={d} style={{ width: CAL_DAY_WIDTH, flexShrink: 0, textAlign: 'center', padding: '8px 4px', fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', borderLeft: '1px solid var(--gray-100)' }}>
+                {new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
+              </div>
+            ))}
+          </div>
+
+          {roomTypeGroups.map(g => (
+            <div key={g.roomType}>
+              <div style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, background: 'var(--gray-50)', borderBottom: '1px solid var(--gray-100)' }}>{g.roomType}</div>
+              {g.rooms.map(r => (
+                <div key={r.roomId} style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
+                  <div style={{ width: 180, flexShrink: 0, padding: '0 12px', display: 'flex', alignItems: 'center', fontSize: 13 }}>{r.roomNumber}</div>
+                  <div style={{ position: 'relative', width: CAL_NUM_DAYS * CAL_DAY_WIDTH, height: CAL_ROW_HEIGHT }}>
+                    {days.map((d, i) => <div key={d} style={{ position: 'absolute', left: i * CAL_DAY_WIDTH, top: 0, bottom: 0, width: CAL_DAY_WIDTH, borderLeft: '1px solid var(--gray-100)' }} />)}
+                    {(staysByRoom[r.roomId] || []).map(s => {
+                      const startIdx = daysBetween(from, s.checkInDate);
+                      const endIdx = daysBetween(from, s.checkOutDate);
+                      const clippedStart = Math.max(0, startIdx);
+                      const clippedEnd = Math.min(CAL_NUM_DAYS, endIdx);
+                      if (clippedEnd <= clippedStart) return null;
+                      const cfg = CALENDAR_STATUS_CFG[s.status] || { color: 'var(--gray-400)' };
+                      return (
+                        <div key={s.reservationId} onClick={() => setSelected(s)}
+                          title={`${s.guestName} · ${s.checkInDate} → ${s.checkOutDate}`}
+                          style={{
+                            position: 'absolute', left: clippedStart * CAL_DAY_WIDTH + 2, top: 4,
+                            width: (clippedEnd - clippedStart) * CAL_DAY_WIDTH - 4, height: CAL_ROW_HEIGHT - 8,
+                            background: cfg.color, color: '#fff', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                            display: 'flex', alignItems: 'center', padding: '0 8px', overflow: 'hidden', whiteSpace: 'nowrap',
+                            cursor: 'pointer',
+                          }}>
+                          {s.guestName}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+          {rooms.length === 0 && <div style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 30 }}>No rooms configured yet</div>}
+        </div>
+      </div>
+
+      {selected && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setSelected(null)}>
+          <div className="admin-table-card" style={{ padding: 20, width: 340, maxWidth: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <strong>Reservation</strong>
+              <button className="admin-row-btn" onClick={() => setSelected(null)}><X size={14} /></button>
+            </div>
+            <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div><strong>Guest:</strong> {selected.guestName}</div>
+              <div><strong>Dates:</strong> {selected.checkInDate} → {selected.checkOutDate}</div>
+              <div><strong>Status:</strong> <span className={STATUS_CLS[selected.status] || 'status-pill'}>{selected.status}</span></div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

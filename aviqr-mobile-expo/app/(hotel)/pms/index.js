@@ -12,6 +12,8 @@ const PMS_ITEMS = [
   { icon: '🛎️', label: 'Front Desk',     sub: 'Check-in / check-out',    href: '/(hotel)/pms/front-desk' },
   { icon: '🧾', label: 'Folio',          sub: 'Guest charges & billing', href: '/(hotel)/pms/folio' },
   { icon: '🛏️', label: 'Room Types',     sub: 'Types & rate plans',      href: '/(hotel)/pms/room-types' },
+  { icon: '🗓️', label: 'Booking Calendar', sub: 'Tape chart — rooms × dates', href: '/(hotel)/pms/booking-calendar' },
+  { icon: '📜', label: 'Rate & Inventory Log', sub: 'Price/restriction audit trail', href: '/(hotel)/pms/rate-change-log' },
   { icon: '👨‍👩‍👧', label: 'Group Bookings', sub: 'Block reservations',      href: '/(hotel)/pms/group-bookings' },
   { icon: '🌐', label: 'Channel Manager',sub: 'OTA connections',         href: '/(hotel)/pms/channel-manager' },
   { icon: '🏨', label: 'Chain Templates',sub: 'Push rates to properties',href: '/(hotel)/pms/chain-templates' },

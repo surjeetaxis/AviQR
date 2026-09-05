@@ -445,9 +445,16 @@ export const pmsApi = {
   listRatePlans:   (roomTypeId)   => api.get(`/api/v1/pms/rate-plans/room-type/${roomTypeId}`),
   createRatePlan:  (d)            => api.post('/api/v1/pms/rate-plans', d),
   updateRatePlan:  (id, d)        => api.put(`/api/v1/pms/rate-plans/${id}`, d),
-  // Day prices & restrictions (min/max stay, closed to arrival/departure)
+  // Day prices & restrictions (min/max stay, closed to arrival/departure, stop-sell)
   setDayPrice:     (ratePlanId, d)      => api.post(`/api/v1/pms/rate-plans/${ratePlanId}/day-prices`, d),
   listDayPrices:   (ratePlanId, from, to) => api.get(`/api/v1/pms/rate-plans/${ratePlanId}/day-prices`, { params: { from, to } }),
+  // Per-date inventory cap (sellable rooms), independent of physical room count
+  setInventory:    (roomTypeId, d)          => api.put(`/api/v1/pms/room-types/${roomTypeId}/inventory`, d),
+  listInventory:   (roomTypeId, from, to)   => api.get(`/api/v1/pms/room-types/${roomTypeId}/inventory`, { params: { from, to } }),
+  // Rate/inventory change audit log
+  rateChangeLogs:  (hotelId, params)        => api.get(`/api/v1/pms/hotels/${hotelId}/rate-change-logs`, { params }),
+  // Booking calendar (tape chart) — rooms x stays for a date range
+  bookingCalendar: (hotelId, from, to)      => api.get(`/api/v1/pms/hotels/${hotelId}/booking-calendar`, { params: { from, to } }),
   // Availability
   availability:    (params)       => api.get('/api/v1/pms/availability', { params }),
   // Reservations

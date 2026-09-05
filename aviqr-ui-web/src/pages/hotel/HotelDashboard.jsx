@@ -14,6 +14,7 @@ import {
   Overview as PmsOverview, ReservationsTab, GroupsTab, FrontDeskTab, FolioTab,
   ChannelsTab, GuestsTab as PmsGuestsTab, ExtrasTab, AgentsTab, ReportsTab as PmsReportsTab,
   RoomTypesTab, WaitlistTab, ChainTemplatesTab, ImportTab, ReviewsTab,
+  RateChangeLogTab, BookingCalendarTab,
 } from '../pms/PmsDashboard.jsx';
 import {
   Hotel, BedDouble, UtensilsCrossed, Shirt, Sparkles, Wrench,
@@ -22,7 +23,7 @@ import {
   Star, Phone, Save, X, Coffee, Car, RefreshCw, Store, UserCog, QrCode,
   Users, Flower2, TrendingUp, Eye, Download, Printer, MapPin, Loader2,
   CalendarCheck, DoorOpen, Receipt, UserCircle, Tag, Wifi, Briefcase, MessageSquare,
-  Hourglass, Building2, Upload,
+  Hourglass, Building2, Upload, Calendar, History,
 } from 'lucide-react';
 import '../admin/Admin.css';
 import './Hotel.css';
@@ -62,6 +63,7 @@ const NAV = [
   // ── Front Office (PMS core) ──────────────────────────────────────────────
   {key:'overview',     group:'Front Office', labelKey:'overview',       icon:BarChart2},
   {key:'reservations', group:'Front Office', label:'Reservations',      icon:CalendarCheck},
+  {key:'bookingcalendar', group:'Front Office', label:'Booking Calendar', icon:Calendar},
   {key:'frontdesk',    group:'Front Office', label:'Front Desk',        icon:DoorOpen},
   {key:'groups',       group:'Front Office', label:'Group Bookings',    icon:Users},
   {key:'folio',        group:'Front Office', label:'Folio',             icon:Receipt},
@@ -81,6 +83,7 @@ const NAV = [
   // ── Inventory & Rates ─────────────────────────────────────────────────────
   {key:'rooms',        group:'Inventory & Rates', labelKey:'rooms',           icon:BedDouble},
   {key:'roomtypes',    group:'Inventory & Rates', label:'Room Types & Rates', icon:BedDouble},
+  {key:'ratelog',      group:'Inventory & Rates', label:'Rate & Inventory Log', icon:History},
   {key:'extras',       group:'Inventory & Rates', label:'Surcharges, Discounts & Add-ons', icon:Tag},
   {key:'import',       group:'Inventory & Rates', label:'Import Reservations', icon:Upload},
 
@@ -331,6 +334,7 @@ export default function HotelDashboard() {
         <main className="admin-content">
           {/* ── Front Office (PMS) ── */}
           {tab==='overview'     && <PmsOverview hotelName={hotelName} reservations={reservations} audit={audit} requests={requests} onNav={setTab}/>}
+          {tab==='bookingcalendar' && <BookingCalendarTab hotelId={hotelId}/>}
           {tab==='reservations' && <ReservationsTab hotelId={hotelId} roomTypes={roomTypes} reservations={reservations} groups={groups} agents={agents}
                                       onCreated={refreshReservations} onOpenFolio={(id)=>{setSelectedReservationId(id);setTab('folio');}}/>}
           {tab==='frontdesk'    && <FrontDeskTab reservations={reservations} onChanged={refreshReservations}
@@ -353,6 +357,7 @@ export default function HotelDashboard() {
           {/* ── Inventory & Rates ── */}
           {tab==='rooms'        && <RoomsPage rooms={rooms} setRooms={setRooms} hotelId={hotelId} onNav={setTab} onRequestsFilter={setRoomFilter}/>}
           {tab==='roomtypes'    && <RoomTypesTab hotelId={hotelId} roomTypes={roomTypes} onChange={()=>loadRoomTypes(hotelId)}/>}
+          {tab==='ratelog'      && <RateChangeLogTab hotelId={hotelId} roomTypes={roomTypes}/>}
           {tab==='extras'       && <ExtrasTab hotelId={hotelId}/>}
           {tab==='import'       && <ImportTab hotelId={hotelId} onImported={refreshReservations}/>}
 
