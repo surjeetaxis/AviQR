@@ -76,8 +76,8 @@ export default function Login() {
 
         {tab==='password'?(
           <View>
-            <Input label="Email" placeholder="sujeet@spiceroute.in" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none"/>
-            <Input label="Password" placeholder="Axis321#" value={pw} onChangeText={setPw} secureEntry/>
+            <Input label="Email" placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none"/>
+            <Input label="Password" placeholder="Password" value={pw} onChangeText={setPw} secureEntry/>
             <TouchableOpacity onPress={()=>router.push('/forgot-password')} style={{alignSelf:'flex-end',marginBottom:12}}>
               <Text style={{fontSize:FontSize.xs,color:Colors.primary,fontWeight:'700'}}>Forgot?</Text>
             </TouchableOpacity>
@@ -85,7 +85,7 @@ export default function Login() {
           </View>
         ):(
           <View>
-            <Input label="Email" placeholder="sujeet@spiceroute.in" value={otpEmail} onChangeText={setOtpEmail} keyboardType="email-address" autoCapitalize="none"/>
+            <Input label="Email" placeholder="Email" value={otpEmail} onChangeText={setOtpEmail} keyboardType="email-address" autoCapitalize="none"/>
             {sent?(
               <View>
                 <Input label="OTP" placeholder="123456" value={otp} onChangeText={setOtp} keyboardType="number-pad"/>

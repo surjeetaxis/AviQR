@@ -128,7 +128,7 @@ export default function LandingScreen() {
   return (
     <ScrollView style={ss.screen} showsVerticalScrollIndicator={false}>
       {/* Hero */}
-      <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.hero}>
+      <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.hero} pointerEvents="box-none">
         <View style={ss.topBar}>
           <View style={ss.topBarBrand}>
             <Logo size={22} />
@@ -318,7 +318,7 @@ export default function LandingScreen() {
       </View>
 
       {/* CTA banner */}
-      <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.ctaBanner}>
+      <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.ctaBanner} pointerEvents="box-none">
         <Text style={ss.ctaBannerTitle}>Ready to go digital?</Text>
         <Text style={ss.ctaBannerSub}>Set up your digital menu in under 10 minutes. No hardware. No app download.</Text>
         <TouchableOpacity style={ss.ctaBannerBtn} onPress={() => router.push('/register')}>
