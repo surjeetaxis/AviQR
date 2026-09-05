@@ -19,6 +19,7 @@ const PMS_ITEMS = [
   { icon: '🎁', label: 'Extras',         sub: 'Add-ons & packages',      href: '/(hotel)/pms/extras' },
   { icon: '📇', label: 'PMS Guests',     sub: 'Guest profiles',          href: '/(hotel)/pms/guests' },
   { icon: '📈', label: 'PMS Reports',    sub: 'Occupancy & revenue',     href: '/(hotel)/pms/pms-reports' },
+  { icon: '⭐', label: 'Guest Reviews',  sub: 'Post-stay ratings',       href: '/(hotel)/pms/reviews' },
 ];
 
 export default function PmsHubScreen() {

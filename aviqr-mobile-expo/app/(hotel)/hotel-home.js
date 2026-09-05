@@ -38,6 +38,7 @@ const NAV_ITEMS = [
   { icon: '🎁', label: 'Extras',       href: '/(hotel)/pms/extras' },
   { icon: '📇', label: 'PMS Guests',   href: '/(hotel)/pms/guests' },
   { icon: '📈', label: 'PMS Reports',  href: '/(hotel)/pms/pms-reports' },
+  { icon: '⭐', label: 'Guest Reviews', href: '/(hotel)/pms/reviews' },
   { icon: '🧑‍🤝‍🧑', label: 'Guests',       href: '/(hotel)/guests' },
   { icon: '🛏️', label: 'Housekeeping', href: '/(hotel)/housekeeping' },
   { icon: '🔧', label: 'Maintenance',  href: '/(hotel)/maintenance' },
