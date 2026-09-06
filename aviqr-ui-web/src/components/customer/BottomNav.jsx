@@ -1,8 +1,11 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import './BottomNav.css';
 
-// Generic floating pill bottom-nav: a single raised circle indicator slides
-// to whichever tab is active (one animated transform, not per-button state).
+// Generic floating glass bottom-nav — ported to match the mobile Expo app's
+// FloatingPillNav (aviqr-mobile-expo/src/components/common/FloatingPillNav.js):
+// a frosted-glass pill, every tab always shows its label, and the active tab
+// gets a "U" indicator (flat top, deeply rounded bottom corners) that sits
+// inside the bar and slides between tabs — not a circle raised above it.
 // The indicator's position is measured from the actual active button's
 // on-screen position (not CSS percentage math) so it stays correct
 // regardless of padding or uneven tab widths — including the two edge tabs,
@@ -45,7 +48,7 @@ export default function BottomNav({ tabs, activeKey, badges = {}, onTabClick }) 
             style={{ left: indicatorX }}
             aria-hidden="true"
           >
-            <span className="bn-indicator-circle">
+            <span className="bn-indicator-shape">
               {ActiveIcon && <ActiveIcon size={20} />}
               {!!activeBadge && <span className="bn-badge">{activeBadge}</span>}
             </span>
@@ -72,6 +75,7 @@ export default function BottomNav({ tabs, activeKey, badges = {}, onTabClick }) 
                     still visible even while its tab is active. */}
                 {!!badge && !isActive && <span className="bn-badge">{badge}</span>}
               </div>
+              <span className="bn-label">{tab.label}</span>
             </button>
           );
         })}

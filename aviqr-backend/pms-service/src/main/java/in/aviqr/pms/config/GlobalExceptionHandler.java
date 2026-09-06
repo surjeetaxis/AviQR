@@ -23,7 +23,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse<Void>> handleRuntime(RuntimeException ex) {
-        log.warn("Business error: {}", ex.getMessage());
+        log.warn("Business error: {}", ex.getMessage(), ex);
         return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
     }
 

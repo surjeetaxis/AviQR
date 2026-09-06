@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, FlatList, StyleSheet, TouchableOpacity, TextInput, Modal, ActivityIndicator, Alert } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { guestServiceApi } from '../../src/api/index.js';
 import { Button } from '../../src/components/common/Button.js';
@@ -101,7 +101,17 @@ function HubView({ hub, room, onBooked }) {
       )}
       <View style={styles.grid}>
         {hub.outlets.map(o => (
-          <TouchableOpacity key={o.id} style={styles.outletCard} onPress={() => o.bookable && setBooking(o)}>
+          <TouchableOpacity
+            key={o.id}
+            style={styles.outletCard}
+            onPress={() => {
+              if (o.bookable) setBooking(o);
+              else if (o.shopId) router.push({
+                pathname: '/(customer)/shop/menu',
+                params: { shopId: o.shopId, room: room || '', hotel: hub.hotelId },
+              });
+            }}
+          >
             <View style={styles.outletIcon}><Text style={{ fontSize: 20 }}>{OUTLET_EMOJI[o.type] || '▫️'}</Text></View>
             <Text style={styles.outletName}>{o.name}</Text>
             <Text style={styles.outletSub}>{o.location || o.type}</Text>

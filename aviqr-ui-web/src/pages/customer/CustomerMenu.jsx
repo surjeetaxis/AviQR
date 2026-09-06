@@ -461,6 +461,10 @@ export default function CustomerMenu() {
   const focusSearchParam = searchParams.get('focusSearch') === '1';
   const openCartParam    = searchParams.get('openCart') === '1';
   const itemFromQR       = searchParams.get('item') || '';
+  // Present on HOTEL_OUTLET/ROOM_SERVICE QR links (see QrService.buildUrl) — enables
+  // the "Charge to Room" checkout option below.
+  const hotelFromQR      = searchParams.get('hotel') || '';
+  const roomFromQR       = searchParams.get('room') || '';
 
   // State
   const [lang, setLang]                 = useState('en');
@@ -697,7 +701,8 @@ export default function CustomerMenu() {
         customerPhone: checkoutForm.phone || customer?.phone || '',
         tableNumber: checkoutForm.type === 'dine-in' ? checkoutForm.table : '',
         type: checkoutForm.type === 'dine-in' ? 'DINE_IN' : 'TAKEAWAY',
-        paymentMethod: checkoutForm.payment === 'online' ? 'ONLINE' : 'CASH',
+        paymentMethod: checkoutForm.payment === 'online' ? 'ONLINE' : checkoutForm.payment === 'room' ? 'ROOM_CHARGE' : 'CASH',
+        ...(checkoutForm.payment === 'room' ? { hotelId: hotelFromQR, roomNumber: roomFromQR } : {}),
         items: cartItems.map(i => ({
           menuItemId: i.id, itemName: getItemName(i), quantity: i.qty, unitPrice: i.price,
           notes: itemNotes[i.id]?.trim() || undefined,
@@ -744,7 +749,8 @@ export default function CustomerMenu() {
         }
       }
 
-      // Cash orders (or if Razorpay failed to load) complete immediately.
+      // Cash and room-charge orders (or if Razorpay failed to load) complete immediately —
+      // ROOM_CHARGE is pre-authorized/billed to the room, settled at checkout (see OrderService).
       setPlacedOrder(order);
       clearCart();
       setItemNotes({});
@@ -1199,6 +1205,9 @@ export default function CustomerMenu() {
                 {[
                   { k:'online', label: t('payOnline', lang), icon:'💳' },
                   { k:'cash',   label: t('payCash', lang),   icon:'💵' },
+                  ...(hotelFromQR && roomFromQR
+                    ? [{ k:'room', label: `Charge to Room ${roomFromQR}`, icon:'🛏' }]
+                    : []),
                 ].map(p => (
                   <button key={p.k}
                     className={`cm-pay-opt ${checkoutForm.payment === p.k ? 'active' : ''}`}

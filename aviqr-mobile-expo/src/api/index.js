@@ -621,6 +621,7 @@ export const hotelOutletApi = {
   toggleQr:     (id, active)   => api.put(`/api/v1/hotel-outlets/${id}/qr?active=${active}`),
   delete:       (id)           => api.delete(`/api/v1/hotel-outlets/${id}`),
   createQr:     (id)           => api.post(`/api/v1/hotel-outlets/${id}/qr-code`),
+  createRoomServiceQr: (id, roomId) => api.post(`/api/v1/hotel-outlets/${id}/room-service-qr?roomId=${roomId}`),
   // Mints an outlet-scoped token (the hotel owner's own JWT has no shopId, so
   // a direct order/report-service call would 403).
   enter:        (id)           => api.post(`/api/v1/hotel-outlets/${id}/enter`),

@@ -5,4 +5,5 @@
     https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
     <include file="db/changelog/changes/001-orders-billing-columns.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/002-bills-table.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/003-qrcodes-room-number.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

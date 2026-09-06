@@ -367,6 +367,8 @@ export const pmsApi = {
   listRateChangeLogs: (hotelId, params) => api.get(`/api/v1/pms/hotels/${hotelId}/rate-change-logs`, { params }),
   // Booking calendar (tape chart)
   getBookingCalendar: (hotelId, from, to) => api.get(`/api/v1/pms/hotels/${hotelId}/booking-calendar`, { params: { from, to } }),
+  // Combined inventory + rates calendar (allotted/booked/available per room type, price/restrictions per rate plan)
+  getRatesCalendar: (hotelId, from, to) => api.get(`/api/v1/pms/hotels/${hotelId}/rates-calendar`, { params: { from, to } }),
   // Availability
   availability:    (params)       => api.get('/api/v1/pms/availability', { params }),
   // Reservations
@@ -531,6 +533,7 @@ export const hotelOutletApi = {
   toggleQr:     (id, active)   => api.put(`/api/v1/hotel-outlets/${id}/qr?active=${active}`),
   delete:       (id)           => api.delete(`/api/v1/hotel-outlets/${id}`),
   createQr:     (id)           => api.post(`/api/v1/hotel-outlets/${id}/qr-code`),
+  createRoomServiceQr: (id, roomId) => api.post(`/api/v1/hotel-outlets/${id}/room-service-qr?roomId=${roomId}`),
   enter:        (id)           => api.post(`/api/v1/hotel-outlets/${id}/enter`),
   // Live kitchen queue (table number + KOT status) for the outlet's restaurant
   liveOrders:   (id)           => api.get(`/api/v1/hotel-outlets/${id}/live-orders`),

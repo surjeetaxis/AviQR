@@ -10,6 +10,7 @@ public interface QrCodeRepository extends JpaRepository<QrCode, UUID> {
     List<QrCode> findByShopId(String shopId);
     Optional<QrCode> findByQrCode(String qrCode);
     boolean existsByQrCode(String qrCode);
+    Optional<QrCode> findByShopIdAndTypeAndRoomNumber(String shopId, in.aviqr.order.entity.QrType type, String roomNumber);
 
     // Sums scanCount across every row ever created for a room (a regenerate
     // leaves the deactivated old row's tally in place) so "most-scanned rooms"

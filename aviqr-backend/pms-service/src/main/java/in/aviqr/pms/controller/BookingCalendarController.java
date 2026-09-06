@@ -1,12 +1,16 @@
 package in.aviqr.pms.controller;
 
+import in.aviqr.pms.client.HotelRoomDto;
 import in.aviqr.pms.client.HotelServiceClient;
 import in.aviqr.pms.dto.ApiResponse;
 import in.aviqr.pms.dto.BookingCalendarResponse;
 import in.aviqr.pms.entity.Reservation;
 import in.aviqr.pms.entity.RoomReservation;
+import in.aviqr.pms.entity.RoomType;
 import in.aviqr.pms.repository.ReservationRepository;
 import in.aviqr.pms.repository.RoomReservationRepository;
+import in.aviqr.pms.repository.RoomTypeRepository;
+import in.aviqr.pms.service.InventoryRollupService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +30,8 @@ public class BookingCalendarController {
     private final HotelServiceClient hotelServiceClient;
     private final RoomReservationRepository roomReservationRepo;
     private final ReservationRepository reservationRepo;
+    private final RoomTypeRepository roomTypeRepo;
+    private final InventoryRollupService inventoryRollupService;
 
     @GetMapping("/api/v1/pms/hotels/{hotelId}/booking-calendar")
     public ResponseEntity<ApiResponse<BookingCalendarResponse>> get(
@@ -38,10 +44,21 @@ public class BookingCalendarController {
 
         LocalDate fromDate = LocalDate.parse(from), toDate = LocalDate.parse(to);
 
+        List<RoomType> roomTypes = roomTypeRepo.findByHotelIdAndActiveTrue(hotelId);
+        // hotel-service's Room.roomType is a plain string; match it to a pms RoomType
+        // by name (case-insensitive) the same way AvailabilityService does.
+        Map<String, RoomType> roomTypeByName = roomTypes.stream()
+            .collect(Collectors.toMap(rt -> rt.getName().toLowerCase(), rt -> rt, (a, b) -> a));
+
+        List<HotelRoomDto> hotelRooms = hotelServiceClient.getRooms(hotelId);
+
         // Every room is shown as a row, MAINTENANCE included, so staff can see why a
         // room has no bookable bars rather than it silently missing from the chart.
-        List<BookingCalendarResponse.RoomRow> rooms = hotelServiceClient.getRooms(hotelId).stream()
-            .map(r -> new BookingCalendarResponse.RoomRow(r.getId(), r.getRoomNumber(), r.getRoomType()))
+        List<BookingCalendarResponse.RoomRow> rooms = hotelRooms.stream()
+            .map(r -> {
+                RoomType rt = roomTypeByName.get(r.getRoomType() == null ? "" : r.getRoomType().toLowerCase());
+                return new BookingCalendarResponse.RoomRow(r.getId(), r.getRoomNumber(), r.getRoomType(), rt == null ? null : rt.getId());
+            })
             .sorted((a, b) -> a.getRoomNumber().compareToIgnoreCase(b.getRoomNumber()))
             .toList();
 
@@ -61,6 +78,18 @@ public class BookingCalendarController {
             .filter(java.util.Objects::nonNull)
             .toList();
 
-        return ResponseEntity.ok(ApiResponse.ok(new BookingCalendarResponse(rooms, stays)));
+        List<InventoryRollupService.RoomTypeRollup> rollups =
+            inventoryRollupService.compute(roomTypes, hotelRooms, roomReservations, reservationsById, fromDate, toDate);
+        List<BookingCalendarResponse.RoomTypeAvailability> availability = rollups.stream()
+            .map(roll -> {
+                RoomType rt = roomTypes.stream().filter(t -> t.getId().equals(roll.roomTypeId())).findFirst().orElseThrow();
+                List<BookingCalendarResponse.DateAvailability> byDate = roll.byDate().stream()
+                    .map(d -> new BookingCalendarResponse.DateAvailability(d.date(), d.available()))
+                    .toList();
+                return new BookingCalendarResponse.RoomTypeAvailability(rt.getId(), rt.getName(), roll.physicalRoomCount(), byDate);
+            })
+            .toList();
+
+        return ResponseEntity.ok(ApiResponse.ok(new BookingCalendarResponse(rooms, stays, availability)));
     }
 }

@@ -130,9 +130,10 @@ public class QrController {
             @PathVariable String shopId,
             @RequestParam(defaultValue="Main QR") String label,
             @RequestParam(defaultValue="SHOP") String type,
-            @RequestParam(required=false) String group) {
+            @RequestParam(required=false) String group,
+            @RequestParam(required=false) String roomNumber) {
         return ResponseEntity.ok(ApiResponse.ok("QR created",
-            service.create(shopId, label, QrType.valueOf(type.toUpperCase()), group)));
+            service.create(shopId, label, QrType.valueOf(type.toUpperCase()), group, roomNumber)));
     }
 
     // Internal — rotate a QR's slug (old one stops resolving), same trust model as

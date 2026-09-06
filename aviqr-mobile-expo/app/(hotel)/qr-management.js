@@ -31,6 +31,7 @@ export default function HotelQrManagementScreen() {
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState({});
   const [busy, setBusy]       = useState({}); // regenerate/generate in-flight per key
+  const [roomServiceQrs, setRoomServiceQrs] = useState({}); // room.id -> qr row
 
   const load = useCallback(async (hId) => {
     const [qrRes, roomsRes, outletsRes, codesRes, trendRes, byRoomRes, recentRes] = await Promise.allSettled([
@@ -137,6 +138,31 @@ export default function HotelQrManagementScreen() {
     Share.share({ message: `Scan to access hotel services: ${url}`, url }).catch(() => {});
   };
 
+  // Links one room to one outlet's menu — the guest scans it and lands straight on
+  // that outlet's menu with room context pre-filled ("one QR, one linked target").
+  const generateRoomServiceQr = async (room, outletId) => {
+    setBusy(p => ({ ...p, [`rs-${room.id}`]: true }));
+    try {
+      const res = await hotelOutletApi.createRoomServiceQr(outletId, room.id);
+      setRoomServiceQrs(prev => ({ ...prev, [room.id]: res.data.data }));
+    } catch { Alert.alert('Could not generate room service QR'); }
+    finally { setBusy(p => ({ ...p, [`rs-${room.id}`]: false })); }
+  };
+
+  const outletsWithShop = outlets.filter(o => o.shopId);
+  const pickOutletForRoomService = (room) => {
+    if (outletsWithShop.length === 0) return;
+    if (outletsWithShop.length === 1) { generateRoomServiceQr(room, outletsWithShop[0].id); return; }
+    Alert.alert(
+      `Room ${room.roomNumber} — link to which outlet?`,
+      undefined,
+      [
+        ...outletsWithShop.map(o => ({ text: o.name, onPress: () => generateRoomServiceQr(room, o.id) })),
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  };
+
   if (loading) return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <PageHeader title="QR Management" />
@@ -170,28 +196,50 @@ export default function HotelQrManagementScreen() {
         {rooms.map(r => {
           const qr = qrMap[r.roomNumber];
           const scanUrl = qr?.qrCode ? qrApi.redirectUrl(qr.qrCode) : null;
+          const rsQr = roomServiceQrs[r.id];
+          const rsScanUrl = rsQr?.qrCode ? qrApi.redirectUrl(rsQr.qrCode) : rsQr?.targetUrl;
           return (
-            <Card key={r.id} style={ss.roomCard} padding={12}>
-              <View style={ss.roomThumb}>
-                {scanUrl
-                  ? <QRCode value={scanUrl} size={48} color={Colors.gray900} backgroundColor="white" />
-                  : <View style={ss.roomThumbEmpty} />}
-              </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={ss.rowLabel}>Room {r.roomNumber}</Text>
-                {qr && <Text style={ss.roomScans}>👁 {(qr.scanCount || 0).toLocaleString()} scans</Text>}
-              </View>
-              {qr ? (
-                <>
-                  <Switch value={!!r.qrActive} onValueChange={() => toggleRoomQr(r)} disabled={toggling[r.id]} trackColor={{ true: Colors.primary }} thumbColor={Colors.white} />
-                  <TouchableOpacity onPress={() => regenerateRoomQr(r)} disabled={busy[r.id]} style={ss.smallActionBtn}>
-                    <Text style={ss.smallActionTxt}>{busy[r.id] ? '…' : 'Regenerate'}</Text>
+            <Card key={r.id} style={{ marginBottom: 8 }} padding={12}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={ss.roomThumb}>
+                  {scanUrl
+                    ? <QRCode value={scanUrl} size={48} color={Colors.gray900} backgroundColor="white" />
+                    : <View style={ss.roomThumbEmpty} />}
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={ss.rowLabel}>Room {r.roomNumber}</Text>
+                  {qr && <Text style={ss.roomScans}>👁 {(qr.scanCount || 0).toLocaleString()} scans</Text>}
+                </View>
+                {qr ? (
+                  <>
+                    <Switch value={!!r.qrActive} onValueChange={() => toggleRoomQr(r)} disabled={toggling[r.id]} trackColor={{ true: Colors.primary }} thumbColor={Colors.white} />
+                    <TouchableOpacity onPress={() => regenerateRoomQr(r)} disabled={busy[r.id]} style={ss.smallActionBtn}>
+                      <Text style={ss.smallActionTxt}>{busy[r.id] ? '…' : 'Regenerate'}</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <TouchableOpacity onPress={() => generateRoomQr(r)} disabled={busy[r.id]} style={ss.smallActionBtn}>
+                    <Text style={ss.smallActionTxt}>{busy[r.id] ? '…' : 'Generate QR'}</Text>
                   </TouchableOpacity>
-                </>
-              ) : (
-                <TouchableOpacity onPress={() => generateRoomQr(r)} disabled={busy[r.id]} style={ss.smallActionBtn}>
-                  <Text style={ss.smallActionTxt}>{busy[r.id] ? '…' : 'Generate QR'}</Text>
-                </TouchableOpacity>
+                )}
+              </View>
+              {outletsWithShop.length > 0 && (
+                <View style={ss.roomServiceRow}>
+                  {rsQr && (
+                    <View style={ss.roomThumb}>
+                      <QRCode value={rsScanUrl} size={40} color={Colors.gray900} backgroundColor="white" />
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    onPress={() => rsQr ? shareLink(rsScanUrl) : pickOutletForRoomService(r)}
+                    disabled={busy[`rs-${r.id}`]}
+                    style={[ss.smallActionBtn, { marginLeft: rsQr ? 10 : 0 }]}
+                  >
+                    <Text style={ss.smallActionTxt}>
+                      {busy[`rs-${r.id}`] ? '…' : rsQr ? '🍽 Share Room Service QR' : '🍽 Room Service QR'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </Card>
           );
@@ -261,8 +309,8 @@ const ss = StyleSheet.create({
   actionsRow: { flexDirection: 'row', gap: 8, width: '100%' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.white, borderRadius: Radius.md, padding: 12, marginBottom: 8, ...Shadow.sm },
   rowLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900 },
-  roomCard: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   roomThumb: { width: 48, height: 48, borderRadius: Radius.sm, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  roomServiceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border },
   roomThumbEmpty: { width: 48, height: 48, borderRadius: Radius.sm, backgroundColor: Colors.gray100 },
   roomScans: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 2 },
   smallActionBtn: { paddingHorizontal: 10, paddingVertical: 6, marginLeft: 6 },

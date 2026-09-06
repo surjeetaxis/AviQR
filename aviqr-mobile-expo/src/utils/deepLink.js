@@ -39,7 +39,7 @@ export function resolveSystemPath(path, qs) {
 function resolvePath(path, q) {
   let mm;
   if ((mm = /^\/menu\/([^/]+)\/?$/.exec(path))) {
-    return { pathname: '/(customer)/shop/menu', params: { shopId: mm[1], tableNumber: q.table } };
+    return { pathname: '/(customer)/shop/menu', params: { shopId: mm[1], tableNumber: q.table, hotel: q.hotel, room: q.room } };
   }
   if ((mm = /^\/food-court\/([^/]+)\/?$/.exec(path))) {
     return { pathname: '/food-court/[mallId]', params: { mallId: mm[1] } };

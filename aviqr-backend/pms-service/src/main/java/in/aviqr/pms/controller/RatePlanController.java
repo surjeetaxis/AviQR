@@ -49,6 +49,7 @@ public class RatePlanController {
             rp.setName(req.getName());
             rp.setBaseRate(req.getBaseRate());
             rp.setCancellationPolicy(req.getCancellationPolicy());
+            rp.setOccupancy(req.getOccupancy());
             if (req.getMealPlan() != null) rp.setMealPlan(req.getMealPlan());
             if (req.getActive() != null) rp.setActive(req.getActive());
             return ResponseEntity.ok(ApiResponse.ok("Updated", ratePlanRepo.save(rp)));

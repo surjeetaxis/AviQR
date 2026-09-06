@@ -37,7 +37,7 @@ export default function CustomerMenuScreen() {
   // expo-router passes route params via useLocalSearchParams(), not a `route`
   // prop (that's React Navigation) — this previously always fell through to
   // the hardcoded demo shop regardless of which QR/link was actually opened.
-  const { shopId = '00000000-0000-0000-0000-000000000101', tableNumber, lang: langParam = 'en' } = useLocalSearchParams();
+  const { shopId = '00000000-0000-0000-0000-000000000101', tableNumber, hotel, room, lang: langParam = 'en' } = useLocalSearchParams();
   const { user } = useAuth();
 
   const [menu, setMenu]         = useState([]);
@@ -141,6 +141,7 @@ export default function CustomerMenuScreen() {
         customerPhone: customerInfo.phone,
         tableNumber:   customerInfo.orderType === 'DINE_IN' ? (customerInfo.table || tableNumber) : null,
         paymentMethod: customerInfo.paymentMethod,
+        ...(customerInfo.paymentMethod === 'ROOM_CHARGE' ? { hotelId: hotel, roomNumber: room } : {}),
         type: customerInfo.orderType,
         items: cartItems.map(i => ({
           menuItemId: i.id, itemName: i.name, quantity: i.qty, unitPrice: i.effectivePrice,
@@ -506,7 +507,10 @@ export default function CustomerMenuScreen() {
           <TextInput style={styles.infoInput} placeholder="Table number" value={customerInfo.table} onChangeText={v => setInfo(i => ({ ...i, table: v }))} keyboardType="number-pad" placeholderTextColor={Colors.gray400} />
         )}
         <View style={styles.payRow}>
-          {[['ONLINE','💳 Online'],['CASH','💵 Cash']].map(([m,l]) => (
+          {[
+            ['ONLINE','💳 Online'],['CASH','💵 Cash'],
+            ...(hotel && room ? [['ROOM_CHARGE', `🛏 Room ${room}`]] : []),
+          ].map(([m,l]) => (
             <TouchableOpacity key={m} style={[styles.payChip, customerInfo.paymentMethod === m && styles.payChipActive]} onPress={() => setInfo(i => ({ ...i, paymentMethod: m }))}>
               <Text style={[styles.payChipText, customerInfo.paymentMethod === m && { color: Colors.primary }]}>{l}</Text>
             </TouchableOpacity>

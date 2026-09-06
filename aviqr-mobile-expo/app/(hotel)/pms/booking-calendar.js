@@ -33,11 +33,19 @@ const shortDay = (iso) => {
 // spanning bar) — small mobile column widths make continuous drag-drawn bars
 // impractical, so each day's status is its own tap target; tapping shows the
 // stay's details, mirroring the desktop tape-chart's click-to-popover.
+//
+// Room type groups are collapsible, each with an inventory roll-up strip (sellable
+// rooms per date) above its individual room rows — mirrors the web tape-chart's
+// availability header row (see BookingCalendarController.buildAvailability() on the
+// backend: physical room count minus rooms held that night, capped by any
+// manager-set allotment).
 export default function BookingCalendarScreen() {
   const [hotelId, setHotelId] = useState(null);
   const [rangeStart, setRangeStart] = useState(today());
   const [rooms, setRooms] = useState([]);
   const [stays, setStays] = useState([]);
+  const [availability, setAvailability] = useState([]);
+  const [collapsed, setCollapsed] = useState({}); // roomTypeId -> true when collapsed
   const [loading, setLoading] = useState(true);
 
   const dates = Array.from({ length: RANGE_DAYS }, (_, i) => addDays(rangeStart, i));
@@ -47,6 +55,7 @@ export default function BookingCalendarScreen() {
     const data = res.data.data || {};
     setRooms(data.rooms || []);
     setStays(data.stays || []);
+    setAvailability(data.roomTypeAvailability || []);
   }, []);
 
   useEffect(() => {
@@ -86,6 +95,21 @@ export default function BookingCalendarScreen() {
     Alert.alert(`${room.roomNumber} — ${s.guestName}`, `${s.status.replace('_', ' ')}\n${s.checkInDate} → ${s.checkOutDate}`);
   };
 
+  const toggleGroup = (roomTypeId) => setCollapsed(p => ({ ...p, [roomTypeId]: !p[roomTypeId] }));
+
+  const groups = [];
+  rooms.forEach(r => {
+    let g = groups.find(x => x.roomTypeId === r.roomTypeId);
+    if (!g) { g = { roomTypeId: r.roomTypeId, roomType: r.roomType, rooms: [] }; groups.push(g); }
+    g.rooms.push(r);
+  });
+  const availabilityByType = {};
+  availability.forEach(a => {
+    const byDate = {};
+    (a.byDate || []).forEach(d => { byDate[d.date] = d.available; });
+    availabilityByType[a.roomTypeId] = byDate;
+  });
+
   if (loading) return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <PageHeader title="Booking Calendar" />
@@ -114,14 +138,30 @@ export default function BookingCalendarScreen() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={{ flexDirection: 'row' }}>
+          {/* Frozen left column: room-type headers + room numbers, in the same
+              top-to-bottom order as the scrollable date grid on the right, so the
+              two stay visually aligned even though only the right side scrolls
+              horizontally (a single shared ScrollView, not one per group — nesting
+              a horizontal ScrollView per group would let each scroll independently
+              and drift out of sync with the date header). */}
           <View style={{ width: ROOM_COL_WIDTH }}>
             <View style={[ss.headerCell, { width: ROOM_COL_WIDTH }]}><Text style={ss.headerTxt}>Room</Text></View>
-            {rooms.map(r => (
-              <View key={r.roomId} style={[ss.roomCell, { width: ROOM_COL_WIDTH }]}>
-                <Text style={ss.roomNumber} numberOfLines={1}>{r.roomNumber}</Text>
-                <Text style={ss.roomType} numberOfLines={1}>{r.roomType}</Text>
-              </View>
-            ))}
+            {groups.map(g => {
+              const isCollapsed = !!collapsed[g.roomTypeId];
+              return (
+                <View key={g.roomTypeId || g.roomType}>
+                  <TouchableOpacity onPress={() => toggleGroup(g.roomTypeId)} style={[ss.groupHeaderCell, { width: ROOM_COL_WIDTH }]}>
+                    <Text style={ss.groupChevron}>{isCollapsed ? '›' : '⌄'}</Text>
+                    <Text style={ss.groupTitle} numberOfLines={1}>{g.roomType} ({g.rooms.length})</Text>
+                  </TouchableOpacity>
+                  {!isCollapsed && g.rooms.map(r => (
+                    <View key={r.roomId} style={[ss.roomCell, { width: ROOM_COL_WIDTH }]}>
+                      <Text style={ss.roomNumber} numberOfLines={1}>{r.roomNumber}</Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })}
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -137,18 +177,38 @@ export default function BookingCalendarScreen() {
                   );
                 })}
               </View>
-              {rooms.map(r => (
-                <View key={r.roomId} style={{ flexDirection: 'row' }}>
-                  {dates.map(date => {
-                    const s = stayFor(r.roomId, date);
-                    return (
-                      <TouchableOpacity key={date} onPress={() => tapCell(r, date)}
-                        style={[ss.dayCell, { width: DAY_COL_WIDTH }, s && { backgroundColor: STATUS_COLORS[s.status] || Colors.gray300 }]}
-                      />
-                    );
-                  })}
-                </View>
-              ))}
+
+              {groups.map(g => {
+                const byDate = availabilityByType[g.roomTypeId] || {};
+                const isCollapsed = !!collapsed[g.roomTypeId];
+                return (
+                  <View key={g.roomTypeId || g.roomType}>
+                    <TouchableOpacity onPress={() => toggleGroup(g.roomTypeId)} style={{ flexDirection: 'row' }}>
+                      {dates.map(date => {
+                        const n = byDate[date];
+                        return (
+                          <View key={date} style={[ss.availCell, { width: DAY_COL_WIDTH }]}>
+                            <Text style={[ss.availTxt, { color: n === undefined ? Colors.gray300 : n > 0 ? '#16a34a' : '#dc2626' }]}>{n ?? '—'}</Text>
+                          </View>
+                        );
+                      })}
+                    </TouchableOpacity>
+
+                    {!isCollapsed && g.rooms.map(r => (
+                      <View key={r.roomId} style={{ flexDirection: 'row' }}>
+                        {dates.map(date => {
+                          const s = stayFor(r.roomId, date);
+                          return (
+                            <TouchableOpacity key={date} onPress={() => tapCell(r, date)}
+                              style={[ss.dayCell, { width: DAY_COL_WIDTH }, s && { backgroundColor: STATUS_COLORS[s.status] || Colors.gray300 }]}
+                            />
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
             </View>
           </ScrollView>
         </View>
@@ -169,9 +229,13 @@ const ss = StyleSheet.create({
   legendTxt: { fontSize: 10, color: Colors.gray500 },
   headerCell: { height: ROW_HEIGHT, justifyContent: 'center', paddingLeft: Spacing.base, borderBottomWidth: 1, borderBottomColor: Colors.border },
   headerTxt: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.gray500 },
+  groupHeaderCell: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: Spacing.base, paddingRight: 4, backgroundColor: Colors.gray50 || '#F9FAFB', borderBottomWidth: 1, borderBottomColor: Colors.border },
+  groupChevron: { fontSize: FontSize.sm, color: Colors.gray500, width: 12 },
+  groupTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.gray900, flexShrink: 1 },
+  availCell: { height: ROW_HEIGHT, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.gray50 || '#F9FAFB', borderBottomWidth: 1, borderBottomColor: Colors.border, borderLeftWidth: 1, borderLeftColor: Colors.border },
+  availTxt: { fontSize: FontSize.xs, fontWeight: '800' },
   roomCell: { height: ROW_HEIGHT, justifyContent: 'center', paddingLeft: Spacing.base, borderBottomWidth: 1, borderBottomColor: Colors.border },
   roomNumber: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray900 },
-  roomType: { fontSize: 10, color: Colors.gray500 },
   dateHeaderCell: { height: ROW_HEIGHT, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: Colors.border, borderLeftWidth: 1, borderLeftColor: Colors.border },
   dateHeaderDow: { fontSize: 9, color: Colors.gray400, fontWeight: '600' },
   dateHeaderDom: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.gray900 },
