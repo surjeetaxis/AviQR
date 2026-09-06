@@ -5,11 +5,33 @@
   transform: translateX(-50%);
   width: calc(100% - 32px);
   max-width: 420px;
-  height: 70px;
-  background: var(--green, #1D9E75);
-  border-radius: 26px;
-  box-shadow: 0 12px 28px rgba(29, 158, 117, .35), 0 2px 8px rgba(0, 0, 0, .08);
+  height: 68px;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(94, 200, 165, .6);
+  /* Frosted-glass pill — mirrors the mobile app's BlurView + gradient wash
+     (aviqr-mobile-expo/src/components/common/FloatingPillNav.js): a real
+     backdrop blur so content scrolling behind it shows through, tinted with
+     the brand green so it still reads as "the nav", not plain frosted gray. */
+  background: linear-gradient(180deg, rgba(43, 179, 138, .88) 0%, rgba(15, 92, 68, .96) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 10px 20px rgba(29, 158, 117, .35), 0 2px 8px rgba(0, 0, 0, .08);
   z-index: 60; /* above the cart FAB (50), below sheet backdrops (70) */
+}
+
+/* Shine — a tight specular streak along the top edge, like light catching
+   the top of the glass, plus a hint of shadow along the bottom rim so the
+   pill reads as having some depth rather than a flat painted-on tint. */
+.bn-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .4) 0%, rgba(255, 255, 255, 0) 30%),
+    linear-gradient(0deg, rgba(0, 0, 0, .22) 0%, rgba(0, 0, 0, 0) 25%);
+  z-index: 1;
 }
 
 .bn-row {
@@ -19,7 +41,8 @@
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: 0 38px; /* clearance so the raised circle + notch never touch the corners */
+  padding: 0 30px; /* clearance so the indicator never touches the pill's rounded corners */
+  z-index: 2;
 }
 
 .bn-item {
@@ -27,8 +50,10 @@
   flex: 1;
   height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 3px;
   background: none;
   border: none;
   cursor: pointer;
@@ -39,8 +64,16 @@
 .bn-icon-wrap { position: relative; display: flex; z-index: 2; }
 
 /* The active tab's own icon is hidden — the sliding indicator shows it
-   raised in its place instead. */
+   inside the "U" in its place instead. */
 .bn-item.active .bn-icon-wrap svg { opacity: 0; }
+
+.bn-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, .75);
+  line-height: 1;
+}
+.bn-item.active .bn-label { color: var(--white, #fff); font-weight: 800; }
 
 .bn-badge {
   position: absolute;
@@ -60,54 +93,43 @@
   z-index: 3;
 }
 
-/* ── Sliding indicator — one raised circle + notch, positioned from the
-   active button's measured on-screen location (see BottomNav.jsx), so it
-   stays correct at every tab including the two edge positions ── */
+/* ── Sliding indicator — a "U" shape (flat top, deeply rounded bottom
+   corners) that sits inside the bar and slides to the active button's
+   measured on-screen location (see BottomNav.jsx), so it stays correct at
+   every tab including the two edge positions ── */
 .bn-indicator {
   position: absolute;
-  top: 0;
-  height: 100%;
+  top: 4px;
+  height: 33px;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: left .38s cubic-bezier(.34, 1.56, .64, 1);
   pointer-events: none;
-  z-index: 4;
+  z-index: 3;
 }
 
-.bn-indicator::before {
-  content: '';
-  position: absolute;
-  top: -1px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 104px;
-  height: 42px;
-  z-index: 1;
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 104 42'%3E%3Cpath d='M0,0 C26,0 43,42 52,42 C61,42 78,0 104,0 Z' fill='%23F9FAFB'/%3E%3C/svg%3E");
-}
-
-.bn-indicator-circle {
+.bn-indicator-shape {
   position: relative;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  background: var(--white, #fff);
+  width: 54px;
+  height: 33px;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  border-bottom-left-radius: 15px;
+  border-bottom-right-radius: 15px;
+  background: rgba(255, 255, 255, .94);
   color: var(--green, #1D9E75);
   display: flex;
   align-items: center;
   justify-content: center;
-  transform: translateY(-21px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, .22), 0 0 0 4px var(--green-darker, #16805F);
-  z-index: 2;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, .18);
 }
-.bn-indicator-circle .bn-badge { box-shadow: 0 0 0 2px var(--white, #fff); }
+.bn-indicator-shape .bn-badge { box-shadow: 0 0 0 2px var(--white, #fff); }
 
 @media (max-width: 380px) {
-  .bn-wrap { width: calc(100% - 24px); height: 64px; }
-  .bn-row { padding: 0 32px; }
-  .bn-indicator-circle { width: 52px; height: 52px; transform: translateY(-18px); }
+  .bn-wrap { width: calc(100% - 24px); height: 62px; }
+  .bn-row { padding: 0 24px; }
+  .bn-indicator { top: 3px; height: 30px; }
+  .bn-indicator-shape { width: 48px; height: 30px; }
 }

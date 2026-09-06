@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   BedDouble, CalendarCheck, Receipt,
   Plus, LogIn, DoorOpen, Ban, UserX, Search, Wifi, RefreshCw, Copy, Users, Briefcase, IndianRupee, TrendingUp, UserCircle, Tag, CalendarClock,
-  AlertCircle, Clock, CheckCircle2, Bell, PenTool, X, CreditCard, Hourglass, Building2, Upload, Send, Star,
+  AlertCircle, Clock, CheckCircle2, Bell, PenTool, X, CreditCard, Hourglass, Building2, Upload, Send, Star, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { pmsApi, reviewApi } from '../../api/index.js';
 import '../admin/Admin.css';
@@ -16,8 +16,12 @@ const STATUS_CLS = {
   CHECKED_OUT: 'status-pill', CANCELLED: 'status-pill st-suspended', NO_SHOW: 'status-pill st-suspended',
 };
 
-function today() { return new Date().toISOString().slice(0, 10); }
-function tomorrow() { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); }
+// See addDays() below for why toISOString() is avoided: it converts to UTC first,
+// which returns yesterday's date for part of the day in any positive-UTC-offset
+// timezone (e.g. IST, roughly midnight-5:30am local).
+function localDateStr(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function today() { return localDateStr(new Date()); }
+function tomorrow() { const d = new Date(); d.setDate(d.getDate() + 1); return localDateStr(d); }
 
 // Same lazy-load-once pattern as CustomerMenu.jsx's checkout flow — Razorpay's
 // widget is only needed on the handful of screens that actually collect a card.
@@ -178,8 +182,8 @@ export function RoomTypesTab({ hotelId, roomTypes, onChange }) {
     const rp = rpForm[roomTypeId] || {};
     if (!rp.name || !rp.baseRate) return;
     try {
-      await pmsApi.createRatePlan({ hotelId, roomTypeId, name: rp.name, baseRate: Number(rp.baseRate), cancellationPolicy: rp.cancellationPolicy || '', mealPlan: rp.mealPlan || 'ROOM_ONLY' });
-      setRpForm(prev => ({ ...prev, [roomTypeId]: { name: '', baseRate: '', cancellationPolicy: '', mealPlan: 'ROOM_ONLY' } }));
+      await pmsApi.createRatePlan({ hotelId, roomTypeId, name: rp.name, baseRate: Number(rp.baseRate), cancellationPolicy: rp.cancellationPolicy || '', mealPlan: rp.mealPlan || 'ROOM_ONLY', occupancy: rp.occupancy ? Number(rp.occupancy) : null });
+      setRpForm(prev => ({ ...prev, [roomTypeId]: { name: '', baseRate: '', cancellationPolicy: '', mealPlan: 'ROOM_ONLY', occupancy: '' } }));
       loadRatePlans(roomTypeId);
     } catch { alert('Could not create rate plan'); }
   };
@@ -226,10 +230,10 @@ export function RoomTypesTab({ hotelId, roomTypes, onChange }) {
             <div><strong>{rt.name}</strong> <span style={{ color: 'var(--gray-500)', fontSize: 12.5 }}>· up to {rt.maxOccupancy} guests</span></div>
           </div>
           <table className="admin-table">
-            <thead><tr><th>Rate plan</th><th>Base rate / night</th><th>Meal plan</th><th>Cancellation</th></tr></thead>
+            <thead><tr><th>Rate plan</th><th>Occupancy</th><th>Base rate / night</th><th>Meal plan</th><th>Cancellation</th></tr></thead>
             <tbody>
               {(ratePlansByType[rt.id] || []).map(rp => (
-                <tr key={rp.id}><td>{rp.name}</td><td>₹{Number(rp.baseRate).toLocaleString('en-IN')}</td><td>{(rp.mealPlan || 'ROOM_ONLY').replace('_', ' ')}</td><td>{rp.cancellationPolicy}</td></tr>
+                <tr key={rp.id}><td>{rp.name}</td><td>{rp.occupancy ? `${rp.occupancy} guest${rp.occupancy > 1 ? 's' : ''}` : '—'}</td><td>₹{Number(rp.baseRate).toLocaleString('en-IN')}</td><td>{(rp.mealPlan || 'ROOM_ONLY').replace('_', ' ')}</td><td>{rp.cancellationPolicy}</td></tr>
               ))}
             </tbody>
           </table>
@@ -237,6 +241,8 @@ export function RoomTypesTab({ hotelId, roomTypes, onChange }) {
           <form onSubmit={(e) => addRatePlan(e, rt.id)} style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
             <input placeholder="Plan name" value={rpForm[rt.id]?.name || ''}
               onChange={e => setRpForm(prev => ({ ...prev, [rt.id]: { ...prev[rt.id], name: e.target.value } }))} style={inputStyle} />
+            <input placeholder="Occupancy (optional)" type="number" min="1" title="Set only if this plan is priced for a specific guest count (Single/Double/Triple etc.)" value={rpForm[rt.id]?.occupancy || ''}
+              onChange={e => setRpForm(prev => ({ ...prev, [rt.id]: { ...prev[rt.id], occupancy: e.target.value } }))} style={{ ...inputStyle, width: 140 }} />
             <input placeholder="Base rate" type="number" value={rpForm[rt.id]?.baseRate || ''}
               onChange={e => setRpForm(prev => ({ ...prev, [rt.id]: { ...prev[rt.id], baseRate: e.target.value } }))} style={{ ...inputStyle, width: 110 }} />
             <select value={rpForm[rt.id]?.mealPlan || 'ROOM_ONLY'}
@@ -258,10 +264,11 @@ export function RoomTypesTab({ hotelId, roomTypes, onChange }) {
 function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
   const [expanded, setExpanded] = useState(false);
   const [rows, setRows] = useState([]);
-  const emptyForm = { date: today(), price: '', minStay: '', maxStay: '', closedToArrival: false, closedToDeparture: false };
+  const emptyForm = { date: today(), price: '', minStay: '', maxStay: '', closedToArrival: false, closedToDeparture: false, stopSell: false, allotment: '' };
   const [form, setForm] = useState(emptyForm);
   const [suggestion, setSuggestion] = useState(null);
   const [suggesting, setSuggesting] = useState(false);
+  const [inventoryRows, setInventoryRows] = useState([]);
 
   const suggestPrice = async () => {
     setSuggesting(true);
@@ -273,7 +280,9 @@ function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
 
   const load = () => {
     const to = new Date(); to.setDate(to.getDate() + 30);
-    pmsApi.listDayPrices(ratePlan.id, today(), to.toISOString().slice(0, 10)).then(res => setRows(res.data.data || [])).catch(() => {});
+    const toStr = localDateStr(to);
+    pmsApi.listDayPrices(ratePlan.id, today(), toStr).then(res => setRows(res.data.data || [])).catch(() => {});
+    pmsApi.listRoomTypeInventory(roomTypeId, today(), toStr).then(res => setInventoryRows(res.data.data || [])).catch(() => {});
   };
   useEffect(() => { if (expanded) load(); }, [expanded]);
 
@@ -287,11 +296,17 @@ function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
         maxStay: form.maxStay ? Number(form.maxStay) : null,
         closedToArrival: form.closedToArrival,
         closedToDeparture: form.closedToDeparture,
+        stopSell: form.stopSell,
       });
+      if (form.allotment !== '') {
+        await pmsApi.setRoomTypeInventory(roomTypeId, { date: form.date, allotment: Number(form.allotment) });
+      }
       setForm({ ...emptyForm, date: form.date });
       load();
     } catch { alert('Could not save date rule'); }
   };
+
+  const allotmentForDate = (date) => inventoryRows.find(r => r.date === date)?.allotment;
 
   if (!expanded) {
     return <button type="button" className="admin-row-btn" style={{ ...btnSecondary, marginTop: 6, marginRight: 6 }} onClick={() => setExpanded(true)}>Manage dates — {ratePlan.name}</button>;
@@ -315,6 +330,11 @@ function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
         <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
           <input type="checkbox" checked={form.closedToDeparture} onChange={e => setForm({ ...form, closedToDeparture: e.target.checked })} /> Closed to departure
         </label>
+        <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <input type="checkbox" checked={form.stopSell} onChange={e => setForm({ ...form, stopSell: e.target.checked })} /> Stop sell
+        </label>
+        <input type="number" min="0" placeholder="Allotment (rooms)" title="Cap on sellable rooms of this type on this date, independent of physical room count"
+          value={form.allotment} onChange={e => setForm({ ...form, allotment: e.target.value })} style={{ ...inputStyle, width: 130 }} />
         <button type="submit" className="admin-row-btn" style={btnPrimary}>Save</button>
       </form>
       {suggestion && (
@@ -324,7 +344,7 @@ function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
         </div>
       )}
       <table className="admin-table">
-        <thead><tr><th>Date</th><th>Price</th><th>Min stay</th><th>Max stay</th><th>CTA</th><th>CTD</th></tr></thead>
+        <thead><tr><th>Date</th><th>Price</th><th>Min stay</th><th>Max stay</th><th>CTA</th><th>CTD</th><th>Stop sell</th><th>Allotment</th></tr></thead>
         <tbody>
           {rows.map(r => (
             <tr key={r.id}>
@@ -334,9 +354,11 @@ function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
               <td>{r.maxStay ?? '—'}</td>
               <td>{r.closedToArrival ? 'Yes' : ''}</td>
               <td>{r.closedToDeparture ? 'Yes' : ''}</td>
+              <td>{r.stopSell ? 'Yes' : ''}</td>
+              <td>{allotmentForDate(r.date) ?? '—'}</td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 12 }}>No date rules set</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 12 }}>No date rules set</td></tr>}
         </tbody>
       </table>
     </div>
@@ -1093,7 +1115,7 @@ export function ReportsTab({ hotelId, chainId }) {
   const [revenue, setRevenue] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); };
+  const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return localDateStr(d); };
 
   const load = useCallback(() => {
     setLoading(true);
@@ -1604,6 +1626,678 @@ export function ReviewsTab({ hotelId }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ── Rate/inventory change log — audit trail written by RateChangeLogService
+// whenever a day-price field, stop-sell flag or inventory allotment actually
+// changes value. Filterable by room type, server-paginated (Spring Page).
+const RATE_LOG_FIELD_LABELS = {
+  price: 'Price', minStay: 'Min stay', maxStay: 'Max stay',
+  closedToArrival: 'Closed to arrival', closedToDeparture: 'Closed to departure',
+  stopSell: 'Stop sell', allotment: 'Allotment',
+};
+// Same 'inventory / prices / restrictions' split as the Inventory & Rates Calendar
+// and Booking Calendar's view filters — filtered server-side by RateChangeLogController
+// (its own field->category mapping mirrors this list of tabs).
+const RATE_LOG_TABS = [
+  { key: 'all',          label: 'All' },
+  { key: 'inventory',    label: 'Inventory only' },
+  { key: 'prices',       label: 'Prices only' },
+  { key: 'restrictions', label: 'Restrictions only' },
+];
+
+export function RateChangeLogTab({ hotelId, roomTypes }) {
+  const [roomTypeId, setRoomTypeId] = useState('');
+  const [category, setCategory] = useState('all');
+  const [logs, setLogs] = useState([]);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const roomTypeName = (id) => roomTypes.find(rt => rt.id === id)?.name || id;
+  const formatValue = (v) => (v === null || v === undefined || v === '') ? '—' : String(v);
+
+  const load = useCallback(() => {
+    if (!hotelId) return;
+    setLoading(true);
+    const params = { page, size: 20 };
+    if (roomTypeId) params.roomTypeId = roomTypeId;
+    if (category !== 'all') params.category = category;
+    pmsApi.listRateChangeLogs(hotelId, params).then(res => {
+      const data = res.data.data || {};
+      setLogs(data.content || []);
+      setTotalPages(data.totalPages || 0);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [hotelId, roomTypeId, category, page]);
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="page-header"><div><h1 className="page-title">Rate & Inventory Change Log</h1><p className="page-subtitle">Every edit to a date's price, stay restrictions, stop-sell or allotment — who changed what and when.</p></div></div>
+
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        {RATE_LOG_TABS.map(t => (
+          <button key={t.key} className="admin-row-btn" style={category === t.key ? btnPrimary : btnSecondary} onClick={() => { setPage(0); setCategory(t.key); }}>{t.label}</button>
+        ))}
+      </div>
+
+      <div className="admin-table-card" style={{ padding: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <select value={roomTypeId} onChange={e => { setPage(0); setRoomTypeId(e.target.value); }} style={inputStyle}>
+          <option value="">All room types</option>
+          {roomTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
+        </select>
+      </div>
+
+      <div className="admin-table-card">
+        <table className="admin-table">
+          <thead><tr><th>Date</th><th>Room type</th><th>Field</th><th>Old value</th><th>New value</th><th>Changed by</th><th>Changed at</th></tr></thead>
+          <tbody>
+            {logs.map((l, i) => (
+              <tr key={l.id || i}>
+                <td>{l.date}</td>
+                <td>{roomTypeName(l.roomTypeId)}</td>
+                <td>{RATE_LOG_FIELD_LABELS[l.field] || l.field}</td>
+                <td>{formatValue(l.oldValue)}</td>
+                <td>{formatValue(l.newValue)}</td>
+                <td style={{ fontSize: 12 }}>{l.changedBy}</td>
+                <td style={{ fontSize: 12 }}>{l.changedAt ? new Date(l.changedAt).toLocaleString() : ''}</td>
+              </tr>
+            ))}
+            {!loading && logs.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 20 }}>No rate or inventory changes recorded yet</td></tr>}
+          </tbody>
+        </table>
+        {totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, padding: 12, borderTop: '1px solid var(--gray-100)' }}>
+            <button className="admin-row-btn" style={btnSecondary} disabled={page === 0} onClick={() => setPage(p => p - 1)}>Prev</button>
+            <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>Page {page + 1} of {totalPages}</span>
+            <button className="admin-row-btn" style={btnSecondary} disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Booking calendar (tape chart) — physical rooms as rows, each stay a
+// colored bar spanning check-in..check-out, grouped by room type. v1 scope:
+// read-only (no drag-and-drop, no room-type roll-up availability counts —
+// see CRS's reservationCalendar for that fuller design), prev/next week
+// navigation, and a click-to-view detail popup for each bar.
+const CALENDAR_STATUS_CFG = {
+  BOOKED:      { label: 'Booked',      color: 'var(--blue)' },
+  CHECKED_IN:  { label: 'Checked in',  color: 'var(--green-dark)' },
+  CHECKED_OUT: { label: 'Checked out', color: 'var(--gray-400)' },
+  NO_SHOW:     { label: 'No-show',     color: 'var(--red)' },
+};
+const CAL_DAY_WIDTH = 64;
+const CAL_ROW_HEIGHT = 36;
+const CAL_NUM_DAYS = 7;
+
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return localDateStr(d);
+}
+// A native <input type="date"> reports value="" while a keystroke leaves it mid-entry
+// (e.g. only the day typed so far) — setting that straight into `from` state makes
+// every subsequent addDays(from, i) collapse to the same "NaN-NaN-NaN" string for
+// every i, which then hands React a list of DUPLICATE keys and corrupts that render
+// tree's reconciliation even once the input finishes settling on a valid date. Only
+// accept a value once it actually parses.
+function isValidDateStr(s) { return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s + 'T00:00:00').getTime()); }
+function daysBetween(a, b) {
+  return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
+}
+
+// View filter shared with the Inventory & Rates Calendar — same five modes, same
+// meaning, so a user who's learned one page already knows the other: 'all' shows
+// everything, and each specific mode isolates one layer. Here "Bookings count
+// only" isolates the tape-chart's actual room bars (the literal booking records)
+// rather than the aggregate number, since that IS this page's booking view.
+const BC_VIEWS = [
+  { key: 'all',          label: 'All' },
+  { key: 'inventory',    label: 'Inventory only' },
+  { key: 'prices',       label: 'Prices only' },
+  { key: 'restrictions', label: 'Restrictions only' },
+  { key: 'bookings',     label: 'Bookings count only' },
+];
+
+export function BookingCalendarTab({ hotelId }) {
+  const [windowDays, setWindowDays] = useState(7);
+  const [from, setFrom] = useState(today());
+  const [rooms, setRooms] = useState([]);
+  const [stays, setStays] = useState([]);
+  const [roomTypesRC, setRoomTypesRC] = useState([]); // rates-calendar data: inventory + price/restrictions
+  const [selected, setSelected] = useState(null);
+  const [collapsed, setCollapsed] = useState({}); // roomTypeId -> true when collapsed
+  const [view, setView] = useState('all');
+  const [editRate, setEditRate] = useState(null);
+  const [editInv, setEditInv] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const dayWidth = rcDayWidth(windowDays);
+  const to = addDays(from, windowDays);
+  const days = Array.from({ length: windowDays }, (_, i) => addDays(from, i));
+  const minJump = addDays(today(), -365 * 3);
+  const maxJump = addDays(today(), 365 * 3);
+
+  const load = useCallback(() => {
+    if (!hotelId) return;
+    pmsApi.getBookingCalendar(hotelId, from, to).then(res => {
+      const data = res.data.data || {};
+      setRooms(data.rooms || []);
+      setStays(data.stays || []);
+    }).catch(() => {});
+    pmsApi.getRatesCalendar(hotelId, from, to).then(res => setRoomTypesRC(res.data.data?.roomTypes || [])).catch(() => {});
+  }, [hotelId, from, to]);
+  useEffect(() => { load(); }, [load]);
+
+  const staysByRoom = {};
+  stays.forEach(s => { (staysByRoom[s.roomId] ||= []).push(s); });
+
+  const rcByType = {};
+  roomTypesRC.forEach(rt => { rcByType[rt.roomTypeId] = rt; });
+
+  const roomTypeGroups = [];
+  rooms.forEach(r => {
+    let group = roomTypeGroups.find(x => x.roomTypeId === r.roomTypeId);
+    if (!group) { group = { roomTypeId: r.roomTypeId, roomType: r.roomType, rooms: [] }; roomTypeGroups.push(group); }
+    group.rooms.push(r);
+  });
+  const toggleGroup = (roomTypeId) => setCollapsed(p => ({ ...p, [roomTypeId]: !p[roomTypeId] }));
+
+  const saveInventory = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await pmsApi.setRoomTypeInventory(editInv.roomTypeId, { date: editInv.date, allotment: Number(editInv.allotment) });
+      setEditInv(null);
+      load();
+    } catch { alert('Could not save allotment'); }
+    finally { setSaving(false); }
+  };
+
+  const saveRate = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await pmsApi.setDayPrice(editRate.ratePlanId, {
+        date: editRate.date,
+        price: editRate.price === '' ? null : Number(editRate.price),
+        minStay: editRate.minStay === '' ? null : Number(editRate.minStay),
+        maxStay: editRate.maxStay === '' ? null : Number(editRate.maxStay),
+        closedToArrival: !!editRate.closedToArrival,
+        closedToDeparture: !!editRate.closedToDeparture,
+        stopSell: !!editRate.stopSell,
+      });
+      setEditRate(null);
+      load();
+    } catch { alert('Could not save rate'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="page-header"><div><h1 className="page-title">Booking Calendar</h1><p className="page-subtitle">Inventory, prices, restrictions and the room-by-room tape chart — one view, filterable.</p></div></div>
+
+      <div className="admin-table-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {RC_WINDOWS.map(w => (
+            <button key={w.days} className="admin-row-btn" style={windowDays === w.days ? btnPrimary : btnSecondary} onClick={() => setWindowDays(w.days)}>{w.label}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button className="admin-row-btn" style={btnSecondary} onClick={() => setFrom(f => addDays(f, -windowDays))}>← Back</button>
+          <input type="date" value={from} min={minJump} max={maxJump} onChange={e => isValidDateStr(e.target.value) && setFrom(e.target.value)} style={inputStyle} />
+          <button className="admin-row-btn" style={btnSecondary} onClick={() => setFrom(today())}>Today</button>
+          <button className="admin-row-btn" style={btnSecondary} onClick={() => setFrom(f => addDays(f, windowDays))}>Next →</button>
+        </div>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginLeft: 'auto' }}>
+          {Object.entries(CALENDAR_STATUS_CFG).map(([k, cfg]) => (
+            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--gray-500)' }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: cfg.color, display: 'inline-block' }} /> {cfg.label}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        {BC_VIEWS.map(v => (
+          <button key={v.key} className="admin-row-btn" style={view === v.key ? btnPrimary : btnSecondary} onClick={() => setView(v.key)}>{v.label}</button>
+        ))}
+      </div>
+
+      <div className="admin-table-card" style={{ overflowX: 'auto', padding: 0 }}>
+        <div style={{ minWidth: 200 + windowDays * dayWidth }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
+            <div style={{ width: 200, flexShrink: 0, padding: '8px 12px', fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase' }}>Room type / room</div>
+            {days.map(d => (
+              <div key={d} style={{ width: dayWidth, flexShrink: 0, textAlign: 'center', padding: '8px 4px', fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', borderLeft: '1px solid var(--gray-100)' }}>
+                {new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: windowDays > 7 ? 'short' : undefined })}
+              </div>
+            ))}
+          </div>
+
+          {roomTypeGroups.map(g => {
+            const rc = rcByType[g.roomTypeId];
+            const invByDate = {};
+            (rc?.byDate || []).forEach(d => { invByDate[d.date] = d; });
+            const isCollapsed = !!collapsed[g.roomTypeId];
+            return (
+            <div key={g.roomTypeId || g.roomType}>
+              <div onClick={() => toggleGroup(g.roomTypeId)} style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--gray-100)', background: 'var(--gray-50)', cursor: 'pointer' }}>
+                <div style={{ width: 200, flexShrink: 0, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}>
+                  {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                  {g.roomType}
+                  <span style={{ fontWeight: 500, color: 'var(--gray-400)' }}>({g.rooms.length}{rc?.maxOccupancy ? ` · up to ${rc.maxOccupancy} guests` : ''})</span>
+                </div>
+                <div style={{ width: windowDays * dayWidth }} />
+              </div>
+
+              {!isCollapsed && <>
+                {(view === 'all' || view === 'inventory') && (
+                  <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
+                    <div style={{ width: 200, flexShrink: 0, padding: '4px 12px', fontSize: 11, color: 'var(--gray-500)', display: 'flex', alignItems: 'center' }}>Allotted · Booked · Available</div>
+                    {days.map(d => {
+                      const inv = invByDate[d];
+                      return (
+                        <div key={d} onClick={() => inv && setEditInv({ roomTypeId: g.roomTypeId, roomTypeName: g.roomType, date: d, allotment: String(inv.allotted) })}
+                          style={{ width: dayWidth, flexShrink: 0, height: RC_ROW_HEIGHT, borderLeft: '1px solid var(--gray-100)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: inv ? 'pointer' : 'default' }}>
+                          {inv ? <>
+                            <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>{inv.booked}/{inv.allotted}</div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: inv.available > 0 ? '#16a34a' : '#dc2626' }}>{inv.available}</div>
+                          </> : <div style={{ fontSize: 12, color: 'var(--gray-300)' }}>—</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {(view === 'all' || view === 'prices' || view === 'restrictions') && (rc?.ratePlans || []).map(rp => {
+                  const rateByDate = {};
+                  (rp.byDate || []).forEach(d => { rateByDate[d.date] = d; });
+                  return (
+                    <div key={rp.ratePlanId} style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
+                      <div style={{ width: 200, flexShrink: 0, padding: '4px 12px', fontSize: 12, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {rp.ratePlanName}
+                          {rp.occupancy && <span title={`Priced for ${rp.occupancy} guest(s)`} style={{ fontSize: 10, fontWeight: 700, color: 'var(--blue)', background: 'var(--blue-light, #EAF2FF)', borderRadius: 4, padding: '1px 5px' }}>👤 {rp.occupancy}</span>}
+                        </span>
+                        <span style={{ fontSize: 10, color: 'var(--gray-400)' }}>{rp.mealPlan}</span>
+                      </div>
+                      {days.map(d => {
+                        const day = rateByDate[d];
+                        const badges = day ? [
+                          day.minStay ? `min ${day.minStay}n` : null,
+                          day.maxStay ? `max ${day.maxStay}n` : null,
+                          day.closedToArrival ? 'CTA' : null,
+                          day.closedToDeparture ? 'CTD' : null,
+                          day.stopSell ? 'STOP' : null,
+                        ].filter(Boolean) : [];
+                        const showPrice = view === 'all' || view === 'prices';
+                        const showBadges = view === 'all' || view === 'restrictions';
+                        return (
+                          <div key={d} onClick={() => day && setEditRate({ ratePlanId: rp.ratePlanId, ratePlanName: rp.ratePlanName, date: d, price: String(day.price ?? ''), minStay: day.minStay ?? '', maxStay: day.maxStay ?? '', closedToArrival: day.closedToArrival, closedToDeparture: day.closedToDeparture, stopSell: day.stopSell })}
+                            style={{ width: dayWidth, flexShrink: 0, height: RC_ROW_HEIGHT, borderLeft: '1px solid var(--gray-100)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: day ? 'pointer' : 'default', padding: '2px 0' }}>
+                            {day ? <>
+                              {showPrice && (
+                                <div style={{ fontSize: 12, fontWeight: 700, color: day.stopSell ? '#dc2626' : 'var(--gray-900)' }}>
+                                  ₹{Number(day.price).toLocaleString('en-IN')}{day.priceOverridden && <span title="Overridden for this date" style={{ color: 'var(--blue)' }}>*</span>}
+                                </div>
+                              )}
+                              {showBadges && (badges.length > 0
+                                ? <div style={{ fontSize: view === 'restrictions' ? 11 : 8, color: '#dc2626', textAlign: 'center', lineHeight: view === 'restrictions' ? '13px' : '9px', fontWeight: view === 'restrictions' ? 700 : 400 }}>{badges.join(' · ')}</div>
+                                : view === 'restrictions' && <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>OK</div>)}
+                            </> : <div style={{ fontSize: 12, color: 'var(--gray-300)' }}>—</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+
+                {(view === 'all' || view === 'bookings') && g.rooms.map(r => (
+                  <div key={r.roomId} style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
+                    <div style={{ width: 200, flexShrink: 0, padding: '0 12px', display: 'flex', alignItems: 'center', fontSize: 13 }}>{r.roomNumber}</div>
+                    <div style={{ position: 'relative', width: windowDays * dayWidth, height: CAL_ROW_HEIGHT }}>
+                      {days.map((d, i) => <div key={d} style={{ position: 'absolute', left: i * dayWidth, top: 0, bottom: 0, width: dayWidth, borderLeft: '1px solid var(--gray-100)' }} />)}
+                      {(staysByRoom[r.roomId] || []).map(s => {
+                        const startIdx = daysBetween(from, s.checkInDate);
+                        const endIdx = daysBetween(from, s.checkOutDate);
+                        const clippedStart = Math.max(0, startIdx);
+                        const clippedEnd = Math.min(windowDays, endIdx);
+                        if (clippedEnd <= clippedStart) return null;
+                        const cfg = CALENDAR_STATUS_CFG[s.status] || { color: 'var(--gray-400)' };
+                        return (
+                          <div key={s.reservationId} onClick={() => setSelected(s)}
+                            title={`${s.guestName} · ${s.checkInDate} → ${s.checkOutDate}`}
+                            style={{
+                              position: 'absolute', left: clippedStart * dayWidth + 2, top: 4,
+                              width: (clippedEnd - clippedStart) * dayWidth - 4, height: CAL_ROW_HEIGHT - 8,
+                              background: cfg.color, color: '#fff', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                              display: 'flex', alignItems: 'center', padding: '0 8px', overflow: 'hidden', whiteSpace: 'nowrap',
+                              cursor: 'pointer',
+                            }}>
+                            {s.guestName}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </>}
+            </div>
+            );
+          })}
+          {rooms.length === 0 && <div style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 30 }}>No rooms configured yet</div>}
+        </div>
+      </div>
+
+      {selected && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setSelected(null)}>
+          <div className="admin-table-card" style={{ padding: 20, width: 340, maxWidth: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <strong>Reservation</strong>
+              <button className="admin-row-btn" onClick={() => setSelected(null)}><X size={14} /></button>
+            </div>
+            <div style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div><strong>Guest:</strong> {selected.guestName}</div>
+              <div><strong>Dates:</strong> {selected.checkInDate} → {selected.checkOutDate}</div>
+              <div><strong>Status:</strong> <span className={STATUS_CLS[selected.status] || 'status-pill'}>{selected.status}</span></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editInv && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setEditInv(null)}>
+          <form onSubmit={saveInventory} className="admin-table-card" style={{ padding: 20, width: 300, maxWidth: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <strong>{editInv.roomTypeName} · {editInv.date}</strong>
+              <button type="button" className="admin-row-btn" onClick={() => setEditInv(null)}><X size={14} /></button>
+            </div>
+            <label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Allotment (sellable-room cap for this date)</label>
+            <input type="number" min="0" value={editInv.allotment} onChange={e => setEditInv({ ...editInv, allotment: e.target.value })} style={{ ...inputStyle, width: '100%', marginTop: 4 }} autoFocus />
+            <button type="submit" className="admin-row-btn" style={{ ...btnPrimary, width: '100%', marginTop: 14, justifyContent: 'center' }} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          </form>
+        </div>
+      )}
+
+      {editRate && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setEditRate(null)}>
+          <form onSubmit={saveRate} className="admin-table-card" style={{ padding: 20, width: 340, maxWidth: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <strong>{editRate.ratePlanName} · {editRate.date}</strong>
+              <button type="button" className="admin-row-btn" onClick={() => setEditRate(null)}><X size={14} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div><label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Price override</label><br />
+                <input type="number" min="0" value={editRate.price} onChange={e => setEditRate({ ...editRate, price: e.target.value })} style={{ ...inputStyle, width: '100%' }} placeholder="Leave blank to clear override" /></div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1 }}><label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Min stay</label><br />
+                  <input type="number" min="0" value={editRate.minStay} onChange={e => setEditRate({ ...editRate, minStay: e.target.value })} style={{ ...inputStyle, width: '100%' }} /></div>
+                <div style={{ flex: 1 }}><label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Max stay</label><br />
+                  <input type="number" min="0" value={editRate.maxStay} onChange={e => setEditRate({ ...editRate, maxStay: e.target.value })} style={{ ...inputStyle, width: '100%' }} /></div>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={!!editRate.closedToArrival} onChange={e => setEditRate({ ...editRate, closedToArrival: e.target.checked })} /> Closed to arrival</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={!!editRate.closedToDeparture} onChange={e => setEditRate({ ...editRate, closedToDeparture: e.target.checked })} /> Closed to departure</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={!!editRate.stopSell} onChange={e => setEditRate({ ...editRate, stopSell: e.target.checked })} /> Stop sell</label>
+            </div>
+            <button type="submit" className="admin-row-btn" style={{ ...btnPrimary, width: '100%', marginTop: 14, justifyContent: 'center' }} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Combined inventory + rates operational calendar ─────────────────────────────
+// One grid: allotted/booked/available per room type, price + restrictions per rate
+// plan, for a filterable date window (1 week / 15 days / 1 month) with prev/next
+// paging and a direct date jump spanning ±3 years — replaces switching between the
+// Room Types & Rates date manager, the Rate & Inventory Log, and the booking
+// calendar's availability row to answer "what can I sell, at what price, on this
+// date" for every room type at once. Reference: legacy CRS's price calendar
+// (crs_ui/.../prices/prices.tpl.html) combined with its reservation-calendar
+// inventory row — reimplemented against AviQR's room-type→rate-plan pricing model
+// rather than CRS's separate per-occupancy rate rows.
+const RC_WINDOWS = [{ label: '1 week', days: 7 }, { label: '15 days', days: 15 }, { label: '1 month', days: 30 }];
+const RC_ROW_HEIGHT = 46;
+const rcDayWidth = (days) => (days <= 7 ? 92 : days <= 15 ? 62 : 42);
+
+const RC_VIEWS = [
+  { key: 'all',          label: 'All' },
+  { key: 'inventory',    label: 'Inventory only' },
+  { key: 'prices',       label: 'Prices only' },
+  { key: 'restrictions', label: 'Restrictions only' },
+  { key: 'bookings',     label: 'Bookings count only' },
+];
+
+export function RatesCalendarTab({ hotelId }) {
+  const [windowDays, setWindowDays] = useState(7);
+  const [from, setFrom] = useState(today());
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [collapsed, setCollapsed] = useState({});
+  const [view, setView] = useState('all');
+  const [editRate, setEditRate] = useState(null); // { ratePlanId, ratePlanName, date, day }
+  const [editInv, setEditInv] = useState(null);   // { roomTypeId, roomTypeName, date, day }
+  const [saving, setSaving] = useState(false);
+
+  const dayWidth = rcDayWidth(windowDays);
+  const to = addDays(from, windowDays);
+  const days = Array.from({ length: windowDays }, (_, i) => addDays(from, i));
+  const minJump = addDays(today(), -365 * 3);
+  const maxJump = addDays(today(), 365 * 3);
+
+  const load = useCallback(() => {
+    if (!hotelId) return;
+    pmsApi.getRatesCalendar(hotelId, from, to).then(res => setRoomTypes(res.data.data?.roomTypes || [])).catch(() => {});
+  }, [hotelId, from, to]);
+  useEffect(() => { load(); }, [load]);
+
+  const toggleGroup = (id) => setCollapsed(p => ({ ...p, [id]: !p[id] }));
+
+  const saveInventory = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await pmsApi.setRoomTypeInventory(editInv.roomTypeId, { date: editInv.date, allotment: Number(editInv.allotment) });
+      setEditInv(null);
+      load();
+    } catch { alert('Could not save allotment'); }
+    finally { setSaving(false); }
+  };
+
+  const saveRate = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await pmsApi.setDayPrice(editRate.ratePlanId, {
+        date: editRate.date,
+        price: editRate.price === '' ? null : Number(editRate.price),
+        minStay: editRate.minStay === '' ? null : Number(editRate.minStay),
+        maxStay: editRate.maxStay === '' ? null : Number(editRate.maxStay),
+        closedToArrival: !!editRate.closedToArrival,
+        closedToDeparture: !!editRate.closedToDeparture,
+        stopSell: !!editRate.stopSell,
+      });
+      setEditRate(null);
+      load();
+    } catch { alert('Could not save rate'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="page-header"><div><h1 className="page-title">Inventory &amp; Rates Calendar</h1><p className="page-subtitle">Allotted, booked, available, price and restrictions — every room type and rate plan, one grid.</p></div></div>
+
+      <div className="admin-table-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {RC_WINDOWS.map(w => (
+            <button key={w.days} className="admin-row-btn" style={windowDays === w.days ? btnPrimary : btnSecondary} onClick={() => setWindowDays(w.days)}>{w.label}</button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button className="admin-row-btn" style={btnSecondary} onClick={() => setFrom(f => addDays(f, -windowDays))}>← Back</button>
+          <input type="date" value={from} min={minJump} max={maxJump} onChange={e => isValidDateStr(e.target.value) && setFrom(e.target.value)} style={inputStyle} />
+          <button className="admin-row-btn" style={btnSecondary} onClick={() => setFrom(today())}>Today</button>
+          <button className="admin-row-btn" style={btnSecondary} onClick={() => setFrom(f => addDays(f, windowDays))}>Next →</button>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--gray-400)', marginLeft: 'auto' }}>Jump to any date up to 3 years back or ahead</div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        {RC_VIEWS.map(v => (
+          <button key={v.key} className="admin-row-btn" style={view === v.key ? btnPrimary : btnSecondary} onClick={() => setView(v.key)}>{v.label}</button>
+        ))}
+      </div>
+
+      <div className="admin-table-card" style={{ overflowX: 'auto', padding: 0 }}>
+        <div style={{ minWidth: 200 + windowDays * dayWidth }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
+            <div style={{ width: 200, flexShrink: 0, padding: '8px 12px', fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase' }}>Room type / rate plan</div>
+            {days.map(d => (
+              <div key={d} style={{ width: dayWidth, flexShrink: 0, textAlign: 'center', padding: '8px 4px', fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', borderLeft: '1px solid var(--gray-100)' }}>
+                {new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: windowDays > 7 ? 'short' : undefined })}
+              </div>
+            ))}
+          </div>
+
+          {roomTypes.map(rt => {
+            const invByDate = {};
+            (rt.byDate || []).forEach(d => { invByDate[d.date] = d; });
+            const isCollapsed = !!collapsed[rt.roomTypeId];
+            return (
+              <div key={rt.roomTypeId}>
+                <div onClick={() => toggleGroup(rt.roomTypeId)} style={{ display: 'flex', alignItems: 'center', background: 'var(--gray-50)', borderBottom: '1px solid var(--gray-100)', cursor: 'pointer' }}>
+                  <div style={{ width: 200, flexShrink: 0, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}>
+                    {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                    {rt.roomTypeName}
+                    <span style={{ fontWeight: 500, color: 'var(--gray-400)' }}>· {rt.physicalRoomCount} rooms{rt.maxOccupancy ? ` · up to ${rt.maxOccupancy} guests` : ''}</span>
+                  </div>
+                  <div style={{ width: windowDays * dayWidth }} />
+                </div>
+
+                {!isCollapsed && <>
+                  {(view === 'all' || view === 'inventory' || view === 'bookings') && (
+                    <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
+                      <div style={{ width: 200, flexShrink: 0, padding: '4px 12px', fontSize: 11, color: 'var(--gray-500)', display: 'flex', alignItems: 'center' }}>
+                        {view === 'bookings' ? 'Booked' : 'Allotted · Booked · Available'}
+                      </div>
+                      {days.map(d => {
+                        const inv = invByDate[d];
+                        return (
+                          <div key={d} onClick={() => inv && view !== 'bookings' && setEditInv({ roomTypeId: rt.roomTypeId, roomTypeName: rt.roomTypeName, date: d, allotment: String(inv.allotted) })}
+                            style={{ width: dayWidth, flexShrink: 0, height: RC_ROW_HEIGHT, borderLeft: '1px solid var(--gray-100)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: inv && view !== 'bookings' ? 'pointer' : 'default' }}>
+                            {inv ? (
+                              view === 'bookings'
+                                ? <div style={{ fontSize: 16, fontWeight: 800, color: inv.booked > 0 ? 'var(--blue)' : 'var(--gray-400)' }}>{inv.booked}</div>
+                                : <>
+                                    <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>{inv.booked}/{inv.allotted}</div>
+                                    <div style={{ fontSize: 14, fontWeight: 800, color: inv.available > 0 ? '#16a34a' : '#dc2626' }}>{inv.available}</div>
+                                  </>
+                            ) : <div style={{ fontSize: 12, color: 'var(--gray-300)' }}>—</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {(view === 'all' || view === 'prices' || view === 'restrictions') && (rt.ratePlans || []).map(rp => {
+                    const rateByDate = {};
+                    (rp.byDate || []).forEach(d => { rateByDate[d.date] = d; });
+                    return (
+                      <div key={rp.ratePlanId} style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
+                        <div style={{ width: 200, flexShrink: 0, padding: '4px 12px', fontSize: 12, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                          <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {rp.ratePlanName}
+                            {rp.occupancy && <span title={`Priced for ${rp.occupancy} guest(s)`} style={{ fontSize: 10, fontWeight: 700, color: 'var(--blue)', background: 'var(--blue-light, #EAF2FF)', borderRadius: 4, padding: '1px 5px' }}>👤 {rp.occupancy}</span>}
+                          </span>
+                          <span style={{ fontSize: 10, color: 'var(--gray-400)' }}>{rp.mealPlan}</span>
+                        </div>
+                        {days.map(d => {
+                          const day = rateByDate[d];
+                          const badges = day ? [
+                            day.minStay ? `min ${day.minStay}n` : null,
+                            day.maxStay ? `max ${day.maxStay}n` : null,
+                            day.closedToArrival ? 'CTA' : null,
+                            day.closedToDeparture ? 'CTD' : null,
+                            day.stopSell ? 'STOP' : null,
+                          ].filter(Boolean) : [];
+                          const showPrice = view === 'all' || view === 'prices';
+                          const showBadges = view === 'all' || view === 'restrictions';
+                          return (
+                            <div key={d} onClick={() => day && setEditRate({ ratePlanId: rp.ratePlanId, ratePlanName: rp.ratePlanName, date: d, price: String(day.price ?? ''), minStay: day.minStay ?? '', maxStay: day.maxStay ?? '', closedToArrival: day.closedToArrival, closedToDeparture: day.closedToDeparture, stopSell: day.stopSell })}
+                              style={{ width: dayWidth, flexShrink: 0, height: RC_ROW_HEIGHT, borderLeft: '1px solid var(--gray-100)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: day ? 'pointer' : 'default', padding: '2px 0' }}>
+                              {day ? <>
+                                {showPrice && (
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: day.stopSell ? '#dc2626' : 'var(--gray-900)' }}>
+                                    ₹{Number(day.price).toLocaleString('en-IN')}{day.priceOverridden && <span title="Overridden for this date" style={{ color: 'var(--blue)' }}>*</span>}
+                                  </div>
+                                )}
+                                {showBadges && (badges.length > 0
+                                  ? <div style={{ fontSize: view === 'restrictions' ? 11 : 8, color: '#dc2626', textAlign: 'center', lineHeight: view === 'restrictions' ? '13px' : '9px', fontWeight: view === 'restrictions' ? 700 : 400 }}>{badges.join(' · ')}</div>
+                                  : view === 'restrictions' && <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>OK</div>)}
+                              </> : <div style={{ fontSize: 12, color: 'var(--gray-300)' }}>—</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                  {(view === 'all' || view === 'prices' || view === 'restrictions') && (rt.ratePlans || []).length === 0 && (
+                    <div style={{ display: 'flex' }}>
+                      <div style={{ width: 200 + windowDays * dayWidth, padding: '8px 12px', fontSize: 12, color: 'var(--gray-400)' }}>No rate plans for this room type yet.</div>
+                    </div>
+                  )}
+                </>}
+              </div>
+            );
+          })}
+          {roomTypes.length === 0 && <div style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 30 }}>No room types configured yet</div>}
+        </div>
+      </div>
+
+      {editInv && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setEditInv(null)}>
+          <form onSubmit={saveInventory} className="admin-table-card" style={{ padding: 20, width: 300, maxWidth: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <strong>{editInv.roomTypeName} · {editInv.date}</strong>
+              <button type="button" className="admin-row-btn" onClick={() => setEditInv(null)}><X size={14} /></button>
+            </div>
+            <label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Allotment (sellable-room cap for this date)</label>
+            <input type="number" min="0" value={editInv.allotment} onChange={e => setEditInv({ ...editInv, allotment: e.target.value })} style={{ ...inputStyle, width: '100%', marginTop: 4 }} autoFocus />
+            <button type="submit" className="admin-row-btn" style={{ ...btnPrimary, width: '100%', marginTop: 14, justifyContent: 'center' }} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          </form>
+        </div>
+      )}
+
+      {editRate && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setEditRate(null)}>
+          <form onSubmit={saveRate} className="admin-table-card" style={{ padding: 20, width: 340, maxWidth: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <strong>{editRate.ratePlanName} · {editRate.date}</strong>
+              <button type="button" className="admin-row-btn" onClick={() => setEditRate(null)}><X size={14} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div><label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Price override</label><br />
+                <input type="number" min="0" value={editRate.price} onChange={e => setEditRate({ ...editRate, price: e.target.value })} style={{ ...inputStyle, width: '100%' }} placeholder="Leave blank to clear override" /></div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1 }}><label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Min stay</label><br />
+                  <input type="number" min="0" value={editRate.minStay} onChange={e => setEditRate({ ...editRate, minStay: e.target.value })} style={{ ...inputStyle, width: '100%' }} /></div>
+                <div style={{ flex: 1 }}><label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Max stay</label><br />
+                  <input type="number" min="0" value={editRate.maxStay} onChange={e => setEditRate({ ...editRate, maxStay: e.target.value })} style={{ ...inputStyle, width: '100%' }} /></div>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={!!editRate.closedToArrival} onChange={e => setEditRate({ ...editRate, closedToArrival: e.target.checked })} /> Closed to arrival</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={!!editRate.closedToDeparture} onChange={e => setEditRate({ ...editRate, closedToDeparture: e.target.checked })} /> Closed to departure</label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={!!editRate.stopSell} onChange={e => setEditRate({ ...editRate, stopSell: e.target.checked })} /> Stop sell</label>
+            </div>
+            <button type="submit" className="admin-row-btn" style={{ ...btnPrimary, width: '100%', marginTop: 14, justifyContent: 'center' }} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ public class QrCode {
     private String label;
     @Enumerated(EnumType.STRING) @Builder.Default private QrType type = QrType.SHOP;
     @Column(length=100) private String groupParam; // table number, category id etc.
+    @Column(length=50) private String roomNumber; // set only for ROOM_SERVICE — the room this QR is billed/tagged to
     @Builder.Default private Long scanCount = 0L;
     @Builder.Default private Boolean active = true;
     @CreationTimestamp private LocalDateTime createdAt;

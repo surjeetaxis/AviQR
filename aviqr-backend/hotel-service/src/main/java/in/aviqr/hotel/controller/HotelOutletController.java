@@ -19,6 +19,7 @@ import java.util.*;
 public class HotelOutletController {
     private final HotelOutletRepository outletRepo;
     private final HotelRepository hotelRepo;
+    private final RoomRepository roomRepo;
     private final HotelAccessService accessService;
     private final RabbitTemplate rabbit;
     private final RestTemplate restTemplate;
@@ -186,5 +187,62 @@ public class HotelOutletController {
             log.warn("Failed to create QR for outlet {}: {}", id, e.getMessage());
             return ResponseEntity.status(502).body(ApiResponse.error("Could not reach qr-service"));
         }
+    }
+
+    // Links one room to one outlet's menu — the room-service QR. Scanning it drops the
+    // guest straight onto that outlet's menu (skipping the multi-outlet hub) with room
+    // context pre-filled for "charge to room". Admin picks both room and outlet at
+    // creation time ("one QR, one linked target") — the guest never chooses. Idempotent
+    // per (outlet, room) pair, same find-or-create idiom as HotelController's room QR.
+    @PostMapping("/api/v1/hotel-outlets/{id}/room-service-qr")
+    public ResponseEntity<ApiResponse<Map>> createRoomServiceQrCode(
+            @PathVariable UUID id,
+            @RequestParam UUID roomId,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        HotelOutlet outlet = outletRepo.findById(id).orElse(null);
+        if (outlet == null) return ResponseEntity.notFound().build();
+        if (!accessService.hasAccess(outlet.getHotelId(), uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (outlet.getShopId() == null || outlet.getShopId().isBlank())
+            return ResponseEntity.badRequest().body(ApiResponse.error("Outlet has no linked shop"));
+        Room room = roomRepo.findById(roomId).orElse(null);
+        if (room == null || !room.getHotelId().equals(outlet.getHotelId()))
+            return ResponseEntity.badRequest().body(ApiResponse.error("Room not found for this hotel"));
+
+        try {
+            Map<String, Object> qr = findRoomServiceQr(outlet.getShopId(), room.getRoomNumber());
+            if (qr == null) {
+                try {
+                    String url = qrServiceUrl + "/api/v1/qr-codes/internal/shop/" + outlet.getShopId()
+                        + "?label=Room " + room.getRoomNumber() + " → " + outlet.getName()
+                        + "&type=ROOM_SERVICE&group=" + outlet.getHotelId() + "&roomNumber=" + room.getRoomNumber();
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> createResp = restTemplate.postForObject(url, null, Map.class);
+                    qr = createResp != null ? (Map<String, Object>) createResp.get("data") : null;
+                } catch (Exception createEx) {
+                    // A concurrent double-click may have just inserted the same row — re-check.
+                    qr = findRoomServiceQr(outlet.getShopId(), room.getRoomNumber());
+                    if (qr == null) throw createEx;
+                }
+            }
+            return ResponseEntity.ok(ApiResponse.ok("Room service QR ready", qr));
+        } catch (Exception e) {
+            log.warn("Failed to create room-service QR for outlet {} room {}: {}", id, roomId, e.getMessage());
+            return ResponseEntity.status(502).body(ApiResponse.error("Could not reach qr-service"));
+        }
+    }
+
+    private Map<String, Object> findRoomServiceQr(String shopId, String roomNumber) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> listResp = restTemplate.getForObject(
+            qrServiceUrl + "/api/v1/qr-codes/shop/" + shopId, Map.class);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> existing = listResp != null
+            ? (List<Map<String, Object>>) listResp.get("data") : List.of();
+        return existing.stream()
+            .filter(q -> "ROOM_SERVICE".equals(q.get("type")) && roomNumber.equals(q.get("roomNumber")))
+            .max(Comparator.comparing(q -> String.valueOf(q.get("createdAt"))))
+            .orElse(null);
     }
 }

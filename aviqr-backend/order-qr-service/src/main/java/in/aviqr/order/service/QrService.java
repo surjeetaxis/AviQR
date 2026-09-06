@@ -51,8 +51,13 @@ public class QrService {
 
     @Transactional
     public in.aviqr.order.entity.QrCode create(String shopId, String label, QrType type, String groupParam) {
-        String code = generateUniqueCode(shopId, type, groupParam);
-        String url  = buildUrl(shopId, type, groupParam);
+        return create(shopId, label, type, groupParam, null);
+    }
+
+    @Transactional
+    public in.aviqr.order.entity.QrCode create(String shopId, String label, QrType type, String groupParam, String roomNumber) {
+        String code = generateUniqueCode(shopId, type, groupParam, roomNumber);
+        String url  = buildUrl(shopId, type, groupParam, roomNumber);
 
         return repo.save(in.aviqr.order.entity.QrCode.builder()
             .qrCode(code)
@@ -61,6 +66,7 @@ public class QrService {
             .label(label)
             .type(type)
             .groupParam(groupParam)
+            .roomNumber(roomNumber)
             .build());
     }
 
@@ -91,7 +97,7 @@ public class QrService {
             .orElseThrow(() -> new QrNotFoundException());
         old.setActive(false);
         repo.save(old);
-        return create(old.getShopId(), old.getLabel(), old.getType(), old.getGroupParam());
+        return create(old.getShopId(), old.getLabel(), old.getType(), old.getGroupParam(), old.getRoomNumber());
     }
 
     public static class QrNotFoundException extends RuntimeException {}
@@ -133,7 +139,7 @@ public class QrService {
         return img;
     }
 
-    private String generateUniqueCode(String shopId, QrType type, String group) {
+    private String generateUniqueCode(String shopId, QrType type, String group, String roomNumber) {
         String base = shopId.toLowerCase().replaceAll("[^a-z0-9]", "").substring(0, Math.min(8, shopId.length()));
         String suffix = switch (type) {
             case TABLE -> "-t" + group;
@@ -141,6 +147,9 @@ public class QrService {
             case HOTEL_ROOM -> "-r" + group;
             case HOTEL_OUTLET -> "-o" + group;
             case MALL_OUTLET -> "-mo" + group;
+            // keyed off roomNumber, not group (=hotelId), so two rooms ordering from the
+            // same restaurant outlet don't collide on the same slug
+            case ROOM_SERVICE -> "-rs" + roomNumber;
             default -> "";
         };
         String code = base + suffix;
@@ -151,7 +160,7 @@ public class QrService {
         return candidate;
     }
 
-    private String buildUrl(String shopId, QrType type, String group) {
+    private String buildUrl(String shopId, QrType type, String group, String roomNumber) {
         String base = baseUrl + "/menu/" + shopId;
         return switch (type) {
             case TABLE        -> base + "?table=" + group;
@@ -170,6 +179,11 @@ public class QrService {
             case HOTEL_OUTLET -> base + "?hotel=" + group;
             // shopId is the vendor's real shop-service Shop id; group = mallId, mirrors HOTEL_OUTLET
             case MALL_OUTLET  -> base + "?mall=" + group;
+            // shopId is the specific outlet's real shop-service Shop id (same as HOTEL_OUTLET);
+            // group = hotelId; roomNumber = the room this printed QR is stuck to. Guest lands
+            // directly on that outlet's menu (skipping the multi-outlet hub) with both hotel+room
+            // context pre-filled, so checkout can offer "charge to room" — one QR, one linked target.
+            case ROOM_SERVICE -> base + "?hotel=" + group + "&room=" + roomNumber;
             default           -> base;
         };
     }

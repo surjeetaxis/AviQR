@@ -75,4 +75,20 @@ public interface RoomReservationRepository extends JpaRepository<RoomReservation
                                                         @Param("excludeReservationId") UUID excludeReservationId,
                                                         @Param("oldCheckOutDate") LocalDate oldCheckOutDate,
                                                         @Param("newCheckOutDate") LocalDate newCheckOutDate);
+
+    // Booking calendar / tape-chart: every stay bar overlapping the visible window,
+    // regardless of status, except CANCELLED (never held a room) — a NO_SHOW still
+    // shows on the chart since it visibly explains why that room looked booked.
+    @Query("""
+        select rr from RoomReservation rr
+        join Reservation r on r.id = rr.reservationId
+        where r.hotelId = :hotelId
+          and r.status <> 'CANCELLED'
+          and rr.roomId is not null
+          and r.checkInDate < :to
+          and r.checkOutDate > :from
+        """)
+    List<RoomReservation> findForBookingCalendar(@Param("hotelId") UUID hotelId,
+                                                  @Param("from") LocalDate from,
+                                                  @Param("to") LocalDate to);
 }

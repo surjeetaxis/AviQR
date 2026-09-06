@@ -15,7 +15,8 @@ const MEAL_PLANS = [
 ];
 
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyDateForm = () => ({ date: today(), price: '', minStay: '', maxStay: '', closedToArrival: false, closedToDeparture: false });
+const emptyDateForm = () => ({ date: today(), price: '', minStay: '', maxStay: '', closedToArrival: false, closedToDeparture: false, stopSell: false });
+const emptyInventoryForm = () => ({ date: today(), allotment: '' });
 
 export default function RoomTypesScreen() {
   const [hotelId, setHotelId] = useState(null);
@@ -34,6 +35,9 @@ export default function RoomTypesScreen() {
   const [suggestion, setSuggestion] = useState({}); // ratePlanId -> suggestion
   const [suggesting, setSuggesting] = useState(false);
   const [savingDate, setSavingDate] = useState(false);
+  const [inventoryRows, setInventoryRows] = useState({}); // roomTypeId -> rows
+  const [inventoryForm, setInventoryForm] = useState({}); // roomTypeId -> form
+  const [savingInventory, setSavingInventory] = useState(false);
 
   const loadRoomTypes = useCallback(async (hId) => {
     const res = await pmsApi.listRoomTypes(hId);
@@ -93,11 +97,33 @@ export default function RoomTypesScreen() {
     } catch { setDayRows(p => ({ ...p, [ratePlanId]: [] })); }
   };
 
-  const toggleDateManager = (ratePlanId) => {
+  const toggleDateManager = (ratePlanId, roomTypeId) => {
     if (dateManagerFor === ratePlanId) { setDateManagerFor(null); return; }
     setDateManagerFor(ratePlanId);
     if (!dateForm[ratePlanId]) setDateForm(p => ({ ...p, [ratePlanId]: emptyDateForm() }));
     loadDayPrices(ratePlanId);
+    if (!inventoryForm[roomTypeId]) setInventoryForm(p => ({ ...p, [roomTypeId]: emptyInventoryForm() }));
+    loadInventory(roomTypeId);
+  };
+
+  const loadInventory = async (roomTypeId) => {
+    const to = new Date(); to.setDate(to.getDate() + 30);
+    try {
+      const res = await pmsApi.listInventory(roomTypeId, today(), to.toISOString().slice(0, 10));
+      setInventoryRows(p => ({ ...p, [roomTypeId]: res.data.data || [] }));
+    } catch { setInventoryRows(p => ({ ...p, [roomTypeId]: [] })); }
+  };
+
+  const submitInventory = async (roomTypeId) => {
+    const f = inventoryForm[roomTypeId] || emptyInventoryForm();
+    if (!f.allotment) return Alert.alert('Allotment is required');
+    setSavingInventory(true);
+    try {
+      await pmsApi.setInventory(roomTypeId, { date: f.date, allotment: Number(f.allotment) });
+      setInventoryForm(p => ({ ...p, [roomTypeId]: { ...emptyInventoryForm(), date: f.date } }));
+      loadInventory(roomTypeId);
+    } catch { Alert.alert('Could not save allotment'); }
+    finally { setSavingInventory(false); }
   };
 
   const suggestPriceFor = async (ratePlanId, roomTypeId) => {
@@ -128,6 +154,7 @@ export default function RoomTypesScreen() {
         maxStay: f.maxStay ? Number(f.maxStay) : null,
         closedToArrival: f.closedToArrival,
         closedToDeparture: f.closedToDeparture,
+        stopSell: f.stopSell,
       });
       setDateForm(p => ({ ...p, [ratePlanId]: { ...emptyDateForm(), date: f.date } }));
       loadDayPrices(ratePlanId);
@@ -170,7 +197,7 @@ export default function RoomTypesScreen() {
                   </View>
                   <Text style={ss.rpRate}>₹{Number(rp.baseRate).toLocaleString('en-IN')}/night</Text>
                 </View>
-                <TouchableOpacity onPress={() => toggleDateManager(rp.id)} style={ss.dateManagerToggle}>
+                <TouchableOpacity onPress={() => toggleDateManager(rp.id, rt.id)} style={ss.dateManagerToggle}>
                   <Text style={ss.dateManagerToggleTxt}>{dateManagerFor === rp.id ? 'Hide dates' : 'Manage dates'} — {rp.name}</Text>
                 </TouchableOpacity>
                 {dateManagerFor === rp.id && (
@@ -201,15 +228,34 @@ export default function RoomTypesScreen() {
                       <Text style={ss.switchLabel}>Closed to departure</Text>
                       <Switch value={!!dateForm[rp.id]?.closedToDeparture} onValueChange={v => setDateForm(p => ({ ...p, [rp.id]: { ...(p[rp.id] || emptyDateForm()), closedToDeparture: v } }))} trackColor={{ true: Colors.primary }} />
                     </View>
+                    <View style={ss.switchRow}>
+                      <Text style={ss.switchLabel}>Stop sell</Text>
+                      <Switch value={!!dateForm[rp.id]?.stopSell} onValueChange={v => setDateForm(p => ({ ...p, [rp.id]: { ...(p[rp.id] || emptyDateForm()), stopSell: v } }))} trackColor={{ true: Colors.primary }} />
+                    </View>
                     <Button title={savingDate ? 'Saving…' : 'Save Date Rule'} loading={savingDate} onPress={() => submitDayPrice(rp.id)} style={{ marginBottom: 12 }} />
 
                     {(dayRows[rp.id] || []).map(r => (
                       <View key={r.id} style={ss.dayRow}>
                         <Text style={ss.dayRowDate}>{r.date}</Text>
-                        <Text style={ss.dayRowMeta}>{r.price != null ? `₹${Number(r.price).toLocaleString('en-IN')}` : '—'}{r.minStay ? ` · min ${r.minStay}n` : ''}{r.maxStay ? ` · max ${r.maxStay}n` : ''}{r.closedToArrival ? ' · CTA' : ''}{r.closedToDeparture ? ' · CTD' : ''}</Text>
+                        <Text style={ss.dayRowMeta}>{r.price != null ? `₹${Number(r.price).toLocaleString('en-IN')}` : '—'}{r.minStay ? ` · min ${r.minStay}n` : ''}{r.maxStay ? ` · max ${r.maxStay}n` : ''}{r.closedToArrival ? ' · CTA' : ''}{r.closedToDeparture ? ' · CTD' : ''}{r.stopSell ? ' · STOP SELL' : ''}</Text>
                       </View>
                     ))}
                     {(dayRows[rp.id] || []).length === 0 && <Text style={ss.emptyTxt}>No date rules set.</Text>}
+
+                    <Text style={[ss.dateManagerTitle, { marginTop: 14 }]}>{rt.name} — allotment (next 30 days)</Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <Input label="Date (YYYY-MM-DD)" value={inventoryForm[rt.id]?.date || today()} onChangeText={v => setInventoryForm(p => ({ ...p, [rt.id]: { ...(p[rt.id] || emptyInventoryForm()), date: v } }))} style={{ flex: 1 }} />
+                      <Input label="Allotment" keyboardType="number-pad" value={inventoryForm[rt.id]?.allotment || ''} onChangeText={v => setInventoryForm(p => ({ ...p, [rt.id]: { ...(p[rt.id] || emptyInventoryForm()), allotment: v } }))} style={{ flex: 1 }} />
+                    </View>
+                    <Button title={savingInventory ? 'Saving…' : 'Save Allotment'} loading={savingInventory} onPress={() => submitInventory(rt.id)} style={{ marginBottom: 12 }} />
+
+                    {(inventoryRows[rt.id] || []).map(r => (
+                      <View key={r.id} style={ss.dayRow}>
+                        <Text style={ss.dayRowDate}>{r.date}</Text>
+                        <Text style={ss.dayRowMeta}>Allotment: {r.allotment}</Text>
+                      </View>
+                    ))}
+                    {(inventoryRows[rt.id] || []).length === 0 && <Text style={ss.emptyTxt}>No allotment caps set — sells up to physical room count.</Text>}
                   </View>
                 )}
               </View>

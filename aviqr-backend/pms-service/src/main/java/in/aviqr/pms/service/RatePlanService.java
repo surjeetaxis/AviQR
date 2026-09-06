@@ -53,5 +53,15 @@ public class RatePlanService {
             if (Boolean.TRUE.equals(dp.getClosedToDeparture()))
                 throw new RuntimeException("Departures are closed on " + checkOut + " for this rate plan");
         });
+        // Unlike CTA/CTD (which only gate the specific arrival/departure date), a
+        // stop-sell blocks the sale entirely — checked for every night of the stay,
+        // since a rate plan taken offline for one night shouldn't be bookable through it.
+        for (LocalDate d = checkIn; d.isBefore(checkOut); d = d.plusDays(1)) {
+            final LocalDate night = d;
+            dayPriceRepo.findByRatePlanIdAndDate(ratePlanId, night).ifPresent(dp -> {
+                if (Boolean.TRUE.equals(dp.getStopSell()))
+                    throw new RuntimeException("This rate plan is not sellable on " + night);
+            });
+        }
     }
 }

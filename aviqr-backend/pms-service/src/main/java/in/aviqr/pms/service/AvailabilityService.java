@@ -4,7 +4,9 @@ import in.aviqr.pms.client.HotelRoomDto;
 import in.aviqr.pms.client.HotelServiceClient;
 import in.aviqr.pms.entity.RoomReservation;
 import in.aviqr.pms.entity.RoomType;
+import in.aviqr.pms.entity.RoomTypeInventory;
 import in.aviqr.pms.repository.RoomReservationRepository;
+import in.aviqr.pms.repository.RoomTypeInventoryRepository;
 import in.aviqr.pms.repository.RoomTypeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ public class AvailabilityService {
     private final HotelServiceClient hotelServiceClient;
     private final RoomTypeRepository roomTypeRepo;
     private final RoomReservationRepository roomReservationRepo;
+    private final RoomTypeInventoryRepository inventoryRepo;
 
     /** Physical rooms of this type in hotel-service that aren't already held by an
      *  overlapping BOOKED/CHECKED_IN reservation for the given date range. */
@@ -47,7 +50,19 @@ public class AvailabilityService {
             .filter(java.util.Objects::nonNull)
             .collect(Collectors.toSet());
 
-        return allRooms.stream().filter(r -> !heldRoomIds.contains(r.getId())).toList();
+        List<HotelRoomDto> free = allRooms.stream().filter(r -> !heldRoomIds.contains(r.getId())).toList();
+
+        // A manager-set allotment cap (see RoomTypeInventory) is a HARD ceiling on how
+        // many rooms of this type are sellable, independent of how many are physically
+        // free — e.g. holding rooms back for walk-ins. The tightest night in the stay
+        // governs the whole range, same convention channel managers use for ARI. Not
+        // set for any night in range = no cap, falls back to physical availability.
+        Integer capForRange = inventoryRepo.findByRoomTypeIdAndDateBetween(roomTypeId, checkIn, checkOut.minusDays(1))
+            .stream().map(RoomTypeInventory::getAllotment).min(Integer::compareTo).orElse(null);
+        if (capForRange != null && capForRange < free.size()) {
+            return free.subList(0, Math.max(capForRange, 0));
+        }
+        return free;
     }
 
     public int availableCount(UUID hotelId, UUID roomTypeId, LocalDate checkIn, LocalDate checkOut) {

@@ -14,6 +14,7 @@ import {
   Overview as PmsOverview, ReservationsTab, GroupsTab, FrontDeskTab, FolioTab,
   ChannelsTab, GuestsTab as PmsGuestsTab, ExtrasTab, AgentsTab, ReportsTab as PmsReportsTab,
   RoomTypesTab, WaitlistTab, ChainTemplatesTab, ImportTab, ReviewsTab,
+  RateChangeLogTab, BookingCalendarTab, RatesCalendarTab,
 } from '../pms/PmsDashboard.jsx';
 import {
   Hotel, BedDouble, UtensilsCrossed, Shirt, Sparkles, Wrench,
@@ -22,7 +23,7 @@ import {
   Star, Phone, Save, X, Coffee, Car, RefreshCw, Store, UserCog, QrCode,
   Users, Flower2, TrendingUp, Eye, Download, Printer, MapPin, Loader2,
   CalendarCheck, DoorOpen, Receipt, UserCircle, Tag, Wifi, Briefcase, MessageSquare,
-  Hourglass, Building2, Upload,
+  Hourglass, Building2, Upload, Calendar, History, Grid3x3,
 } from 'lucide-react';
 import '../admin/Admin.css';
 import './Hotel.css';
@@ -62,6 +63,7 @@ const NAV = [
   // ── Front Office (PMS core) ──────────────────────────────────────────────
   {key:'overview',     group:'Front Office', labelKey:'overview',       icon:BarChart2},
   {key:'reservations', group:'Front Office', label:'Reservations',      icon:CalendarCheck},
+  {key:'bookingcalendar', group:'Front Office', label:'Booking Calendar', icon:Calendar},
   {key:'frontdesk',    group:'Front Office', label:'Front Desk',        icon:DoorOpen},
   {key:'groups',       group:'Front Office', label:'Group Bookings',    icon:Users},
   {key:'folio',        group:'Front Office', label:'Folio',             icon:Receipt},
@@ -81,6 +83,8 @@ const NAV = [
   // ── Inventory & Rates ─────────────────────────────────────────────────────
   {key:'rooms',        group:'Inventory & Rates', labelKey:'rooms',           icon:BedDouble},
   {key:'roomtypes',    group:'Inventory & Rates', label:'Room Types & Rates', icon:BedDouble},
+  {key:'ratescalendar', group:'Inventory & Rates', label:'Inventory & Rates Calendar', icon:Grid3x3},
+  {key:'ratelog',      group:'Inventory & Rates', label:'Rate & Inventory Log', icon:History},
   {key:'extras',       group:'Inventory & Rates', label:'Surcharges, Discounts & Add-ons', icon:Tag},
   {key:'import',       group:'Inventory & Rates', label:'Import Reservations', icon:Upload},
 
@@ -331,6 +335,7 @@ export default function HotelDashboard() {
         <main className="admin-content">
           {/* ── Front Office (PMS) ── */}
           {tab==='overview'     && <PmsOverview hotelName={hotelName} reservations={reservations} audit={audit} requests={requests} onNav={setTab}/>}
+          {tab==='bookingcalendar' && <BookingCalendarTab hotelId={hotelId}/>}
           {tab==='reservations' && <ReservationsTab hotelId={hotelId} roomTypes={roomTypes} reservations={reservations} groups={groups} agents={agents}
                                       onCreated={refreshReservations} onOpenFolio={(id)=>{setSelectedReservationId(id);setTab('folio');}}/>}
           {tab==='frontdesk'    && <FrontDeskTab reservations={reservations} onChanged={refreshReservations}
@@ -353,6 +358,8 @@ export default function HotelDashboard() {
           {/* ── Inventory & Rates ── */}
           {tab==='rooms'        && <RoomsPage rooms={rooms} setRooms={setRooms} hotelId={hotelId} onNav={setTab} onRequestsFilter={setRoomFilter}/>}
           {tab==='roomtypes'    && <RoomTypesTab hotelId={hotelId} roomTypes={roomTypes} onChange={()=>loadRoomTypes(hotelId)}/>}
+          {tab==='ratescalendar' && <RatesCalendarTab hotelId={hotelId}/>}
+          {tab==='ratelog'      && <RateChangeLogTab hotelId={hotelId} roomTypes={roomTypes}/>}
           {tab==='extras'       && <ExtrasTab hotelId={hotelId}/>}
           {tab==='import'       && <ImportTab hotelId={hotelId} onImported={refreshReservations}/>}
 
@@ -1407,7 +1414,7 @@ export function QRManagementPage({rooms,setRooms,outlets,hotelId,hotelName}) {
       <div className="sub-section-header" style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>Main Hotel QR</div>
       <HotelQR hotelId={hotelId} hotelName={hotelName}/>
 
-      <RoomQrGrid rooms={rooms} hotelId={hotelId} hotelName={hotelName} toggleRoomQR={toggleRoomQR}/>
+      <RoomQrGrid rooms={rooms} outlets={outletList.filter(o=>o.shopId)} hotelId={hotelId} hotelName={hotelName} toggleRoomQR={toggleRoomQR}/>
 
       <QrScanAnalytics hotelId={hotelId}/>
 
@@ -1440,11 +1447,12 @@ export function QRManagementPage({rooms,setRooms,outlets,hotelId,hotelName}) {
 // find-or-create round trip per room, plus a "Generate missing" and a batch
 // tent-card print flow so front-office isn't stuck opening RoomQrModal one
 // room at a time for a whole floor/property.
-function RoomQrGrid({ rooms, hotelId, hotelName, toggleRoomQR }) {
+function RoomQrGrid({ rooms, outlets, hotelId, hotelName, toggleRoomQR }) {
   const [qrMap, setQrMap] = useState({});       // roomNumber -> qr row from qr-service
   const [qrImgs, setQrImgs] = useState({});     // roomNumber -> thumbnail data-URL
   const [loadingList, setLoadingList] = useState(true);
   const [qrRoom, setQrRoom] = useState(null);
+  const [serviceQrRoom, setServiceQrRoom] = useState(null);
   const [generatingAll, setGeneratingAll] = useState(false);
   const [batchOpen, setBatchOpen] = useState(false);
 
@@ -1537,6 +1545,11 @@ function RoomQrGrid({ rooms, hotelId, hotelName, toggleRoomQR }) {
                 <button className="btn-room-action" style={{width:'100%'}} onClick={()=>setQrRoom(r)}>
                   {qr ? 'Manage QR' : 'Generate QR'}
                 </button>
+                {outlets?.length > 0 && (
+                  <button className="btn-room-action" style={{width:'100%'}} onClick={()=>setServiceQrRoom(r)}>
+                    🍽 Room Service QR
+                  </button>
+                )}
               </div>
             );
           })}
@@ -1544,7 +1557,87 @@ function RoomQrGrid({ rooms, hotelId, hotelName, toggleRoomQR }) {
       )}
 
       {qrRoom && <RoomQrModal room={qrRoom} onClose={()=>{ setQrRoom(null); loadList(); }}/>}
+      {serviceQrRoom && <RoomServiceQrModal room={serviceQrRoom} outlets={outlets} onClose={()=>setServiceQrRoom(null)}/>}
       {batchOpen && <BatchRoomQrPrint rooms={rooms} qrMap={qrMap} hotelName={hotelName} onClose={()=>{ setBatchOpen(false); loadList(); }}/>}
+    </div>
+  );
+}
+
+// Lets an admin pick which outlet a room's room-service QR should point to, then
+// generates/reuses the QR — mirrors RoomQrModal's display/download/print/copy-link
+// skeleton, with an outlet picker added before generation ("one QR, one linked target").
+function RoomServiceQrModal({ room, outlets, onClose }) {
+  const [outletId, setOutletId] = useState(outlets[0]?.id || '');
+  const [qrImg, setQrImg] = useState('');
+  const [qr, setQr] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const generate = (id) => {
+    if (!id) return;
+    setLoading(true); setError(''); setQr(null); setQrImg('');
+    hotelOutletApi.createRoomServiceQr(id, room.id)
+      .then(res => setQr(res.data.data || null))
+      .catch(() => setError('Could not generate QR code'))
+      .finally(() => setLoading(false));
+  };
+  useEffect(() => { generate(outletId); }, [outletId, room.id]);
+
+  const scanUrl = qr?.qrCode ? qrApi.redirectUrl(qr.qrCode) : qr?.targetUrl;
+
+  useEffect(() => {
+    if (!scanUrl) return;
+    QRCode.toDataURL(scanUrl, { width: 400, margin: 2, color: { dark: '#0F172A', light: '#ffffff' } })
+      .then(setQrImg).catch(() => {});
+  }, [scanUrl]);
+
+  const download = () => {
+    if (!qrImg) return;
+    const a = document.createElement('a');
+    a.href = qrImg;
+    a.download = `room-${room.number}-service-qr.png`;
+    a.click();
+  };
+
+  const copyLink = () => {
+    if (!scanUrl) return;
+    navigator.clipboard?.writeText(scanUrl).then(
+      () => alert(`Room service QR link copied:\n${scanUrl}`),
+      () => prompt('Copy this room service QR link:', scanUrl)
+    );
+  };
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:100}} onClick={onClose}>
+      <div style={{background:'#fff',borderRadius:16,padding:20,width:'92%',maxWidth:360,textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+          <div style={{fontWeight:800,fontSize:16}}>Room {room.number} · Room Service QR</div>
+          <button onClick={onClose} style={{background:'var(--gray-100)',border:'none',borderRadius:8,padding:6,cursor:'pointer'}}><X size={18}/></button>
+        </div>
+
+        <select value={outletId} onChange={e=>setOutletId(e.target.value)} style={{width:'100%',padding:8,borderRadius:8,border:'1px solid var(--gray-200)',marginBottom:14}}>
+          {outlets.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+        </select>
+
+        {loading ? (
+          <p style={{fontSize:13,color:'var(--gray-400)',padding:'40px 0'}}>Generating…</p>
+        ) : error ? (
+          <p style={{fontSize:13,color:'#DC2626',padding:'40px 0'}}>{error}</p>
+        ) : (
+          <div style={{display:'flex',flexDirection:'column',gap:14,alignItems:'center'}}>
+            {qrImg ? <img src={qrImg} alt="Room Service QR" style={{width:220,height:220,borderRadius:8}}/> : <div style={{width:220,height:220,background:'var(--gray-100)',borderRadius:8}}/>}
+            <div style={{fontSize:12,color:'var(--gray-500)',display:'flex',alignItems:'center',gap:5}}>
+              <Eye size={13}/> {(qr?.scanCount || 0).toLocaleString('en-IN')} scans
+            </div>
+            <div style={{fontSize:11.5,color:'var(--gray-400)',fontFamily:'monospace',wordBreak:'break-all'}}>{scanUrl}</div>
+            <div style={{display:'flex',gap:8,width:'100%'}}>
+              <button className="btn-refresh" style={{flex:1,justifyContent:'center'}} onClick={download}><Download size={14}/> Download</button>
+              <button className="btn-refresh" style={{flex:1,justifyContent:'center'}} onClick={()=>window.print()}><Printer size={14}/> Print</button>
+            </div>
+            <button className="btn-room-action" style={{width:'100%'}} onClick={copyLink}>🔗 Copy Link</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
