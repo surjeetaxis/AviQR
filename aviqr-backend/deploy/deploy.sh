@@ -37,8 +37,8 @@ KEEP_RELEASES=15  # generous: blue/green means an old release's jar can still be
 # registers with Eureka or routes through the gateway. Mirrors aviqr.sh's
 # SERVICES array and cmd_run "all" ordering.
 SERVICES=(
-  service-registry api-gateway auth-service shop-mall-service menu-ocr-service
-  order-qr-service payment-service hotel-service
+  service-registry auth-service shop-mall-service menu-ocr-service
+  order-qr-service payment-service hotel-service api-gateway
   support-service notification-report-review-service pms-service
 )
 

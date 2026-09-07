@@ -43,7 +43,7 @@ SVC="${1:?Usage: blue-green-switch.sh <service-name>}"
 STATE_DIR="${AVIQR_DEPLOY_STATE_DIR:-/var/www/aviqr/deploy-state}"
 STATE_FILE="$STATE_DIR/$SVC"
 EUREKA_APP=$(echo "$SVC" | tr '[:lower:]' '[:upper:]')
-REGISTER_TIMEOUT_TRIES=30   # 30 * 3s = 90s for the new instance to register+lease
+REGISTER_TIMEOUT_TRIES=60   # 60 * 3s = 180s for the new instance to register+lease (widened: api-gateway's primary needs its own ~30s Eureka lease-renewal heartbeat to re-register after service-registry restarts, on top of the new instance registering)
 
 mkdir -p "$STATE_DIR"
 
