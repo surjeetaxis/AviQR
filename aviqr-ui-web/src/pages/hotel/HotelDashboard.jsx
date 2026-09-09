@@ -17,7 +17,7 @@ import {
   RateChangeLogTab, BookingCalendarTab, RatesCalendarTab,
 } from '../pms/PmsDashboard.jsx';
 import {
-  Hotel, BedDouble, UtensilsCrossed, Shirt, Sparkles, Wrench,
+  Hotel, BedDouble, Shirt, Sparkles, Wrench,
   Bell, BarChart2, Settings, LogOut, Menu as MenuIcon, CheckCircle2,
   Clock, AlertCircle, Plus, Edit2, Trash2, ToggleLeft, ToggleRight,
   Star, Phone, Save, X, Coffee, Car, RefreshCw, Store, UserCog, QrCode,
@@ -50,15 +50,6 @@ const INITIAL_REQUESTS = [
   {id:'q6',room:'301',service:'Housekeeping',item:'Extra towels and pillows',time:'1h ago',status:'done',priority:'normal'},
 ];
 
-const ROOM_MENU = [
-  {id:'m1',cat:'Breakfast',name:'Continental Breakfast',price:450,available:true},
-  {id:'m2',cat:'Breakfast',name:'Full Indian Breakfast',price:380,available:true},
-  {id:'m3',cat:'Mains',name:'Club Sandwich',price:320,available:true},
-  {id:'m4',cat:'Mains',name:'Pasta Arrabiata',price:380,available:false},
-  {id:'m5',cat:'Beverages',name:'Fresh Lime Soda',price:120,available:true},
-  {id:'m6',cat:'Beverages',name:'Filter Coffee',price:80,available:true},
-];
-
 const NAV = [
   // ── Front Office (PMS core) ──────────────────────────────────────────────
   {key:'overview',     group:'Front Office', labelKey:'overview',       icon:BarChart2},
@@ -72,8 +63,8 @@ const NAV = [
   {key:'reviews',      group:'Front Office', label:'Reviews',           icon:Star},
 
   // ── Guest Services (QR-raised, in-stay) ──────────────────────────────────
-  {key:'requests',     group:'Guest Services', labelKey:'navGuestRequests', icon:Bell, badge:3},
-  {key:'roomservice',  group:'Guest Services', labelKey:'navRoomService',   icon:UtensilsCrossed},
+  {key:'requests',     group:'Guest Services', labelKey:'navGuestRequests', icon:Bell},
+  {key:'outlets',      group:'Guest Services', labelKey:'outlets',          icon:Store},
   {key:'housekeeping', group:'Guest Services', labelKey:'housekeeping',     icon:Sparkles},
   {key:'laundry',      group:'Guest Services', labelKey:'laundry',          icon:Shirt},
   {key:'spa',          group:'Guest Services', labelKey:'spa',              icon:Flower2},
@@ -94,7 +85,6 @@ const NAV = [
   {key:'chaintemplates', group:'Distribution', label:'Chain Rate Templates', icon:Building2},
 
   // ── Operations ────────────────────────────────────────────────────────────
-  {key:'outlets',      group:'Operations', labelKey:'outlets',      icon:Store},
   {key:'bookings',     group:'Operations', label:'Outlet Bookings', icon:Star},
   {key:'qrmanagement', group:'Operations', labelKey:'groupQR',      icon:QrCode},
   {key:'hotelstaff',   group:'Operations', labelKey:'navHotelStaff',icon:UserCog},
@@ -269,6 +259,7 @@ export default function HotelDashboard() {
     Promise.resolve(hotelOpsApi.updateBooking(id, status)).catch(() => {});
   };
 
+  const openRequestsCount = requests.filter(r => r.status !== 'done').length;
   let lastGroup = null;
 
   return (
@@ -291,12 +282,13 @@ export default function HotelDashboard() {
           {NAV.map(n=>{
             const showHeader = n.group !== lastGroup;
             lastGroup = n.group;
+            const badge = n.key === 'requests' ? openRequestsCount : n.badge;
             return (
               <div key={n.key}>
                 {showHeader && <div className="admin-nav-group-header">{n.group}</div>}
                 <button className={`admin-nav-item ${tab===n.key?'active':''}`} onClick={()=>{setTab(n.key);setSidebarOpen(false);}}>
                   <n.icon size={16}/> <span>{n.label || t(n.labelKey, lang)}</span>
-                  {n.badge && <span className="support-nav-badge">{n.badge}</span>}
+                  {!!badge && <span className="support-nav-badge">{badge}</span>}
                 </button>
               </div>
             );
@@ -348,7 +340,6 @@ export default function HotelDashboard() {
 
           {/* ── Guest Services (QR, in-stay) ── */}
           {tab==='requests'     && <AllRequests requests={roomFilter ? requests.filter(r=>r.room===roomFilter) : requests} onAdvance={advanceRequest} roomFilter={roomFilter} onClearFilter={()=>setRoomFilter(null)}/>}
-          {tab==='roomservice'  && <RoomServiceMenu menu={ROOM_MENU}/>}
           {tab==='housekeeping' && <HousekeepingPage requests={requests.filter(r=>r.service==='Housekeeping')} rooms={rooms} hotelId={hotelId}/>}
           {tab==='laundry'      && <ServicePage title="Laundry" requests={requests.filter(r=>r.service==='Laundry')} onAdvance={advanceRequest}/>}
           {tab==='spa'          && <SpaPage bookings={bookings} outlets={outlets} hotelId={hotelId} onUpdate={updateBooking}/>}
@@ -974,90 +965,6 @@ function RoomBillModal({room,onClose}) {
           </>
         )}
       </div>
-    </div>
-  );
-}
-
-export function RoomServiceMenu({menu:initialMenu}) {
-  const { lang } = useLang();
-  const [menu,setMenu] = useState(initialMenu);
-  const [showAdd,setShowAdd] = useState(false);
-  const [editing,setEditing] = useState(null);
-  const [form,setForm] = useState({name:'',cat:'Breakfast',price:''});
-  const toggleAvail = id => setMenu(prev=>prev.map(m=>m.id!==id?m:{...m,available:!m.available}));
-  const cats = [...new Set(menu.map(m=>m.cat))];
-
-  const openAdd = () => { setEditing(null); setForm({name:'',cat:cats[0]||'Breakfast',price:''}); setShowAdd(true); };
-  const openEdit = (item) => { setEditing(item); setForm({name:item.name,cat:item.cat,price:item.price}); setShowAdd(true); };
-  const remove = (item) => { if (confirm(`Remove "${item.name}" from the room service menu?`)) setMenu(prev=>prev.filter(m=>m.id!==item.id)); };
-
-  const save = (e) => {
-    e.preventDefault();
-    if (!form.name.trim() || !form.price) return;
-    if (editing) {
-      setMenu(prev=>prev.map(m=>m.id!==editing.id?m:{...m,name:form.name,cat:form.cat,price:Number(form.price)}));
-    } else {
-      setMenu(prev=>[...prev,{id:`m${Date.now()}`,name:form.name,cat:form.cat,price:Number(form.price),available:true}]);
-    }
-    setShowAdd(false);
-  };
-
-  return (
-    <div>
-      <div className="page-header">
-        <div><h1 className="page-title">{t('navRoomService', lang)}</h1><p className="page-subtitle">{menu.filter(m=>m.available).length} available items</p></div>
-        <button className="btn-refresh" onClick={openAdd}><Plus size={13}/> Add item</button>
-      </div>
-      {showAdd && (
-        <form onSubmit={save} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
-          <div className="form-field">
-            <label className="form-label">Item name</label>
-            <input className="form-input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Veg Sandwich" required/>
-          </div>
-          <div className="form-field">
-            <label className="form-label">Category</label>
-            <input className="form-input" list="rsm-cats" value={form.cat} onChange={e=>setForm(f=>({...f,cat:e.target.value}))} placeholder="e.g. Mains"/>
-            <datalist id="rsm-cats">{cats.map(c=><option key={c} value={c}/>)}</datalist>
-          </div>
-          <div className="form-field">
-            <label className="form-label">Price (₹)</label>
-            <input className="form-input" type="number" min="0" value={form.price} onChange={e=>setForm(f=>({...f,price:e.target.value}))} required/>
-          </div>
-          <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-primary" type="submit">{editing?'Save':'Add'}</button>
-            <button className="btn-room-action" type="button" onClick={()=>setShowAdd(false)}>Cancel</button>
-          </div>
-        </form>
-      )}
-      {cats.map(cat=>(
-        <div key={cat} style={{marginBottom:16}}>
-          <div style={{fontSize:13,fontWeight:700,color:'var(--gray-500)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:8}}>{cat}</div>
-          <div className="admin-table-card">
-            <table className="admin-table">
-              <thead><tr><th>Item</th><th>Price</th><th>Available</th><th></th></tr></thead>
-              <tbody>
-                {menu.filter(m=>m.cat===cat).map(item=>(
-                  <tr key={item.id}>
-                    <td style={{fontWeight:600}}>{item.name}</td>
-                    <td>₹{item.price}</td>
-                    <td>
-                      <button className={`toggle-btn ${item.available?'toggle-on':'toggle-off'}`} onClick={()=>toggleAvail(item.id)}>
-                        {item.available?<ToggleRight size={20}/>:<ToggleLeft size={20}/>}
-                      </button>
-                    </td>
-                    <td>
-                      <div style={{display:'flex',gap:5}}>
-                        <button className="admin-row-btn" onClick={()=>openEdit(item)}><Edit2 size={12}/></button>
-                        <button className="admin-row-btn admin-row-btn-danger" onClick={()=>remove(item)}><Trash2 size={12}/></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
