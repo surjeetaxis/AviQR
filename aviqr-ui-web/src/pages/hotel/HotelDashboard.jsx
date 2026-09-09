@@ -135,6 +135,9 @@ export default function HotelDashboard() {
   const [hotelName, setHotelName] = useState('');
   const [hotels, setHotels] = useState([]); // every hotel this user has access to
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [addHotelOpen, setAddHotelOpen] = useState(false);
+  const [newHotelForm, setNewHotelForm] = useState({ name: '', city: '', phone: '', email: '' });
+  const [creatingHotel, setCreatingHotel] = useState(false);
   const [bookings, setBookings] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -243,6 +246,33 @@ export default function HotelDashboard() {
     loadHotelData(h);
   };
 
+  // Adding a 2nd property turns a single-hotel owner into a chain owner: if the
+  // current hotel isn't already in a chain, create one and put the current hotel
+  // in it too, so chain-wide reporting/rate templates start working immediately
+  // instead of the new hotel joining a chain of one that nobody can see.
+  const createHotel = async (e) => {
+    e.preventDefault();
+    if (!newHotelForm.name.trim()) return;
+    setCreatingHotel(true);
+    try {
+      let targetChainId = chainId;
+      if (!targetChainId) {
+        const chainRes = await hotelApi.createChain({ name: `${hotelName || user?.hotelName || 'My'} Group` });
+        targetChainId = chainRes.data.data.id;
+        await hotelApi.assignChain(hotelId, targetChainId);
+      }
+      const res = await hotelApi.create({ ...newHotelForm, chainId: targetChainId });
+      const created = res.data.data;
+      setAddHotelOpen(false);
+      setNewHotelForm({ name: '', city: '', phone: '', email: '' });
+      const listRes = await hotelApi.getMyHotels();
+      const list = listRes.data.data || [];
+      setHotels(list);
+      selectHotel(list.find(h => h.id === created.id) || created);
+    } catch { alert('Could not create hotel'); }
+    finally { setCreatingHotel(false); }
+  };
+
   const loadData = () => {
     hotelApi.getMyHotels()
       .then(res => {
@@ -295,26 +325,16 @@ export default function HotelDashboard() {
           </div>
         </div>
         <div className="hotel-switcher">
-          {hotels.length > 1 ? (
-            <button className={`hotel-switcher-trigger admin-user-card ${switcherOpen?'open':''}`} onClick={()=>setSwitcherOpen(o=>!o)}>
-              <div className="admin-avatar" style={{background:'var(--purple)'}}>{user?.avatar||'GP'}</div>
-              <div>
-                <div className="admin-user-name">{hotelName || user?.hotelName || 'Hotel'}</div>
-                <div className="admin-user-role">Hotel &amp; Resort PMS · {rooms.length} rooms</div>
-              </div>
-              <ChevronDown size={15} className="hotel-switcher-chevron"/>
-            </button>
-          ) : (
-            <div className="admin-user-card">
-              <div className="admin-avatar" style={{background:'var(--purple)'}}>{user?.avatar||'GP'}</div>
-              <div>
-                <div className="admin-user-name">{hotelName || user?.hotelName || 'Hotel'}</div>
-                <div className="admin-user-role">Hotel &amp; Resort PMS · {rooms.length} rooms</div>
-              </div>
+          <button className={`hotel-switcher-trigger admin-user-card ${switcherOpen?'open':''}`} onClick={()=>setSwitcherOpen(o=>!o)}>
+            <div className="admin-avatar" style={{background:'var(--purple)'}}>{user?.avatar||'GP'}</div>
+            <div>
+              <div className="admin-user-name">{hotelName || user?.hotelName || 'Hotel'}</div>
+              <div className="admin-user-role">Hotel &amp; Resort PMS · {rooms.length} rooms</div>
             </div>
-          )}
-          {switcherOpen && hotels.length > 1 && (
-            <div className="hotel-switcher-dropdown" onMouseLeave={()=>setSwitcherOpen(false)}>
+            <ChevronDown size={15} className="hotel-switcher-chevron"/>
+          </button>
+          {switcherOpen && (
+            <div className="hotel-switcher-dropdown" onMouseLeave={()=>{ setSwitcherOpen(false); setAddHotelOpen(false); }}>
               {hotels.map(h => (
                 <button key={h.id} className={`hotel-switcher-item ${h.id===hotelId?'active':''}`} onClick={()=>selectHotel(h)}>
                   <div className="hotel-switcher-item-avatar">{h.name?.slice(0,2).toUpperCase()}</div>
@@ -325,6 +345,23 @@ export default function HotelDashboard() {
                   {h.id===hotelId && <Check size={15} className="hotel-switcher-check"/>}
                 </button>
               ))}
+              {!addHotelOpen ? (
+                <button className="hotel-switcher-item hotel-switcher-add" onClick={()=>setAddHotelOpen(true)}>
+                  <div className="hotel-switcher-item-avatar hotel-switcher-add-icon"><Plus size={14}/></div>
+                  <div className="hotel-switcher-item-name">Add another hotel</div>
+                </button>
+              ) : (
+                <form className="hotel-switcher-add-form" onSubmit={createHotel} onClick={e=>e.stopPropagation()}>
+                  <input placeholder="Hotel name" value={newHotelForm.name} onChange={e=>setNewHotelForm({...newHotelForm,name:e.target.value})} autoFocus required/>
+                  <input placeholder="City" value={newHotelForm.city} onChange={e=>setNewHotelForm({...newHotelForm,city:e.target.value})}/>
+                  <input placeholder="Phone" value={newHotelForm.phone} onChange={e=>setNewHotelForm({...newHotelForm,phone:e.target.value})}/>
+                  <input placeholder="Email" value={newHotelForm.email} onChange={e=>setNewHotelForm({...newHotelForm,email:e.target.value})}/>
+                  <div className="hotel-switcher-add-actions">
+                    <button type="button" className="admin-row-btn" onClick={()=>setAddHotelOpen(false)}>Cancel</button>
+                    <button type="submit" className="admin-row-btn" style={{background:'var(--purple)',color:'#fff'}} disabled={creatingHotel}>{creatingHotel?'Creating…':'Create'}</button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
         </div>
