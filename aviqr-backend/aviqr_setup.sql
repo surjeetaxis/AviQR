@@ -2591,17 +2591,33 @@ INSERT INTO pms_rate_plans (id, hotel_id, room_type_id, name, base_rate, cancell
   ('d2000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd1000001-0000-4000-8000-000000000004', 'Presidential — Flexible', 18000.00, 'Non-refundable')
 ON CONFLICT DO NOTHING;
 
--- ── Dummy data — a checked-in reservation matching room 101's existing
--- OCCUPIED/Anjali Singh dummy data in aviqr_hotel, plus one upcoming BOOKED
--- reservation for room 102 (currently VACANT there) ────────────────────────
-INSERT INTO pms_reservations (id, hotel_id, guest_name, guest_phone, check_in_date, check_out_date, adults, status, source, created_by) VALUES
-  ('d3000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Anjali Singh', '9800011122', '2026-06-15', '2026-06-17', 1, 'CHECKED_IN', 'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2'),
-  ('d3000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Karan Mehta',  '9800033344', '2026-07-01', '2026-07-03', 2, 'BOOKED',     'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2')
+-- ── Dummy data — guests + reservations matching rooms.sql's OCCUPIED rows
+-- (101/Anjali, 201/Ravi, 301/Meena) so Overview/occupancy/RevPAR and the
+-- Guests page (both driven by pms_reservations/pms_guests, never by
+-- rooms.guest_name — see NightAuditService/GuestService) agree with what
+-- the Rooms grid shows, instead of only Anjali having a matching reservation
+-- and nobody having a pms_guests row at all. Dates are relative to NOW() so
+-- these stay "currently in-house" instead of rotting into the past as real
+-- time moves on; room 102 keeps one upcoming BOOKED reservation (Karan) to
+-- demonstrate that state too. ─────────────────────────────────────────────
+INSERT INTO pms_guests (id, hotel_id, name, phone) VALUES
+  ('d6000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Anjali Singh', '9800011122'),
+  ('d6000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Ravi Kumar',   '9800055566'),
+  ('d6000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'Meena Pillai', '9800077788')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_reservations (id, hotel_id, guest_id, guest_name, guest_phone, check_in_date, check_out_date, adults, status, source, created_by) VALUES
+  ('d3000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd6000001-0000-4000-8000-000000000001', 'Anjali Singh', '9800011122', CURRENT_DATE - INTERVAL '2 days',  CURRENT_DATE + INTERVAL '2 days',  1, 'CHECKED_IN', 'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2'),
+  ('d3000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', NULL,                                     'Karan Mehta',  '9800033344', CURRENT_DATE + INTERVAL '20 days', CURRENT_DATE + INTERVAL '22 days', 2, 'BOOKED',     'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2'),
+  ('d3000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd6000001-0000-4000-8000-000000000002', 'Ravi Kumar',   '9800055566', CURRENT_DATE - INTERVAL '4 days',  CURRENT_DATE + INTERVAL '3 days',  1, 'CHECKED_IN', 'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2'),
+  ('d3000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd6000001-0000-4000-8000-000000000003', 'Meena Pillai', '9800077788', CURRENT_DATE - INTERVAL '1 days',  CURRENT_DATE + INTERVAL '6 days',  2, 'CHECKED_IN', 'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO pms_room_reservations (id, reservation_id, room_type_id, rate_plan_id, room_id, room_number, rate_per_night, actual_check_in_at) VALUES
-  ('d4000001-0000-4000-8000-000000000001', 'd3000001-0000-4000-8000-000000000001', 'd1000001-0000-4000-8000-000000000001', 'd2000001-0000-4000-8000-000000000001', 'ad1a22ff-c4cd-424a-84ad-505f8847c610', '101', 3500.00, NOW() - INTERVAL '1 day'),
-  ('d4000001-0000-4000-8000-000000000002', 'd3000001-0000-4000-8000-000000000002', 'd1000001-0000-4000-8000-000000000001', 'd2000001-0000-4000-8000-000000000001', 'c581c211-34b7-49c4-87aa-30c5f82ecd6f', '102', 3500.00, NULL)
+  ('d4000001-0000-4000-8000-000000000001', 'd3000001-0000-4000-8000-000000000001', 'd1000001-0000-4000-8000-000000000001', 'd2000001-0000-4000-8000-000000000001', 'ad1a22ff-c4cd-424a-84ad-505f8847c610', '101', 3500.00, NOW() - INTERVAL '2 days'),
+  ('d4000001-0000-4000-8000-000000000002', 'd3000001-0000-4000-8000-000000000002', 'd1000001-0000-4000-8000-000000000001', 'd2000001-0000-4000-8000-000000000001', 'c581c211-34b7-49c4-87aa-30c5f82ecd6f', '102', 3500.00, NULL),
+  ('d4000001-0000-4000-8000-000000000003', 'd3000001-0000-4000-8000-000000000003', 'd1000001-0000-4000-8000-000000000002', 'd2000001-0000-4000-8000-000000000002', 'ede7723a-93e0-4fbc-b6f3-6909dd559613', '201', 5500.00, NOW() - INTERVAL '4 days'),
+  ('d4000001-0000-4000-8000-000000000004', 'd3000001-0000-4000-8000-000000000004', 'd1000001-0000-4000-8000-000000000003', 'd2000001-0000-4000-8000-000000000003', 'faa9e33d-3d94-486a-b099-3af0c3ba8d5d', '301', 9000.00, NOW() - INTERVAL '1 days')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO pms_folio_charges (id, reservation_id, room_reservation_id, type, description, amount) VALUES
