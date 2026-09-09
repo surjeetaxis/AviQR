@@ -1,3 +1,17 @@
+.hotel-switcher { position:relative; }
+.hotel-switcher-trigger { display:flex; align-items:center; gap:10px; width:100%; padding:14px 16px; border-bottom:1px solid var(--gray-800); text-align:left; transition:background .12s; }
+.hotel-switcher-trigger:hover { background:rgba(255,255,255,.04); }
+.hotel-switcher-chevron { margin-left:auto; color:var(--gray-500); flex-shrink:0; transition:transform .15s; }
+.hotel-switcher-trigger.open .hotel-switcher-chevron { transform:rotate(180deg); }
+.hotel-switcher-dropdown { position:absolute; top:100%; left:12px; right:12px; margin-top:6px; background:var(--white); border:1px solid var(--gray-200); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); z-index:200; overflow:hidden; }
+.hotel-switcher-item { display:flex; align-items:center; gap:10px; width:100%; padding:10px 14px; text-align:left; transition:background .12s; }
+.hotel-switcher-item:hover { background:var(--gray-50); }
+.hotel-switcher-item.active { background:var(--purple-light,#F3EEFF); }
+.hotel-switcher-item-avatar { width:26px; height:26px; border-radius:50%; background:var(--purple); color:var(--white); font-size:10.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.hotel-switcher-item-name { font-size:13px; font-weight:600; color:var(--gray-900); }
+.hotel-switcher-item-city { font-size:11px; color:var(--gray-400); margin-top:1px; }
+.hotel-switcher-check { margin-left:auto; color:var(--purple); flex-shrink:0; }
+
 .rooms-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
 .room-card { background:var(--white); border:1px solid var(--gray-200); border-radius:var(--radius-lg); padding:16px; box-shadow:var(--shadow-card); }
 .room-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }

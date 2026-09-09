@@ -23,7 +23,7 @@ import {
   Star, Phone, Save, X, Coffee, Car, RefreshCw, Store, UserCog, QrCode,
   Users, Flower2, TrendingUp, Eye, Download, Printer, MapPin, Loader2,
   CalendarCheck, DoorOpen, Receipt, UserCircle, Tag, Wifi, Briefcase, MessageSquare,
-  Hourglass, Building2, Upload, Calendar, History, Grid3x3,
+  Hourglass, Building2, Upload, Calendar, History, Grid3x3, ChevronDown, Check,
 } from 'lucide-react';
 import '../admin/Admin.css';
 import './Hotel.css';
@@ -133,6 +133,8 @@ export default function HotelDashboard() {
   const [roomFilter, setRoomFilter] = useState(null);
   const [hotelId, setHotelId] = useState(null);
   const [hotelName, setHotelName] = useState('');
+  const [hotels, setHotels] = useState([]); // every hotel this user has access to
+  const [switcherOpen, setSwitcherOpen] = useState(false);
   const [bookings, setBookings] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -195,43 +197,64 @@ export default function HotelDashboard() {
     qrActive: r.qrActive,
   });
 
+  const SELECTED_HOTEL_KEY = 'aviqr_selected_hotel_id';
+
+  // Loads everything scoped to one hotel — shared by the initial load and by
+  // switching hotels via the sidebar switcher, so both end up in the same state.
+  const loadHotelData = (h) => {
+    const hid = h.id;
+    setHotelId(hid);
+    setHotelName(h.name);
+    setChainId(h.chainId || null);
+    // Clear the previous hotel's data immediately so switching doesn't show a
+    // flash of stale rooms/requests/reservations while the new hotel loads.
+    setRooms([]); setRequests([]); setBookings([]); setOutlets([]);
+    setRoomTypes([]); setReservations([]); setGroups([]); setAgents([]); setAudit(null);
+    setLoadingData(true);
+    loadRoomTypes(hid);
+    loadReservations(hid);
+    loadGroups(hid);
+    loadAgents(hid);
+    loadAudit(hid);
+    return Promise.allSettled([
+      hotelApi.getRooms(hid),
+      hotelApi.getRequests(hid, { status: 'new,preparing,confirmed' }),
+      hotelOpsApi.listRequests(hid),   // NEW: QR-raised guest service requests
+      hotelOpsApi.listBookings(hid),   // NEW: spa/activity bookings
+      hotelOutletApi.list(hid),        // NEW: outlets, for Reports/QR Management/Spa tabs
+    ]).then(([rRes, reqRes, gsrRes, bkRes, outRes]) => {
+      if (rRes.status === 'fulfilled') {
+        const r = rRes.value.data.data || [];
+        if (r.length) setRooms(r.map(mapRoom));
+      }
+      // Merge legacy room_requests + new guest_service_requests
+      let merged = [];
+      if (reqRes.status === 'fulfilled') merged = merged.concat((reqRes.value.data.data || []).map(mapRoomRequest));
+      if (gsrRes.status === 'fulfilled') merged = merged.concat((gsrRes.value.data.data || []).map(mapGuestReq));
+      if (merged.length) setRequests(merged);
+      if (bkRes.status === 'fulfilled') setBookings(bkRes.value.data.data || []);
+      if (outRes.status === 'fulfilled') setOutlets(outRes.value.data.data || []);
+    }).finally(() => setLoadingData(false));
+  };
+
+  const selectHotel = (h) => {
+    setSwitcherOpen(false);
+    try { localStorage.setItem(SELECTED_HOTEL_KEY, h.id); } catch {}
+    loadHotelData(h);
+  };
+
   const loadData = () => {
     hotelApi.getMyHotels()
       .then(res => {
-        const hotels = res.data.data || [];
-        const h = hotels[0];
-        if (!h) { setLoadingData(false); return; }
-        const hid = h.id;
-        setHotelId(hid);
-        setHotelName(h.name);
-        setChainId(h.chainId || null);
-        loadRoomTypes(hid);
-        loadReservations(hid);
-        loadGroups(hid);
-        loadAgents(hid);
-        loadAudit(hid);
-        return Promise.allSettled([
-          hotelApi.getRooms(hid),
-          hotelApi.getRequests(hid, { status: 'new,preparing,confirmed' }),
-          hotelOpsApi.listRequests(hid),   // NEW: QR-raised guest service requests
-          hotelOpsApi.listBookings(hid),   // NEW: spa/activity bookings
-          hotelOutletApi.list(hid),        // NEW: outlets, for Reports/QR Management/Spa tabs
-        ]).then(([rRes, reqRes, gsrRes, bkRes, outRes]) => {
-          if (rRes.status === 'fulfilled') {
-            const r = rRes.value.data.data || [];
-            if (r.length) setRooms(r.map(mapRoom));
-          }
-          // Merge legacy room_requests + new guest_service_requests
-          let merged = [];
-          if (reqRes.status === 'fulfilled') merged = merged.concat((reqRes.value.data.data || []).map(mapRoomRequest));
-          if (gsrRes.status === 'fulfilled') merged = merged.concat((gsrRes.value.data.data || []).map(mapGuestReq));
-          if (merged.length) setRequests(merged);
-          if (bkRes.status === 'fulfilled') setBookings(bkRes.value.data.data || []);
-          if (outRes.status === 'fulfilled') setOutlets(outRes.value.data.data || []);
-        });
+        const list = res.data.data || [];
+        setHotels(list);
+        if (!list.length) { setLoadingData(false); return; }
+        let saved = null;
+        try { saved = localStorage.getItem(SELECTED_HOTEL_KEY); } catch {}
+        const h = (saved && list.find(x => x.id === saved)) || list[0];
+        return loadHotelData(h);
       })
-      .catch(() => {})
-      .finally(() => setLoadingData(false));
+      .catch(() => setLoadingData(false));
   };
 
   useEffect(() => { loadData(); }, []);
@@ -271,12 +294,39 @@ export default function HotelDashboard() {
             <span className="admin-brand-name">Avi<em>QR</em> PMS</span>
           </div>
         </div>
-        <div className="admin-user-card">
-          <div className="admin-avatar" style={{background:'var(--purple)'}}>{user?.avatar||'GP'}</div>
-          <div>
-            <div className="admin-user-name">{hotelName || user?.hotelName || 'Hotel'}</div>
-            <div className="admin-user-role">Hotel &amp; Resort PMS · {rooms.length} rooms</div>
-          </div>
+        <div className="hotel-switcher">
+          {hotels.length > 1 ? (
+            <button className={`hotel-switcher-trigger admin-user-card ${switcherOpen?'open':''}`} onClick={()=>setSwitcherOpen(o=>!o)}>
+              <div className="admin-avatar" style={{background:'var(--purple)'}}>{user?.avatar||'GP'}</div>
+              <div>
+                <div className="admin-user-name">{hotelName || user?.hotelName || 'Hotel'}</div>
+                <div className="admin-user-role">Hotel &amp; Resort PMS · {rooms.length} rooms</div>
+              </div>
+              <ChevronDown size={15} className="hotel-switcher-chevron"/>
+            </button>
+          ) : (
+            <div className="admin-user-card">
+              <div className="admin-avatar" style={{background:'var(--purple)'}}>{user?.avatar||'GP'}</div>
+              <div>
+                <div className="admin-user-name">{hotelName || user?.hotelName || 'Hotel'}</div>
+                <div className="admin-user-role">Hotel &amp; Resort PMS · {rooms.length} rooms</div>
+              </div>
+            </div>
+          )}
+          {switcherOpen && hotels.length > 1 && (
+            <div className="hotel-switcher-dropdown" onMouseLeave={()=>setSwitcherOpen(false)}>
+              {hotels.map(h => (
+                <button key={h.id} className={`hotel-switcher-item ${h.id===hotelId?'active':''}`} onClick={()=>selectHotel(h)}>
+                  <div className="hotel-switcher-item-avatar">{h.name?.slice(0,2).toUpperCase()}</div>
+                  <div>
+                    <div className="hotel-switcher-item-name">{h.name}</div>
+                    {h.city && <div className="hotel-switcher-item-city">{h.city}</div>}
+                  </div>
+                  {h.id===hotelId && <Check size={15} className="hotel-switcher-check"/>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <nav className="admin-nav">
           {NAV.map(n=>{
