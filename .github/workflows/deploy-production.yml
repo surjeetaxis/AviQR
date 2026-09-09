@@ -34,6 +34,24 @@ jobs:
         id: ref
         run: echo "value=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
 
+      - name: Checkout master history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+
+      # Only master itself, or a commit already merged into master (e.g. an
+      # older SHA passed here to roll back), may be deployed — never an
+      # unmerged feature branch. The `ref` input accepts any string, so
+      # nothing enforced that until now.
+      - name: Refuse to deploy anything not on master
+        run: |
+          git fetch origin "${{ steps.ref.outputs.value }}" --quiet 2>/dev/null || true
+          if ! git merge-base --is-ancestor "${{ steps.ref.outputs.value }}" origin/master; then
+            echo "::error::Refusing to deploy '${{ steps.ref.outputs.value }}' — it is not master and not a commit already merged into master. Merge it into master first, or pass an older master SHA here to roll back."
+            exit 1
+          fi
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
