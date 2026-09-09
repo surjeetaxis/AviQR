@@ -1,5 +1,6 @@
 package in.aviqr.pms.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import in.aviqr.pms.dto.AcceptBookingRequest;
 import in.aviqr.pms.dto.ChannelWebhookRequest;
 import in.aviqr.pms.entity.*;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -38,6 +40,7 @@ public class ChannelService {
     private final AvailabilityService availabilityService;
     private final RatePlanService ratePlanService;
     private final RatePlanRepository ratePlanRepo;
+    private final ObjectMapper objectMapper;
     @Qualifier("externalRestTemplate") private final RestTemplate externalRestTemplate;
 
     public ChannelMapping createMapping(ChannelMapping req) {
@@ -245,12 +248,13 @@ public class ChannelService {
     }
 
     private void pushInventoryReal(ChannelMapping mapping) {
+        Map<String, Object> body = null;
         try {
             LocalDate today = LocalDate.now();
             LocalDate tomorrow = today.plusDays(1);
             int available = availabilityService.availableCount(mapping.getHotelId(), mapping.getRoomTypeId(), today, tomorrow);
 
-            Map<String, Object> body = Map.of(
+            body = Map.of(
                 "accessKey", mapping.getAccessKey(),
                 "channelId", mapping.getChannelId(),
                 "hotels", List.of(Map.of(
@@ -261,21 +265,24 @@ public class ChannelService {
                         "endDate", tomorrow.toString(),
                         "availability", available)))));
 
-            post(mapping.getCmBaseUrl() + "/api/inventory", body);
+            ResponseEntity<String> resp = post(mapping.getCmBaseUrl() + "/api/inventory", body);
             syncLogRepo.save(ChannelSyncLog.builder()
                 .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.SUCCESS)
                 .message("Pushed inventory for " + mapping.getExternalRoomTypeId() + " (" + today + "): availability=" + available)
+                .requestBody(toJson(body)).responseBody(describeResponse(resp))
                 .build());
         } catch (Exception e) {
             syncLogRepo.save(ChannelSyncLog.builder()
                 .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.FAILED)
                 .message("Inventory push failed for " + mapping.getExternalRoomTypeId() + ": " + e.getMessage())
+                .requestBody(body != null ? toJson(body) : null).responseBody("error: " + e.getMessage())
                 .build());
         }
     }
 
     private void pushPriceReal(ChannelMapping mapping) {
         if (mapping.getExternalRatePlanId() == null) return;
+        Map<String, Object> body = null;
         try {
             LocalDate today = LocalDate.now();
             LocalDate horizon = today.plusDays(30);
@@ -285,7 +292,7 @@ public class ChannelService {
             Map<String, Object> priceTiers = Map.of(
                 "Single", rate, "Double", rate, "Triple", rate, "Quad", rate);
 
-            Map<String, Object> body = Map.of(
+            body = Map.of(
                 "accessKey", mapping.getAccessKey(),
                 "channelId", mapping.getChannelId(),
                 "hotels", List.of(Map.of(
@@ -300,15 +307,17 @@ public class ChannelService {
                                 "endDate", horizon.toString(),
                                 "price", priceTiers)))))))));
 
-            post(mapping.getCmBaseUrl() + "/api/bulkPriceUpdate", body);
+            ResponseEntity<String> resp = post(mapping.getCmBaseUrl() + "/api/bulkPriceUpdate", body);
             syncLogRepo.save(ChannelSyncLog.builder()
                 .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.SUCCESS)
                 .message("Pushed price for rate plan " + mapping.getExternalRatePlanId() + " (" + today + " to " + horizon + ")")
+                .requestBody(toJson(body)).responseBody(describeResponse(resp))
                 .build());
         } catch (Exception e) {
             syncLogRepo.save(ChannelSyncLog.builder()
                 .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.FAILED)
                 .message("Price push failed for rate plan " + mapping.getExternalRatePlanId() + ": " + e.getMessage())
+                .requestBody(body != null ? toJson(body) : null).responseBody("error: " + e.getMessage())
                 .build());
         }
     }
@@ -329,21 +338,45 @@ public class ChannelService {
         try {
             LocalDate today = LocalDate.now();
             int available = availabilityService.availableCount(mapping.getHotelId(), mapping.getRoomTypeId(), today, today.plusDays(1));
+            // No cmBaseUrl on this mapping — this is the exact payload a real push would
+            // have POSTed to /api/inventory, kept here so "what would we have sent" is
+            // still inspectable without a live connection.
+            Map<String, Object> wouldSend = Map.of(
+                "accessKey", mapping.getAccessKey() == null ? "" : mapping.getAccessKey(),
+                "channelId", mapping.getChannelId() == null ? "" : mapping.getChannelId(),
+                "hotels", List.of(Map.of(
+                    "hotelId", mapping.getExternalPropertyId(),
+                    "rooms", List.of(Map.of(
+                        "roomId", mapping.getExternalRoomTypeId(),
+                        "startDate", today.toString(),
+                        "availability", available)))));
             syncLogRepo.save(ChannelSyncLog.builder()
                 .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.SUCCESS)
                 .message("[simulated — no cmBaseUrl configured] availability for " + mapping.getExternalRoomTypeId() + " on " + today + " = " + available)
+                .requestBody(toJson(wouldSend))
+                .responseBody("No live connection configured for this mapping (cmBaseUrl is blank) — no HTTP call was made; this is a local simulation only.")
                 .build());
         } catch (Exception e) {
             syncLogRepo.save(ChannelSyncLog.builder()
                 .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.FAILED)
                 .message("Simulated push failed for " + mapping.getExternalRoomTypeId() + ": " + e.getMessage())
+                .responseBody("error: " + e.getMessage())
                 .build());
         }
     }
 
-    private void post(String url, Map<String, Object> body) {
+    private String toJson(Object o) {
+        try { return objectMapper.writeValueAsString(o); }
+        catch (Exception e) { return String.valueOf(o); }
+    }
+
+    private String describeResponse(ResponseEntity<String> resp) {
+        return "HTTP " + resp.getStatusCode().value() + (resp.getBody() != null ? "\n" + resp.getBody() : "");
+    }
+
+    private ResponseEntity<String> post(String url, Map<String, Object> body) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        externalRestTemplate.postForEntity(url, new HttpEntity<>(body, headers), Void.class);
+        return externalRestTemplate.postForEntity(url, new HttpEntity<>(body, headers), String.class);
     }
 }

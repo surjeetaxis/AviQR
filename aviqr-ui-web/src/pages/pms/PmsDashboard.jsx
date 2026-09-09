@@ -2,7 +2,7 @@
 // hotel/resort dashboard shell in ../hotel/HotelDashboard.jsx — there is no
 // standalone PMS page or route any more (the login is one dashboard, and PMS
 // sections live alongside QR guest-services under the same sidebar).
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import {
   BedDouble, CalendarCheck, Receipt,
   Plus, LogIn, DoorOpen, Ban, UserX, Search, Wifi, RefreshCw, Copy, Users, Briefcase, IndianRupee, TrendingUp, UserCircle, Tag, CalendarClock,
@@ -903,6 +903,7 @@ export function ChannelsTab({ hotelId, roomTypes }) {
   const emptyForm = { channel: 'BOOKING_COM', roomTypeId: '', externalPropertyId: '', externalRoomTypeId: '', externalRatePlanId: '', accessKey: '', channelId: '', cmBaseUrl: '' };
   const [form, setForm] = useState(emptyForm);
   const [pushing, setPushing] = useState(false);
+  const [expandedLog, setExpandedLog] = useState(null);
 
   const roomTypeName = (id) => roomTypes.find(rt => rt.id === id)?.name || id;
 
@@ -990,18 +991,47 @@ export function ChannelsTab({ hotelId, roomTypes }) {
 
       <div className="admin-table-card">
         <table className="admin-table">
-          <thead><tr><th>When</th><th>Channel</th><th>Direction</th><th>Status</th><th>Message</th></tr></thead>
+          <thead><tr><th>When</th><th>Channel</th><th>Direction</th><th>Status</th><th>Message</th><th></th></tr></thead>
           <tbody>
-            {log.map(l => (
-              <tr key={l.id}>
-                <td style={{ fontSize: 12 }}>{new Date(l.createdAt).toLocaleString()}</td>
-                <td>{l.channel}</td>
-                <td>{l.direction}</td>
-                <td><span className={l.status === 'SUCCESS' ? 'status-pill st-active' : 'status-pill st-suspended'}>{l.status}</span></td>
-                <td style={{ fontSize: 12.5 }}>{l.message}</td>
-              </tr>
-            ))}
-            {log.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 20 }}>No sync activity yet</td></tr>}
+            {log.map(l => {
+              const isOpen = expandedLog === l.id;
+              const hasDetails = l.requestBody || l.responseBody;
+              return (
+                <Fragment key={l.id}>
+                  <tr>
+                    <td style={{ fontSize: 12 }}>{new Date(l.createdAt).toLocaleString()}</td>
+                    <td>{l.channel}</td>
+                    <td>{l.direction}</td>
+                    <td><span className={l.status === 'SUCCESS' ? 'status-pill st-active' : 'status-pill st-suspended'}>{l.status}</span></td>
+                    <td style={{ fontSize: 12.5 }}>{l.message}</td>
+                    <td>
+                      {hasDetails && (
+                        <button type="button" className="admin-row-btn" style={btnSecondary} onClick={() => setExpandedLog(isOpen ? null : l.id)}>
+                          {isOpen ? 'Hide' : 'Request / response'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr>
+                      <td colSpan={6} style={{ background: 'var(--gray-50)', padding: 12 }}>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                          <div style={{ flex: 1, minWidth: 240 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', marginBottom: 4, textTransform: 'uppercase' }}>Request</div>
+                            <pre style={{ fontSize: 11.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, padding: 8, margin: 0, maxHeight: 260, overflow: 'auto' }}>{l.requestBody || '—'}</pre>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 240 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', marginBottom: 4, textTransform: 'uppercase' }}>Response</div>
+                            <pre style={{ fontSize: 11.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, padding: 8, margin: 0, maxHeight: 260, overflow: 'auto' }}>{l.responseBody || '—'}</pre>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+            {log.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 20 }}>No sync activity yet</td></tr>}
           </tbody>
         </table>
       </div>
