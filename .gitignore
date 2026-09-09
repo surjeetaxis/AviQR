@@ -1,4 +1,9 @@
 # =========================
+# Claude Code (local/personal)
+# =========================
+.claude/settings.local.json
+
+# =========================
 # Java 21 / Spring Boot
 # =========================
 target/

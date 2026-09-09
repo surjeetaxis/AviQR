@@ -3,7 +3,7 @@
 --  PostgreSQL 17+
 --  Run as superuser: psql -U postgres -f aviqr_teardown.sql
 --
---  Drops all 11 AviQR databases (schema + dummy data + everything).
+--  Drops all 12 AviQR databases (schema + dummy data + everything).
 --  Does NOT drop the 'aviqr' role itself, since other tooling may
 --  still reference it — re-running aviqr_setup.sql afterwards will
 --  recreate the databases fresh under the same role.
@@ -27,6 +27,7 @@ DROP DATABASE IF EXISTS aviqr_mall    WITH (FORCE);
 DROP DATABASE IF EXISTS aviqr_support WITH (FORCE);
 DROP DATABASE IF EXISTS aviqr_report  WITH (FORCE);
 DROP DATABASE IF EXISTS aviqr_review  WITH (FORCE);
+DROP DATABASE IF EXISTS aviqr_pms     WITH (FORCE);
 
 -- Uncomment to also remove the role (only do this if nothing else on the
 -- box depends on it — Mongo/RabbitMQ users named 'aviqr' are separate and
