@@ -1292,6 +1292,33 @@ INSERT INTO rooms (id, hotel_id, room_number, room_type, floor, status, guest_na
   ('4024cbc3-0eff-45ce-ab81-5784550d998e', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '401', 'Presidential',  '4th Floor', 'VACANT',       NULL,              NULL,           NULL,           TRUE)
 ON CONFLICT DO NOTHING;
 
+-- ── Dummy data — physical rooms for the other 2 demo hotels ──────────────────
+-- Grand Palace Hotel was the only one of the 3 demo hotels with any rooms
+-- seeded, leaving The Leela Resort's and Budget Inn Jaipur's Rooms/Front
+-- Desk/Inventory & Rates pages empty despite both having an OWNER access
+-- grant. Room type names match the pms_room_types seeded further below.
+-- rooms.id auto-generates (no natural unique key), so "ON CONFLICT DO NOTHING"
+-- would never actually dedupe a re-run — guard with NOT EXISTS instead.
+INSERT INTO rooms (hotel_id, room_number, room_type, floor, status, qr_active)
+SELECT * FROM (VALUES
+  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '101', 'Garden View Room',   'Garden Block',       'VACANT', TRUE),
+  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '102', 'Garden View Room',   'Garden Block',       'VACANT', TRUE),
+  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '201', 'Ocean View Suite',   'Ocean Block',        'VACANT', TRUE),
+  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '202', 'Ocean View Suite',   'Ocean Block',        'VACANT', TRUE),
+  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '301', 'Pool Villa',         'Pool Block',         'VACANT', TRUE),
+  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '302', 'Pool Villa',         'Pool Block',         'VACANT', TRUE),
+  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '401', 'Presidential Villa', 'Presidential Block', 'VACANT', TRUE),
+  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, '101', 'Single Room', '1st Floor', 'VACANT', TRUE),
+  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, '102', 'Single Room', '1st Floor', 'VACANT', TRUE),
+  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, '201', 'Double Room', '2nd Floor', 'VACANT', TRUE),
+  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, '202', 'Double Room', '2nd Floor', 'VACANT', TRUE),
+  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, '301', 'Triple Room', '3rd Floor', 'VACANT', TRUE),
+  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, '302', 'Triple Room', '3rd Floor', 'VACANT', TRUE)
+) AS v(hotel_id, room_number, room_type, floor, status, qr_active)
+WHERE NOT EXISTS (
+  SELECT 1 FROM rooms r WHERE r.hotel_id = v.hotel_id AND r.room_number = v.room_number
+);
+
 INSERT INTO room_requests (id, hotel_id, room_number, service_type, description, status, priority, created_at, resolved_at) VALUES
   ('a4689441-ede3-4473-98f2-f6a8196945e5', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'ROOM_SERVICE', 'Club Sandwich + Fresh Lime Soda',                    'NEW',       'HIGH',   NOW() - INTERVAL '5 min',    NULL),
   ('a2b66295-a0e3-4905-a6e9-c7f03ba4d49d', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '201', 'LAUNDRY',      '2 shirts, 1 trouser (express)',                      'PREPARING', 'NORMAL', NOW() - INTERVAL '12 min',   NULL),
@@ -2589,6 +2616,28 @@ INSERT INTO pms_rate_plans (id, hotel_id, room_type_id, name, base_rate, cancell
   ('d2000001-0000-4000-8000-000000000002', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd1000001-0000-4000-8000-000000000002', 'Deluxe — Flexible',       5500.00, 'Free cancellation until 24h before check-in'),
   ('d2000001-0000-4000-8000-000000000003', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd1000001-0000-4000-8000-000000000003', 'Suite — Flexible',        9000.00, 'Free cancellation until 48h before check-in'),
   ('d2000001-0000-4000-8000-000000000004', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd1000001-0000-4000-8000-000000000004', 'Presidential — Flexible', 18000.00, 'Non-refundable')
+ON CONFLICT DO NOTHING;
+
+-- ── Dummy data — room types & rate plans for the other 2 demo hotels ─────────
+-- Matches the room_type strings seeded on rooms just above.
+INSERT INTO pms_room_types (id, hotel_id, name, description, max_occupancy) VALUES
+  ('e1010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'Garden View Room',   'Ground-floor room opening onto the resort gardens', 2),
+  ('e1010001-0000-4000-8000-000000000002', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'Ocean View Suite',   'Suite with a private balcony facing the Arabian Sea', 3),
+  ('e1010001-0000-4000-8000-000000000003', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'Pool Villa',         'Standalone villa with a private plunge pool', 4),
+  ('e1010001-0000-4000-8000-000000000004', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'Presidential Villa', 'Two-bedroom villa with private butler service', 4),
+  ('e1020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Single Room', 'Compact room with a single bed', 1),
+  ('e1020001-0000-4000-8000-000000000002', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Double Room', 'Room with a double bed',          2),
+  ('e1020001-0000-4000-8000-000000000003', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Triple Room', 'Room with a double + single bed', 3)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_rate_plans (id, hotel_id, room_type_id, name, base_rate, cancellation_policy) VALUES
+  ('e2010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'e1010001-0000-4000-8000-000000000001', 'Garden View — Flexible',        6500.00,  'Free cancellation until 24h before check-in'),
+  ('e2010001-0000-4000-8000-000000000002', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'e1010001-0000-4000-8000-000000000002', 'Ocean View — Flexible',         9800.00,  'Free cancellation until 48h before check-in'),
+  ('e2010001-0000-4000-8000-000000000003', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'e1010001-0000-4000-8000-000000000003', 'Pool Villa — Flexible',         15000.00, 'Free cancellation until 72h before check-in'),
+  ('e2010001-0000-4000-8000-000000000004', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'e1010001-0000-4000-8000-000000000004', 'Presidential — Non-refundable', 28000.00, 'Non-refundable'),
+  ('e2020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'e1020001-0000-4000-8000-000000000001', 'Single — Standard', 1200.00, 'Free cancellation until 24h before check-in'),
+  ('e2020001-0000-4000-8000-000000000002', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'e1020001-0000-4000-8000-000000000002', 'Double — Standard', 1800.00, 'Free cancellation until 24h before check-in'),
+  ('e2020001-0000-4000-8000-000000000003', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'e1020001-0000-4000-8000-000000000003', 'Triple — Standard', 2500.00, 'Free cancellation until 24h before check-in')
 ON CONFLICT DO NOTHING;
 
 -- ── Dummy data — guests + reservations matching rooms.sql's OCCUPIED rows
