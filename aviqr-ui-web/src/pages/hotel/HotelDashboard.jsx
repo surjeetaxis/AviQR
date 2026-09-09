@@ -373,8 +373,8 @@ export default function HotelDashboard() {
                   <input placeholder="Phone" value={newHotelForm.phone} onChange={e=>setNewHotelForm({...newHotelForm,phone:e.target.value})}/>
                   <input placeholder="Email" value={newHotelForm.email} onChange={e=>setNewHotelForm({...newHotelForm,email:e.target.value})}/>
                   <div className="hotel-switcher-add-actions">
-                    <button type="button" className="admin-row-btn" onClick={()=>setAddHotelOpen(false)}>Cancel</button>
-                    <button type="submit" className="admin-row-btn" style={{background:'var(--purple)',color:'#fff'}} disabled={creatingHotel}>{creatingHotel?'Creating…':'Create'}</button>
+                    <button type="button" className="hotel-switcher-add-btn" onClick={()=>setAddHotelOpen(false)}>Cancel</button>
+                    <button type="submit" className="hotel-switcher-add-btn primary" disabled={creatingHotel}>{creatingHotel?'Creating…':'Create'}</button>
                   </div>
                 </form>
               )}

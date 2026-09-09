@@ -3,7 +3,7 @@
 .hotel-switcher-trigger:hover { background:rgba(255,255,255,.04); }
 .hotel-switcher-chevron { margin-left:auto; color:var(--gray-500); flex-shrink:0; transition:transform .15s; }
 .hotel-switcher-trigger.open .hotel-switcher-chevron { transform:rotate(180deg); }
-.hotel-switcher-dropdown { position:absolute; top:100%; left:12px; right:12px; margin-top:6px; background:var(--white); border:1px solid var(--gray-200); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); z-index:200; overflow:hidden; }
+.hotel-switcher-dropdown { position:absolute; top:100%; left:12px; width:240px; margin-top:6px; background:var(--white); border:1px solid var(--gray-200); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); z-index:200; overflow:hidden; }
 .hotel-switcher-item { display:flex; align-items:center; gap:10px; width:100%; padding:10px 14px; text-align:left; transition:background .12s; }
 .hotel-switcher-item:hover { background:var(--gray-50); }
 .hotel-switcher-item.active { background:var(--purple-light,#F3EEFF); }
@@ -16,6 +16,11 @@
 .hotel-switcher-add-form { display:flex; flex-direction:column; gap:8px; padding:12px 14px; border-top:1px solid var(--gray-100); }
 .hotel-switcher-add-form input { height:32px; padding:0 10px; border-radius:7px; border:1px solid var(--gray-200); font-size:12.5px; }
 .hotel-switcher-add-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:2px; }
+.hotel-switcher-add-btn { width:auto; height:30px; padding:0 12px; border-radius:7px; font-size:12px; font-weight:600; border:1px solid var(--gray-200); color:var(--gray-600); background:var(--white); white-space:nowrap; transition:background .12s; }
+.hotel-switcher-add-btn:hover { background:var(--gray-50); }
+.hotel-switcher-add-btn.primary { background:var(--purple); color:#fff; border-color:var(--purple); }
+.hotel-switcher-add-btn.primary:hover { filter:brightness(1.08); }
+.hotel-switcher-add-btn:disabled { opacity:.6; cursor:default; }
 
 .rooms-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:14px; }
 .room-card { background:var(--white); border:1px solid var(--gray-200); border-radius:var(--radius-lg); padding:16px; box-shadow:var(--shadow-card); }
