@@ -1296,28 +1296,40 @@ ON CONFLICT DO NOTHING;
 -- Grand Palace Hotel was the only one of the 3 demo hotels with any rooms
 -- seeded, leaving The Leela Resort's and Budget Inn Jaipur's Rooms/Front
 -- Desk/Inventory & Rates pages empty despite both having an OWNER access
--- grant. Room type names match the pms_room_types seeded further below.
--- rooms.id auto-generates (no natural unique key), so "ON CONFLICT DO NOTHING"
--- would never actually dedupe a re-run — guard with NOT EXISTS instead.
-INSERT INTO rooms (hotel_id, room_number, room_type, floor, status, qr_active)
-SELECT * FROM (VALUES
-  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '101', 'Garden View Room',   'Garden Block',       'VACANT', TRUE),
-  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '102', 'Garden View Room',   'Garden Block',       'VACANT', TRUE),
-  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '201', 'Ocean View Suite',   'Ocean Block',        'VACANT', TRUE),
-  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '202', 'Ocean View Suite',   'Ocean Block',        'VACANT', TRUE),
-  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '301', 'Pool Villa',         'Pool Block',         'VACANT', TRUE),
-  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '302', 'Pool Villa',         'Pool Block',         'VACANT', TRUE),
-  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '401', 'Presidential Villa', 'Presidential Block', 'VACANT', TRUE),
-  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, '101', 'Single Room', '1st Floor', 'VACANT', TRUE),
-  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, '102', 'Single Room', '1st Floor', 'VACANT', TRUE),
-  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, '201', 'Double Room', '2nd Floor', 'VACANT', TRUE),
-  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, '202', 'Double Room', '2nd Floor', 'VACANT', TRUE),
-  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, '301', 'Triple Room', '3rd Floor', 'VACANT', TRUE),
-  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, '302', 'Triple Room', '3rd Floor', 'VACANT', TRUE)
-) AS v(hotel_id, room_number, room_type, floor, status, qr_active)
-WHERE NOT EXISTS (
-  SELECT 1 FROM rooms r WHERE r.hotel_id = v.hotel_id AND r.room_number = v.room_number
-);
+-- grant. Room type names match the pms_room_types seeded further below; three
+-- rooms per hotel carry a guest to match the pms_reservations seeded below too.
+INSERT INTO rooms (id, hotel_id, room_number, room_type, floor, status, guest_name, check_in_date, check_out_date, qr_active) VALUES
+  ('f1010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', '101', 'Garden View Room',   'Garden Block',       'OCCUPIED', 'Priya Nair',   'Sep 7, 2026', 'Sep 12, 2026', TRUE),
+  ('f1010001-0000-4000-8000-000000000002', '0a035141-82b3-4e32-ae79-024ff06dba3f', '102', 'Garden View Room',   'Garden Block',       'VACANT',   NULL,           NULL,           NULL,           TRUE),
+  ('f1010001-0000-4000-8000-000000000003', '0a035141-82b3-4e32-ae79-024ff06dba3f', '201', 'Ocean View Suite',   'Ocean Block',        'OCCUPIED', 'Arjun Menon',  'Sep 8, 2026', 'Sep 13, 2026', TRUE),
+  ('f1010001-0000-4000-8000-000000000004', '0a035141-82b3-4e32-ae79-024ff06dba3f', '202', 'Ocean View Suite',   'Ocean Block',        'VACANT',   NULL,           NULL,           NULL,           TRUE),
+  ('f1010001-0000-4000-8000-000000000005', '0a035141-82b3-4e32-ae79-024ff06dba3f', '301', 'Pool Villa',         'Pool Block',         'OCCUPIED', 'Divya Shenoy', 'Sep 6, 2026', 'Sep 11, 2026', TRUE),
+  ('f1010001-0000-4000-8000-000000000006', '0a035141-82b3-4e32-ae79-024ff06dba3f', '302', 'Pool Villa',         'Pool Block',         'VACANT',   NULL,           NULL,           NULL,           TRUE),
+  ('f1010001-0000-4000-8000-000000000007', '0a035141-82b3-4e32-ae79-024ff06dba3f', '401', 'Presidential Villa', 'Presidential Block', 'VACANT',   NULL,           NULL,           NULL,           TRUE),
+  ('f1020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '101', 'Single Room', '1st Floor', 'OCCUPIED', 'Suresh Yadav', 'Sep 8, 2026', 'Sep 11, 2026', TRUE),
+  ('f1020001-0000-4000-8000-000000000002', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '102', 'Single Room', '1st Floor', 'VACANT',   NULL,           NULL,           NULL,           TRUE),
+  ('f1020001-0000-4000-8000-000000000003', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '201', 'Double Room', '2nd Floor', 'OCCUPIED', 'Neha Agarwal', 'Sep 7, 2026', 'Sep 10, 2026', TRUE),
+  ('f1020001-0000-4000-8000-000000000004', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '202', 'Double Room', '2nd Floor', 'VACANT',   NULL,           NULL,           NULL,           TRUE),
+  ('f1020001-0000-4000-8000-000000000005', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '301', 'Triple Room', '3rd Floor', 'VACANT',   NULL,           NULL,           NULL,           TRUE),
+  ('f1020001-0000-4000-8000-000000000006', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '302', 'Triple Room', '3rd Floor', 'VACANT',   NULL,           NULL,           NULL,           TRUE)
+ON CONFLICT DO NOTHING;
+
+-- ── Dummy data — guest requests for the other 2 demo hotels ──────────────────
+INSERT INTO room_requests (id, hotel_id, room_number, service_type, description, status, priority, created_at, resolved_at) VALUES
+  ('f2010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', '101', 'ROOM_SERVICE', 'Fresh coconut water x2 to the room',             'NEW',       'NORMAL', NOW() - INTERVAL '10 min',  NULL),
+  ('f2010001-0000-4000-8000-000000000002', '0a035141-82b3-4e32-ae79-024ff06dba3f', '201', 'CONCIERGE',    'Book a sunset cruise for 2 tomorrow evening',    'PREPARING', 'NORMAL', NOW() - INTERVAL '25 min',  NULL),
+  ('f2010001-0000-4000-8000-000000000003', '0a035141-82b3-4e32-ae79-024ff06dba3f', '301', 'HOUSEKEEPING', 'Extra bath towels and beach towels',             'DONE',      'NORMAL', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '90 min'),
+  ('f2020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '101', 'HOUSEKEEPING', 'Change bedsheets and towels',                    'NEW',       'NORMAL', NOW() - INTERVAL '18 min',  NULL),
+  ('f2020001-0000-4000-8000-000000000002', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '201', 'ROOM_SERVICE', '2 cups of masala chai',                          'DONE',      'NORMAL', NOW() - INTERVAL '3 hours', NOW() - INTERVAL '2 hours')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO guest_service_requests (id, hotel_id, room_number, guest_name, type, details, priority, status, created_at, completed_at) VALUES
+  ('f2010001-0000-4000-8000-000000000004', '0a035141-82b3-4e32-ae79-024ff06dba3f', '101', 'Priya Nair',   'AMENITIES',   'Extra pillow and a yoga mat',                 'NORMAL', 'NEW',      NOW() - INTERVAL '8 min',   NULL),
+  ('f2010001-0000-4000-8000-000000000005', '0a035141-82b3-4e32-ae79-024ff06dba3f', '201', 'Arjun Menon',  'CONCIERGE',   'Airport pickup tomorrow at 6 AM',             'NORMAL', 'ACCEPTED', NOW() - INTERVAL '40 min',  NULL),
+  ('f2010001-0000-4000-8000-000000000006', '0a035141-82b3-4e32-ae79-024ff06dba3f', '301', 'Divya Shenoy', 'MAINTENANCE', 'Villa pool filter making noise',              'HIGH',   'NEW',      NOW() - INTERVAL '15 min',  NULL),
+  ('f2020001-0000-4000-8000-000000000003', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '101', 'Suresh Yadav', 'MAINTENANCE', 'Room fan making a rattling sound',            'NORMAL', 'NEW',      NOW() - INTERVAL '22 min',  NULL),
+  ('f2020001-0000-4000-8000-000000000004', '2673d4b8-7f7c-4c61-8df9-2f775d482873', '201', 'Neha Agarwal', 'CONCIERGE',   'Need a taxi to the railway station at 5 AM',  'NORMAL', 'ACCEPTED', NOW() - INTERVAL '50 min',  NULL)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO room_requests (id, hotel_id, room_number, service_type, description, status, priority, created_at, resolved_at) VALUES
   ('a4689441-ede3-4473-98f2-f6a8196945e5', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', '101', 'ROOM_SERVICE', 'Club Sandwich + Fresh Lime Soda',                    'NEW',       'HIGH',   NOW() - INTERVAL '5 min',    NULL),
@@ -2671,6 +2683,38 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO pms_folio_charges (id, reservation_id, room_reservation_id, type, description, amount) VALUES
   ('d5000001-0000-4000-8000-000000000001', 'd3000001-0000-4000-8000-000000000001', 'd4000001-0000-4000-8000-000000000001', 'ROOM', 'Room 101 (2 night(s))', 7000.00)
+ON CONFLICT DO NOTHING;
+
+-- ── Dummy data — guests + reservations for the other 2 demo hotels ───────────
+-- Room ids here match the fixed ids given to `rooms` further above (this
+-- script's INSERT, not gen_random_uuid()) so the reservation actually lines
+-- up with the room card that shows OCCUPIED/guest_name.
+INSERT INTO pms_guests (id, hotel_id, name, phone) VALUES
+  ('e6010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'Priya Nair',   '9822011122'),
+  ('e6010001-0000-4000-8000-000000000002', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'Arjun Menon',  '9822055566'),
+  ('e6010001-0000-4000-8000-000000000003', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'Divya Shenoy', '9822077788'),
+  ('e6020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Suresh Yadav', '9414011122'),
+  ('e6020001-0000-4000-8000-000000000002', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Neha Agarwal', '9414055566')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_reservations (id, hotel_id, guest_id, guest_name, guest_phone, check_in_date, check_out_date, adults, status, source, created_by) VALUES
+  ('e3010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'e6010001-0000-4000-8000-000000000001', 'Priya Nair',   '9822011122', CURRENT_DATE - INTERVAL '2 days',  CURRENT_DATE + INTERVAL '3 days',  2, 'CHECKED_IN', 'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2'),
+  ('e3010001-0000-4000-8000-000000000002', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'e6010001-0000-4000-8000-000000000002', 'Arjun Menon',  '9822055566', CURRENT_DATE - INTERVAL '1 days',  CURRENT_DATE + INTERVAL '4 days',  2, 'CHECKED_IN', 'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2'),
+  ('e3010001-0000-4000-8000-000000000003', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'e6010001-0000-4000-8000-000000000003', 'Divya Shenoy', '9822077788', CURRENT_DATE - INTERVAL '3 days',  CURRENT_DATE + INTERVAL '2 days',  1, 'CHECKED_IN', 'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2'),
+  ('e3010001-0000-4000-8000-000000000004', '0a035141-82b3-4e32-ae79-024ff06dba3f', NULL,                                     'Karthik Iyer', '9822033344', CURRENT_DATE + INTERVAL '15 days', CURRENT_DATE + INTERVAL '18 days', 2, 'BOOKED',     'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2'),
+  ('e3020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'e6020001-0000-4000-8000-000000000001', 'Suresh Yadav', '9414011122', CURRENT_DATE - INTERVAL '1 days',  CURRENT_DATE + INTERVAL '2 days',  1, 'CHECKED_IN', 'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2'),
+  ('e3020001-0000-4000-8000-000000000002', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'e6020001-0000-4000-8000-000000000002', 'Neha Agarwal', '9414055566', CURRENT_DATE - INTERVAL '2 days',  CURRENT_DATE + INTERVAL '1 days',  2, 'CHECKED_IN', 'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2'),
+  ('e3020001-0000-4000-8000-000000000003', '2673d4b8-7f7c-4c61-8df9-2f775d482873', NULL,                                     'Vikram Joshi', '9414033344', CURRENT_DATE + INTERVAL '10 days', CURRENT_DATE + INTERVAL '12 days', 3, 'BOOKED',     'DIRECT', '640e1946-5ffe-41cb-8be5-8ba499c08bd2')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_room_reservations (id, reservation_id, room_type_id, rate_plan_id, room_id, room_number, rate_per_night, actual_check_in_at) VALUES
+  ('e4010001-0000-4000-8000-000000000001', 'e3010001-0000-4000-8000-000000000001', 'e1010001-0000-4000-8000-000000000001', 'e2010001-0000-4000-8000-000000000001', 'f1010001-0000-4000-8000-000000000001', '101', 6500.00,  NOW() - INTERVAL '2 days'),
+  ('e4010001-0000-4000-8000-000000000002', 'e3010001-0000-4000-8000-000000000002', 'e1010001-0000-4000-8000-000000000002', 'e2010001-0000-4000-8000-000000000002', 'f1010001-0000-4000-8000-000000000003', '201', 9800.00,  NOW() - INTERVAL '1 days'),
+  ('e4010001-0000-4000-8000-000000000003', 'e3010001-0000-4000-8000-000000000003', 'e1010001-0000-4000-8000-000000000003', 'e2010001-0000-4000-8000-000000000003', 'f1010001-0000-4000-8000-000000000005', '301', 15000.00, NOW() - INTERVAL '3 days'),
+  ('e4010001-0000-4000-8000-000000000004', 'e3010001-0000-4000-8000-000000000004', 'e1010001-0000-4000-8000-000000000001', 'e2010001-0000-4000-8000-000000000001', 'f1010001-0000-4000-8000-000000000002', '102', 6500.00,  NULL),
+  ('e4020001-0000-4000-8000-000000000001', 'e3020001-0000-4000-8000-000000000001', 'e1020001-0000-4000-8000-000000000001', 'e2020001-0000-4000-8000-000000000001', 'f1020001-0000-4000-8000-000000000001', '101', 1200.00,  NOW() - INTERVAL '1 days'),
+  ('e4020001-0000-4000-8000-000000000002', 'e3020001-0000-4000-8000-000000000002', 'e1020001-0000-4000-8000-000000000002', 'e2020001-0000-4000-8000-000000000002', 'f1020001-0000-4000-8000-000000000003', '201', 1800.00,  NOW() - INTERVAL '2 days'),
+  ('e4020001-0000-4000-8000-000000000003', 'e3020001-0000-4000-8000-000000000003', 'e1020001-0000-4000-8000-000000000003', 'e2020001-0000-4000-8000-000000000003', 'f1020001-0000-4000-8000-000000000005', '301', 2500.00,  NULL)
 ON CONFLICT DO NOTHING;
 
 
