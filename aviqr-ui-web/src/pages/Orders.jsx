@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { orderApi, invoiceApi, billApi } from '../api/index.js';
 import ConfirmCodeModal from '../components/shared/ConfirmCodeModal.jsx';
+import { parseServerDate } from '../utils/serverDate.js';
 import './Orders.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -26,14 +27,14 @@ const AGG_BADGE    = { ZOMATO:{ label:'Zomato', bg:'#E32', color:'#fff' }, SWIGG
 
 function timeSince(ts) {
   if (!ts) return '';
-  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  const s = Math.floor((Date.now() - parseServerDate(ts)) / 1000);
   if (s < 60)   return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m ago`;
 }
 
 function waitMinutes(ts) {
-  return ts ? Math.floor((Date.now() - new Date(ts)) / 60000) : 0;
+  return ts ? Math.floor((Date.now() - parseServerDate(ts)) / 60000) : 0;
 }
 
 // ── KOT Component ─────────────────────────────────────────────────────────────

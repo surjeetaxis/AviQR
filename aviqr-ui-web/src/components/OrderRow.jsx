@@ -1,4 +1,5 @@
 import { ArrowRight } from 'lucide-react';
+import { parseServerDate } from '../utils/serverDate.js';
 import './OrderRow.css';
 
 const STATUS_LABEL = { NEW:'New', ACCEPTED:'Accepted', PREPARING:'Preparing', READY:'Ready!', COMPLETED:'Done', CANCELLED:'Cancelled' };
@@ -7,7 +8,7 @@ const STATUS_CTA   = { NEW:'Accept', ACCEPTED:'Start cooking', PREPARING:'Mark r
 const STATUS_COLOR = { NEW:'#2563EB', ACCEPTED:'#D97706', PREPARING:'#D97706', READY:'#1D9E75', COMPLETED:'#6B7280', CANCELLED:'#DC2626' };
 
 function timeSince(ts) {
-  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  const s = Math.floor((Date.now() - parseServerDate(ts)) / 1000);
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s/60)}m ago`;
   return `${Math.floor(s/3600)}h ago`;

@@ -3,6 +3,7 @@
  * Tests: timeSince, waitMinutes, status progression, order filtering.
  * No DOM or React needed — runs in Node via vitest.
  */
+import { parseServerDate } from '../utils/serverDate.js';
 
 // ── Helpers copied from Orders.jsx / KOT.jsx ──────────────────────────────────
 
@@ -11,14 +12,14 @@ const STATUS_LABEL = { NEW:'New', ACCEPTED:'Accepted', PREPARING:'Preparing', RE
 
 function timeSince(ts) {
   if (!ts) return '';
-  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  const s = Math.floor((Date.now() - parseServerDate(ts)) / 1000);
   if (s < 60)   return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m ago`;
 }
 
 function waitMinutes(ts) {
-  return ts ? Math.floor((Date.now() - new Date(ts)) / 60000) : 0;
+  return ts ? Math.floor((Date.now() - parseServerDate(ts)) / 60000) : 0;
 }
 
 function nextStatus(current) {
@@ -65,6 +66,17 @@ describe('timeSince()', () => {
   test('exactly 1 hour shows 1h 0m ago', () => {
     const ts = new Date(Date.now() - 3600_000).toISOString();
     expect(timeSince(ts)).toMatch(/^1h 0m ago$/);
+  });
+
+  // Regression: backend timestamps are Java LocalDateTime — no timezone
+  // designator (e.g. "2026-09-09T08:18:57.796295", not "...796295Z").
+  // Confirmed live: an order placed seconds ago showed "5h 30m ago —
+  // urgent" for an IST viewer, because `new Date(naiveString)` parses a
+  // timezone-less string as browser-local time instead of the UTC it
+  // actually is.
+  test('a naive (no-Z) UTC timestamp for "just now" is not shifted by the browser timezone', () => {
+    const naiveUtcNow = new Date().toISOString().replace('Z', '');
+    expect(timeSince(naiveUtcNow)).toMatch(/^\d+s ago$/);
   });
 });
 

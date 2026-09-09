@@ -3,6 +3,7 @@ import { RefreshCw, ChefHat, Bell, Clock, UtensilsCrossed, ShoppingBag, Bike, Ma
 import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { orderApi } from '../api/index.js';
+import { parseServerDate } from '../utils/serverDate.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const COLS = [
@@ -17,7 +18,7 @@ const TYPE_ICON  = { DINE_IN: UtensilsCrossed, TAKEAWAY: ShoppingBag, DELIVERY: 
 
 function elapsed(ts) {
   if (!ts) return '0m';
-  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  const s = Math.floor((Date.now() - parseServerDate(ts)) / 1000);
   if (s < 60) return `${s}s`;
   if (s < 3600) return `${Math.floor(s / 60)}m`;
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
@@ -25,7 +26,7 @@ function elapsed(ts) {
 
 function elapsedMin(ts) {
   if (!ts) return 0;
-  return Math.floor((Date.now() - new Date(ts)) / 60000);
+  return Math.floor((Date.now() - parseServerDate(ts)) / 60000);
 }
 
 // ── KOT Card ──────────────────────────────────────────────────────────────────
