@@ -2776,5 +2776,149 @@ INSERT INTO pms_channel_mappings (id, hotel_id, room_type_id, channel, external_
   ('d6000001-0000-4000-8000-000000000001', 'ccbe65f3-bb7b-400c-81b3-af56495b6a08', 'd1000001-0000-4000-8000-000000000001', 'BOOKING_COM', 'BDC-GRANDPALACE-01', 'BDC-STD', 'BDC-RATE-STD-FLEX', 'demo0secret0webhook0key0standard', TRUE)
 ON CONFLICT DO NOTHING;
 
+-- ============================================================
+--  SECTION 20 — The Leela Resort / Budget Inn Jaipur: the remaining
+--  "advanced feature" demo rows (housekeeping/maintenance history, agents,
+--  discounts, add-ons, surcharges, a voucher, loyalty/dynamic-pricing
+--  config, a channel mapping, rate-change log) — everything Grand Palace
+--  had that these two didn't. outlet_bookings/room_charges are
+--  deliberately NOT seeded here — both require a real linked outlet
+--  (shop-mall-service Shop), which neither hotel has; faking those rows
+--  would be more misleading than the honest empty state the Outlets page
+--  already shows for them.
+-- ============================================================
+
+\c aviqr_hotel
+
+INSERT INTO housekeeping_tasks (hotel_id, room_id, room_number, status, priority, assigned_to, notes, created_at, started_at, completed_at)
+SELECT * FROM (VALUES
+  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '2eaa2679-bfc1-4de8-8cd8-569f19700c65'::uuid, '202', 'PENDING',    'NORMAL', NULL::text,            'Turnover clean after checkout',        NOW() - INTERVAL '2 hours', NULL::timestamp,           NULL::timestamp),
+  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, 'b3b08834-b150-4105-8f77-e1871a9b001e'::uuid, '302', 'DONE',       'NORMAL', 'Housekeeping — Leela', 'Deep clean before next guest',         NOW() - INTERVAL '1 day',  NOW() - INTERVAL '23 hours', NOW() - INTERVAL '22 hours'),
+  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, 'ec20688b-1729-40fb-99a1-8eb7f15b8694'::uuid, '102', 'PENDING',    'NORMAL', NULL::text,            'Turnover clean after checkout',        NOW() - INTERVAL '1 hour',  NULL::timestamp,           NULL::timestamp)
+) AS v(hotel_id, room_id, room_number, status, priority, assigned_to, notes, created_at, started_at, completed_at)
+WHERE NOT EXISTS (SELECT 1 FROM housekeeping_tasks h WHERE h.hotel_id=v.hotel_id AND h.room_id=v.room_id AND h.notes=v.notes);
+
+INSERT INTO maintenance_tasks (hotel_id, room_id, room_number, title, notes, status, priority, assigned_to, created_at, started_at, completed_at)
+SELECT * FROM (VALUES
+  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, '836a1fac-d71b-4505-b5a8-e2b260a2fc94'::uuid, '301', 'Villa pool filter making noise',   'Guest-raised — see guest_service_requests', 'OPEN', 'HIGH',   NULL::text,             NOW() - INTERVAL '15 min', NULL::timestamp,           NULL::timestamp),
+  ('0a035141-82b3-4e32-ae79-024ff06dba3f'::uuid, 'f5a31230-1420-4605-a6b0-56417e43f3e6'::uuid, '102', 'AC service — annual maintenance',  'Routine servicing before next booking',     'DONE', 'NORMAL', 'Maintenance — Leela',  NOW() - INTERVAL '3 days', NOW() - INTERVAL '2 days', NOW() - INTERVAL '2 days'),
+  ('2673d4b8-7f7c-4c61-8df9-2f775d482873'::uuid, 'e751946c-b3de-4a7d-a2e5-3a6eb39b45d0'::uuid, '101', 'Room fan making a rattling sound', 'Guest-raised — see guest_service_requests', 'OPEN', 'NORMAL', NULL::text,             NOW() - INTERVAL '22 min', NULL::timestamp,           NULL::timestamp)
+) AS v(hotel_id, room_id, room_number, title, notes, status, priority, assigned_to, created_at, started_at, completed_at)
+WHERE NOT EXISTS (SELECT 1 FROM maintenance_tasks m WHERE m.hotel_id=v.hotel_id AND m.room_id=v.room_id AND m.title=v.title);
+
+\c aviqr_pms
+
+INSERT INTO pms_agents (id, hotel_id, name, contact_person, phone, email, commission_percent) VALUES
+  ('e7010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'Coastal Getaways',     'Rohan D''Souza', '9822099887', 'rohan@coastalgetaways.example', 15.00),
+  ('e7020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Rajasthan Road Trips', 'Anita Sharma',   '9414099887', 'anita@rajasthanroadtrips.example', 10.00)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_discount_packages (id, hotel_id, name, value_type, value, active) VALUES
+  ('e8010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'Monsoon Special 15%', 'PERCENT', 15.00, TRUE),
+  ('e8020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Long Stay 10%',       'PERCENT', 10.00, TRUE)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_addons (id, hotel_id, name, description, price, active) VALUES
+  ('e9010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'Sunset Cruise',    'Private 2-hour sunset cruise for 2',   3500.00, TRUE),
+  ('e9010001-0000-4000-8000-000000000002', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'Airport Transfer', 'One-way transfer from Goa airport',    1200.00, TRUE),
+  ('e9020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'Railway Pickup',   'One-way transfer from Jaipur station', 300.00,  TRUE)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_surcharges (id, hotel_id, name, value_type, value, active) VALUES
+  ('ea010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'Resort Fee', 'FIXED', 350.00, TRUE),
+  ('ea020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'City Tax',   'FIXED', 50.00,  TRUE)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_vouchers (id, hotel_id, code, initial_value, balance, active) VALUES
+  ('eb010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'LEELA1000', 1000.00, 1000.00, TRUE),
+  ('eb020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'BUDGET200', 200.00,  200.00,  TRUE)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_loyalty_configs (id, hotel_id, earn_rate_percent, redemption_value, active) VALUES
+  ('ec010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 5.00, 1.00, TRUE),
+  ('ec020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 3.00, 1.00, TRUE)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_dynamic_pricing_configs (id, hotel_id, high_occupancy_threshold, high_occupancy_surcharge_percent, low_occupancy_threshold, low_occupancy_discount_percent, active) VALUES
+  ('ed010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 80.00, 20.00, 30.00, 10.00, TRUE),
+  ('ed020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 80.00, 15.00, 30.00, 10.00, TRUE)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_channel_mappings (id, hotel_id, room_type_id, channel, external_property_id, external_room_type_id, external_rate_plan_id, webhook_secret, active) VALUES
+  ('ee010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'e1010001-0000-4000-8000-000000000001', 'BOOKING_COM', 'BDC-LEELA-01',     'BDC-GVR', 'BDC-RATE-GVR-FLEX', 'demo0secret0webhook0key0leela',  TRUE),
+  ('ee020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'e1020001-0000-4000-8000-000000000001', 'BOOKING_COM', 'BDC-BUDGETINN-01', 'BDC-SGL', 'BDC-RATE-SGL-STD',  'demo0secret0webhook0key0budget', TRUE)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_rate_change_logs (id, hotel_id, room_type_id, rate_plan_id, date, field, old_value, new_value, changed_by, changed_at) VALUES
+  ('ef010001-0000-4000-8000-000000000001', '0a035141-82b3-4e32-ae79-024ff06dba3f', 'e1010001-0000-4000-8000-000000000001', 'e2010001-0000-4000-8000-000000000001', CURRENT_DATE, 'price', NULL, '6500', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', NOW() - INTERVAL '2 days'),
+  ('ef020001-0000-4000-8000-000000000001', '2673d4b8-7f7c-4c61-8df9-2f775d482873', 'e1020001-0000-4000-8000-000000000001', 'e2020001-0000-4000-8000-000000000001', CURRENT_DATE, 'price', NULL, '1200', '640e1946-5ffe-41cb-8be5-8ba499c08bd2', NOW() - INTERVAL '3 days')
+ON CONFLICT DO NOTHING;
+
+-- ============================================================
+--  SECTION 21 — A second, standalone demo hotel-owner login
+--  Every hotel above is owned by the same gm@grandpalace.in user, which
+--  now owns 4 properties (a chain) — there was no way to see the plain
+--  single-hotel UI (no switcher dropdown) without a separate account.
+--  Same demo password as every other login ("Axis321#") — the hash below
+--  is copied verbatim from gm@grandpalace.in's row, not a new one.
+-- ============================================================
+
+\c aviqr_auth
+
+INSERT INTO users (id, email, phone, password_hash, name, role, status, email_verified, phone_verified)
+VALUES (
+  'f4000001-0000-4000-8000-000000000001', 'owner@riversideinn.in', '9000011223',
+  '$2a$12$fU4Ge/h6XyV3Ou6lxUd6POwO1YoF6bBA1W4T.K0dUvsf0J68ZfWvW',
+  'Riverside Inn', 'HOTEL', 'ACTIVE', TRUE, TRUE
+)
+ON CONFLICT (email) DO NOTHING;
+
+\c aviqr_hotel
+
+INSERT INTO hotels (id, name, owner_id, phone, email, address, city, latitude, longitude, total_rooms, check_in_time, check_out_time, subscription_plan, active)
+VALUES (
+  'f5000001-0000-4000-8000-000000000001', 'Riverside Inn', 'f4000001-0000-4000-8000-000000000001',
+  '9000011223', 'owner@riversideinn.in', 'Tapovan, Laxman Jhula Road', 'Rishikesh',
+  30.1252, 78.3212, 4, '14:00', '11:00', 'HOTEL_BASIC', TRUE
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO hotel_access (id, hotel_id, user_id, role, outlet_id)
+VALUES ('f6000001-0000-4000-8000-000000000001', 'f5000001-0000-4000-8000-000000000001', 'f4000001-0000-4000-8000-000000000001', 'OWNER', NULL)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO rooms (id, hotel_id, room_number, room_type, floor, status, guest_name, check_in_date, check_out_date, qr_active) VALUES
+  ('f7000001-0000-4000-8000-000000000001', 'f5000001-0000-4000-8000-000000000001', '101', 'Standard',   '1st Floor', 'VACANT',   NULL,          NULL,          NULL,           TRUE),
+  ('f7000001-0000-4000-8000-000000000002', 'f5000001-0000-4000-8000-000000000001', '102', 'Standard',   '1st Floor', 'VACANT',   NULL,          NULL,          NULL,           TRUE),
+  ('f7000001-0000-4000-8000-000000000003', 'f5000001-0000-4000-8000-000000000001', '201', 'River View', '2nd Floor', 'OCCUPIED', 'Amit Verma',  'Sep 8, 2026', 'Sep 11, 2026', TRUE),
+  ('f7000001-0000-4000-8000-000000000004', 'f5000001-0000-4000-8000-000000000001', '202', 'River View', '2nd Floor', 'VACANT',   NULL,          NULL,          NULL,           TRUE)
+ON CONFLICT (id) DO NOTHING;
+
+\c aviqr_pms
+
+INSERT INTO pms_room_types (id, hotel_id, name, description, max_occupancy) VALUES
+  ('f8000001-0000-4000-8000-000000000001', 'f5000001-0000-4000-8000-000000000001', 'Standard',   'Cozy room, garden-facing',   2),
+  ('f8000001-0000-4000-8000-000000000002', 'f5000001-0000-4000-8000-000000000001', 'River View', 'Room overlooking the Ganga', 2)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_rate_plans (id, hotel_id, room_type_id, name, base_rate, cancellation_policy) VALUES
+  ('f9000001-0000-4000-8000-000000000001', 'f5000001-0000-4000-8000-000000000001', 'f8000001-0000-4000-8000-000000000001', 'Standard — Flexible',   1800.00, 'Free cancellation until 24h before check-in'),
+  ('f9000001-0000-4000-8000-000000000002', 'f5000001-0000-4000-8000-000000000001', 'f8000001-0000-4000-8000-000000000002', 'River View — Flexible', 2800.00, 'Free cancellation until 24h before check-in')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_guests (id, hotel_id, name, phone) VALUES
+  ('fa000001-0000-4000-8000-000000000001', 'f5000001-0000-4000-8000-000000000001', 'Amit Verma', '9000099887')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_reservations (id, hotel_id, guest_id, guest_name, guest_phone, check_in_date, check_out_date, adults, status, source, created_by) VALUES
+  ('fb000001-0000-4000-8000-000000000001', 'f5000001-0000-4000-8000-000000000001', 'fa000001-0000-4000-8000-000000000001', 'Amit Verma', '9000099887', CURRENT_DATE - INTERVAL '1 days', CURRENT_DATE + INTERVAL '2 days', 2, 'CHECKED_IN', 'DIRECT', 'f4000001-0000-4000-8000-000000000001')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO pms_room_reservations (id, reservation_id, room_type_id, rate_plan_id, room_id, room_number, rate_per_night, actual_check_in_at) VALUES
+  ('fc000001-0000-4000-8000-000000000001', 'fb000001-0000-4000-8000-000000000001', 'f8000001-0000-4000-8000-000000000002', 'f9000001-0000-4000-8000-000000000002', 'f7000001-0000-4000-8000-000000000003', '201', 2800.00, NOW() - INTERVAL '1 days')
+ON CONFLICT DO NOTHING;
+
+\c aviqr_pms
+
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO aviqr;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO aviqr;

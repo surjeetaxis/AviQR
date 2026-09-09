@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { hotelApi, hotelOpsApi, hotelOutletApi, hotelAccessApi, reportApi, housekeepingApi, maintenanceApi, pmsApi, qrApi } from '../../api/index.js';
@@ -138,6 +138,22 @@ export default function HotelDashboard() {
   const [addHotelOpen, setAddHotelOpen] = useState(false);
   const [newHotelForm, setNewHotelForm] = useState({ name: '', city: '', phone: '', email: '' });
   const [creatingHotel, setCreatingHotel] = useState(false);
+  const switcherRef = useRef(null);
+
+  // Click-outside to close, not hover — the dropdown holds a real form (typing
+  // between fields can easily carry the cursor outside a ~180px-wide sidebar
+  // box), so an onMouseLeave dismiss was closing it mid-entry.
+  useEffect(() => {
+    if (!switcherOpen) return;
+    const onClick = (e) => {
+      if (switcherRef.current && !switcherRef.current.contains(e.target)) {
+        setSwitcherOpen(false);
+        setAddHotelOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [switcherOpen]);
   const [bookings, setBookings] = useState([]);
   const [outlets, setOutlets] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -324,7 +340,7 @@ export default function HotelDashboard() {
             <span className="admin-brand-name">Avi<em>QR</em> PMS</span>
           </div>
         </div>
-        <div className="hotel-switcher">
+        <div className="hotel-switcher" ref={switcherRef}>
           <button className={`hotel-switcher-trigger admin-user-card ${switcherOpen?'open':''}`} onClick={()=>setSwitcherOpen(o=>!o)}>
             <div className="admin-avatar" style={{background:'var(--purple)'}}>{user?.avatar||'GP'}</div>
             <div>
@@ -334,7 +350,7 @@ export default function HotelDashboard() {
             <ChevronDown size={15} className="hotel-switcher-chevron"/>
           </button>
           {switcherOpen && (
-            <div className="hotel-switcher-dropdown" onMouseLeave={()=>{ setSwitcherOpen(false); setAddHotelOpen(false); }}>
+            <div className="hotel-switcher-dropdown">
               {hotels.map(h => (
                 <button key={h.id} className={`hotel-switcher-item ${h.id===hotelId?'active':''}`} onClick={()=>selectHotel(h)}>
                   <div className="hotel-switcher-item-avatar">{h.name?.slice(0,2).toUpperCase()}</div>
