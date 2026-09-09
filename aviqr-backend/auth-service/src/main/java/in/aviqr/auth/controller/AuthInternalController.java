@@ -3,12 +3,15 @@ package in.aviqr.auth.controller;
 import in.aviqr.auth.dto.ApiResponse;
 import in.aviqr.auth.dto.ImpersonationTokenResponse;
 import in.aviqr.auth.dto.NearbyCustomerResponse;
+import in.aviqr.auth.dto.UserLookupResponse;
 import in.aviqr.auth.repository.CustomerAddressRepository;
+import in.aviqr.auth.repository.UserRepository;
 import in.aviqr.auth.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,6 +32,7 @@ public class AuthInternalController {
 
     private final AuthService authService;
     private final CustomerAddressRepository addressRepo;
+    private final UserRepository userRepo;
 
     @Value("${internal.sync.secret:}")
     private String internalSyncSecret;
@@ -76,6 +80,32 @@ public class AuthInternalController {
                 .phone((String) row[3])
                 .distanceKm(((Number) row[4]).doubleValue())
                 .build())
+            .toList();
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    // Used by hotel-service's HotelAccessController to resolve the Hotel Staff
+    // access list's raw userId values into real names/emails for display,
+    // instead of showing opaque UUIDs to the hotel owner. Secret-gated only,
+    // same trust level as nearby-customers above — invalid/unmatched ids are
+    // simply omitted from the result rather than erroring, since a stale
+    // access row (user later deleted) shouldn't break the whole list.
+    @GetMapping("/users/lookup")
+    public ResponseEntity<ApiResponse<List<UserLookupResponse>>> lookupUsers(
+            @RequestParam String ids,
+            @RequestHeader(value = "X-Internal-Secret", required = false) String secret) {
+
+        if (!internalSyncSecret.isBlank() && !internalSyncSecret.equals(secret))
+            return ResponseEntity.status(401).body(ApiResponse.error("Invalid internal secret"));
+
+        List<UUID> uuids = Arrays.stream(ids.split(","))
+            .map(String::trim).filter(s -> !s.isEmpty())
+            .map(s -> { try { return UUID.fromString(s); } catch (Exception e) { return null; } })
+            .filter(java.util.Objects::nonNull)
+            .toList();
+
+        List<UserLookupResponse> result = userRepo.findAllById(uuids).stream()
+            .map(u -> UserLookupResponse.builder().id(u.getId()).name(u.getName()).email(u.getEmail()).build())
             .toList();
         return ResponseEntity.ok(ApiResponse.ok(result));
     }

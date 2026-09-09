@@ -11,11 +11,20 @@ const VERTICAL_MAP = { owner:'SHOP', hotel:'HOTEL', mall:'MALL', supplier:'SUPPL
 const TIER_ICONS  = [Star, Zap, Crown];
 const TIER_COLORS = ['gray', 'green', 'purple'];
 
-const BILLING = [
-  { date:'14 Jun 2025', amount:'₹999', invoice:'INV-2025-06', status:'Paid' },
-  { date:'14 May 2025', amount:'₹999', invoice:'INV-2025-05', status:'Paid' },
-  { date:'14 Apr 2025', amount:'₹999', invoice:'INV-2025-04', status:'Paid' },
-];
+// Demo-only billing history/next-billing-date — this page has no real payment
+// backend ("Manage billing" says as much on click). Dates are computed
+// relative to today instead of hardcoded to a fixed past date, so the demo
+// doesn't visibly rot as real time passes (confirmed live: was showing
+// "Next billing: 14 July 2025" while the system clock had already moved
+// well past that).
+const fmtDate = (d) => d.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+const monthsAgo = (n) => { const d = new Date(); d.setMonth(d.getMonth() - n); return d; };
+const NEXT_BILLING_DATE = fmtDate((() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return d; })());
+const BILLING = [1, 2, 3].map(n => ({
+  date: fmtDate(monthsAgo(n)), amount:'₹999',
+  invoice: `INV-${monthsAgo(n).getFullYear()}-${String(monthsAgo(n).getMonth() + 1).padStart(2,'0')}`,
+  status:'Paid',
+}));
 
 export default function SubscriptionPage({ userRole = 'owner', currentPlan = 'growth' }) {
   const { lang } = useLang();
@@ -103,7 +112,7 @@ export default function SubscriptionPage({ userRole = 'owner', currentPlan = 'gr
           <Crown size={18} style={{color:'var(--green)'}}/>
           <div>
             <div className="sub-current-name">{plans.find(p=>p.id===activePlan)?.name}</div>
-            <div className="sub-current-meta">Next billing: 14 July 2025 · Auto-debit HDFC ****4821</div>
+            <div className="sub-current-meta">Next billing: {NEXT_BILLING_DATE} · Auto-debit HDFC ****4821</div>
           </div>
         </div>
         <button className="sub-manage-btn" onClick={()=>alert('Billing portal is not available in this demo environment.')}>Manage billing</button>

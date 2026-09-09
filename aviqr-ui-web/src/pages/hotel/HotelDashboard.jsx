@@ -678,13 +678,16 @@ export function HotelStaffPage({hotelId}) {
       ) : (
         <div className="admin-table-card">
           <table className="admin-table">
-            <thead><tr><th>User ID</th><th>Role</th><th>Outlet scope</th><th></th></tr></thead>
+            <thead><tr><th>Staff</th><th>Role</th><th>Outlet scope</th><th></th></tr></thead>
             <tbody>
               {access.map(row => (
                 <tr key={row.id}>
-                  <td style={{fontWeight:600}}>{row.userId}</td>
+                  <td style={{fontWeight:600}}>
+                    {row.userName || row.userId}
+                    {row.userEmail && <div style={{fontWeight:400,fontSize:12,color:'var(--gray-500)'}}>{row.userEmail}</div>}
+                  </td>
                   <td>{row.role?.replace('_',' ')}</td>
-                  <td>{row.outletId ? row.outletId : 'Whole hotel'}</td>
+                  <td>{row.outletId ? (row.outletName || row.outletId) : 'Whole hotel'}</td>
                   <td><button className="admin-row-btn admin-row-btn-danger" onClick={()=>revoke(row)}><Trash2 size={12}/></button></td>
                 </tr>
               ))}
