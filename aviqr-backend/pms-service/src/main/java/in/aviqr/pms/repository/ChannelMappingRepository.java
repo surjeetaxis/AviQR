@@ -11,6 +11,7 @@ import java.util.UUID;
 public interface ChannelMappingRepository extends JpaRepository<ChannelMapping, UUID> {
     List<ChannelMapping> findByHotelId(UUID hotelId);
     List<ChannelMapping> findByHotelIdAndActiveTrue(UUID hotelId);
+    List<ChannelMapping> findByRoomTypeIdAndActiveTrue(UUID roomTypeId);
     Optional<ChannelMapping> findByChannelAndExternalPropertyIdAndExternalRoomTypeId(
         ChannelName channel, String externalPropertyId, String externalRoomTypeId);
 

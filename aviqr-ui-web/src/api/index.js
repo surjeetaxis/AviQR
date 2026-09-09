@@ -359,9 +359,11 @@ export const pmsApi = {
   updateRatePlan:  (id, d)        => api.put(`/api/v1/pms/rate-plans/${id}`, d),
   // Day prices & restrictions (min/max stay, closed to arrival/departure, stop-sell)
   setDayPrice:     (ratePlanId, d)      => api.post(`/api/v1/pms/rate-plans/${ratePlanId}/day-prices`, d),
+  bulkSetDayPrice: (ratePlanId, d)      => api.post(`/api/v1/pms/rate-plans/${ratePlanId}/day-prices/bulk`, d),
   listDayPrices:   (ratePlanId, from, to) => api.get(`/api/v1/pms/rate-plans/${ratePlanId}/day-prices`, { params: { from, to } }),
   // Per-date inventory cap (sellable rooms), independent of physical room count
   setRoomTypeInventory:  (roomTypeId, d)      => api.put(`/api/v1/pms/room-types/${roomTypeId}/inventory`, d),
+  bulkSetRoomTypeInventory: (roomTypeId, d)   => api.put(`/api/v1/pms/room-types/${roomTypeId}/inventory/bulk`, d),
   listRoomTypeInventory: (roomTypeId, from, to) => api.get(`/api/v1/pms/room-types/${roomTypeId}/inventory`, { params: { from, to } }),
   // Rate/inventory change audit log
   listRateChangeLogs: (hotelId, params) => api.get(`/api/v1/pms/hotels/${hotelId}/rate-change-logs`, { params }),

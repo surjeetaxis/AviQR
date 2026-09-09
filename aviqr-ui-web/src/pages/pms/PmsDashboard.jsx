@@ -7,6 +7,7 @@ import {
   BedDouble, CalendarCheck, Receipt,
   Plus, LogIn, DoorOpen, Ban, UserX, Search, Wifi, RefreshCw, Copy, Users, Briefcase, IndianRupee, TrendingUp, UserCircle, Tag, CalendarClock,
   AlertCircle, Clock, CheckCircle2, Bell, PenTool, X, CreditCard, Hourglass, Building2, Upload, Send, Star, ChevronDown, ChevronRight,
+  CheckSquare, Square,
 } from 'lucide-react';
 import { pmsApi, reviewApi } from '../../api/index.js';
 import '../admin/Admin.css';
@@ -1701,7 +1702,7 @@ export function RateChangeLogTab({ hotelId, roomTypes }) {
                 <td>{RATE_LOG_FIELD_LABELS[l.field] || l.field}</td>
                 <td>{formatValue(l.oldValue)}</td>
                 <td>{formatValue(l.newValue)}</td>
-                <td style={{ fontSize: 12 }}>{l.changedBy}</td>
+                <td style={{ fontSize: 12 }} title={l.changedByEmail || undefined}>{l.changedByName || l.changedBy}</td>
                 <td style={{ fontSize: 12 }}>{l.changedAt ? new Date(l.changedAt).toLocaleString() : ''}</td>
               </tr>
             ))}
@@ -2079,11 +2080,20 @@ export function RatesCalendarTab({ hotelId }) {
   const [windowDays, setWindowDays] = useState(7);
   const [from, setFrom] = useState(today());
   const [roomTypes, setRoomTypes] = useState([]);
+  const [mappings, setMappings] = useState([]);
   const [collapsed, setCollapsed] = useState({});
   const [view, setView] = useState('all');
-  const [editRate, setEditRate] = useState(null); // { ratePlanId, ratePlanName, date, day }
-  const [editInv, setEditInv] = useState(null);   // { roomTypeId, roomTypeName, date, day }
+  const [editRate, setEditRate] = useState(null); // { ratePlanId, ratePlanName, roomTypeId, date, ... }
+  const [editInv, setEditInv] = useState(null);   // { roomTypeId, roomTypeName, date, allotment }
   const [saving, setSaving] = useState(false);
+
+  // Bulk mode: instead of opening the single-date modal, a click toggles that date
+  // into `bulkSel` (scoped to one row — a rate plan or a room type's inventory —
+  // since the bulk endpoints each apply to exactly one). Switching to a cell in a
+  // different row starts a fresh selection there.
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkSel, setBulkSel] = useState(null); // { kind: 'inventory'|'rate', refId, roomTypeId, label, dates: Set }
+  const [bulkForm, setBulkForm] = useState(null);
 
   const dayWidth = rcDayWidth(windowDays);
   const to = addDays(from, windowDays);
@@ -2096,14 +2106,30 @@ export function RatesCalendarTab({ hotelId }) {
     pmsApi.getRatesCalendar(hotelId, from, to).then(res => setRoomTypes(res.data.data?.roomTypes || [])).catch(() => {});
   }, [hotelId, from, to]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!hotelId) return;
+    pmsApi.listChannelMappings(hotelId).then(res => setMappings(res.data.data || [])).catch(() => {});
+  }, [hotelId]);
 
   const toggleGroup = (id) => setCollapsed(p => ({ ...p, [id]: !p[id] }));
+  const hasActiveMapping = (roomTypeId) => mappings.some(m => m.roomTypeId === roomTypeId && m.active);
+
+  const toggleBulkDate = (kind, refId, roomTypeId, label, date) => {
+    setBulkSel(prev => {
+      const sameRow = prev && prev.kind === kind && prev.refId === refId;
+      const dates = new Set(sameRow ? prev.dates : []);
+      if (dates.has(date)) dates.delete(date); else dates.add(date);
+      return dates.size === 0 ? null : { kind, refId, roomTypeId, label, dates };
+    });
+  };
 
   const saveInventory = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await pmsApi.setRoomTypeInventory(editInv.roomTypeId, { date: editInv.date, allotment: Number(editInv.allotment) });
+      await pmsApi.setRoomTypeInventory(editInv.roomTypeId, {
+        date: editInv.date, allotment: Number(editInv.allotment), autoSync: !!editInv.autoSync,
+      });
       setEditInv(null);
       load();
     } catch { alert('Could not save allotment'); }
@@ -2122,10 +2148,40 @@ export function RatesCalendarTab({ hotelId }) {
         closedToArrival: !!editRate.closedToArrival,
         closedToDeparture: !!editRate.closedToDeparture,
         stopSell: !!editRate.stopSell,
+        autoSync: !!editRate.autoSync,
       });
       setEditRate(null);
       load();
     } catch { alert('Could not save rate'); }
+    finally { setSaving(false); }
+  };
+
+  const saveBulk = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    const dates = Array.from(bulkSel.dates);
+    try {
+      if (bulkSel.kind === 'inventory') {
+        await pmsApi.bulkSetRoomTypeInventory(bulkSel.refId, {
+          dates, allotment: Number(bulkForm.allotment), autoSync: !!bulkForm.autoSync,
+        });
+      } else {
+        await pmsApi.bulkSetDayPrice(bulkSel.refId, {
+          dates,
+          price: bulkForm.price === '' ? null : Number(bulkForm.price),
+          minStay: bulkForm.minStay === '' ? null : Number(bulkForm.minStay),
+          maxStay: bulkForm.maxStay === '' ? null : Number(bulkForm.maxStay),
+          closedToArrival: bulkForm.closedToArrival || null,
+          closedToDeparture: bulkForm.closedToDeparture || null,
+          stopSell: bulkForm.stopSell || null,
+          autoSync: !!bulkForm.autoSync,
+        });
+      }
+      setBulkForm(null);
+      setBulkSel(null);
+      setBulkMode(false);
+      load();
+    } catch { alert(`Could not apply bulk update to ${dates.length} date(s)`); }
     finally { setSaving(false); }
   };
 
@@ -2145,8 +2201,28 @@ export function RatesCalendarTab({ hotelId }) {
           <button className="admin-row-btn" style={btnSecondary} onClick={() => setFrom(today())}>Today</button>
           <button className="admin-row-btn" style={btnSecondary} onClick={() => setFrom(f => addDays(f, windowDays))}>Next →</button>
         </div>
+        <button className="admin-row-btn" style={bulkMode ? btnPrimary : btnSecondary}
+          onClick={() => { setBulkMode(m => !m); setBulkSel(null); }}
+          title="Select several dates in one row, then apply the same price/allotment/restriction to all of them at once">
+          {bulkMode ? <CheckSquare size={14} /> : <Square size={14} />} Bulk update
+        </button>
         <div style={{ fontSize: 11, color: 'var(--gray-400)', marginLeft: 'auto' }}>Jump to any date up to 3 years back or ahead</div>
       </div>
+
+      {bulkMode && (
+        <div className="admin-table-card" style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--blue-light, #EAF2FF)', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12.5 }}>
+            {bulkSel ? <>Selected <strong>{bulkSel.dates.size}</strong> date(s) for <strong>{bulkSel.label}</strong> — click more dates in that same row to add them.</>
+              : 'Click date cells below to select them, then apply one update to all of them.'}
+          </span>
+          {bulkSel && <>
+            <button className="admin-row-btn" style={btnPrimary} onClick={() => setBulkForm(bulkSel.kind === 'inventory' ? { allotment: '', autoSync: false } : { price: '', minStay: '', maxStay: '', closedToArrival: false, closedToDeparture: false, stopSell: false, autoSync: false })}>
+              Apply update to {bulkSel.dates.size} date(s)
+            </button>
+            <button className="admin-row-btn" style={btnSecondary} onClick={() => setBulkSel(null)}>Clear selection</button>
+          </>}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
         {RC_VIEWS.map(v => (
@@ -2188,9 +2264,14 @@ export function RatesCalendarTab({ hotelId }) {
                       </div>
                       {days.map(d => {
                         const inv = invByDate[d];
+                        const isSel = bulkMode && bulkSel && bulkSel.kind === 'inventory' && bulkSel.refId === rt.roomTypeId && bulkSel.dates.has(d);
                         return (
-                          <div key={d} onClick={() => inv && view !== 'bookings' && setEditInv({ roomTypeId: rt.roomTypeId, roomTypeName: rt.roomTypeName, date: d, allotment: String(inv.allotted) })}
-                            style={{ width: dayWidth, flexShrink: 0, height: RC_ROW_HEIGHT, borderLeft: '1px solid var(--gray-100)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: inv && view !== 'bookings' ? 'pointer' : 'default' }}>
+                          <div key={d} onClick={() => {
+                              if (!inv || view === 'bookings') return;
+                              if (bulkMode) toggleBulkDate('inventory', rt.roomTypeId, rt.roomTypeId, `${rt.roomTypeName} — Allotment`, d);
+                              else setEditInv({ roomTypeId: rt.roomTypeId, roomTypeName: rt.roomTypeName, date: d, allotment: String(inv.allotted), autoSync: false });
+                            }}
+                            style={{ width: dayWidth, flexShrink: 0, height: RC_ROW_HEIGHT, borderLeft: '1px solid var(--gray-100)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: inv && view !== 'bookings' ? 'pointer' : 'default', background: isSel ? 'var(--blue-light, #EAF2FF)' : undefined, boxShadow: isSel ? 'inset 0 0 0 2px var(--blue)' : undefined }}>
                             {inv ? (
                               view === 'bookings'
                                 ? <div style={{ fontSize: 16, fontWeight: 800, color: inv.booked > 0 ? 'var(--blue)' : 'var(--gray-400)' }}>{inv.booked}</div>
@@ -2228,9 +2309,14 @@ export function RatesCalendarTab({ hotelId }) {
                           ].filter(Boolean) : [];
                           const showPrice = view === 'all' || view === 'prices';
                           const showBadges = view === 'all' || view === 'restrictions';
+                          const isSel = bulkMode && bulkSel && bulkSel.kind === 'rate' && bulkSel.refId === rp.ratePlanId && bulkSel.dates.has(d);
                           return (
-                            <div key={d} onClick={() => day && setEditRate({ ratePlanId: rp.ratePlanId, ratePlanName: rp.ratePlanName, date: d, price: String(day.price ?? ''), minStay: day.minStay ?? '', maxStay: day.maxStay ?? '', closedToArrival: day.closedToArrival, closedToDeparture: day.closedToDeparture, stopSell: day.stopSell })}
-                              style={{ width: dayWidth, flexShrink: 0, height: RC_ROW_HEIGHT, borderLeft: '1px solid var(--gray-100)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: day ? 'pointer' : 'default', padding: '2px 0' }}>
+                            <div key={d} onClick={() => {
+                                if (!day) return;
+                                if (bulkMode) toggleBulkDate('rate', rp.ratePlanId, rt.roomTypeId, `${rp.ratePlanName} — Price & restrictions`, d);
+                                else setEditRate({ ratePlanId: rp.ratePlanId, ratePlanName: rp.ratePlanName, roomTypeId: rt.roomTypeId, date: d, price: String(day.price ?? ''), minStay: day.minStay ?? '', maxStay: day.maxStay ?? '', closedToArrival: day.closedToArrival, closedToDeparture: day.closedToDeparture, stopSell: day.stopSell, autoSync: false });
+                              }}
+                              style={{ width: dayWidth, flexShrink: 0, height: RC_ROW_HEIGHT, borderLeft: '1px solid var(--gray-100)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: day ? 'pointer' : 'default', padding: '2px 0', background: isSel ? 'var(--blue-light, #EAF2FF)' : undefined, boxShadow: isSel ? 'inset 0 0 0 2px var(--blue)' : undefined }}>
                               {day ? <>
                                 {showPrice && (
                                   <div style={{ fontSize: 12, fontWeight: 700, color: day.stopSell ? '#dc2626' : 'var(--gray-900)' }}>
@@ -2269,6 +2355,12 @@ export function RatesCalendarTab({ hotelId }) {
             </div>
             <label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Allotment (sellable-room cap for this date)</label>
             <input type="number" min="0" value={editInv.allotment} onChange={e => setEditInv({ ...editInv, allotment: e.target.value })} style={{ ...inputStyle, width: '100%', marginTop: 4 }} autoFocus />
+            {hasActiveMapping(editInv.roomTypeId) && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginTop: 10 }}>
+                <input type="checkbox" checked={!!editInv.autoSync} onChange={e => setEditInv({ ...editInv, autoSync: e.target.checked })} />
+                Auto-sync to Channel Manager / OTAs on save
+              </label>
+            )}
             <button type="submit" className="admin-row-btn" style={{ ...btnPrimary, width: '100%', marginTop: 14, justifyContent: 'center' }} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           </form>
         </div>
@@ -2293,8 +2385,55 @@ export function RatesCalendarTab({ hotelId }) {
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={!!editRate.closedToArrival} onChange={e => setEditRate({ ...editRate, closedToArrival: e.target.checked })} /> Closed to arrival</label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={!!editRate.closedToDeparture} onChange={e => setEditRate({ ...editRate, closedToDeparture: e.target.checked })} /> Closed to departure</label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={!!editRate.stopSell} onChange={e => setEditRate({ ...editRate, stopSell: e.target.checked })} /> Stop sell</label>
+              {hasActiveMapping(editRate.roomTypeId) && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                  <input type="checkbox" checked={!!editRate.autoSync} onChange={e => setEditRate({ ...editRate, autoSync: e.target.checked })} />
+                  Auto-sync to Channel Manager / OTAs on save
+                </label>
+              )}
             </div>
             <button type="submit" className="admin-row-btn" style={{ ...btnPrimary, width: '100%', marginTop: 14, justifyContent: 'center' }} disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          </form>
+        </div>
+      )}
+
+      {bulkForm && bulkSel && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setBulkForm(null)}>
+          <form onSubmit={saveBulk} className="admin-table-card" style={{ padding: 20, width: 360, maxWidth: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <strong>{bulkSel.label}</strong>
+              <button type="button" className="admin-row-btn" onClick={() => setBulkForm(null)}><X size={14} /></button>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--gray-500)', marginBottom: 12 }}>
+              Applying to {bulkSel.dates.size} selected date(s): {Array.from(bulkSel.dates).sort().join(', ')}
+            </div>
+            {bulkSel.kind === 'inventory' ? (
+              <>
+                <label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Allotment (sellable-room cap) for every selected date</label>
+                <input type="number" min="0" required value={bulkForm.allotment} onChange={e => setBulkForm({ ...bulkForm, allotment: e.target.value })} style={{ ...inputStyle, width: '100%', marginTop: 4 }} autoFocus />
+              </>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div><label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Price override</label><br />
+                  <input type="number" min="0" value={bulkForm.price} onChange={e => setBulkForm({ ...bulkForm, price: e.target.value })} style={{ ...inputStyle, width: '100%' }} placeholder="Leave blank to not change price" autoFocus /></div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1 }}><label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Min stay</label><br />
+                    <input type="number" min="0" value={bulkForm.minStay} onChange={e => setBulkForm({ ...bulkForm, minStay: e.target.value })} style={{ ...inputStyle, width: '100%' }} /></div>
+                  <div style={{ flex: 1 }}><label style={{ fontSize: 11, color: 'var(--gray-500)' }}>Max stay</label><br />
+                    <input type="number" min="0" value={bulkForm.maxStay} onChange={e => setBulkForm({ ...bulkForm, maxStay: e.target.value })} style={{ ...inputStyle, width: '100%' }} /></div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={!!bulkForm.closedToArrival} onChange={e => setBulkForm({ ...bulkForm, closedToArrival: e.target.checked })} /> Closed to arrival</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={!!bulkForm.closedToDeparture} onChange={e => setBulkForm({ ...bulkForm, closedToDeparture: e.target.checked })} /> Closed to departure</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}><input type="checkbox" checked={!!bulkForm.stopSell} onChange={e => setBulkForm({ ...bulkForm, stopSell: e.target.checked })} /> Stop sell</label>
+              </div>
+            )}
+            {hasActiveMapping(bulkSel.roomTypeId) && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginTop: 10 }}>
+                <input type="checkbox" checked={!!bulkForm.autoSync} onChange={e => setBulkForm({ ...bulkForm, autoSync: e.target.checked })} />
+                Auto-sync to Channel Manager / OTAs on save
+              </label>
+            )}
+            <button type="submit" className="admin-row-btn" style={{ ...btnPrimary, width: '100%', marginTop: 14, justifyContent: 'center' }} disabled={saving}>{saving ? 'Saving…' : `Save for ${bulkSel.dates.size} date(s)`}</button>
           </form>
         </div>
       )}

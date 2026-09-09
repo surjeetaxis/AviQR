@@ -222,7 +222,18 @@ public class ChannelService {
      * the sync log/UI still has something to show without a live connection.
      */
     public void pushAvailabilityAndRates(UUID hotelId) {
-        List<ChannelMapping> mappings = mappingRepo.findByHotelIdAndActiveTrue(hotelId);
+        pushForMappings(mappingRepo.findByHotelIdAndActiveTrue(hotelId));
+    }
+
+    /** Auto-sync-on-save: pushes just the mappings for one room type, so saving a rate
+     *  or inventory change for a single room type doesn't re-push every other room
+     *  type's ARI too. Used by RatePlanController/RoomTypeController when a day-price
+     *  or inventory update opts into autoSync. */
+    public void pushForRoomType(UUID roomTypeId) {
+        pushForMappings(mappingRepo.findByRoomTypeIdAndActiveTrue(roomTypeId));
+    }
+
+    private void pushForMappings(List<ChannelMapping> mappings) {
         for (ChannelMapping mapping : mappings) {
             if (mapping.getCmBaseUrl() != null && !mapping.getCmBaseUrl().isBlank()) {
                 pushInventoryReal(mapping);
