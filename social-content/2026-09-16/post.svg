@@ -1,0 +1,74 @@
+<svg width="1080" height="1080" viewBox="0 0 1080 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&amp;display=swap');
+      text { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    </style>
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000000" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <rect width="1080" height="1080" fill="#FAFAFA"/>
+
+  <!-- wordmark -->
+  <g transform="translate(72,66)">
+    <rect x="3" y="3" width="27" height="27" rx="6" fill="#1D9E75"/>
+    <rect x="48" y="3" width="27" height="27" rx="6" fill="#0A0A0A" opacity="0.9"/>
+    <rect x="3" y="48" width="27" height="27" rx="6" fill="#0A0A0A" opacity="0.9"/>
+    <rect x="16.5" y="16.5" width="12" height="12" rx="3" fill="#ffffff"/>
+    <rect x="55.5" y="16.5" width="12" height="12" rx="3" fill="#ffffff"/>
+    <rect x="16.5" y="55.5" width="12" height="12" rx="3" fill="#ffffff"/>
+    <rect x="48" y="48" width="12" height="12" rx="3" fill="#1D9E75"/>
+    <rect x="63" y="48" width="12" height="12" rx="3" fill="#1D9E75"/>
+    <rect x="48" y="63" width="12" height="12" rx="3" fill="#1D9E75"/>
+    <rect x="63" y="63" width="12" height="12" rx="3" fill="#5DCAA5"/>
+  </g>
+  <text x="150" y="103" font-size="30" font-weight="800" letter-spacing="-0.5" fill="#111111">Avi<tspan fill="#1D9E75">QR</tspan></text>
+
+  <!-- eyebrow pill -->
+  <rect x="72" y="168" width="392" height="46" rx="23" fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
+  <text x="90" y="197" font-size="16" font-weight="700" letter-spacing="0.6" fill="#0F6E56">QR ORDERING &#183; 9 INDIAN LANGUAGES</text>
+
+  <!-- headline -->
+  <text x="70" y="292" font-size="58" font-weight="900" letter-spacing="-1" fill="#111111">Your table is</text>
+  <text x="70" y="360" font-size="58" font-weight="900" letter-spacing="-1" fill="#111111">the menu now.</text>
+
+  <!-- subhead -->
+  <text x="72" y="416" font-size="24" font-weight="500" fill="#4A4A4A">Guests scan, browse, and order in their own language.</text>
+  <text x="72" y="448" font-size="24" font-weight="500" fill="#4A4A4A">Orders hit the kitchen instantly. No app to download.</text>
+
+  <!-- feature card -->
+  <rect x="130" y="510" width="820" height="330" rx="24" fill="#ffffff" stroke="#E5E7EB" stroke-width="1" filter="url(#cardShadow)"/>
+
+  <!-- feature rows -->
+  <g transform="translate(172,556)">
+    <circle cx="14" cy="14" r="14" fill="#E1F5EE"/>
+    <path d="M8 14 l4 4 8-9" stroke="#1D9E75" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="40" y="19" font-size="21" font-weight="700" fill="#111111">Live orders &amp; KOTs straight to the kitchen</text>
+  </g>
+
+  <g transform="translate(172,614)">
+    <circle cx="14" cy="14" r="14" fill="#E1F5EE"/>
+    <path d="M8 14 l4 4 8-9" stroke="#1D9E75" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="40" y="19" font-size="21" font-weight="700" fill="#111111">Menu in 9 Indian languages, auto-translated</text>
+  </g>
+
+  <g transform="translate(172,672)">
+    <circle cx="14" cy="14" r="14" fill="#E1F5EE"/>
+    <path d="M8 14 l4 4 8-9" stroke="#1D9E75" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="40" y="19" font-size="21" font-weight="700" fill="#111111">11 AI features: smart search, reviews, fraud checks</text>
+  </g>
+
+  <g transform="translate(172,730)">
+    <circle cx="14" cy="14" r="14" fill="#E1F5EE"/>
+    <path d="M8 14 l4 4 8-9" stroke="#1D9E75" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <text x="40" y="19" font-size="21" font-weight="700" fill="#111111">Built for Indian restaurants, hotels &amp; malls</text>
+  </g>
+
+  <rect x="172" y="774" width="230" height="52" rx="26" fill="#1D9E75"/>
+  <text x="287" y="807" font-size="16" font-weight="700" fill="#ffffff" text-anchor="middle">Try it free</text>
+
+  <!-- CTA -->
+  <text x="540" y="980" font-size="24" font-weight="800" letter-spacing="-0.3" fill="#0F6E56" text-anchor="middle">aviqr.com</text>
+</svg>
