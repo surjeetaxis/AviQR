@@ -10,7 +10,7 @@
 -- notes work against the real app store build.
 --
 --   Email:    appstore-reviewer@aviqr.com
---   Password: AviQRReview#2026
+--   Password: (kept out of source control — see the team's password manager / App Store Connect review notes)
 --   Shop:     AviQR Demo Kitchen (Bengaluru) — pre-populated menu
 --   QR code:  aviqr-demo-review -> https://aviqr.com/menu/10000000-0000-4000-8000-000000000002
 

@@ -33,7 +33,7 @@
 --
 -- Credentials for App Store Connect review notes once this has run:
 --   Email:    appstore-reviewer@aviqr.com
---   Password: AviQRReview#2026
+--   Password: (kept out of source control — see the team's password manager / App Store Connect review notes)
 --   Or just scan/open the QR target: https://aviqr.com/menu/10000000-0000-4000-8000-000000000002
 --
 -- This account should be excluded from any production revenue/MRR reporting
