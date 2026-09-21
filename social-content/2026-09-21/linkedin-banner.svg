@@ -1,0 +1,35 @@
+<svg width="1584" height="396" viewBox="0 0 1584 396" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&amp;display=swap');
+      text { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    </style>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111111"/>
+      <stop offset="1" stop-color="#0B2F25"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1584" height="396" fill="url(#bg)"/>
+
+  <!-- decorative QR blocks, right side -->
+  <g opacity="0.9" transform="translate(1180,40)">
+    <rect x="0" y="0" width="120" height="120" rx="26" fill="#1D9E75"/>
+    <rect x="34" y="34" width="52" height="52" rx="12" fill="#111111"/>
+    <rect x="150" y="0" width="120" height="120" rx="26" fill="#ffffff"/>
+    <rect x="184" y="34" width="52" height="52" rx="12" fill="#111111"/>
+    <rect x="0" y="150" width="120" height="120" rx="26" fill="#ffffff"/>
+    <rect x="34" y="184" width="52" height="52" rx="12" fill="#111111"/>
+    <rect x="150" y="150" width="54" height="54" rx="12" fill="#1D9E75"/>
+    <rect x="216" y="150" width="54" height="54" rx="12" fill="#1D9E75"/>
+    <rect x="150" y="216" width="54" height="54" rx="12" fill="#1D9E75"/>
+    <rect x="216" y="216" width="54" height="54" rx="12" fill="#5DCAA5"/>
+  </g>
+
+  <!-- text block, kept right of the profile-photo overlap -->
+  <text x="470" y="120" font-size="17" font-weight="700" letter-spacing="1.6" fill="#5DCAA5">QR ORDERING &#183; LIVE KOTs &#183; 11 AI FEATURES</text>
+  <text x="468" y="196" font-size="62" font-weight="900" letter-spacing="-1.5" fill="#ffffff">Your table is the menu.</text>
+  <text x="470" y="250" font-size="24" font-weight="500" fill="#C9D3CF">Scan. Browse. Order. No app &#8212; in 9 Indian languages.</text>
+  <text x="470" y="316" font-size="26" font-weight="800" letter-spacing="-0.3" fill="#1D9E75">aviqr.com</text>
+  <text x="632" y="316" font-size="20" font-weight="500" fill="#8FA39B">Built for Indian restaurants, hotels &amp; malls</text>
+</svg>
