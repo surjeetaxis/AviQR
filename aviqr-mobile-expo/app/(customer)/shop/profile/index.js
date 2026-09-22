@@ -40,18 +40,23 @@ export default function CustomerProfileScreen() {
     router.push(currentShopId ? { pathname: '/(customer)/shop/menu', params: { shopId: currentShopId } } : '/(customer)/shop/menu');
   };
 
-  useEffect(() => {
-    if (!user?.phone) { setLoadingFav(false); return; }
-    favoritesApi.mine(user.phone).then(res => setFavorites(res.data.data || [])).catch(() => {}).finally(() => setLoadingFav(false));
-  }, [user?.phone]);
+  // Favorites/Loyalty are keyed by a generic customer identity string
+  // (historically a phone number, back when phone was the only login
+  // identity) — fall back to email for customers who log in that way now.
+  const userKey = user?.phone || user?.email;
 
   useEffect(() => {
-    if (!user?.phone || !currentShopId) return;
-    loyaltyApi.getBalance(currentShopId, user.phone).then(res => setLoyalty(res.data.data)).catch(() => {});
-  }, [user?.phone, currentShopId]);
+    if (!userKey) { setLoadingFav(false); return; }
+    favoritesApi.mine(userKey).then(res => setFavorites(res.data.data || [])).catch(() => {}).finally(() => setLoadingFav(false));
+  }, [userKey]);
+
+  useEffect(() => {
+    if (!userKey || !currentShopId) return;
+    loyaltyApi.getBalance(currentShopId, userKey).then(res => setLoyalty(res.data.data)).catch(() => {});
+  }, [userKey, currentShopId]);
 
   const toggleFavorite = (shopId) => {
-    favoritesApi.toggle(user.phone, shopId)
+    favoritesApi.toggle(userKey, shopId)
       .then(() => setFavorites(prev => prev.filter(f => f.shopId !== shopId)))
       .catch(() => {});
   };
@@ -99,7 +104,7 @@ export default function CustomerProfileScreen() {
           <View style={ss.avatar}><Text style={{ fontSize: 20 }}>🙋</Text></View>
           <View style={{ flex: 1 }}>
             <Text style={ss.name}>{user.name === 'Guest' ? 'Guest' : user.name}</Text>
-            <Text style={ss.phone}>{user.phone}</Text>
+            <Text style={ss.phone}>{user.phone || user.email}</Text>
           </View>
           <TouchableOpacity onPress={openEdit} style={ss.editBtn}><Text style={{ fontSize: 15 }}>✏️</Text></TouchableOpacity>
         </View>
