@@ -610,18 +610,23 @@ export default function CustomerMenu() {
     }, 300);
   }, [itemFromQR, menuLoading]);
 
+  // Favorites are keyed by a generic customer identity string (historically a
+  // phone number, back when phone was the only login identity) — fall back to
+  // email for customers who log in that way now.
+  const customerKey = customer?.phone || customer?.email;
+
   const [isFavorited, setIsFavorited] = useState(false);
   useEffect(() => {
-    if (isLoggedIn && customer?.phone && shop?.id) {
-      favoritesApi.mine(customer.phone, authHeader)
+    if (isLoggedIn && customerKey && shop?.id) {
+      favoritesApi.mine(customerKey, authHeader)
         .then(res => setIsFavorited((res.data.data || []).some(f => f.shopId === shop.id)))
         .catch(() => {});
     }
-  }, [isLoggedIn, customer?.phone, shop?.id]);
+  }, [isLoggedIn, customerKey, shop?.id]);
 
   const toggleShopFavorite = () => {
     if (!isLoggedIn) { setShowLogin(true); return; }
-    favoritesApi.toggle(customer.phone, shop.id, authHeader)
+    favoritesApi.toggle(customerKey, shop.id, authHeader)
       .then(res => setIsFavorited(res.data.data.favorited))
       .catch(() => {});
   };

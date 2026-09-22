@@ -6,7 +6,7 @@ import { authApi } from '../api/index.js';
 // in one tab never collides with a staff session in another (e.g. an owner previewing
 // their own QR code while still logged into their dashboard).
 //
-// Login is phone+OTP only (authApi.sendOtp/loginOtp) — auth-service self-registers a
+// Login is email+OTP only (authApi.sendOtp/loginOtp) — auth-service self-registers a
 // CUSTOMER-role account on first successful OTP login, so there's no separate signup step.
 // Browsing (menu/food-court/hotel-services) never requires this; it's only needed for
 // Cart checkout, Orders, Rewards, Favorites, and Profile.
@@ -30,10 +30,10 @@ export function CustomerAuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const sendOtp = (phone) => authApi.sendOtp(phone);
+  const sendOtp = (email) => authApi.sendOtp(email);
 
-  const loginWithOtp = async (phone, otp) => {
-    const res = await authApi.loginOtp({ phone, otp });
+  const loginWithOtp = async (email, otp) => {
+    const res = await authApi.loginOtp({ email, otp });
     const { accessToken, ...userData } = res.data.data;
     localStorage.setItem(TOKEN_KEY, accessToken);
     localStorage.setItem(USER_KEY, JSON.stringify(userData));

@@ -34,9 +34,14 @@ export default function PortalProfile() {
   const ctx = getCustomerContext();
   const currentShopId = ctx?.type === 'shop' ? ctx.id : null;
 
+  // Favorites/Loyalty/Profile are keyed by a generic customer identity string
+  // (historically a phone number, back when phone was the only login identity)
+  // — fall back to email for customers who log in that way now.
+  const customerKey = customer?.phone || customer?.email;
+
   useEffect(() => {
     if (!isLoggedIn) { setLoadingFav(false); return; }
-    favoritesApi.mine(customer.phone, authHeader)
+    favoritesApi.mine(customerKey, authHeader)
       .then(res => setFavorites(res.data.data || []))
       .catch(() => {})
       .finally(() => setLoadingFav(false));
@@ -44,13 +49,13 @@ export default function PortalProfile() {
 
   useEffect(() => {
     if (!isLoggedIn || !currentShopId) return;
-    loyaltyApi.getBalance(currentShopId, customer.phone, authHeader)
+    loyaltyApi.getBalance(currentShopId, customerKey, authHeader)
       .then(res => setLoyalty(res.data.data))
       .catch(() => {});
   }, [isLoggedIn, currentShopId]);
 
   const toggleFavorite = (shopId) => {
-    favoritesApi.toggle(customer.phone, shopId, authHeader)
+    favoritesApi.toggle(customerKey, shopId, authHeader)
       .then(() => setFavorites(prev => prev.filter(f => f.shopId !== shopId)))
       .catch(() => {});
   };
@@ -60,7 +65,7 @@ export default function PortalProfile() {
     setEditError('');
     setShowEdit(true);
     if (currentShopId) {
-      customerApi.getProfile(currentShopId, customer.phone, authHeader)
+      customerApi.getProfile(currentShopId, customerKey, authHeader)
         .then(res => {
           const p = res.data.data;
           setEditForm(f => ({ ...f, birthday: p.birthday || '', anniversary: p.anniversary || '' }));
@@ -76,7 +81,7 @@ export default function PortalProfile() {
       await updateProfile({ name: editForm.name, preferredLanguage: editForm.preferredLanguage });
       if (currentShopId) {
         await customerApi.updateProfile(currentShopId, {
-          phone: customer.phone,
+          phone: customerKey,
           name: editForm.name,
           birthday: editForm.birthday || null,
           anniversary: editForm.anniversary || null,
@@ -117,7 +122,7 @@ export default function PortalProfile() {
         <div style={sx.avatar}><User size={22} color="#1D9E75" /></div>
         <div style={{ flex:1 }}>
           <div style={{ fontWeight:800, fontSize:15 }}>{customer.name === 'Guest' ? 'Guest' : customer.name}</div>
-          <div style={{ fontSize:12.5, color:'#6B7280' }}>{customer.phone}</div>
+          <div style={{ fontSize:12.5, color:'#6B7280' }}>{customer.phone || customer.email}</div>
         </div>
         <button style={sx.editIconBtn} onClick={openEdit} aria-label="Edit profile"><Pencil size={15} color="#6B7280" /></button>
       </div>
