@@ -139,7 +139,7 @@ export default function LandingScreen() {
           </TouchableOpacity>
         </View>
         <Text style={ss.eyebrow}>India's multilingual QR menu & order platform</Text>
-        <Text style={ss.headline}>One QR code.{'\n'}Your entire restaurant OS.</Text>
+        <Text style={ss.headline}>One QR code.{'\n'}Your entire restaurant & hotel OS.</Text>
         <Text style={ss.heroSub}>Menu · Orders · Payments · Loyalty · CRM · Campaigns · Staff · Reports — all through one permanent QR code.</Text>
         <TouchableOpacity style={ss.ctaPrimary} onPress={() => router.push('/register')}>
           <Text style={ss.ctaPrimaryTxt}>Start free — no credit card →</Text>
