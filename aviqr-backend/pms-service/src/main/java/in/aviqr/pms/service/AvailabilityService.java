@@ -12,7 +12,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -67,5 +70,44 @@ public class AvailabilityService {
 
     public int availableCount(UUID hotelId, UUID roomTypeId, LocalDate checkIn, LocalDate checkOut) {
         return availableRooms(hotelId, roomTypeId, checkIn, checkOut).size();
+    }
+
+    /** Sellable rooms of this type for each night in [from, to) — the same per-night
+     *  answer availableCount(d, d+1) gives, but computed from one hotel-service call and
+     *  one reservation query for the whole window, so a channel-manager push can cover
+     *  a year of dates without a year of HTTP round-trips. */
+    public Map<LocalDate, Integer> availabilityCalendar(UUID hotelId, UUID roomTypeId, LocalDate from, LocalDate to) {
+        RoomType roomType = roomTypeRepo.findById(roomTypeId)
+            .orElseThrow(() -> new RuntimeException("Room type not found: " + roomTypeId));
+        List<HotelRoomDto> typeRooms = hotelServiceClient.getRooms(hotelId).stream()
+            .filter(r -> roomType.getName().equalsIgnoreCase(r.getRoomType()))
+            .filter(r -> !"MAINTENANCE".equals(r.getStatus()))
+            .toList();
+        // Same today-only VACANT/clean gate as availableRooms — see the comment there.
+        LocalDate today = LocalDate.now();
+        Set<UUID> sellableToday = typeRooms.stream()
+            .filter(r -> "VACANT".equals(r.getStatus()) && !"DIRTY".equals(r.getHousekeepingStatus()))
+            .map(HotelRoomDto::getId)
+            .collect(Collectors.toSet());
+
+        List<RoomReservationRepository.HeldRoomStay> held = roomReservationRepo.findHeldInWindow(roomTypeId, from, to);
+        Map<LocalDate, Integer> caps = inventoryRepo.findByRoomTypeIdAndDateBetween(roomTypeId, from, to.minusDays(1))
+            .stream().collect(Collectors.toMap(RoomTypeInventory::getDate, RoomTypeInventory::getAllotment, (a, b) -> a));
+
+        Map<LocalDate, Integer> calendar = new LinkedHashMap<>();
+        for (LocalDate d = from; d.isBefore(to); d = d.plusDays(1)) {
+            final LocalDate night = d;
+            Set<UUID> heldTonight = new HashSet<>();
+            for (RoomReservationRepository.HeldRoomStay h : held) {
+                if (!h.getCheckInDate().isAfter(night) && h.getCheckOutDate().isAfter(night)) heldTonight.add(h.getRoomId());
+            }
+            int free = (int) typeRooms.stream()
+                .filter(r -> !night.isEqual(today) || sellableToday.contains(r.getId()))
+                .filter(r -> !heldTonight.contains(r.getId()))
+                .count();
+            Integer cap = caps.get(night);
+            calendar.put(night, cap != null ? Math.max(0, Math.min(cap, free)) : free);
+        }
+        return calendar;
     }
 }

@@ -15,10 +15,10 @@ public interface ChannelMappingRepository extends JpaRepository<ChannelMapping, 
     Optional<ChannelMapping> findByChannelAndExternalPropertyIdAndExternalRoomTypeId(
         ChannelName channel, String externalPropertyId, String externalRoomTypeId);
 
-    // Real ARI-style accept-booking calls carry no channel name — accessKey identifies
-    // the connection, hotelID/roomType.id confirm which mapping it addresses.
-    Optional<ChannelMapping> findByAccessKeyAndExternalPropertyIdAndExternalRoomTypeId(
-        String accessKey, String externalPropertyId, String externalRoomTypeId);
+    // AxisRooms booking pushes carry no channel name — accessKey + hotelId identify the
+    // connection and authenticate it, then each roomType.id/ratePlanId line is matched
+    // against these (one room type can carry several mappings, one per rate plan).
+    List<ChannelMapping> findByAccessKeyAndExternalPropertyIdAndActiveTrue(String accessKey, String externalPropertyId);
 
     @Query("select distinct m.hotelId from ChannelMapping m where m.active = true")
     List<UUID> findDistinctHotelIdsWithActiveMapping();

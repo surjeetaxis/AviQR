@@ -99,6 +99,7 @@ export const authApi = {
   linkShop:        (shopId) => api.put('/api/v1/auth/link-shop', { shopId }),
   // Admin
   getUsers:       (p)    => api.get('/api/v1/auth/admin/users', { params: p }),
+  getById:        (id)   => api.get(`/api/v1/auth/admin/users/${id}`),
   updateStatus:   (id,s) => api.put(`/api/v1/auth/admin/users/${id}/status?status=${s}`),
   deleteUser:     (id)   => api.delete(`/api/v1/auth/admin/users/${id}`),
   getUserStats:   ()     => api.get('/api/v1/auth/admin/users/stats'),

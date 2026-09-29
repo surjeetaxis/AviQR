@@ -670,17 +670,19 @@ function AdminShopsPage() {
   const [viewShop, setView] = useState(null);
   const [viewStats, setViewStats] = useState(null);
   const [viewLoad, setViewLoad]   = useState(false);
+  const [viewOwner, setViewOwner] = useState(null);
   const [page, setPage]     = useState(0);
   const PAGE_SIZE = 20;
 
   const openView = async (s) => {
-    setView(s); setViewStats(null); setViewLoad(true);
+    setView(s); setViewStats(null); setViewLoad(true); setViewOwner(null);
     try {
-      const [rev, daily, staff, codes] = await Promise.allSettled([
+      const [rev, daily, staff, codes, owner] = await Promise.allSettled([
         reportApi.getRevenue(s.id, 7),
         reportApi.getDaily(s.id),
         shopApi.getStaff(s.id),
         qrApi.getByShop(s.id),
+        s.ownerId ? authApi.getById(s.ownerId) : Promise.resolve(null),
       ]);
       const revDays = rev.status === 'fulfilled' ? (rev.value.data?.data || []) : [];
       const rev7d = revDays.reduce((sum, d) => sum + Number(d.revenue || d.total || 0), 0);
@@ -694,6 +696,7 @@ function AdminShopsPage() {
         staffCount: Array.isArray(staffList) ? staffList.length : 0,
         qrCount: Array.isArray(codesList) ? codesList.length : 0,
       });
+      setViewOwner(owner?.status === 'fulfilled' ? (owner.value?.data?.data || null) : null);
     } catch {
       setViewStats({ todayOrders: '—', todayRevenue: 0, rev7d: 0, staffCount: 0, qrCount: 0 });
     } finally { setViewLoad(false); }
@@ -824,6 +827,7 @@ function AdminShopsPage() {
               <div className="modal-section-title">Registration</div>
               <ModalFieldList fields={[
                 ['Shop ID', viewShop.id],
+                ['Owner', viewOwner ? `${viewOwner.name} · ${viewOwner.email}` : (viewShop.ownerId || '—')],
                 ['Owner ID', viewShop.ownerId],
                 ['Phone', viewShop.phone],
                 ['Email', viewShop.email],
@@ -852,6 +856,7 @@ function AdminHotelsPage() {
   const [viewHotel, setView] = useState(null);
   const [viewStats, setViewStats] = useState(null);
   const [viewLoad, setViewLoad]   = useState(false);
+  const [viewOwner, setViewOwner] = useState(null);
 
   const load = useCallback(async () => {
     setLoad(true); setErr('');
@@ -867,17 +872,19 @@ function AdminHotelsPage() {
   useEffect(() => { load(); }, [load]);
 
   const openView = async (h) => {
-    setView(h); setViewStats(null); setViewLoad(true);
+    setView(h); setViewStats(null); setViewLoad(true); setViewOwner(null);
     try {
-      const [roomsRes, reqRes] = await Promise.allSettled([
+      const [roomsRes, reqRes, ownerRes] = await Promise.allSettled([
         hotelApi.getRooms(h.id),
         hotelApi.getRequests(h.id),
+        h.ownerId ? authApi.getById(h.ownerId) : Promise.resolve(null),
       ]);
       const rooms = roomsRes.status === 'fulfilled' ? (roomsRes.value.data?.data || []) : [];
       const requests = reqRes.status === 'fulfilled' ? (reqRes.value.data?.data || []) : [];
       const occupied = rooms.filter(r => (r.status || '').toUpperCase() === 'OCCUPIED').length;
       const pending = requests.filter(r => (r.status || '').toUpperCase() === 'NEW' || (r.status || '').toUpperCase() === 'PENDING').length;
       setViewStats({ roomCount: rooms.length, occupied, requestCount: requests.length, pending });
+      setViewOwner(ownerRes.status === 'fulfilled' ? (ownerRes.value?.data?.data || null) : null);
     } catch {
       setViewStats({ roomCount: 0, occupied: 0, requestCount: 0, pending: 0 });
     } finally { setViewLoad(false); }
@@ -942,6 +949,7 @@ function AdminHotelsPage() {
               <div className="modal-section-title">Registration</div>
               <ModalFieldList fields={[
                 ['Hotel ID', viewHotel.id],
+                ['Owner', viewOwner ? `${viewOwner.name} · ${viewOwner.email}` : (viewHotel.ownerId || '—')],
                 ['Owner ID', viewHotel.ownerId],
                 ['Phone', viewHotel.phone],
                 ['Email', viewHotel.email],

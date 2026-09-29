@@ -198,7 +198,7 @@ export default function Landing() {
   return (
     <div className="landing">
       <SEO
-        title="QR Menu & Restaurant OS for India"
+        title="Restaurant & Hotel OS for India"
         description="Scan to order. Pay online. 9 Indian languages. Manage restaurants, hotels and malls with AviQR's QR-powered platform."
         canonical="https://aviqr.com/"
         schema={{
@@ -225,7 +225,7 @@ export default function Landing() {
           <h1 className="hero-headline">
             One QR code.<br />
             Your entire<br />
-            <span className="hero-accent">restaurant OS.</span>
+            <span className="hero-accent">restaurant &amp; hotel OS.</span>
           </h1>
           <p className="hero-sub">
             Menu. Orders. Payments. Loyalty. CRM. Campaigns. Staff. Reports.

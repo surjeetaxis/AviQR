@@ -19,6 +19,11 @@ public class ChannelMapping {
     @Column(nullable=false) private String externalPropertyId;
     @Column(nullable=false) private String externalRoomTypeId;
     private String externalRatePlanId;
+    // Which of our RatePlans feeds externalRatePlanId's prices/restrictions. A room
+    // type with several rate plans gets one mapping per plan (same externalRoomTypeId,
+    // different externalRatePlanId). Null keeps the old behaviour of using the room
+    // type's first active rate plan.
+    private UUID internalRatePlanId;
     // Generated on creation and given to the hotel to configure as the shared secret
     // in their channel manager's webhook settings — validated on every inbound webhook
     // of the simple generic shape (ChannelController#webhook).

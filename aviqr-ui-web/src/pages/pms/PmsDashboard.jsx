@@ -895,13 +895,20 @@ export function FolioTab({ hotelId, reservations, selectedId, onSelect }) {
 }
 
 // ── Channel Manager (OTA mappings, ARI push, sync log) ──────────────────────────
-const CHANNEL_OPTIONS = ['BOOKING_COM', 'MMT', 'AGODA', 'EXPEDIA', 'GENERIC'];
+const CHANNEL_OPTIONS = ['AXISROOMS', 'BOOKING_COM', 'MMT', 'AGODA', 'EXPEDIA', 'GENERIC'];
 
 export function ChannelsTab({ hotelId, roomTypes }) {
   const [mappings, setMappings] = useState([]);
   const [log, setLog] = useState([]);
-  const emptyForm = { channel: 'BOOKING_COM', roomTypeId: '', externalPropertyId: '', externalRoomTypeId: '', externalRatePlanId: '', accessKey: '', channelId: '', cmBaseUrl: '' };
+  const emptyForm = { channel: 'AXISROOMS', roomTypeId: '', internalRatePlanId: '', externalPropertyId: '', externalRoomTypeId: '', externalRatePlanId: '', accessKey: '', channelId: '', cmBaseUrl: '' };
   const [form, setForm] = useState(emptyForm);
+  // Rate plans of the room type picked in the form — a room type with several plans
+  // gets one mapping per plan, each naming which of ours feeds that external plan.
+  const [formRatePlans, setFormRatePlans] = useState([]);
+  useEffect(() => {
+    if (!form.roomTypeId) { setFormRatePlans([]); return; }
+    pmsApi.listRatePlans(form.roomTypeId).then(res => setFormRatePlans(res.data.data || [])).catch(() => setFormRatePlans([]));
+  }, [form.roomTypeId]);
   const [pushing, setPushing] = useState(false);
   const [expandedLog, setExpandedLog] = useState(null);
 
@@ -917,7 +924,7 @@ export function ChannelsTab({ hotelId, roomTypes }) {
     e.preventDefault();
     if (!form.roomTypeId || !form.externalPropertyId || !form.externalRoomTypeId) return;
     try {
-      await pmsApi.createChannelMapping({ hotelId, ...form });
+      await pmsApi.createChannelMapping({ hotelId, ...form, internalRatePlanId: form.internalRatePlanId || null });
       setForm(emptyForm);
       load();
     } catch { alert('Could not create mapping'); }
@@ -950,16 +957,20 @@ export function ChannelsTab({ hotelId, roomTypes }) {
         <select value={form.channel} onChange={e => setForm({ ...form, channel: e.target.value })} style={inputStyle}>
           {CHANNEL_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select value={form.roomTypeId} onChange={e => setForm({ ...form, roomTypeId: e.target.value })} style={inputStyle}>
+        <select value={form.roomTypeId} onChange={e => setForm({ ...form, roomTypeId: e.target.value, internalRatePlanId: '' })} style={inputStyle}>
           <option value="">Room type…</option>
           {roomTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.name}</option>)}
+        </select>
+        <select value={form.internalRatePlanId} onChange={e => setForm({ ...form, internalRatePlanId: e.target.value })} style={inputStyle} disabled={!form.roomTypeId}>
+          <option value="">Rate plan (first active)</option>
+          {formRatePlans.map(rp => <option key={rp.id} value={rp.id}>{rp.name}</option>)}
         </select>
         <input placeholder="External property ID" value={form.externalPropertyId} onChange={e => setForm({ ...form, externalPropertyId: e.target.value })} style={inputStyle} />
         <input placeholder="External room type ID" value={form.externalRoomTypeId} onChange={e => setForm({ ...form, externalRoomTypeId: e.target.value })} style={inputStyle} />
         <input placeholder="External rate plan ID (optional)" value={form.externalRatePlanId} onChange={e => setForm({ ...form, externalRatePlanId: e.target.value })} style={inputStyle} />
         <button type="submit" className="admin-row-btn" style={btnPrimary}><Plus size={14} /> Add mapping</button>
         <div style={{ width: '100%', display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 4, borderTop: '1px dashed var(--gray-200)', marginTop: 4 }}>
-          <span style={{ fontSize: 11, color: 'var(--gray-500)', alignSelf: 'center' }}>Live connection (optional — leave blank to just simulate pushes):</span>
+          <span style={{ fontSize: 11, color: 'var(--gray-500)', alignSelf: 'center' }}>Live connection (optional — leave blank to just simulate pushes). For AxisRooms: the access key and PMS channel ID AxisRooms issues, and its API base URL; AxisRooms' booking push URL goes to <code>/api/v1/pms/channels/accept-booking</code>.</span>
           <input placeholder="Access key" value={form.accessKey} onChange={e => setForm({ ...form, accessKey: e.target.value })} style={inputStyle} />
           <input placeholder="Channel ID" value={form.channelId} onChange={e => setForm({ ...form, channelId: e.target.value })} style={inputStyle} />
           <input placeholder="Channel manager base URL" value={form.cmBaseUrl} onChange={e => setForm({ ...form, cmBaseUrl: e.target.value })} style={{ ...inputStyle, flex: 1, minWidth: 220 }} />

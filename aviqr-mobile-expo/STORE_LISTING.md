@@ -13,11 +13,11 @@ they're not who this copy needs to convert.
 
 ## Apple App Store
 
-**App Name** (≤30 chars) — 30/30
-`AviQR: QR Menu & Restaurant OS`
+**App Name** (≤30 chars) — 28/30
+`AviQR: Restaurant & Hotel OS`
 
-**Subtitle** (≤30 chars) — 29/30
-`Restaurant & Hotel Management`
+**Subtitle** (≤30 chars) — 27/30
+`QR Menu, POS, KOT & Billing`
 
 **Promotional text** (≤170 chars, editable anytime without a new build) — 110/170
 `Free Starter plan, no credit card. QR menu, live orders, KOT, billing, inventory, staff and loyalty — one app.`
@@ -29,8 +29,8 @@ they're not who this copy needs to convert.
 
 ## Google Play
 
-**App name** (≤30 chars) — 30/30
-`AviQR: QR Menu & Restaurant OS`
+**App name** (≤30 chars) — 28/30
+`AviQR: Restaurant & Hotel OS`
 
 **Short description** (≤80 chars) — 77/80
 `QR menu, live orders, KOT, billing & staff management for restaurants, hotels`

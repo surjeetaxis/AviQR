@@ -7,41 +7,40 @@ import in.aviqr.pms.entity.*;
 import in.aviqr.pms.repository.ChannelBookingRepository;
 import in.aviqr.pms.repository.ChannelMappingRepository;
 import in.aviqr.pms.repository.ChannelSyncLogRepository;
-import in.aviqr.pms.repository.RatePlanRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service @RequiredArgsConstructor @Slf4j
 public class ChannelService {
-
-    private static final DateTimeFormatter CM_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final ChannelMappingRepository mappingRepo;
     private final ChannelBookingRepository channelBookingRepo;
     private final ChannelSyncLogRepository syncLogRepo;
     private final ReservationService reservationService;
     private final AvailabilityService availabilityService;
-    private final RatePlanService ratePlanService;
-    private final RatePlanRepository ratePlanRepo;
+    private final AxisRoomsAriService ariService;
     private final ObjectMapper objectMapper;
-    @Qualifier("externalRestTemplate") private final RestTemplate externalRestTemplate;
+
+    /** Thrown when an AxisRooms booking push's accessKey/hotelId match no live
+     *  mapping — the controller reports it without echoing anything back. */
+    public static class ChannelAuthException extends RuntimeException {
+        public ChannelAuthException(String message) { super(message); }
+    }
 
     public ChannelMapping createMapping(ChannelMapping req) {
         req.setId(null);
@@ -60,6 +59,7 @@ public class ChannelService {
         existing.setExternalPropertyId(req.getExternalPropertyId());
         existing.setExternalRoomTypeId(req.getExternalRoomTypeId());
         existing.setExternalRatePlanId(req.getExternalRatePlanId());
+        existing.setInternalRatePlanId(req.getInternalRatePlanId());
         existing.setAccessKey(req.getAccessKey());
         existing.setChannelId(req.getChannelId());
         existing.setCmBaseUrl(req.getCmBaseUrl());
@@ -127,102 +127,174 @@ public class ChannelService {
     }
 
     /**
-     * Real-world accept-booking contract: nested Guest/Checkin/Booking/Rates blocks,
-     * accessKey-authenticated, dates as dd/MM/yyyy strings, no explicit channel name —
-     * accessKey + BookingDetails.hotelID + a Rates.roomType[].id line together identify
-     * the mapping. bookingNo is the idempotency/modification key: a later notification
-     * for the same bookingNo with bookingStatus=cancelled cancels the reservation instead
-     * of creating a new one. Per-room-per-night pricing isn't in this payload, so the
-     * booking's total amount is spread evenly across every assigned room-night — a
-     * documented simplification, not a real per-room rate.
+     * Booking push from the AxisRooms channel manager (see AcceptBookingRequest).
+     * accessKey + BookingDetails.hotelId must match a live mapping before anything
+     * else in the payload is trusted. The idempotency key is otaRefId:bookingNo, since
+     * bookingNo is the OTA's own reference and two OTAs can reuse one:
+     *   confirmed  → new reservation; a repeat returns the one already created
+     *   modified   → the old reservation is superseded and the full new booking
+     *                created in its place, atomically (a modification for a booking
+     *                we never saw is taken as a new booking)
+     *   cancelled  → cancels it; cancelling twice is a no-op
      */
     @Transactional
     public Reservation ingestBookingReal(AcceptBookingRequest req) {
-        String bookingNo = req.getBookingDetails().getBookingNo();
-        String hotelID = req.getBookingDetails().getHotelID();
-        boolean cancelled = "cancelled".equalsIgnoreCase(req.getBookingDetails().getBookingStatus());
+        AcceptBookingRequest.BookingDetails bd = req.getBookingDetails();
+        if (bd == null || isBlank(bd.getBookingNo()) || isBlank(bd.getHotelId()))
+            throw new RuntimeException("BookingDetails.bookingNo and BookingDetails.hotelId are required");
+        if (isBlank(req.getAccessKey()))
+            throw new ChannelAuthException("accessKey is required");
+        List<ChannelMapping> propertyMappings =
+            mappingRepo.findByAccessKeyAndExternalPropertyIdAndActiveTrue(req.getAccessKey(), bd.getHotelId());
+        if (propertyMappings.isEmpty())
+            throw new ChannelAuthException("No active mapping for this accessKey and hotelId " + bd.getHotelId());
 
-        var existing = channelBookingRepo.findByChannelAndExternalBookingId(ChannelName.GENERIC, bookingNo);
-        if (existing.isPresent()) {
-            if (cancelled) {
-                Reservation cancelledRes = reservationService.cancel(existing.get().getReservationId());
-                syncLogRepo.save(ChannelSyncLog.builder().hotelId(cancelledRes.getHotelId()).channel(ChannelName.GENERIC)
-                    .direction(SyncDirection.PULL).status(SyncStatus.SUCCESS)
-                    .message("Cancelled booking " + bookingNo).build());
-                return cancelledRes;
-            }
-            log.info("Duplicate accept-booking notification for {} — returning existing reservation", bookingNo);
+        UUID hotelId = propertyMappings.get(0).getHotelId();
+        ChannelName channel = propertyMappings.get(0).getChannel();
+        String bookingKey = isBlank(bd.getOtaRefId()) ? bd.getBookingNo() : bd.getOtaRefId().trim() + ":" + bd.getBookingNo();
+        String status = isBlank(bd.getBookingStatus()) ? "confirmed" : bd.getBookingStatus().trim().toLowerCase();
+        var existing = channelBookingRepo.findByChannelAndExternalBookingId(channel, bookingKey);
+
+        if ("cancelled".equals(status) || "canceled".equals(status)) {
+            if (existing.isEmpty()) throw new RuntimeException("Unknown booking " + bd.getBookingNo() + " — nothing to cancel");
+            Reservation current = reservationService.get(existing.get().getReservationId());
+            if (current.getStatus() == ReservationStatus.CANCELLED) return current;
+            Reservation cancelled = reservationService.cancel(current.getId());
+            logPull(hotelId, channel, "Cancelled " + describe(bd));
+            return cancelled;
+        }
+
+        if (existing.isPresent() && !"modified".equals(status)) {
+            log.info("Duplicate AxisRooms booking push for {} — returning existing reservation", bookingKey);
             return reservationService.get(existing.get().getReservationId());
         }
-        if (cancelled) {
-            log.warn("Cancellation for unknown booking {} — nothing to cancel", bookingNo);
-            throw new RuntimeException("Unknown booking: " + bookingNo);
+
+        if (existing.isPresent()) reservationService.supersede(existing.get().getReservationId());
+        Reservation reservation = createFromAxisRooms(req, hotelId, propertyMappings);
+
+        if (existing.isPresent()) {
+            ChannelBooking link = existing.get();
+            link.setReservationId(reservation.getId());
+            channelBookingRepo.save(link);
+            logPull(hotelId, channel, "Modified " + describe(bd) + " (" + reservation.getCheckInDate() + " to " + reservation.getCheckOutDate() + ")");
+        } else {
+            channelBookingRepo.save(ChannelBooking.builder()
+                .channel(channel).externalBookingId(bookingKey).reservationId(reservation.getId()).build());
+            logPull(hotelId, channel, "Accepted " + describe(bd) + " (" + reservation.getCheckInDate() + " to " + reservation.getCheckOutDate() + ")");
         }
-        if (req.getRates() == null || req.getRates().getRoomType() == null || req.getRates().getRoomType().isEmpty())
-            throw new RuntimeException("At least one Rates.roomType line is required");
-
-        LocalDate checkIn = LocalDate.parse(req.getCheckinDetails().getCheckInDateTime(), CM_DATE);
-        LocalDate checkOut = LocalDate.parse(req.getCheckinDetails().getCheckOutDateTime(), CM_DATE);
-        long nights = Math.max(1, java.time.temporal.ChronoUnit.DAYS.between(checkIn, checkOut));
-
-        int totalRooms = req.getRates().getRoomType().stream()
-            .mapToInt(rt -> parseIntOr(rt.getNoOfRooms(), 1)).sum();
-        BigDecimal totalAmount = parseAmountOr(req.getCheckinDetails().getTotalAmount(), BigDecimal.ZERO);
-        BigDecimal perRoomPerNight = totalRooms > 0
-            ? totalAmount.divide(BigDecimal.valueOf(totalRooms), 2, RoundingMode.HALF_UP).divide(BigDecimal.valueOf(nights), 2, RoundingMode.HALF_UP)
-            : BigDecimal.ZERO;
-
-        UUID hotelId = null;
-        List<ReservationService.ChannelRoomLine> lines = new ArrayList<>();
-        for (AcceptBookingRequest.RoomTypeLine rt : req.getRates().getRoomType()) {
-            ChannelMapping mapping = mappingRepo
-                .findByAccessKeyAndExternalPropertyIdAndExternalRoomTypeId(req.getAccessKey(), hotelID, rt.getId())
-                .filter(ChannelMapping::getActive)
-                .orElseThrow(() -> new RuntimeException("No active mapping for accessKey/" + hotelID + "/" + rt.getId()));
-            hotelId = mapping.getHotelId();
-            int roomCount = parseIntOr(rt.getNoOfRooms(), 1);
-            for (int i = 0; i < roomCount; i++) {
-                lines.add(new ReservationService.ChannelRoomLine(mapping.getRoomTypeId(), perRoomPerNight));
-            }
-        }
-
-        Reservation reservation = reservationService.createFromChannel(hotelId,
-            req.getGuestDetails() != null ? req.getGuestDetails().getGuestName() : null,
-            req.getGuestDetails() != null ? req.getGuestDetails().getMobileNo() : null,
-            checkIn, checkOut,
-            parseIntOr(req.getCheckinDetails().getTotalPax(), 1),
-            parseIntOr(req.getCheckinDetails().getChildren(), 0),
-            "OTA: " + req.getBookingDetails().getOta() + " (booking " + bookingNo + ")",
-            lines);
-
-        channelBookingRepo.save(ChannelBooking.builder()
-            .channel(ChannelName.GENERIC).externalBookingId(bookingNo).reservationId(reservation.getId()).build());
-
-        syncLogRepo.save(ChannelSyncLog.builder()
-            .hotelId(hotelId).channel(ChannelName.GENERIC).direction(SyncDirection.PULL).status(SyncStatus.SUCCESS)
-            .message("Accepted booking " + bookingNo + " via " + req.getBookingDetails().getOta()
-                + " (" + checkIn + " to " + checkOut + ", " + totalRooms + " room(s))")
-            .build());
-
         return reservation;
     }
 
+    private Reservation createFromAxisRooms(AcceptBookingRequest req, UUID hotelId, List<ChannelMapping> propertyMappings) {
+        AcceptBookingRequest.CheckinDetails cd = req.getCheckinDetails();
+        if (cd == null || isBlank(cd.getCheckInDate()) || isBlank(cd.getCheckOutDate()))
+            throw new RuntimeException("CheckinDetails.checkInDate and checkOutDate are required");
+        if (req.getRates() == null || req.getRates().getRoomType() == null || req.getRates().getRoomType().isEmpty())
+            throw new RuntimeException("At least one Rates.roomType line is required");
+
+        LocalDate checkIn = LocalDate.parse(cd.getCheckInDate().trim());
+        LocalDate checkOut = LocalDate.parse(cd.getCheckOutDate().trim());
+        long nights = Math.max(1, ChronoUnit.DAYS.between(checkIn, checkOut));
+        List<AcceptBookingRequest.RoomTypeLine> roomLines = req.getRates().getRoomType();
+        int totalRooms = roomLines.stream().mapToInt(rt -> Math.max(1, parseIntOr(rt.getNoOfRooms(), 1))).sum();
+        BigDecimal bookingTotal = parseAmountOr(cd.getTotalAmount(), BigDecimal.ZERO);
+
+        List<ReservationService.ChannelRoomLine> lines = new ArrayList<>();
+        for (AcceptBookingRequest.RoomTypeLine rt : roomLines) {
+            ChannelMapping mapping = resolveMapping(propertyMappings, rt);
+            int rooms = Math.max(1, parseIntOr(rt.getNoOfRooms(), 1));
+            BigDecimal perRoomNight = lineTotal(rt, bookingTotal, rooms, totalRooms)
+                .divide(BigDecimal.valueOf((long) rooms * nights), 2, RoundingMode.HALF_UP);
+            for (int i = 0; i < rooms; i++) {
+                lines.add(new ReservationService.ChannelRoomLine(mapping.getRoomTypeId(), mapping.getInternalRatePlanId(), perRoomNight));
+            }
+        }
+
+        int children = Math.max(0, parseIntOr(cd.getChildren(), 0));
+        int adults = parseIntOr(cd.getAdult(), parseIntOr(cd.getTotalPax(), 1) - children);
+        AcceptBookingRequest.GuestDetails guest = req.getGuestDetails();
+        return reservationService.createFromChannel(hotelId,
+            guest != null ? guest.getGuestName() : null,
+            guest != null ? guest.getMobileNo() : null,
+            checkIn, checkOut, Math.max(1, adults), children, bookingNotes(req), lines);
+    }
+
+    /** Exact (room, rate plan) match first; otherwise any mapping for the room — an
+     *  OTA rate plan we haven't mapped still books the right room type. */
+    private ChannelMapping resolveMapping(List<ChannelMapping> propertyMappings, AcceptBookingRequest.RoomTypeLine rt) {
+        List<ChannelMapping> forRoom = propertyMappings.stream()
+            .filter(m -> Objects.equals(m.getExternalRoomTypeId(), rt.getId()))
+            .toList();
+        if (forRoom.isEmpty()) throw new RuntimeException("Room " + rt.getId() + " is not mapped in AviQR");
+        return forRoom.stream()
+            .filter(m -> !isBlank(rt.getRatePlanId()) && rt.getRatePlanId().equals(m.getExternalRatePlanId()))
+            .findFirst()
+            .orElse(forRoom.get(0));
+    }
+
+    /** Amount for all rooms on this line for the whole stay: the day-wise rates if
+     *  AxisRooms sent them, else roomWisePrice, else this line's share of the booking
+     *  total. Taken as covering the whole line (every room on it) — to be confirmed
+     *  against a real multi-room push. */
+    private BigDecimal lineTotal(AcceptBookingRequest.RoomTypeLine rt, BigDecimal bookingTotal, int rooms, int totalRooms) {
+        if (rt.getDayWiseDetails() != null && !rt.getDayWiseDetails().isEmpty()) {
+            BigDecimal sum = BigDecimal.ZERO;
+            boolean any = false;
+            for (AcceptBookingRequest.DayWiseDetail d : rt.getDayWiseDetails()) {
+                BigDecimal rate = parseAmountOr(d.getRate(), null);
+                if (rate != null) { sum = sum.add(rate); any = true; }
+            }
+            if (any) return sum;
+        }
+        BigDecimal roomWise = parseAmountOr(rt.getRoomWisePrice(), null);
+        if (roomWise != null) return roomWise;
+        return bookingTotal.multiply(BigDecimal.valueOf(rooms)).divide(BigDecimal.valueOf(totalRooms), 2, RoundingMode.HALF_UP);
+    }
+
+    private String bookingNotes(AcceptBookingRequest req) {
+        AcceptBookingRequest.BookingDetails bd = req.getBookingDetails();
+        AcceptBookingRequest.CheckinDetails cd = req.getCheckinDetails();
+        StringBuilder sb = new StringBuilder("AxisRooms: ")
+            .append(isBlank(bd.getOta()) ? "OTA" : bd.getOta())
+            .append(" booking ").append(bd.getBookingNo());
+        if (!isBlank(cd.getTotalAmount())) sb.append(" | total ").append(cd.getTotalAmount());
+        if (!isBlank(cd.getCurrency())) sb.append(" ").append(cd.getCurrency());
+        if (!isBlank(cd.getPaid())) sb.append(" | paid ").append(cd.getPaid());
+        if (!isBlank(cd.getAmountToBeCollected())) sb.append(" | to collect ").append(cd.getAmountToBeCollected());
+        if (cd.getSpecialRequest() != null && !cd.getSpecialRequest().isEmpty())
+            sb.append(" | requests: ").append(String.join("; ", cd.getSpecialRequest()));
+        if (req.getGuestDetails() != null && !isBlank(req.getGuestDetails().getEmailId()))
+            sb.append(" | email ").append(req.getGuestDetails().getEmailId());
+        return sb.toString();
+    }
+
+    private String describe(AcceptBookingRequest.BookingDetails bd) {
+        return "booking " + bd.getBookingNo() + " via " + (isBlank(bd.getOta()) ? "AxisRooms" : bd.getOta());
+    }
+
+    private void logPull(UUID hotelId, ChannelName channel, String message) {
+        syncLogRepo.save(ChannelSyncLog.builder()
+            .hotelId(hotelId).channel(channel).direction(SyncDirection.PULL).status(SyncStatus.SUCCESS)
+            .message(message).build());
+    }
+
+    private static boolean isBlank(String s) { return s == null || s.isBlank(); }
+
     private int parseIntOr(String s, int fallback) {
-        try { return s == null || s.isBlank() ? fallback : Integer.parseInt(s.trim()); }
+        try { return isBlank(s) ? fallback : Integer.parseInt(s.trim()); }
         catch (NumberFormatException e) { return fallback; }
     }
 
     private BigDecimal parseAmountOr(String s, BigDecimal fallback) {
-        try { return s == null || s.isBlank() ? fallback : new BigDecimal(s.trim()); }
+        try { return isBlank(s) ? fallback : new BigDecimal(s.trim()); }
         catch (NumberFormatException e) { return fallback; }
     }
 
     /**
-     * ARI push: for each active mapping with a configured cmBaseUrl/accessKey/channelId,
-     * POSTs real inventory (availability, doubling as a stop-sell when 0) and
-     * bulkPriceUpdate calls in the channel manager's own request shape. A mapping with no
-     * cmBaseUrl configured (e.g. the demo mapping) falls back to a log-only simulation so
-     * the sync log/UI still has something to show without a live connection.
+     * ARI push: mappings with a configured cmBaseUrl get the full inventory/price/
+     * restriction push (AxisRoomsAriService). A mapping with no cmBaseUrl (e.g. the
+     * demo mapping) falls back to a log-only simulation so the sync log/UI still has
+     * something to show without a live connection.
      */
     public void pushAvailabilityAndRates(UUID hotelId) {
         pushForMappings(mappingRepo.findByHotelIdAndActiveTrue(hotelId));
@@ -236,110 +308,34 @@ public class ChannelService {
         pushForMappings(mappingRepo.findByRoomTypeIdAndActiveTrue(roomTypeId));
     }
 
+    /** A booking/cancellation/stay change in AviQR changes sellable rooms, so live
+     *  channel managers get fresh availability for those room types. After commit (the
+     *  push must see the change) and off the request thread (it's outbound HTTP). */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void onInventoryChanged(InventoryChangedEvent event) {
+        try {
+            List<ChannelMapping> mappings = event.roomTypeIds().stream()
+                .flatMap(id -> mappingRepo.findByRoomTypeIdAndActiveTrue(id).stream())
+                .toList();
+            ariService.pushInventoryOnly(mappings);
+        } catch (Exception e) {
+            log.warn("Inventory push after reservation change failed for hotel {}: {}", event.hotelId(), e.getMessage());
+        }
+    }
+
     private void pushForMappings(List<ChannelMapping> mappings) {
-        for (ChannelMapping mapping : mappings) {
-            if (mapping.getCmBaseUrl() != null && !mapping.getCmBaseUrl().isBlank()) {
-                pushInventoryReal(mapping);
-                pushPriceReal(mapping);
-            } else {
-                pushSimulated(mapping);
-            }
-        }
-    }
-
-    private void pushInventoryReal(ChannelMapping mapping) {
-        Map<String, Object> body = null;
-        try {
-            LocalDate today = LocalDate.now();
-            LocalDate tomorrow = today.plusDays(1);
-            int available = availabilityService.availableCount(mapping.getHotelId(), mapping.getRoomTypeId(), today, tomorrow);
-
-            body = Map.of(
-                "accessKey", mapping.getAccessKey(),
-                "channelId", mapping.getChannelId(),
-                "hotels", List.of(Map.of(
-                    "hotelId", mapping.getExternalPropertyId(),
-                    "rooms", List.of(Map.of(
-                        "roomId", mapping.getExternalRoomTypeId(),
-                        "startDate", today.toString(),
-                        "endDate", tomorrow.toString(),
-                        "availability", available)))));
-
-            ResponseEntity<String> resp = post(mapping.getCmBaseUrl() + "/api/inventory", body);
-            syncLogRepo.save(ChannelSyncLog.builder()
-                .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.SUCCESS)
-                .message("Pushed inventory for " + mapping.getExternalRoomTypeId() + " (" + today + "): availability=" + available)
-                .requestBody(toJson(body)).responseBody(describeResponse(resp))
-                .build());
-        } catch (Exception e) {
-            syncLogRepo.save(ChannelSyncLog.builder()
-                .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.FAILED)
-                .message("Inventory push failed for " + mapping.getExternalRoomTypeId() + ": " + e.getMessage())
-                .requestBody(body != null ? toJson(body) : null).responseBody("error: " + e.getMessage())
-                .build());
-        }
-    }
-
-    private void pushPriceReal(ChannelMapping mapping) {
-        if (mapping.getExternalRatePlanId() == null) return;
-        Map<String, Object> body = null;
-        try {
-            LocalDate today = LocalDate.now();
-            LocalDate horizon = today.plusDays(30);
-            // No per-occupancy pricing model on our side yet — the same nightly rate is
-            // sent for every occupancy tier the channel manager's price object expects.
-            BigDecimal rate = ratePlanService.rateForNight(findInternalRatePlanId(mapping), today);
-            Map<String, Object> priceTiers = Map.of(
-                "Single", rate, "Double", rate, "Triple", rate, "Quad", rate);
-
-            body = Map.of(
-                "accessKey", mapping.getAccessKey(),
-                "channelId", mapping.getChannelId(),
-                "hotels", List.of(Map.of(
-                    "hotelId", mapping.getExternalPropertyId(),
-                    "rooms", List.of(Map.of(
-                        "roomId", mapping.getExternalRoomTypeId(),
-                        "rateplans", List.of(Map.of(
-                            "rateplanId", mapping.getExternalRatePlanId(),
-                            "otaIds", List.of(),
-                            "priceDetails", List.of(Map.of(
-                                "startDate", today.toString(),
-                                "endDate", horizon.toString(),
-                                "price", priceTiers)))))))));
-
-            ResponseEntity<String> resp = post(mapping.getCmBaseUrl() + "/api/bulkPriceUpdate", body);
-            syncLogRepo.save(ChannelSyncLog.builder()
-                .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.SUCCESS)
-                .message("Pushed price for rate plan " + mapping.getExternalRatePlanId() + " (" + today + " to " + horizon + ")")
-                .requestBody(toJson(body)).responseBody(describeResponse(resp))
-                .build());
-        } catch (Exception e) {
-            syncLogRepo.save(ChannelSyncLog.builder()
-                .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.FAILED)
-                .message("Price push failed for rate plan " + mapping.getExternalRatePlanId() + ": " + e.getMessage())
-                .requestBody(body != null ? toJson(body) : null).responseBody("error: " + e.getMessage())
-                .build());
-        }
-    }
-
-    // mapping.externalRatePlanId is the channel manager's own rate-plan id, not one of
-    // ours — the mapping only links a RoomType, so the first active internal RatePlan
-    // for that room type is used as the source of truth for the price push. A hotel
-    // with several rate plans per room type would need the mapping to name one
-    // explicitly; that's a reasonable follow-up, not needed for a single-rate-plan hotel.
-    private UUID findInternalRatePlanId(ChannelMapping mapping) {
-        return ratePlanRepo.findByRoomTypeIdAndActiveTrue(mapping.getRoomTypeId()).stream()
-            .findFirst()
-            .map(RatePlan::getId)
-            .orElseThrow(() -> new RuntimeException("No active rate plan for room type " + mapping.getRoomTypeId()));
+        List<ChannelMapping> live = mappings.stream().filter(m -> !isBlank(m.getCmBaseUrl())).toList();
+        if (!live.isEmpty()) ariService.pushAll(live);
+        mappings.stream().filter(m -> isBlank(m.getCmBaseUrl())).forEach(this::pushSimulated);
     }
 
     private void pushSimulated(ChannelMapping mapping) {
         try {
             LocalDate today = LocalDate.now();
             int available = availabilityService.availableCount(mapping.getHotelId(), mapping.getRoomTypeId(), today, today.plusDays(1));
-            // No cmBaseUrl on this mapping — this is the exact payload a real push would
-            // have POSTed to /api/inventory, kept here so "what would we have sent" is
+            // No cmBaseUrl on this mapping — this is the shape a real push would have
+            // POSTed to /api/inventory, kept here so "what would we have sent" is
             // still inspectable without a live connection.
             Map<String, Object> wouldSend = Map.of(
                 "accessKey", mapping.getAccessKey() == null ? "" : mapping.getAccessKey(),
@@ -349,6 +345,7 @@ public class ChannelService {
                     "rooms", List.of(Map.of(
                         "roomId", mapping.getExternalRoomTypeId(),
                         "startDate", today.toString(),
+                        "endDate", today.toString(),
                         "availability", available)))));
             syncLogRepo.save(ChannelSyncLog.builder()
                 .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.SUCCESS)
@@ -368,15 +365,5 @@ public class ChannelService {
     private String toJson(Object o) {
         try { return objectMapper.writeValueAsString(o); }
         catch (Exception e) { return String.valueOf(o); }
-    }
-
-    private String describeResponse(ResponseEntity<String> resp) {
-        return "HTTP " + resp.getStatusCode().value() + (resp.getBody() != null ? "\n" + resp.getBody() : "");
-    }
-
-    private ResponseEntity<String> post(String url, Map<String, Object> body) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        return externalRestTemplate.postForEntity(url, new HttpEntity<>(body, headers), String.class);
     }
 }
