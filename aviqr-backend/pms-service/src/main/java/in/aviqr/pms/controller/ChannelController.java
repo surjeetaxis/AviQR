@@ -14,7 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController @RequiredArgsConstructor @Slf4j
@@ -91,11 +93,28 @@ public class ChannelController {
         return ResponseEntity.ok(ApiResponse.ok("Booking ingested", channelService.ingestBooking(req)));
     }
 
-    // Public — same reasoning as /webhook above, but matching the real ARI-style
-    // accept-booking contract (accessKey-in-body auth, nested Guest/Checkin/Booking/
-    // Rates blocks, dd/MM/yyyy dates). See ChannelService.ingestBookingReal.
+    // Public — same reasoning as /webhook above: this is the booking push URL configured
+    // for the hotel in the AxisRooms channel manager (accessKey-in-body auth, see
+    // ChannelService.ingestBookingReal). AxisRooms reads only the body's "status"
+    // ("success" or anything else = failed, retried from its side), so every outcome
+    // is HTTP 200 with that shape rather than our ApiResponse envelope.
     @PostMapping("/api/v1/pms/channels/accept-booking")
-    public ResponseEntity<ApiResponse<Reservation>> acceptBooking(@RequestBody AcceptBookingRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Booking accepted", channelService.ingestBookingReal(req)));
+    public ResponseEntity<Map<String, Object>> acceptBooking(@RequestBody AcceptBookingRequest req) {
+        String bookingNo = req.getBookingDetails() != null ? req.getBookingDetails().getBookingNo() : null;
+        try {
+            Reservation r = channelService.ingestBookingReal(req);
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("status", "success");
+            body.put("message", "Booking " + bookingNo + " processed");
+            body.put("pmsBookingId", r.getId().toString());
+            return ResponseEntity.ok(body);
+        } catch (ChannelService.ChannelAuthException e) {
+            log.warn("Rejected AxisRooms booking push {}: {}", bookingNo, e.getMessage());
+            return ResponseEntity.ok(Map.of("status", "failure", "message", "Authorization failed"));
+        } catch (Exception e) {
+            log.warn("AxisRooms booking push {} failed: {}", bookingNo, e.getMessage());
+            return ResponseEntity.ok(Map.of("status", "failure",
+                "message", e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+        }
     }
 }

@@ -32,6 +32,7 @@ public class ReservationLifecycleScheduler {
     private final RoomReservationRepository roomReservationRepo;
     private final FolioService folioService;
     private final WaitlistService waitlistService;
+    private final ReservationService reservationService;
     private final RabbitTemplate rabbitTemplate;
 
     @Value("${pms.noshow.job.enabled:true}")
@@ -69,6 +70,8 @@ public class ReservationLifecycleScheduler {
             } catch (Exception e) {
                 log.warn("Waitlist check failed for auto-no-show reservation {}: {}", r.getId(), e.getMessage());
             }
+            // A no-show's later nights become sellable again on the channels.
+            reservationService.publishInventoryChange(r);
         }
     }
 

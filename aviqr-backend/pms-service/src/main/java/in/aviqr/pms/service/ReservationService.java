@@ -7,6 +7,7 @@ import in.aviqr.pms.entity.*;
 import in.aviqr.pms.repository.ReservationRepository;
 import in.aviqr.pms.repository.RoomReservationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +20,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service @RequiredArgsConstructor
 public class ReservationService {
@@ -36,6 +38,7 @@ public class ReservationService {
     private final RegistrationCardService registrationCardService;
     private final LoyaltyService loyaltyService;
     private final WaitlistService waitlistService;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public Reservation create(CreateReservationRequest req, String createdBy) {
@@ -87,6 +90,7 @@ public class ReservationService {
                 totalRoomRevenue, req.getCommissionPercentOverride());
         }
 
+        publishInventoryChange(reservation);
         return reservation;
     }
 
@@ -113,14 +117,49 @@ public class ReservationService {
 
         Set<UUID> claimedThisRequest = new HashSet<>();
         for (ChannelRoomLine line : lines) {
-            assignRoom(reservation.getId(), hotelId, line.roomTypeId(), null,
+            assignRoom(reservation.getId(), hotelId, line.roomTypeId(), line.ratePlanId(),
                 checkIn, checkOut, line.ratePerNight(), claimedThisRequest);
         }
 
+        publishInventoryChange(reservation);
         return reservation;
     }
 
-    public record ChannelRoomLine(UUID roomTypeId, BigDecimal ratePerNight) {}
+    /** ratePlanId is optional — set when the channel told us which of our rate plans
+     *  was sold, so the stay's room line (and folio) can reference it. */
+    public record ChannelRoomLine(UUID roomTypeId, UUID ratePlanId, BigDecimal ratePerNight) {
+        public ChannelRoomLine(UUID roomTypeId, BigDecimal ratePerNight) { this(roomTypeId, null, ratePerNight); }
+    }
+
+    /** A channel modification arrives as the complete new booking, so the old
+     *  reservation is superseded rather than cancelled: same status/commission
+     *  handling as cancel(), but no waitlist notification, since the replacement
+     *  booking is about to re-claim the rooms in the same transaction. */
+    @Transactional
+    public Reservation supersede(UUID reservationId) {
+        Reservation reservation = get(reservationId);
+        if (reservation.getStatus() != ReservationStatus.BOOKED)
+            throw new RuntimeException("Only a BOOKED reservation can be modified by the channel (status is " + reservation.getStatus() + ")");
+        reservation.setStatus(ReservationStatus.CANCELLED);
+        reservation.setCancelledAt(LocalDateTime.now());
+        commissionService.voidForReservation(reservationId);
+        Reservation saved = reservationRepo.save(reservation);
+        // The replacement may be for a different room type — push the old one too.
+        publishInventoryChange(saved);
+        return saved;
+    }
+
+    /** Best-effort: never fails the reservation change itself. */
+    public void publishInventoryChange(Reservation reservation) {
+        try {
+            Set<UUID> roomTypeIds = roomReservationRepo.findByReservationId(reservation.getId()).stream()
+                .map(RoomReservation::getRoomTypeId)
+                .collect(Collectors.toSet());
+            if (!roomTypeIds.isEmpty()) events.publishEvent(new InventoryChangedEvent(reservation.getHotelId(), roomTypeIds));
+        } catch (Exception e) {
+            // the next scheduled ARI push re-sends full availability anyway
+        }
+    }
 
     private UUID optId(Guest guest) { return guest != null ? guest.getId() : null; }
 
@@ -196,6 +235,8 @@ public class ReservationService {
 
         reservation.setStatus(ReservationStatus.CHECKED_OUT);
         Reservation saved = reservationRepo.save(reservation);
+        // An early checkout frees the remaining booked nights.
+        publishInventoryChange(saved);
         // A guest's folio is settled by checkout time in the common case, so this is
         // the natural point to lock in a permanent invoice number (see InvoiceService —
         // idempotent, so a re-checkout attempt never burns a second sequence value).
@@ -236,6 +277,7 @@ public class ReservationService {
 
         reservation.setCheckOutDate(newCheckOutDate);
         Reservation saved = reservationRepo.save(reservation);
+        publishInventoryChange(saved);
         for (RoomReservation rr : rooms) {
             hotelServiceClient.updateRoomOccupancy(rr.getRoomId(), reservation.getGuestName(),
                 reservation.getCheckInDate().toString(), newCheckOutDate.toString(), "OCCUPIED");
@@ -288,6 +330,7 @@ public class ReservationService {
         commissionService.voidForReservation(reservationId);
         Reservation saved = reservationRepo.save(reservation);
         notifyWaitlistOfFreedRoomTypes(reservationId, reservation.getHotelId());
+        publishInventoryChange(saved);
         return saved;
     }
 
@@ -302,6 +345,7 @@ public class ReservationService {
         commissionService.voidForReservation(reservationId);
         Reservation saved = reservationRepo.save(reservation);
         notifyWaitlistOfFreedRoomTypes(reservationId, reservation.getHotelId());
+        publishInventoryChange(saved);
         return saved;
     }
 

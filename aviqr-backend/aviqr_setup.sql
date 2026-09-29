@@ -2745,6 +2745,9 @@ CREATE TABLE IF NOT EXISTS pms_channel_mappings (
 ALTER TABLE pms_channel_mappings ADD COLUMN IF NOT EXISTS access_key  VARCHAR(255);
 ALTER TABLE pms_channel_mappings ADD COLUMN IF NOT EXISTS channel_id  VARCHAR(100);
 ALTER TABLE pms_channel_mappings ADD COLUMN IF NOT EXISTS cm_base_url VARCHAR(500);
+-- AxisRooms CM integration: which of our rate plans feeds the mapping's
+-- external_rate_plan_id (null = the room type's first active plan).
+ALTER TABLE pms_channel_mappings ADD COLUMN IF NOT EXISTS internal_rate_plan_id UUID;
 CREATE INDEX IF NOT EXISTS idx_pms_channel_map_hotel  ON pms_channel_mappings (hotel_id);
 CREATE INDEX IF NOT EXISTS idx_pms_channel_map_lookup ON pms_channel_mappings (channel, external_property_id, external_room_type_id);
 CREATE INDEX IF NOT EXISTS idx_pms_channel_map_access ON pms_channel_mappings (access_key, external_property_id, external_room_type_id);

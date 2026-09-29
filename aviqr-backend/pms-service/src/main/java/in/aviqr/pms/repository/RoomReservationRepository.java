@@ -25,6 +25,29 @@ public interface RoomReservationRepository extends JpaRepository<RoomReservation
                                            @Param("checkInDate") LocalDate checkInDate,
                                            @Param("checkOutDate") LocalDate checkOutDate);
 
+    // Every assigned room held by a live stay anywhere in [from, to), with its stay
+    // dates — AvailabilityService.availabilityCalendar works out which nights each
+    // one blocks. Same BOOKED/CHECKED_IN rule as findOverlapping.
+    @Query("""
+        select rr.roomId as roomId, r.checkInDate as checkInDate, r.checkOutDate as checkOutDate
+        from RoomReservation rr
+        join Reservation r on r.id = rr.reservationId
+        where rr.roomTypeId = :roomTypeId
+          and rr.roomId is not null
+          and r.status in ('BOOKED', 'CHECKED_IN')
+          and r.checkInDate < :to
+          and r.checkOutDate > :from
+        """)
+    List<HeldRoomStay> findHeldInWindow(@Param("roomTypeId") UUID roomTypeId,
+                                        @Param("from") LocalDate from,
+                                        @Param("to") LocalDate to);
+
+    interface HeldRoomStay {
+        UUID getRoomId();
+        LocalDate getCheckInDate();
+        LocalDate getCheckOutDate();
+    }
+
     // The room-stay(s) currently in progress for a physical room (set at check-in,
     // cleared at check-out) — used to attribute a POS/room-charge order to a folio.
     // Ordered most-recent-check-in-first: normally there's exactly one, but nothing
