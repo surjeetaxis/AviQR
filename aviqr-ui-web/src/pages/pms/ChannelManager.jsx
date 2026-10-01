@@ -10,8 +10,10 @@ import '../admin/Admin.css';
 
 const inputStyle = { height: 34, padding: '0 10px', borderRadius: 8, border: '1px solid var(--gray-200)', fontSize: 13 };
 const btnPrimary = { width: 'auto', height: 34, padding: '0 12px', background: 'var(--blue)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none' };
-const btnSecondary = { width: 'auto', height: 34, padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: 6 };
-const btnSmall = { width: 'auto', height: 28, padding: '0 8px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 };
+// .admin-row-btn is styled for small grey icon buttons, so text buttons set their own colours.
+const btnSecondary = { width: 'auto', height: 34, padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: 'var(--gray-700)', fontWeight: 500 };
+const btnSmall = { width: 'auto', height: 28, padding: '0 8px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', color: 'var(--gray-700)', fontWeight: 500 };
+const disabledStyle = (disabled) => disabled ? { opacity: 0.45, cursor: 'not-allowed' } : null;
 const btnDanger = { ...btnSmall, color: 'var(--red)' };
 const preStyle = { fontSize: 11.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, padding: 8, margin: 0, maxHeight: 260, overflow: 'auto' };
 const muted = { fontSize: 12, color: 'var(--gray-500)' };
@@ -328,10 +330,10 @@ function MappingsView({ hotelId, roomTypes, channels, kindLabel, mappings, overv
         <button type="button" className="admin-row-btn" style={btnPrimary} onClick={() => setShowForm(s => !s)}><Plus size={14} /> Add {kindLabel} mapping</button>
         <span style={{ ...muted, marginLeft: 'auto' }}>{selected.length ? `${selected.length} selected →` : 'Tick rows to sync just those room types'}</span>
         {SYNC_TYPES.map(t => (
-          <button key={t.key} type="button" className="admin-row-btn" style={btnSecondary} disabled={!selected.length}
+          <button key={t.key} type="button" className="admin-row-btn" style={{ ...btnSecondary, ...disabledStyle(!selected.length) }} disabled={!selected.length}
             onClick={() => onSync({ roomTypeIds: selectedRoomTypes, types: [t.key] })}>{t.label}</button>
         ))}
-        <button type="button" className="admin-row-btn" style={btnSecondary} disabled={!selected.length}
+        <button type="button" className="admin-row-btn" style={{ ...btnPrimary, ...disabledStyle(!selected.length) }} disabled={!selected.length}
           onClick={() => onSync({ roomTypeIds: selectedRoomTypes })}><RefreshCw size={14} /> Sync selected</button>
       </div>
 
@@ -454,7 +456,12 @@ function CalendarView({ hotelId, connections, onSync, refreshKey }) {
   }, [hotelId, from, days, conn, refreshKey]);
   useEffect(() => { load(); }, [load]);
 
-  const cell = { width: dayW, flexShrink: 0, borderLeft: '1px solid var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, height: 30, position: 'relative' };
+  const todayStr = today();
+  const cellStyle = (d) => {
+    const dow = new Date(d + 'T00:00:00').getDay();
+    return { width: dayW, flexShrink: 0, borderLeft: '1px solid var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, height: 30, position: 'relative',
+      background: d === todayStr ? 'rgba(37, 99, 235, 0.06)' : (dow === 0 || dow === 6) ? 'var(--gray-50)' : undefined };
+  };
   const label = { width: LABEL_W, flexShrink: 0, padding: '0 12px', fontSize: 11.5, color: 'var(--gray-600)', display: 'flex', alignItems: 'center' };
   const pendingDot = (on, title) => on ? <span title={title} style={{ position: 'absolute', top: 3, right: 4, width: 6, height: 6, borderRadius: 999, background: '#f0a020' }} /> : null;
 
@@ -488,7 +495,7 @@ function CalendarView({ hotelId, connections, onSync, refreshKey }) {
           <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
             <div style={{ ...label, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase', height: 36 }}>Room type / rate plan</div>
             {dates.map(d => (
-              <div key={d} style={{ ...cell, height: 36, fontWeight: 600, color: d === today() ? 'var(--blue)' : 'var(--gray-400)', fontSize: 11 }}>
+              <div key={d} style={{ ...cellStyle(d), height: 36, fontWeight: 600, color: d === today() ? 'var(--blue)' : 'var(--gray-400)', fontSize: 11 }}>
                 {new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: days > 7 ? 'short' : undefined })}
               </div>
             ))}
@@ -498,7 +505,7 @@ function CalendarView({ hotelId, connections, onSync, refreshKey }) {
             const isCollapsed = !!collapsed[rt.roomTypeId];
             const byDate = Object.fromEntries((rt.days || []).map(d => [d.date, d]));
             return (
-              <Fragment key={rt.roomTypeId}>
+              <div key={rt.roomTypeId} style={{ opacity: rt.mapped ? 1 : 0.55 }}>
                 <div style={{ display: 'flex', alignItems: 'center', background: 'var(--gray-50)', borderBottom: '1px solid var(--gray-100)', minHeight: 40 }}>
                   <div style={{ ...label, gap: 6, fontWeight: 700, fontSize: 12.5, color: 'var(--gray-800)', cursor: 'pointer' }} onClick={() => setCollapsed(p => ({ ...p, [rt.roomTypeId]: !p[rt.roomTypeId] }))}>
                     {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
@@ -521,24 +528,24 @@ function CalendarView({ hotelId, connections, onSync, refreshKey }) {
                   <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
                     <div style={label} title="Sellable rooms AviQR sends to the channel (after allotment caps and today's room status)">Sent to channel</div>
                     {dates.map(d => { const x = byDate[d]; return (
-                      <div key={d} style={{ ...cell, fontWeight: 700, color: !x ? 'var(--gray-300)' : x.sellable === 0 ? 'var(--red)' : 'var(--green-darker)' }}>
+                      <div key={d} style={{ ...cellStyle(d), fontWeight: 700, color: !x ? 'var(--gray-300)' : x.sellable === 0 ? 'var(--red)' : 'var(--green-darker)' }}>
                         {x ? x.sellable : '—'}{pendingDot(x?.pending, 'Availability changed since the last inventory sync')}
                       </div>); })}
                   </div>
                   <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
                     <div style={label}>Booked (all sources)</div>
-                    {dates.map(d => <div key={d} style={cell}>{byDate[d]?.booked ?? '—'}</div>)}
+                    {dates.map(d => <div key={d} style={cellStyle(d)}>{byDate[d]?.booked ?? '—'}</div>)}
                   </div>
                   <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
                     <div style={label} title="Rooms booked through channels staying that night; + arrivals that day">Channel stays (+arrivals)</div>
                     {dates.map(d => { const x = byDate[d]; return (
-                      <div key={d} style={{ ...cell, color: x?.channelStays ? 'var(--blue)' : 'var(--gray-300)' }}>
+                      <div key={d} style={{ ...cellStyle(d), color: x?.channelStays ? 'var(--blue)' : 'var(--gray-300)' }}>
                         {x ? (x.channelStays ? `${x.channelStays}${x.channelArrivals ? ` (+${x.channelArrivals})` : ''}` : '0') : '—'}
                       </div>); })}
                   </div>
                   <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-100)' }}>
                     <div style={label}>Allotment cap</div>
-                    {dates.map(d => <div key={d} style={{ ...cell, color: 'var(--gray-500)' }}>{byDate[d]?.allotment ?? '—'}</div>)}
+                    {dates.map(d => <div key={d} style={{ ...cellStyle(d), color: 'var(--gray-500)' }}>{byDate[d]?.allotment ?? '—'}</div>)}
                   </div>
                   {(rt.ratePlans || []).map(rp => {
                     const rByDate = Object.fromEntries((rp.days || []).map(d => [d.date, d]));
@@ -551,7 +558,7 @@ function CalendarView({ hotelId, connections, onSync, refreshKey }) {
                             <span style={{ fontSize: 10.5, color: 'var(--gray-400)' }}>{mappedPlan ? `→ ${rp.externalRatePlanIds.join(', ')}` : 'not mapped'}</span>
                           </div>
                           {dates.map(d => { const x = rByDate[d]; return (
-                            <div key={d} style={{ ...cell, color: !mappedPlan ? 'var(--gray-400)' : x?.priceOverridden ? 'var(--blue)' : undefined }}>
+                            <div key={d} style={{ ...cellStyle(d), color: !mappedPlan ? 'var(--gray-400)' : x?.priceOverridden ? 'var(--blue)' : undefined }}>
                               {x ? `₹${Number(x.price).toLocaleString('en-IN')}` : '—'}{pendingDot(x?.pricePending, 'Price changed since the last rates sync')}
                             </div>); })}
                         </div>
@@ -564,7 +571,7 @@ function CalendarView({ hotelId, connections, onSync, refreshKey }) {
                             if (x?.minStay) tags.push([`min ${x.minStay}`, 'var(--gray-600)']);
                             if (x?.maxStay) tags.push([`max ${x.maxStay}`, 'var(--gray-600)']);
                             return (
-                              <div key={d} style={{ ...cell, flexWrap: 'wrap', gap: 2, fontSize: 10, height: 'auto', minHeight: 30, padding: '2px 0' }}>
+                              <div key={d} style={{ ...cellStyle(d), flexWrap: 'wrap', gap: 2, fontSize: 10, height: 'auto', minHeight: 30, padding: '2px 0' }}>
                                 {tags.length ? tags.map(([t, c]) => <span key={t} style={{ color: c, fontWeight: 600 }}>{t}</span>) : <span style={{ color: 'var(--gray-300)' }}>open</span>}
                                 {pendingDot(x?.restrictionPending, 'Restrictions changed since the last restrictions sync')}
                               </div>); })}
@@ -573,7 +580,7 @@ function CalendarView({ hotelId, connections, onSync, refreshKey }) {
                     );
                   })}
                 </>}
-              </Fragment>
+              </div>
             );
           })}
           {data && data.roomTypes.length === 0 && <div style={{ padding: 20, ...muted, textAlign: 'center' }}>No active room types</div>}
@@ -664,9 +671,9 @@ function Pager({ page, pages, onPage }) {
   if (pages <= 1) return null;
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
-      <button type="button" className="admin-row-btn" style={btnSecondary} disabled={page === 0} onClick={() => onPage(page - 1)}>← Newer</button>
+      <button type="button" className="admin-row-btn" style={{ ...btnSecondary, ...disabledStyle(page === 0) }} disabled={page === 0} onClick={() => onPage(page - 1)}>← Newer</button>
       <span style={muted}>Page {page + 1} of {pages}</span>
-      <button type="button" className="admin-row-btn" style={btnSecondary} disabled={page + 1 >= pages} onClick={() => onPage(page + 1)}>Older →</button>
+      <button type="button" className="admin-row-btn" style={{ ...btnSecondary, ...disabledStyle(page + 1 >= pages) }} disabled={page + 1 >= pages} onClick={() => onPage(page + 1)}>Older →</button>
     </div>
   );
 }
