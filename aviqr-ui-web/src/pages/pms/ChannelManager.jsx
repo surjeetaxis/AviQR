@@ -27,14 +27,21 @@ const SYNC_TYPES = [
 ];
 const TYPE_LABEL = { INVENTORY: 'Inventory', RATES: 'Rates', RESTRICTIONS: 'Restrictions', BOOKING: 'Booking' };
 const TRIGGER_LABEL = { MANUAL: 'Manual', AUTO: 'Auto (on save)', SCHEDULED: 'Scheduled', RESERVATION: 'Reservation change', CHANNEL: 'From channel' };
-const SUBTABS = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'cm', label: 'Channel manager mappings' },
-  { key: 'ota', label: 'Direct OTA mappings' },
-  { key: 'calendar', label: 'Channel calendar' },
-  { key: 'logs', label: 'Sync logs' },
-  { key: 'bookings', label: 'Channel bookings' },
-];
+// Each view is its own entry in the hotel dashboard's sidebar (Distribution group):
+// sidebar tab key → view, and the page title/subtitle each view shows.
+export const CHANNEL_NAV_VIEWS = {
+  channels: 'overview', channelmappings: 'cm', otamappings: 'ota',
+  channelcalendar: 'calendar', channellogs: 'logs', channelbookings: 'bookings',
+};
+const VIEW_TO_NAV = Object.fromEntries(Object.entries(CHANNEL_NAV_VIEWS).map(([k, v]) => [v, k]));
+const VIEW_META = {
+  overview: { title: 'Channel Manager', subtitle: 'Every channel connection, its mappings and last sync — sync all or just inventory, rates or restrictions.' },
+  cm: { title: 'Channel Manager Mappings', subtitle: 'AxisRooms / channel-manager connections: which AviQR room type and rate plan feeds which channel room and rate plan.' },
+  ota: { title: 'OTA Mappings', subtitle: 'Direct connections to a single OTA (Booking.com, MakeMyTrip, Agoda, Expedia).' },
+  calendar: { title: 'Channel Calendar', subtitle: 'What each mapped room type and rate plan sends per night, bookings from channels, and dates not yet synced.' },
+  logs: { title: 'Channel Sync Logs', subtitle: 'Every push to and notification from a channel, with the exact request and response.' },
+  bookings: { title: 'Channel Bookings', subtitle: 'Bookings received from channels and their latest status.' },
+};
 
 function localDateStr(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function today() { return localDateStr(new Date()); }
@@ -210,7 +217,7 @@ function OverviewView({ overview, onSync, onGo }) {
 
       {connections.length === 0 && (
         <div className="admin-table-card" style={{ padding: 24, textAlign: 'center', ...muted }}>
-          No channel connections yet. Add one under <a href="#" onClick={e => { e.preventDefault(); onGo('cm'); }}>Channel manager mappings</a>.
+          No channel connections yet. Add one under <a href="#" onClick={e => { e.preventDefault(); onGo('cm'); }}>Channel Manager Mappings</a>.
         </div>
       )}
 
@@ -591,21 +598,25 @@ function CalendarView({ hotelId, connections, onSync, refreshKey }) {
 }
 
 // ── Sync logs ─────────────────────────────────────────────────────────────────
+const EMPTY_LOG_FILTERS = { channel: '', type: '', status: '', direction: '', roomTypeId: '', from: '', to: '', q: '' };
+
 function LogsView({ hotelId, roomTypes, refreshKey }) {
-  const [filters, setFilters] = useState({ channel: '', type: '', status: '', direction: '', roomTypeId: '' });
+  const [filters, setFilters] = useState(EMPTY_LOG_FILTERS);
   const [page, setPage] = useState(0);
-  const [data, setData] = useState({ items: [], total: 0, size: 50 });
+  const [size, setSize] = useState(50);
+  const [data, setData] = useState({ items: [], total: 0 });
   const [open, setOpen] = useState(null);
   const rtNames = (ids) => (ids || '').split(',').filter(Boolean).map(id => roomTypes.find(r => r.id === id)?.name || '?').join(', ');
 
   const load = useCallback(() => {
-    const params = { page, size: 50 };
+    const params = { page, size };
     Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
-    pmsApi.getChannelLogs(hotelId, params).then(res => setData(res.data.data || { items: [], total: 0, size: 50 })).catch(() => {});
-  }, [hotelId, filters, page, refreshKey]);
+    pmsApi.getChannelLogs(hotelId, params).then(res => setData(res.data.data || { items: [], total: 0 })).catch(() => {});
+  }, [hotelId, filters, page, size, refreshKey]);
   useEffect(() => { load(); }, [load]);
   const setF = (k, v) => { setFilters(f => ({ ...f, [k]: v })); setPage(0); };
-  const pages = Math.max(1, Math.ceil(data.total / (data.size || 50)));
+  const hasFilters = Object.values(filters).some(Boolean);
+  const pager = <Pager page={page} size={size} total={data.total} onPage={setPage} onSize={n => { setSize(n); setPage(0); }} />;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -625,9 +636,14 @@ function LogsView({ hotelId, roomTypes, refreshKey }) {
         <select value={filters.roomTypeId} onChange={e => setF('roomTypeId', e.target.value)} style={inputStyle}>
           <option value="">All room types</option>{roomTypes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
         </select>
+        <input type="date" value={filters.from} onChange={e => setF('from', e.target.value)} style={inputStyle} title="From date" />
+        <span style={muted}>to</span>
+        <input type="date" value={filters.to} min={filters.from || undefined} onChange={e => setF('to', e.target.value)} style={inputStyle} title="To date" />
+        <input placeholder="Search message…" value={filters.q} onChange={e => setF('q', e.target.value)} style={{ ...inputStyle, minWidth: 180 }} />
         <button type="button" className="admin-row-btn" style={btnSecondary} onClick={load}><RefreshCw size={14} /> Refresh</button>
-        <span style={{ ...muted, marginLeft: 'auto' }}>{data.total} entries</span>
+        {hasFilters && <button type="button" className="admin-row-btn" style={btnSecondary} onClick={() => { setFilters(EMPTY_LOG_FILTERS); setPage(0); }}>Clear filters</button>}
       </div>
+      {pager}
 
       <div className="admin-table-card" style={{ overflowX: 'auto' }}>
         <table className="admin-table">
@@ -662,18 +678,42 @@ function LogsView({ hotelId, roomTypes, refreshKey }) {
           </tbody>
         </table>
       </div>
-      <Pager page={page} pages={pages} onPage={setPage} />
+      {pager}
     </div>
   );
 }
 
-function Pager({ page, pages, onPage }) {
-  if (pages <= 1) return null;
+const PAGE_SIZES = [25, 50, 100, 200];
+
+/** Numbered pagination with rows-per-page; shown whenever there are any rows. */
+function Pager({ page, size, total, onPage, onSize }) {
+  if (!total) return null;
+  const pages = Math.max(1, Math.ceil(total / size));
+  const first = page * size + 1, last = Math.min(total, (page + 1) * size);
+  const nums = [];
+  const lo = Math.max(0, Math.min(page - 2, pages - 5)), hi = Math.min(pages - 1, lo + 4);
+  for (let i = lo; i <= hi; i++) nums.push(i);
+  const btn = (label, target, disabled, active, key) => (
+    <button key={key} type="button" className="admin-row-btn" disabled={disabled} onClick={() => onPage(target)}
+      style={{ ...btnSmall, minWidth: 32, justifyContent: 'center', ...(active ? { background: 'var(--blue)', color: '#fff', borderColor: 'var(--blue)' } : null), ...disabledStyle(disabled) }}>
+      {label}
+    </button>
+  );
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
-      <button type="button" className="admin-row-btn" style={{ ...btnSecondary, ...disabledStyle(page === 0) }} disabled={page === 0} onClick={() => onPage(page - 1)}>← Newer</button>
-      <span style={muted}>Page {page + 1} of {pages}</span>
-      <button type="button" className="admin-row-btn" style={{ ...btnSecondary, ...disabledStyle(page + 1 >= pages) }} disabled={page + 1 >= pages} onClick={() => onPage(page + 1)}>Older →</button>
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+      <span style={muted}>Showing <strong>{first.toLocaleString()}–{last.toLocaleString()}</strong> of <strong>{total.toLocaleString()}</strong></span>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+        {btn('« First', 0, page === 0, false, 'first')}
+        {btn('‹ Prev', page - 1, page === 0, false, 'prev')}
+        {lo > 0 && <span style={muted}>…</span>}
+        {nums.map(i => btn(String(i + 1), i, false, i === page, `p${i}`))}
+        {hi < pages - 1 && <span style={muted}>…</span>}
+        {btn('Next ›', page + 1, page + 1 >= pages, false, 'next')}
+        {btn('Last »', pages - 1, page + 1 >= pages, false, 'last')}
+        <select value={size} onChange={e => onSize(Number(e.target.value))} style={{ ...inputStyle, height: 28, marginLeft: 8 }}>
+          {PAGE_SIZES.map(n => <option key={n} value={n}>{n} / page</option>)}
+        </select>
+      </div>
     </div>
   );
 }
@@ -683,11 +723,11 @@ const BOOKING_STATUS_CLS = { confirmed: 'status-pill st-active', modified: 'plan
 
 function BookingsView({ hotelId, refreshKey }) {
   const [page, setPage] = useState(0);
-  const [data, setData] = useState({ items: [], total: 0, size: 50 });
+  const [size, setSize] = useState(50);
+  const [data, setData] = useState({ items: [], total: 0 });
   useEffect(() => {
-    pmsApi.getChannelBookings(hotelId, { page, size: 50 }).then(res => setData(res.data.data || { items: [], total: 0, size: 50 })).catch(() => {});
-  }, [hotelId, page, refreshKey]);
-  const pages = Math.max(1, Math.ceil(data.total / (data.size || 50)));
+    pmsApi.getChannelBookings(hotelId, { page, size }).then(res => setData(res.data.data || { items: [], total: 0 })).catch(() => {});
+  }, [hotelId, page, size, refreshKey]);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div className="admin-table-card" style={{ overflowX: 'auto' }}>
@@ -711,14 +751,13 @@ function BookingsView({ hotelId, refreshKey }) {
           </tbody>
         </table>
       </div>
-      <Pager page={page} pages={pages} onPage={setPage} />
+      <Pager page={page} size={size} total={data.total} onPage={setPage} onSize={n => { setSize(n); setPage(0); }} />
     </div>
   );
 }
 
 // ── Page shell ────────────────────────────────────────────────────────────────
-export function ChannelManagerTab({ hotelId, roomTypes }) {
-  const [sub, setSub] = useState('overview');
+export function ChannelManagerTab({ hotelId, roomTypes, view = 'overview', onNavigate }) {
   const [overview, setOverview] = useState(null);
   const [mappings, setMappings] = useState([]);
   const [syncPreset, setSyncPreset] = useState(null);
@@ -733,30 +772,22 @@ export function ChannelManagerTab({ hotelId, roomTypes }) {
 
   const connections = overview?.connections || [];
   const afterSync = () => { load(); setRefreshKey(k => k + 1); };
+  const goTo = (v) => onNavigate?.(VIEW_TO_NAV[v]);
+  const meta = VIEW_META[view] || VIEW_META.overview;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div className="page-header">
-        <div><h1 className="page-title">Channel Manager</h1><p className="page-subtitle">Connections, mappings, what each channel gets per date, sync status and bookings — one place.</p></div>
+        <div><h1 className="page-title">{meta.title}</h1><p className="page-subtitle">{meta.subtitle}</p></div>
         <button type="button" className="admin-row-btn" style={btnPrimary} onClick={() => setSyncPreset({})}><RefreshCw size={14} /> Sync…</button>
       </div>
 
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--gray-200)' }}>
-        {SUBTABS.map(t => (
-          <button key={t.key} type="button" onClick={() => setSub(t.key)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px 12px', fontSize: 13, fontWeight: sub === t.key ? 700 : 500,
-              color: sub === t.key ? 'var(--blue)' : 'var(--gray-600)', borderBottom: sub === t.key ? '2px solid var(--blue)' : '2px solid transparent', marginBottom: -1 }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {sub === 'overview' && <OverviewView overview={overview} onSync={setSyncPreset} onGo={setSub} />}
-      {sub === 'cm' && <MappingsView key="cm" hotelId={hotelId} roomTypes={roomTypes} channels={CM_CHANNELS} kindLabel="channel manager" mappings={mappings} overview={overview} onChanged={load} onSync={setSyncPreset} />}
-      {sub === 'ota' && <MappingsView key="ota" hotelId={hotelId} roomTypes={roomTypes} channels={OTA_CHANNELS} kindLabel="direct OTA" mappings={mappings} overview={overview} onChanged={load} onSync={setSyncPreset} />}
-      {sub === 'calendar' && <CalendarView hotelId={hotelId} connections={connections} onSync={setSyncPreset} refreshKey={refreshKey} />}
-      {sub === 'logs' && <LogsView hotelId={hotelId} roomTypes={roomTypes} refreshKey={refreshKey} />}
-      {sub === 'bookings' && <BookingsView hotelId={hotelId} refreshKey={refreshKey} />}
+      {view === 'overview' && <OverviewView overview={overview} onSync={setSyncPreset} onGo={goTo} />}
+      {view === 'cm' && <MappingsView key="cm" hotelId={hotelId} roomTypes={roomTypes} channels={CM_CHANNELS} kindLabel="channel manager" mappings={mappings} overview={overview} onChanged={load} onSync={setSyncPreset} />}
+      {view === 'ota' && <MappingsView key="ota" hotelId={hotelId} roomTypes={roomTypes} channels={OTA_CHANNELS} kindLabel="direct OTA" mappings={mappings} overview={overview} onChanged={load} onSync={setSyncPreset} />}
+      {view === 'calendar' && <CalendarView hotelId={hotelId} connections={connections} onSync={setSyncPreset} refreshKey={refreshKey} />}
+      {view === 'logs' && <LogsView hotelId={hotelId} roomTypes={roomTypes} refreshKey={refreshKey} />}
+      {view === 'bookings' && <BookingsView hotelId={hotelId} refreshKey={refreshKey} />}
 
       {syncPreset && (
         <SyncDialog hotelId={hotelId} roomTypes={roomTypes} connections={connections} preset={syncPreset}
