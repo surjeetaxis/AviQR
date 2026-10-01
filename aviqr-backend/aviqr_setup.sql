@@ -2773,6 +2773,21 @@ CREATE TABLE IF NOT EXISTS pms_channel_sync_logs (
     created_at  TIMESTAMP     DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_pms_channel_log_hotel ON pms_channel_sync_logs (hotel_id, created_at DESC);
+-- Channel Manager page columns (see aviqr_pms_channel_manager_v2.sql).
+ALTER TABLE pms_channel_sync_logs ADD COLUMN IF NOT EXISTS request_body         TEXT;
+ALTER TABLE pms_channel_sync_logs ADD COLUMN IF NOT EXISTS response_body        TEXT;
+ALTER TABLE pms_channel_sync_logs ADD COLUMN IF NOT EXISTS sync_type            VARCHAR(20);
+ALTER TABLE pms_channel_sync_logs ADD COLUMN IF NOT EXISTS external_property_id VARCHAR(100);
+ALTER TABLE pms_channel_sync_logs ADD COLUMN IF NOT EXISTS room_type_ids        TEXT;
+ALTER TABLE pms_channel_sync_logs ADD COLUMN IF NOT EXISTS date_from            DATE;
+ALTER TABLE pms_channel_sync_logs ADD COLUMN IF NOT EXISTS date_to              DATE;
+ALTER TABLE pms_channel_sync_logs ADD COLUMN IF NOT EXISTS trigger_source       VARCHAR(20);
+ALTER TABLE pms_channel_sync_logs ADD COLUMN IF NOT EXISTS triggered_by         VARCHAR(100);
+ALTER TABLE pms_channel_bookings ADD COLUMN IF NOT EXISTS hotel_id    UUID;
+ALTER TABLE pms_channel_bookings ADD COLUMN IF NOT EXISTS ota         VARCHAR(100);
+ALTER TABLE pms_channel_bookings ADD COLUMN IF NOT EXISTS last_status VARCHAR(20);
+ALTER TABLE pms_channel_bookings ADD COLUMN IF NOT EXISTS updated_at  TIMESTAMP;
+CREATE INDEX IF NOT EXISTS idx_pms_channel_bookings_hotel ON pms_channel_bookings (hotel_id, created_at DESC);
 
 -- ── Dummy data — a Booking.com mapping for Grand Palace's Standard rooms ──────
 INSERT INTO pms_channel_mappings (id, hotel_id, room_type_id, channel, external_property_id, external_room_type_id, external_rate_plan_id, webhook_secret, active) VALUES

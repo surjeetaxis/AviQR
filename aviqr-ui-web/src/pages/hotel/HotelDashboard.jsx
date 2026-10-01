@@ -12,10 +12,11 @@ import QRCode from 'qrcode';
 import { createPortal } from 'react-dom';
 import {
   Overview as PmsOverview, ReservationsTab, GroupsTab, FrontDeskTab, FolioTab,
-  ChannelsTab, GuestsTab as PmsGuestsTab, ExtrasTab, AgentsTab, ReportsTab as PmsReportsTab,
+  GuestsTab as PmsGuestsTab, ExtrasTab, AgentsTab, ReportsTab as PmsReportsTab,
   RoomTypesTab, WaitlistTab, ChainTemplatesTab, ImportTab, ReviewsTab,
   RateChangeLogTab, BookingCalendarTab, RatesCalendarTab,
 } from '../pms/PmsDashboard.jsx';
+import { ChannelManagerTab } from '../pms/ChannelManager.jsx';
 import {
   Hotel, BedDouble, Shirt, Sparkles, Wrench,
   Bell, BarChart2, Settings, LogOut, Menu as MenuIcon, CheckCircle2,
@@ -458,7 +459,7 @@ export default function HotelDashboard() {
           {tab==='import'       && <ImportTab hotelId={hotelId} onImported={refreshReservations}/>}
 
           {/* ── Distribution ── */}
-          {tab==='channels'     && <ChannelsTab hotelId={hotelId} roomTypes={roomTypes}/>}
+          {tab==='channels'     && <ChannelManagerTab hotelId={hotelId} roomTypes={roomTypes}/>}
           {tab==='agents'       && <AgentsTab hotelId={hotelId} agents={agents} onChange={()=>loadAgents(hotelId)}/>}
           {tab==='chaintemplates' && <ChainTemplatesTab chainId={chainId}/>}
 

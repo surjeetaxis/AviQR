@@ -23,7 +23,7 @@ public class ChannelSyncScheduler {
         if (!enabled) return;
         mappingRepo.findDistinctHotelIdsWithActiveMapping().forEach(hotelId -> {
             try {
-                channelService.pushAvailabilityAndRates(hotelId);
+                channelService.pushAvailabilityAndRates(hotelId, "SCHEDULED");
             } catch (Exception e) {
                 log.warn("Scheduled ARI push failed for hotel {}: {}", hotelId, e.getMessage());
             }

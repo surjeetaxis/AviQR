@@ -19,11 +19,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service @RequiredArgsConstructor @Slf4j
 public class ChannelService {
@@ -43,6 +41,23 @@ public class ChannelService {
     }
 
     public ChannelMapping createMapping(ChannelMapping req) {
+        if (req.getHotelId() == null || req.getRoomTypeId() == null || req.getChannel() == null
+                || isBlank(req.getExternalPropertyId()) || isBlank(req.getExternalRoomTypeId()))
+            throw new IllegalArgumentException("Channel, room type, external property ID and external room type ID are required");
+        // Within one connection an external (room, rate plan) pair must point at exactly
+        // one of our mappings — bookings are resolved through it.
+        String plan = isBlank(req.getExternalRatePlanId()) ? null : req.getExternalRatePlanId().trim();
+        mappingRepo.findByHotelId(req.getHotelId()).stream()
+            .filter(m -> m.getChannel() == req.getChannel()
+                && req.getExternalPropertyId().trim().equals(m.getExternalPropertyId())
+                && req.getExternalRoomTypeId().trim().equals(m.getExternalRoomTypeId())
+                && Objects.equals(plan, isBlank(m.getExternalRatePlanId()) ? null : m.getExternalRatePlanId()))
+            .findFirst()
+            .ifPresent(m -> { throw new IllegalArgumentException("This " + req.getChannel() + " room"
+                + (plan == null ? "" : " / rate plan") + " is already mapped — edit or remove that mapping instead"); });
+        req.setExternalPropertyId(req.getExternalPropertyId().trim());
+        req.setExternalRoomTypeId(req.getExternalRoomTypeId().trim());
+        req.setExternalRatePlanId(plan);
         req.setId(null);
         req.setWebhookSecret(UUID.randomUUID().toString().replace("-", ""));
         req.setActive(true);
@@ -115,10 +130,13 @@ public class ChannelService {
 
         channelBookingRepo.save(ChannelBooking.builder()
             .channel(req.getChannel()).externalBookingId(req.getExternalBookingId())
-            .reservationId(reservation.getId()).build());
+            .reservationId(reservation.getId())
+            .hotelId(hotelId).ota(req.getChannel().name()).lastStatus("confirmed").updatedAt(LocalDateTime.now())
+            .build());
 
         syncLogRepo.save(ChannelSyncLog.builder()
             .hotelId(hotelId).channel(req.getChannel()).direction(SyncDirection.PULL).status(SyncStatus.SUCCESS)
+            .syncType(SyncType.BOOKING).triggerSource("CHANNEL")
             .message("Ingested booking " + req.getExternalBookingId() + " (" + req.getGuestName() + ", "
                 + req.getCheckInDate() + " to " + req.getCheckOutDate() + ")")
             .build());
@@ -160,7 +178,8 @@ public class ChannelService {
             Reservation current = reservationService.get(existing.get().getReservationId());
             if (current.getStatus() == ReservationStatus.CANCELLED) return current;
             Reservation cancelled = reservationService.cancel(current.getId());
-            logPull(hotelId, channel, "Cancelled " + describe(bd));
+            touch(existing.get(), hotelId, bd, "cancelled");
+            logPull(hotelId, channel, current.getId(), "Cancelled " + describe(bd));
             return cancelled;
         }
 
@@ -175,12 +194,14 @@ public class ChannelService {
         if (existing.isPresent()) {
             ChannelBooking link = existing.get();
             link.setReservationId(reservation.getId());
-            channelBookingRepo.save(link);
-            logPull(hotelId, channel, "Modified " + describe(bd) + " (" + reservation.getCheckInDate() + " to " + reservation.getCheckOutDate() + ")");
+            touch(link, hotelId, bd, "modified");
+            logPull(hotelId, channel, reservation.getId(), "Modified " + describe(bd) + " (" + reservation.getCheckInDate() + " to " + reservation.getCheckOutDate() + ")");
         } else {
             channelBookingRepo.save(ChannelBooking.builder()
-                .channel(channel).externalBookingId(bookingKey).reservationId(reservation.getId()).build());
-            logPull(hotelId, channel, "Accepted " + describe(bd) + " (" + reservation.getCheckInDate() + " to " + reservation.getCheckOutDate() + ")");
+                .channel(channel).externalBookingId(bookingKey).reservationId(reservation.getId())
+                .hotelId(hotelId).ota(bd.getOta()).lastStatus("confirmed").updatedAt(LocalDateTime.now())
+                .build());
+            logPull(hotelId, channel, reservation.getId(), "Accepted " + describe(bd) + " (" + reservation.getCheckInDate() + " to " + reservation.getCheckOutDate() + ")");
         }
         return reservation;
     }
@@ -272,9 +293,20 @@ public class ChannelService {
         return "booking " + bd.getBookingNo() + " via " + (isBlank(bd.getOta()) ? "AxisRooms" : bd.getOta());
     }
 
-    private void logPull(UUID hotelId, ChannelName channel, String message) {
+    private void touch(ChannelBooking link, UUID hotelId, AcceptBookingRequest.BookingDetails bd, String status) {
+        if (link.getHotelId() == null) link.setHotelId(hotelId);
+        if (!isBlank(bd.getOta())) link.setOta(bd.getOta());
+        link.setLastStatus(status);
+        link.setUpdatedAt(LocalDateTime.now());
+        channelBookingRepo.save(link);
+    }
+
+    private void logPull(UUID hotelId, ChannelName channel, UUID reservationId, String message) {
+        String roomTypeIds = reservationService.rooms(reservationId).stream()
+            .map(rr -> rr.getRoomTypeId().toString()).distinct().collect(Collectors.joining(","));
         syncLogRepo.save(ChannelSyncLog.builder()
             .hotelId(hotelId).channel(channel).direction(SyncDirection.PULL).status(SyncStatus.SUCCESS)
+            .syncType(SyncType.BOOKING).roomTypeIds(roomTypeIds).triggerSource("CHANNEL")
             .message(message).build());
     }
 
@@ -297,7 +329,43 @@ public class ChannelService {
      * something to show without a live connection.
      */
     public void pushAvailabilityAndRates(UUID hotelId) {
-        pushForMappings(mappingRepo.findByHotelIdAndActiveTrue(hotelId));
+        pushAvailabilityAndRates(hotelId, "MANUAL");
+    }
+
+    public void pushAvailabilityAndRates(UUID hotelId, String trigger) {
+        pushForMappings(mappingRepo.findByHotelIdAndActiveTrue(hotelId),
+            AxisRoomsAriService.PushRequest.of(AxisRoomsAriService.ARI_TYPES, trigger));
+    }
+
+    /** What staff can ask the Channel Manager page to sync: any mix of inventory /
+     *  rates / restrictions, narrowed to one connection, some room types, specific
+     *  mappings, and/or a date range — every filter optional (null = everything). */
+    public record SyncCommand(Set<SyncType> types, ChannelName channel, String externalPropertyId,
+                              Set<UUID> roomTypeIds, Set<UUID> mappingIds, LocalDate from, LocalDate to) {}
+
+    /** Runs a staff-requested sync now and returns the sync-log rows it produced, so
+     *  the page can show the outcome of exactly this click. */
+    public List<ChannelSyncLog> sync(UUID hotelId, SyncCommand cmd, String userId) {
+        Set<SyncType> types = cmd.types() == null || cmd.types().isEmpty()
+            ? AxisRoomsAriService.ARI_TYPES
+            : cmd.types().stream().filter(AxisRoomsAriService.ARI_TYPES::contains).collect(Collectors.toCollection(() -> EnumSet.noneOf(SyncType.class)));
+        if (types.isEmpty()) throw new IllegalArgumentException("Pick at least one of inventory, rates or restrictions");
+
+        List<ChannelMapping> selected = mappingRepo.findByHotelIdAndActiveTrue(hotelId).stream()
+            .filter(m -> cmd.channel() == null || cmd.channel() == m.getChannel())
+            .filter(m -> isBlank(cmd.externalPropertyId()) || cmd.externalPropertyId().equals(m.getExternalPropertyId()))
+            .filter(m -> cmd.roomTypeIds() == null || cmd.roomTypeIds().isEmpty() || cmd.roomTypeIds().contains(m.getRoomTypeId()))
+            .filter(m -> cmd.mappingIds() == null || cmd.mappingIds().isEmpty() || cmd.mappingIds().contains(m.getId()))
+            .toList();
+        if (selected.isEmpty()) throw new IllegalArgumentException("No active mapping matches this selection");
+
+        List<ChannelMapping> live = selected.stream().filter(m -> !isBlank(m.getCmBaseUrl())).toList();
+        List<ChannelSyncLog> out = new ArrayList<>();
+        if (!live.isEmpty()) {
+            out.addAll(ariService.push(live, new AxisRoomsAriService.PushRequest(types, cmd.from(), cmd.to(), "MANUAL", userId)));
+        }
+        selected.stream().filter(m -> isBlank(m.getCmBaseUrl())).forEach(m -> out.add(pushSimulated(m, "MANUAL")));
+        return out;
     }
 
     /** Auto-sync-on-save: pushes just the mappings for one room type, so saving a rate
@@ -305,7 +373,8 @@ public class ChannelService {
      *  type's ARI too. Used by RatePlanController/RoomTypeController when a day-price
      *  or inventory update opts into autoSync. */
     public void pushForRoomType(UUID roomTypeId) {
-        pushForMappings(mappingRepo.findByRoomTypeIdAndActiveTrue(roomTypeId));
+        pushForMappings(mappingRepo.findByRoomTypeIdAndActiveTrue(roomTypeId),
+            AxisRoomsAriService.PushRequest.of(AxisRoomsAriService.ARI_TYPES, "AUTO"));
     }
 
     /** A booking/cancellation/stay change in AviQR changes sellable rooms, so live
@@ -324,13 +393,13 @@ public class ChannelService {
         }
     }
 
-    private void pushForMappings(List<ChannelMapping> mappings) {
+    private void pushForMappings(List<ChannelMapping> mappings, AxisRoomsAriService.PushRequest req) {
         List<ChannelMapping> live = mappings.stream().filter(m -> !isBlank(m.getCmBaseUrl())).toList();
-        if (!live.isEmpty()) ariService.pushAll(live);
-        mappings.stream().filter(m -> isBlank(m.getCmBaseUrl())).forEach(this::pushSimulated);
+        if (!live.isEmpty()) ariService.push(live, req);
+        mappings.stream().filter(m -> isBlank(m.getCmBaseUrl())).forEach(m -> pushSimulated(m, req.trigger()));
     }
 
-    private void pushSimulated(ChannelMapping mapping) {
+    private ChannelSyncLog pushSimulated(ChannelMapping mapping, String trigger) {
         try {
             LocalDate today = LocalDate.now();
             int available = availabilityService.availableCount(mapping.getHotelId(), mapping.getRoomTypeId(), today, today.plusDays(1));
@@ -347,15 +416,19 @@ public class ChannelService {
                         "startDate", today.toString(),
                         "endDate", today.toString(),
                         "availability", available)))));
-            syncLogRepo.save(ChannelSyncLog.builder()
+            return syncLogRepo.save(ChannelSyncLog.builder()
                 .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.SUCCESS)
+                .syncType(SyncType.INVENTORY).externalPropertyId(mapping.getExternalPropertyId())
+                .roomTypeIds(mapping.getRoomTypeId().toString()).dateFrom(today).dateTo(today).triggerSource(trigger)
                 .message("[simulated — no cmBaseUrl configured] availability for " + mapping.getExternalRoomTypeId() + " on " + today + " = " + available)
                 .requestBody(toJson(wouldSend))
                 .responseBody("No live connection configured for this mapping (cmBaseUrl is blank) — no HTTP call was made; this is a local simulation only.")
                 .build());
         } catch (Exception e) {
-            syncLogRepo.save(ChannelSyncLog.builder()
+            return syncLogRepo.save(ChannelSyncLog.builder()
                 .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH).status(SyncStatus.FAILED)
+                .syncType(SyncType.INVENTORY).externalPropertyId(mapping.getExternalPropertyId())
+                .roomTypeIds(mapping.getRoomTypeId().toString()).triggerSource(trigger)
                 .message("Simulated push failed for " + mapping.getExternalRoomTypeId() + ": " + e.getMessage())
                 .responseBody("error: " + e.getMessage())
                 .build());
