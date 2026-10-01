@@ -57,6 +57,7 @@ class AxisRoomsAriServiceTest {
             RoomType.builder().id(roomTypeId).hotelId(hotelId).name("Deluxe").maxOccupancy(2).build()));
         when(restTemplate.postForEntity(anyString(), any(), eq(String.class)))
             .thenReturn(ResponseEntity.ok("{\"status\":\"Success\",\"message\":\"\"}"));
+        when(syncLogRepo.save(any())).thenAnswer(i -> i.getArgument(0));
     }
 
     private ChannelMapping mapping() {
@@ -198,5 +199,59 @@ class AxisRoomsAriServiceTest {
         m.setCmBaseUrl(" ");
         service.pushAll(List.of(m));
         verifyNoInteractions(restTemplate);
+    }
+
+    @Test
+    @DisplayName("'no ota connected' is logged as SKIPPED, not FAILED")
+    void noOtaConnectedIsSkipped() {
+        when(restTemplate.postForEntity(anyString(), any(), eq(String.class)))
+            .thenReturn(ResponseEntity.ok("{\"message\":\"no ota connected\",\"status\":\"Error\",\"errorCode\":\"\"}"));
+
+        List<ChannelSyncLog> rows = service.push(List.of(mapping()),
+            AxisRoomsAriService.PushRequest.of(EnumSet.of(SyncType.RESTRICTIONS), "MANUAL"));
+
+        assertThat(rows).hasSize(4).allSatisfy(r -> {
+            assertThat(r.getStatus()).isEqualTo(SyncStatus.SKIPPED);
+            assertThat(r.getSyncType()).isEqualTo(SyncType.RESTRICTIONS);
+            assertThat(r.getMessage()).contains("no OTA is connected");
+        });
+    }
+
+    @Test
+    @DisplayName("a rates-only push for a date range sends only prices, labelled with type, range and room type")
+    void ratesOnlyForRange() throws Exception {
+        LocalDate from = today.plusDays(1), to = today.plusDays(3);
+        when(dayPriceRepo.findByRatePlanIdAndDateBetween(plan.getId(), from, to)).thenReturn(List.of());
+
+        List<ChannelSyncLog> rows = service.push(List.of(mapping()),
+            new AxisRoomsAriService.PushRequest(EnumSet.of(SyncType.RATES), from, to, "MANUAL", "user-1"));
+
+        assertThat(captureCalls().keySet()).containsExactly("https://cm.example.com/api/bulkPriceUpdate");
+        verifyNoInteractions(availabilityService);
+        assertThat(rows).singleElement().satisfies(r -> {
+            assertThat(r.getSyncType()).isEqualTo(SyncType.RATES);
+            assertThat(r.getDateFrom()).isEqualTo(from);
+            assertThat(r.getDateTo()).isEqualTo(to);
+            assertThat(r.getRoomTypeIds()).isEqualTo(roomTypeId.toString());
+            assertThat(r.getExternalPropertyId()).isEqualTo("AX-HOTEL-1");
+            assertThat(r.getTriggerSource()).isEqualTo("MANUAL");
+            assertThat(r.getTriggeredBy()).isEqualTo("user-1");
+        });
+        JsonNode details = captureCalls().get("https://cm.example.com/api/bulkPriceUpdate").get(0)
+            .at("/hotels/0/rooms/0/rateplans/0/priceDetails/0");
+        assertThat(details.get("startDate").asText()).isEqualTo(from.toString());
+        assertThat(details.get("endDate").asText()).isEqualTo(to.toString());
+    }
+
+    @Test
+    @DisplayName("the push window never starts before today and never passes AxisRooms' 450-day limit")
+    void windowIsClamped() {
+        var w = service.window(new AxisRoomsAriService.PushRequest(AxisRoomsAriService.ARI_TYPES,
+            today.minusDays(10), today.plusDays(2000), "MANUAL", null));
+        assertThat(w.from()).isEqualTo(today);
+        assertThat(w.to()).isEqualTo(today.plusDays(AxisRoomsAriService.MAX_DAYS_AHEAD));
+
+        assertThatThrownBy(() -> service.window(new AxisRoomsAriService.PushRequest(AxisRoomsAriService.ARI_TYPES,
+            today.minusDays(10), today.minusDays(5), "MANUAL", null))).isInstanceOf(IllegalArgumentException.class);
     }
 }

@@ -411,6 +411,13 @@ export const pmsApi = {
   updateChannelMapping:(id, d)    => api.put(`/api/v1/pms/channels/mappings/${id}`, d),
   pushChannelSync:     (hotelId)  => api.post(`/api/v1/pms/channels/${hotelId}/push`),
   getChannelSyncLog:   (hotelId)  => api.get(`/api/v1/pms/channels/${hotelId}/sync-log`),
+  deleteChannelMapping:(id)       => api.delete(`/api/v1/pms/channels/mappings/${id}`),
+  getChannelOverview:  (hotelId)  => api.get(`/api/v1/pms/channels/${hotelId}/overview`),
+  // body: { types:[INVENTORY|RATES|RESTRICTIONS], channel, externalPropertyId, roomTypeIds:[], mappingIds:[], from, to } — all optional
+  syncChannels:        (hotelId, d) => api.post(`/api/v1/pms/channels/${hotelId}/sync`, d),
+  getChannelCalendar:  (hotelId, params) => api.get(`/api/v1/pms/channels/${hotelId}/calendar`, { params }),
+  getChannelLogs:      (hotelId, params) => api.get(`/api/v1/pms/channels/${hotelId}/logs`, { params }),
+  getChannelBookings:  (hotelId, params) => api.get(`/api/v1/pms/channels/${hotelId}/bookings`, { params }),
   // Group bookings
   listGroups:      (hotelId)      => api.get(`/api/v1/pms/groups/hotel/${hotelId}`),
   createGroup:     (d)            => api.post('/api/v1/pms/groups', d),

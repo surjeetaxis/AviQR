@@ -56,23 +56,61 @@ public class AxisRoomsAriService {
     private final ObjectMapper objectMapper;
     @Qualifier("externalRestTemplate") private final RestTemplate externalRestTemplate;
 
-    // AxisRooms rejects inventory updates more than 450 days out.
+    // Default window when a push names no dates. AxisRooms rejects inventory updates
+    // more than 450 days out, so an explicit range is capped there.
     @Value("${channel.axisrooms.horizon-days:365}")
     private int horizonDays;
+    static final int MAX_DAYS_AHEAD = 450;
+
+    /** What to push: any mix of inventory / rates / restrictions, an optional date
+     *  range (inclusive; null = today .. horizon), and who/what asked for it — the
+     *  last two only label the sync-log rows. */
+    public record PushRequest(Set<SyncType> types, LocalDate from, LocalDate to, String trigger, String triggeredBy) {
+        public static PushRequest of(Set<SyncType> types, String trigger) {
+            return new PushRequest(types, null, null, trigger, null);
+        }
+    }
+
+    public static final Set<SyncType> ARI_TYPES = EnumSet.of(SyncType.INVENTORY, SyncType.RATES, SyncType.RESTRICTIONS);
+
+    /** Pushes the requested parts for every live mapping given; returns the sync-log
+     *  rows written (one per request sent, or per failure before sending). */
+    public List<ChannelSyncLog> push(List<ChannelMapping> mappings, PushRequest req) {
+        Window w = window(req);
+        List<ChannelSyncLog> out = new ArrayList<>();
+        forEachConnection(mappings, (conn, ms) -> {
+            Job job = new Job(conn, w, req, out);
+            if (req.types().contains(SyncType.INVENTORY)) pushInventory(job, ms);
+            if (req.types().contains(SyncType.RATES)) pushRates(job, ms);
+            if (req.types().contains(SyncType.RESTRICTIONS)) pushRestrictions(job, ms);
+        });
+        return out;
+    }
 
     /** Inventory, prices and restrictions for every live mapping given. */
-    public void pushAll(List<ChannelMapping> mappings) {
-        forEachConnection(mappings, (conn, ms) -> {
-            pushInventory(conn, ms);
-            pushRates(conn, ms);
-            pushRestrictions(conn, ms);
-        });
+    public List<ChannelSyncLog> pushAll(List<ChannelMapping> mappings) {
+        return push(mappings, PushRequest.of(ARI_TYPES, "MANUAL"));
     }
 
     /** Availability only — what a booking, cancellation or stay change affects. */
-    public void pushInventoryOnly(List<ChannelMapping> mappings) {
-        forEachConnection(mappings, this::pushInventory);
+    public List<ChannelSyncLog> pushInventoryOnly(List<ChannelMapping> mappings) {
+        return push(mappings, PushRequest.of(EnumSet.of(SyncType.INVENTORY), "RESERVATION"));
     }
+
+    /** [from, to) actually pushed: never before today, never past AxisRooms' limit. */
+    record Window(LocalDate from, LocalDate to) {}
+
+    Window window(PushRequest req) {
+        LocalDate today = LocalDate.now();
+        LocalDate from = req.from() == null || req.from().isBefore(today) ? today : req.from();
+        LocalDate cap = today.plusDays(MAX_DAYS_AHEAD);
+        LocalDate to = req.to() == null ? today.plusDays(horizonDays) : req.to().plusDays(1);
+        if (to.isAfter(cap)) to = cap;
+        if (!to.isAfter(from)) throw new IllegalArgumentException("Nothing to sync: the date range is in the past or empty");
+        return new Window(from, to);
+    }
+
+    private record Job(Connection conn, Window w, PushRequest req, List<ChannelSyncLog> out) {}
 
     // One AxisRooms request covers one property on one connection, so mappings are
     // grouped by (base URL, accessKey, channelId, property) before building payloads.
@@ -92,9 +130,9 @@ public class AxisRoomsAriService {
 
     // ── Inventory ────────────────────────────────────────────────────────────────
 
-    private void pushInventory(Connection conn, List<ChannelMapping> mappings) {
-        LocalDate from = LocalDate.now();
-        LocalDate to = from.plusDays(horizonDays);
+    private void pushInventory(Job job, List<ChannelMapping> mappings) {
+        Connection conn = job.conn();
+        LocalDate from = job.w().from(), to = job.w().to();
         List<Map<String, Object>> rooms = new ArrayList<>();
         // Inventory is per room type; several rate-plan mappings on one room share it.
         Map<String, UUID> roomTypeByExternalId = new LinkedHashMap<>();
@@ -111,20 +149,21 @@ public class AxisRoomsAriService {
                 }
             });
         } catch (Exception e) {
-            logFailure(conn, "Inventory push failed before sending: " + e.getMessage(), null, e);
+            logFailure(job, SyncType.INVENTORY, roomTypeIds(mappings), "Inventory push failed before sending: " + e.getMessage(), null, e);
             return;
         }
-        send(conn, "/api/inventory", "inventory for " + roomTypeByExternalId.size() + " room type(s), "
-            + from + " to " + to.minusDays(1), hotelEnvelope(conn, rooms));
+        send(job, SyncType.INVENTORY, roomTypeIds(mappings), "/api/inventory", "inventory for "
+            + roomTypeByExternalId.size() + " room type(s), " + from + " to " + to.minusDays(1), hotelEnvelope(conn, rooms));
     }
 
     // ── Prices ───────────────────────────────────────────────────────────────────
 
-    private void pushRates(Connection conn, List<ChannelMapping> mappings) {
-        LocalDate from = LocalDate.now();
-        LocalDate to = from.plusDays(horizonDays);
+    private void pushRates(Job job, List<ChannelMapping> mappings) {
+        Connection conn = job.conn();
+        LocalDate from = job.w().from(), to = job.w().to();
         Map<String, Map<String, List<ChannelMapping>>> byRoomThenPlan = groupByRoomThenPlan(mappings);
         if (byRoomThenPlan.isEmpty()) return;
+        Set<UUID> roomTypeIds = roomTypeIds(ratePlanMappings(mappings));
         List<Map<String, Object>> rooms = new ArrayList<>();
         try {
             byRoomThenPlan.forEach((externalRoomId, plans) -> {
@@ -144,11 +183,11 @@ public class AxisRoomsAriService {
                 if (!rateplans.isEmpty()) rooms.add(ordered("roomId", externalRoomId, "rateplans", rateplans));
             });
         } catch (Exception e) {
-            logFailure(conn, "Price push failed before sending: " + e.getMessage(), null, e);
+            logFailure(job, SyncType.RATES, roomTypeIds, "Price push failed before sending: " + e.getMessage(), null, e);
             return;
         }
         if (rooms.isEmpty()) return;
-        send(conn, "/api/bulkPriceUpdate", "prices " + from + " to " + to.minusDays(1), hotelEnvelope(conn, rooms));
+        send(job, SyncType.RATES, roomTypeIds, "/api/bulkPriceUpdate", "prices " + from + " to " + to.minusDays(1), hotelEnvelope(conn, rooms));
     }
 
     /** Per-night occupancy price map for one AxisRooms rate plan. Several of our plans
@@ -199,11 +238,12 @@ public class AxisRoomsAriService {
      *  AxisRooms narrows the target OTAs by intersecting the support lists of every
      *  restriction type in one request, so mixing types would silently drop e.g. a
      *  stop-sell for an OTA that doesn't support CTD. */
-    private void pushRestrictions(Connection conn, List<ChannelMapping> mappings) {
-        LocalDate from = LocalDate.now();
-        LocalDate to = from.plusDays(horizonDays);
+    private void pushRestrictions(Job job, List<ChannelMapping> mappings) {
+        LocalDate from = job.w().from(), to = job.w().to();
         Map<String, Map<String, List<ChannelMapping>>> byRoomThenPlan = groupByRoomThenPlan(mappings);
         if (byRoomThenPlan.isEmpty()) return;
+        Set<UUID> roomTypeIds = roomTypeIds(ratePlanMappings(mappings));
+        Connection conn = job.conn();
 
         Map<String, Function<DayPrice, Boolean>> flags = new LinkedHashMap<>();
         flags.put("Master", dp -> dp != null && Boolean.TRUE.equals(dp.getStopSell()));
@@ -216,7 +256,7 @@ public class AxisRoomsAriService {
                 dayPricesByPlan.put(ms.get(0).getExternalRoomTypeId() + "|" + externalPlanId,
                     dayPrices(internalRatePlan(ms.get(0)).getId(), from, to))));
         } catch (Exception e) {
-            logFailure(conn, "Restriction push failed before sending: " + e.getMessage(), null, e);
+            logFailure(job, SyncType.RESTRICTIONS, roomTypeIds, "Restriction push failed before sending: " + e.getMessage(), null, e);
             return;
         }
 
@@ -234,7 +274,8 @@ public class AxisRoomsAriService {
                         "Dow", ALL_DAYS))
                     .toList());
             });
-            send(conn, "/api/cm-restrictions", resType + " restrictions " + from + " to " + to.minusDays(1), hotelEnvelope(conn, rooms));
+            send(job, SyncType.RESTRICTIONS, roomTypeIds, "/api/cm-restrictions",
+                RESTRICTION_LABELS.get(resType) + " " + from + " to " + to.minusDays(1), hotelEnvelope(conn, rooms));
         });
 
         List<Map<String, Object>> mlosRooms = buildRestrictionRooms(byRoomThenPlan, (externalRoomId, externalPlanId) -> {
@@ -256,8 +297,12 @@ public class AxisRoomsAriService {
                     "Dow", ALL_DAYS))
                 .toList());
         });
-        send(conn, "/api/cm-restrictions", "min/max stay " + from + " to " + to.minusDays(1), hotelEnvelope(conn, mlosRooms));
+        send(job, SyncType.RESTRICTIONS, roomTypeIds, "/api/cm-restrictions",
+            "min/max stay " + from + " to " + to.minusDays(1), hotelEnvelope(conn, mlosRooms));
     }
+
+    private static final Map<String, String> RESTRICTION_LABELS = Map.of(
+        "Master", "stop-sell", "CTA", "closed-to-arrival", "CTD", "closed-to-departure");
 
     private List<Map<String, Object>> buildRestrictionRooms(
             Map<String, Map<String, List<ChannelMapping>>> byRoomThenPlan,
@@ -285,6 +330,14 @@ public class AxisRoomsAriService {
             .filter(m -> m.getExternalRatePlanId() != null && !m.getExternalRatePlanId().isBlank())
             .collect(Collectors.groupingBy(ChannelMapping::getExternalRoomTypeId, LinkedHashMap::new,
                 Collectors.groupingBy(ChannelMapping::getExternalRatePlanId, LinkedHashMap::new, Collectors.toList())));
+    }
+
+    private static List<ChannelMapping> ratePlanMappings(List<ChannelMapping> mappings) {
+        return mappings.stream().filter(m -> m.getExternalRatePlanId() != null && !m.getExternalRatePlanId().isBlank()).toList();
+    }
+
+    private static Set<UUID> roomTypeIds(List<ChannelMapping> mappings) {
+        return mappings.stream().map(ChannelMapping::getRoomTypeId).collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private RatePlan internalRatePlan(ChannelMapping m) {
@@ -328,26 +381,47 @@ public class AxisRoomsAriService {
             "hotels", List.of(ordered("hotelId", conn.propertyId(), "rooms", rooms)));
     }
 
-    private void send(Connection conn, String path, String summary, Map<String, Object> body) {
+    private void send(Job job, SyncType type, Set<UUID> roomTypeIds, String path, String summary, Map<String, Object> body) {
         String json = toJson(body);
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             ResponseEntity<String> resp = externalRestTemplate.postForEntity(
-                conn.baseUrl() + path, new HttpEntity<>(json, headers), String.class);
+                job.conn().baseUrl() + path, new HttpEntity<>(json, headers), String.class);
             String message = responseMessage(resp.getBody());
             boolean ok = resp.getStatusCode().is2xxSuccessful() && isSuccess(resp.getBody());
-            syncLogRepo.save(ChannelSyncLog.builder()
-                .hotelId(conn.hotelId()).channel(conn.channel()).direction(SyncDirection.PUSH)
-                .status(ok ? SyncStatus.SUCCESS : SyncStatus.FAILED)
-                .message(truncate((ok ? "Pushed " : "Rejected ") + summary + " to " + path
-                    + (message.isBlank() ? "" : " — " + message), 2000))
+            SyncStatus status = ok ? SyncStatus.SUCCESS : isNothingToApply(message) ? SyncStatus.SKIPPED : SyncStatus.FAILED;
+            String text = switch (status) {
+                case SUCCESS -> "Pushed " + summary;
+                case SKIPPED -> "Skipped " + summary + " — no OTA is connected to this hotel in the channel manager,"
+                    + " so it has nowhere to apply them. Connect an OTA there and sync again.";
+                case FAILED -> "Rejected " + summary + (message.isBlank() ? "" : " — " + message);
+            };
+            ChannelSyncLog row = logRow(job, type, roomTypeIds, status, text)
                 .requestBody(json)
                 .responseBody("HTTP " + resp.getStatusCode().value() + (resp.getBody() != null ? "\n" + resp.getBody() : ""))
-                .build());
+                .build();
+            job.out().add(syncLogRepo.save(row));
         } catch (Exception e) {
-            logFailure(conn, "Push of " + summary + " to " + path + " failed: " + e.getMessage(), json, e);
+            logFailure(job, type, roomTypeIds, "Push of " + summary + " to " + path + " failed: " + e.getMessage(), json, e);
         }
+    }
+
+    /** AxisRooms answers "no ota connected" when the hotel has no OTA that could take
+     *  the update (restrictions/MLOS are stored per OTA rate plan, not centrally). */
+    private static boolean isNothingToApply(String message) {
+        return message != null && message.toLowerCase().contains("no ota connected");
+    }
+
+    private ChannelSyncLog.ChannelSyncLogBuilder logRow(Job job, SyncType type, Set<UUID> roomTypeIds, SyncStatus status, String message) {
+        return ChannelSyncLog.builder()
+            .hotelId(job.conn().hotelId()).channel(job.conn().channel()).direction(SyncDirection.PUSH)
+            .status(status).syncType(type)
+            .externalPropertyId(job.conn().propertyId())
+            .roomTypeIds(roomTypeIds.stream().map(UUID::toString).collect(Collectors.joining(",")))
+            .dateFrom(job.w().from()).dateTo(job.w().to().minusDays(1))
+            .triggerSource(job.req().trigger()).triggeredBy(job.req().triggeredBy())
+            .message(truncate(message, 2000));
     }
 
     private boolean isSuccess(String body) {
@@ -369,14 +443,12 @@ public class AxisRoomsAriService {
         }
     }
 
-    private void logFailure(Connection conn, String message, String requestJson, Exception e) {
-        log.warn("AxisRooms ARI [{} / {}]: {}", conn.hotelId(), conn.propertyId(), message);
-        syncLogRepo.save(ChannelSyncLog.builder()
-            .hotelId(conn.hotelId()).channel(conn.channel()).direction(SyncDirection.PUSH).status(SyncStatus.FAILED)
-            .message(truncate(message, 2000))
+    private void logFailure(Job job, SyncType type, Set<UUID> roomTypeIds, String message, String requestJson, Exception e) {
+        log.warn("AxisRooms ARI [{} / {}]: {}", job.conn().hotelId(), job.conn().propertyId(), message);
+        job.out().add(syncLogRepo.save(logRow(job, type, roomTypeIds, SyncStatus.FAILED, message)
             .requestBody(requestJson)
             .responseBody("error: " + e.getMessage())
-            .build());
+            .build()));
     }
 
     private static Map<String, Object> ordered(Object... kv) {

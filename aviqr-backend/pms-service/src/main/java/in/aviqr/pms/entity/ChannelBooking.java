@@ -15,5 +15,11 @@ public class ChannelBooking {
     @Enumerated(EnumType.STRING) @Column(nullable=false) private ChannelName channel;
     @Column(nullable=false) private String externalBookingId;
     @Column(nullable=false) private UUID reservationId;
+    // For the Channel Bookings list — nullable because rows written before these
+    // existed only had channel/externalBookingId/reservationId.
+    private UUID hotelId;
+    private String ota;              // OTA name as the channel manager reported it
+    private String lastStatus;       // confirmed | modified | cancelled
+    private LocalDateTime updatedAt; // last notification for this booking
     @CreationTimestamp private LocalDateTime createdAt;
 }
