@@ -6,6 +6,7 @@ import in.aviqr.pms.entity.*;
 import in.aviqr.pms.repository.ChannelMappingRepository;
 import in.aviqr.pms.service.ChannelManagerService;
 import in.aviqr.pms.service.ChannelService;
+import in.aviqr.pms.service.ChannelSyncLogSearch;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -71,12 +72,18 @@ public class ChannelManagerController {
             @RequestParam(required = false) SyncStatus status,
             @RequestParam(required = false) SyncDirection direction,
             @RequestParam(required = false) UUID roomTypeId,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @RequestHeader("X-User-Id") String uid,
             @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
         if (!hotelServiceClient.hasAccess(hotelId, uid, role)) return forbidden();
-        return ResponseEntity.ok(ApiResponse.ok(channelManagerService.logs(hotelId, channel, type, status, direction, roomTypeId, page, size)));
+        var filter = new ChannelSyncLogSearch.Filter(channel, type, status, direction, roomTypeId,
+            from == null || from.isBlank() ? null : LocalDate.parse(from),
+            to == null || to.isBlank() ? null : LocalDate.parse(to), q);
+        return ResponseEntity.ok(ApiResponse.ok(channelManagerService.logs(hotelId, filter, page, size)));
     }
 
     @GetMapping("/api/v1/pms/channels/{hotelId}/bookings")

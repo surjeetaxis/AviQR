@@ -34,6 +34,7 @@ public class ChannelManagerService {
 
     private final ChannelMappingRepository mappingRepo;
     private final ChannelSyncLogRepository syncLogRepo;
+    private final ChannelSyncLogSearch syncLogSearch;
     private final ChannelBookingRepository channelBookingRepo;
     private final RoomTypeRepository roomTypeRepo;
     private final RatePlanRepository ratePlanRepo;
@@ -264,12 +265,10 @@ public class ChannelManagerService {
 
     public record PageResult<T>(List<T> items, long total, int page, int size) {}
 
-    public PageResult<ChannelSyncLog> logs(UUID hotelId, ChannelName channel, SyncType type, SyncStatus status,
-                                           SyncDirection direction, UUID roomTypeId, int page, int size) {
-        int safeSize = Math.min(Math.max(size, 1), 200);
-        Page<ChannelSyncLog> p = syncLogRepo.search(hotelId, channel, type, status, direction,
-            roomTypeId == null ? null : roomTypeId.toString(), PageRequest.of(Math.max(page, 0), safeSize));
-        return new PageResult<>(p.getContent(), p.getTotalElements(), p.getNumber(), safeSize);
+    public PageResult<ChannelSyncLog> logs(UUID hotelId, ChannelSyncLogSearch.Filter filter, int page, int size) {
+        int safeSize = Math.min(Math.max(size, 1), ChannelSyncLogSearch.MAX_PAGE_SIZE);
+        ChannelSyncLogSearch.Result r = syncLogSearch.search(hotelId, filter, page, safeSize);
+        return new PageResult<>(r.items(), r.total(), Math.max(page, 0), safeSize);
     }
 
     public record ChannelBookingRow(UUID id, ChannelName channel, String ota, String externalBookingId, String lastStatus,

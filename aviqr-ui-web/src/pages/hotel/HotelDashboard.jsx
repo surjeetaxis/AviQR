@@ -16,7 +16,7 @@ import {
   RoomTypesTab, WaitlistTab, ChainTemplatesTab, ImportTab, ReviewsTab,
   RateChangeLogTab, BookingCalendarTab, RatesCalendarTab,
 } from '../pms/PmsDashboard.jsx';
-import { ChannelManagerTab } from '../pms/ChannelManager.jsx';
+import { ChannelManagerTab, CHANNEL_NAV_VIEWS } from '../pms/ChannelManager.jsx';
 import {
   Hotel, BedDouble, Shirt, Sparkles, Wrench,
   Bell, BarChart2, Settings, LogOut, Menu as MenuIcon, CheckCircle2,
@@ -25,6 +25,7 @@ import {
   Users, Flower2, TrendingUp, Eye, Download, Printer, MapPin, Loader2,
   CalendarCheck, DoorOpen, Receipt, UserCircle, Tag, Wifi, Briefcase, MessageSquare,
   Hourglass, Building2, Upload, Calendar, History, Grid3x3, ChevronDown, Check,
+  Link2, Globe, CalendarDays, ScrollText, Inbox,
 } from 'lucide-react';
 import '../admin/Admin.css';
 import './Hotel.css';
@@ -81,7 +82,12 @@ const NAV = [
   {key:'import',       group:'Inventory & Rates', label:'Import Reservations', icon:Upload},
 
   // ── Distribution ──────────────────────────────────────────────────────────
-  {key:'channels',     group:'Distribution', label:'Channel Manager',     icon:Wifi},
+  {key:'channels',        group:'Distribution', label:'Channel Manager',   icon:Wifi},
+  {key:'channelmappings', group:'Distribution', label:'Channel Mappings',  icon:Link2},
+  {key:'otamappings',     group:'Distribution', label:'OTA Mappings',      icon:Globe},
+  {key:'channelcalendar', group:'Distribution', label:'Channel Calendar',  icon:CalendarDays},
+  {key:'channellogs',     group:'Distribution', label:'Channel Sync Logs', icon:ScrollText},
+  {key:'channelbookings', group:'Distribution', label:'Channel Bookings',  icon:Inbox},
   {key:'agents',       group:'Distribution', label:'Agents & Commission', icon:Briefcase},
   {key:'chaintemplates', group:'Distribution', label:'Chain Rate Templates', icon:Building2},
 
@@ -459,7 +465,7 @@ export default function HotelDashboard() {
           {tab==='import'       && <ImportTab hotelId={hotelId} onImported={refreshReservations}/>}
 
           {/* ── Distribution ── */}
-          {tab==='channels'     && <ChannelManagerTab hotelId={hotelId} roomTypes={roomTypes}/>}
+          {CHANNEL_NAV_VIEWS[tab] && <ChannelManagerTab key={tab} hotelId={hotelId} roomTypes={roomTypes} view={CHANNEL_NAV_VIEWS[tab]} onNavigate={setTab}/>}
           {tab==='agents'       && <AgentsTab hotelId={hotelId} agents={agents} onChange={()=>loadAgents(hotelId)}/>}
           {tab==='chaintemplates' && <ChainTemplatesTab chainId={chainId}/>}
 
