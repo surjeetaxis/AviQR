@@ -251,6 +251,16 @@ public class NotificationConsumer {
         email.send(to, subject, html);
     }
 
+    @RabbitListener(queues="security.notice.queue")
+    public void onSecurityNotice(Map<String,Object> event){
+        String id="security-"+str(event,"id");
+        if(repo.existsById(id))return;
+        String body=str(event,"message");
+        if(!email.send(str(event,"email"),"AviQR account security alert","<p>"+org.springframework.web.util.HtmlUtils.htmlEscape(body)+"</p><p><a href=\"https://aviqr.com/account-security\">Review account security</a></p>"))
+            throw new IllegalStateException("Security alert delivery failed");
+        repo.save(Notification.builder().id(id).userId(str(event,"userId")).title("Account security alert").body(body).type("SECURITY").createdAt(LocalDateTime.now()).build());
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
     private void save(String userId, String title, String body, String type, String shopId, String orderId) {
         try {

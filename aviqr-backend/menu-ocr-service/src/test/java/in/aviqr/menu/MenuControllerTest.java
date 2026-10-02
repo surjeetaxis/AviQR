@@ -32,6 +32,10 @@ class MenuControllerTest {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
 
+    @MockBean RawMaterialRepository materials;
+    @MockBean DiningAreaRepository areas;
+    @MockBean MenuShortcodeRepository shortcodes;
+    @MockBean in.aviqr.menu.ocr.OcrJobRepository jobs;
     @MockBean CategoryRepository     catRepo;
     @MockBean MenuItemRepository     itemRepo;
     @MockBean MenuVariantRepository  variantRepo;
@@ -110,7 +114,7 @@ class MenuControllerTest {
         var c = cat("shop-101", "Beverages");
         when(catRepo.findByShopIdAndActiveTrueOrderBySortOrder("shop-101")).thenReturn(List.of(c));
 
-        mvc.perform(get("/api/v1/categories/shop/shop-101"))
+        mvc.perform(get("/api/v1/categories/shop/shop-101").header("X-User-Role","OWNER").header("X-Shop-Id","shop-101"))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.data[0].name").value("Beverages"));
     }
@@ -120,14 +124,14 @@ class MenuControllerTest {
     @Test
     @DisplayName("POST /categories — OWNER role creates category")
     void createCategory_ownerRole_created() throws Exception {
-        var c = cat("shop-101", "Desserts");
+        var c = cat("shop-101", "Desserts"); c.setId(null);
         when(catRepo.save(any())).thenReturn(c);
 
         mvc.perform(post("/api/v1/categories")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsString(c))
                 .header("X-User-Id", "uid-1")
-                .header("X-User-Role", "OWNER"))
+                .header("X-User-Role", "OWNER").header("X-Shop-Id","shop-101"))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.data.name").value("Desserts"));
     }
@@ -156,7 +160,7 @@ class MenuControllerTest {
         var patch = cat("shop-101", "New Name");
         mvc.perform(put("/api/v1/categories/" + c.getId())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(mapper.writeValueAsString(patch)))
+                .content(mapper.writeValueAsString(patch)).header("X-User-Role","OWNER").header("X-Shop-Id","shop-101"))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.data.name").value("New Name"));
     }
@@ -179,7 +183,7 @@ class MenuControllerTest {
         var c = cat("shop-101", "To Delete");
         when(catRepo.findById(c.getId())).thenReturn(Optional.of(c));
 
-        mvc.perform(delete("/api/v1/categories/" + c.getId()))
+        mvc.perform(delete("/api/v1/categories/" + c.getId()).header("X-User-Role","OWNER").header("X-Shop-Id","shop-101"))
            .andExpect(status().isOk());
 
         verify(catRepo).save(argThat(saved -> !saved.getActive()));
@@ -194,8 +198,24 @@ class MenuControllerTest {
         var mi = item(c.getId(), "shop-101", "Butter Chicken", 380.0);
         when(itemRepo.findByShopIdOrderBySortOrder("shop-101")).thenReturn(List.of(mi));
 
-        mvc.perform(get("/api/v1/items/shop/shop-101"))
+        mvc.perform(get("/api/v1/items/shop/shop-101").header("X-User-Role","OWNER").header("X-Shop-Id","shop-101"))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.data.content[0].name").value("Butter Chicken"));
+    }
+
+    @Test void crossShopCategoryMutationDenied() throws Exception {
+        var category=cat("shop-999","Private");when(catRepo.findById(category.getId())).thenReturn(Optional.of(category));
+        mvc.perform(delete("/api/v1/categories/"+category.getId()).header("X-User-Id","uid-1").header("X-User-Role","OWNER").header("X-Shop-Id","shop-101")).andExpect(status().isForbidden());
+        verify(catRepo,never()).save(any());
+    }
+    @Test void readOnlyStaffCannotCreateCategories() throws Exception {
+        var category=cat("shop-101","Injected");category.setId(null);
+        mvc.perform(post("/api/v1/categories").header("X-User-Id","uid-1").header("X-User-Role","ORDER_VIEWER").header("X-Shop-Id","shop-101").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(category))).andExpect(status().isForbidden());
+        verify(catRepo,never()).save(any());
+    }
+    @Test void categoryCreationCannotOverwriteAnExistingId() throws Exception {
+        var category=cat("shop-101","Injected");
+        mvc.perform(post("/api/v1/categories").header("X-User-Id","uid-1").header("X-User-Role","OWNER").header("X-Shop-Id","shop-101").contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(category))).andExpect(status().isBadRequest());
+        verify(catRepo,never()).save(any());
     }
 }

@@ -64,7 +64,7 @@ public class OrderController {
     // is the fallback once the plain single-shop equality check fails.
     private boolean isShopStaff(String role, String shopId, String callerShopId, String uid) {
         if ("ADMIN".equals(role) || "SUPPORT".equals(role)) return true;
-        if ("CUSTOMER".equals(role)) return false;
+        if (!Set.of("OWNER","MANAGER","CASHIER","KITCHEN","ORDER_VIEWER","SUPPLIER","HOTEL","MALL").contains(role)) return false;
         if (shopId.equals(callerShopId)) return true;
         return service.isShopOwnedBy(shopId, uid);
     }

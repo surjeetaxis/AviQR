@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { LogOut, ChevronDown } from 'lucide-react';
 import './ProfileMenu.css';
@@ -28,6 +29,7 @@ export default function ProfileMenu({ name, email, avatar, avatarColor, items = 
             </>
           )}
 
+          <Link className="pmenu-item" to="/account-security" onClick={()=>setOpen(false)}>Account Security</Link>
           {items.map((it, i) => (
             <button key={i} className="pmenu-item" onClick={() => { setOpen(false); it.onClick(); }}>
               {it.icon && <it.icon size={13} />} {it.label}

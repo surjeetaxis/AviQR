@@ -1,3 +1,5 @@
+import CaptchaPrompt from '../src/components/common/CaptchaPrompt.js';
+import StepUpPrompt from '../src/components/common/StepUpPrompt.js';
 import { Stack, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -16,6 +18,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
+          <StepUpPrompt />
+          <CaptchaPrompt />
           <StatusBar style={onBrand ? "light" : "dark"} />
           <Stack screenOptions={{ headerShown: false, contentStyle:{backgroundColor:Colors.background} }} />
         </AuthProvider>

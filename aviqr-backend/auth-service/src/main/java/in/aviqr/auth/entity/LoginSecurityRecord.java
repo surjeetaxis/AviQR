@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /** Immutable login events and revocable security grants. Never contains passwords, OTPs or raw device tokens. */
+@org.hibernate.annotations.DynamicUpdate
 @Entity @Table(name="login_security_records", indexes={
     @Index(name="idx_security_email_created", columnList="email,createdAt"),
     @Index(name="idx_security_kind_created", columnList="kind,createdAt")})

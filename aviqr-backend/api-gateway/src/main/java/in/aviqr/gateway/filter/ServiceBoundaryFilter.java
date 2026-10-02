@@ -21,7 +21,7 @@ public class ServiceBoundaryFilter implements GlobalFilter, Ordered {
             exchange.getResponse().setStatusCode(HttpStatus.NOT_FOUND); return exchange.getResponse().setComplete();
         }
         var request = exchange.getRequest().mutate().headers(headers -> {
-            for (String name : java.util.List.of("X-User-Id","X-User-Role","X-Shop-Id","X-User-Phone","X-Session-Id","X-Internal-Secret","X-Gateway-Secret")) headers.remove(name);
+            for (String name : java.util.List.of("X-Service-Assertion","X-User-Id","X-User-Role","X-Shop-Id","X-User-Phone","X-Session-Id","X-Internal-Secret","X-Gateway-Secret")) headers.remove(name);
             var route = exchange.getAttribute(org.springframework.cloud.gateway.support.ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
             if (route instanceof org.springframework.cloud.gateway.route.Route selected && "lb".equals(selected.getUri().getScheme())) headers.set("X-Gateway-Secret",secret);
             headers.set("X-Forwarded-For",ips.resolve(exchange));

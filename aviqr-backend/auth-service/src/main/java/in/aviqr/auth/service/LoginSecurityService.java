@@ -18,6 +18,7 @@ public class LoginSecurityService {
     private final LoginSecurityRepository records;
     private final OtpRepository otps;
     private final UserRepository users;
+    @org.springframework.beans.factory.annotation.Autowired(required=false) private SecurityNoticeRepository notices;
     @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -58,11 +59,17 @@ public class LoginSecurityService {
                 .map(u -> u.getCreatedAt().isBefore(r.getCreatedAt())).orElse(true));
     }
     private void saveEvent(String email,String kind,String status,String reason,DeviceInfo device,String actor,LocalDateTime expires) {
+        boolean notify=Set.of("ACCOUNT_LOCK","TRUSTED_DEVICE_REGISTERED","PASSKEY_REGISTERED","PASSKEY_REVOKED","SESSION_REVOKED").contains(kind) ||
+            ("PASSWORD_RESET".equals(kind) && "COMPLETED".equals(status)) ||
+            ("LOGIN_SUCCESS".equals(kind) && !records.existsByEmailAndKindAndIpAddress(email,kind,device.getIpAddress()));
         records.save(LoginSecurityRecord.builder().email(email)
             .userId(users.findByEmail(email).map(User::getId).orElse(null))
             .kind(kind).status(status).reason(trim(reason,500)).actorId(actor)
             .ipAddress(trim(device.getIpAddress(),64)).userAgent(trim(device.getUserAgent(),500))
             .deviceId(trim(device.getDeviceId(),255)).createdAt(LocalDateTime.now()).expiresAt(expires).build());
+        if(notify && notices!=null) users.findByEmail(email).ifPresent(user -> notices.save(SecurityNotice.builder().userId(user.getId()).email(email).kind(kind)
+            .ipAddress(device.getIpAddress()).message("AviQR security event: "+kind+". If this was not you, reset your password and review Account Security. Recorded IP: "+(device.getIpAddress()==null?"unknown":device.getIpAddress()))
+            .createdAt(LocalDateTime.now()).nextAttemptAt(LocalDateTime.now()).build()));
     }
     @Transactional(propagation=Propagation.REQUIRES_NEW)
     public void event(String email, String kind, String status, String reason, DeviceInfo device, String actor) {
@@ -136,11 +143,12 @@ public class LoginSecurityService {
             .reason("Registered after OTP verification").deviceId(trim(device.getDeviceId(),255))
             .userAgent(trim(device.getUserAgent(),500)).ipAddress(trim(device.getIpAddress(),255))
             .createdAt(LocalDateTime.now()).expiresAt(LocalDateTime.now().plusDays(15)).build());
+        event(user.getEmail(),"TRUSTED_DEVICE_REGISTERED","COMPLETED","Trusted for 15 days",device,user.getId().toString());
         return raw;
     }
     @Transactional
     public void revokeGrants(UUID userId) {
-        for (String kind : List.of("TRUSTED_DEVICE","LOGIN_CHALLENGE","OTP_EXEMPTION")) {
+        for (String kind : List.of("TRUSTED_DEVICE","LOGIN_CHALLENGE","OTP_EXEMPTION","STEP_UP_GRANT","STEP_UP_CHALLENGE")) {
             for (var grant : records.findByUserIdAndKindAndStatus(userId,kind,"ACTIVE")) {
                 grant.setStatus("REVOKED"); records.save(grant);
             }

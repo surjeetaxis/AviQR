@@ -11,6 +11,7 @@ public interface LoginSecurityRepository extends JpaRepository<LoginSecurityReco
     @org.springframework.data.jpa.repository.Query("select r from LoginSecurityRecord r where r.kind=:kind and not exists (select u.id from User u where u.email=r.email and u.role in :roles) order by r.createdAt desc")
     Page<LoginSecurityRecord> findSupportRecords(@org.springframework.data.repository.query.Param("kind") String kind,
         @org.springframework.data.repository.query.Param("roles") Collection<in.aviqr.auth.entity.UserRole> roles, Pageable pageable);
+    boolean existsByEmailAndKindAndIpAddress(String email,String kind,String ipAddress);
     Page<LoginSecurityRecord> findByKindOrderByCreatedAtDesc(String kind, Pageable pageable);
     Optional<LoginSecurityRecord> findFirstByEmailAndKindOrderByCreatedAtDesc(String email, String kind);
     long countByEmailAndKindAndCreatedAtAfter(String email, String kind, LocalDateTime after);

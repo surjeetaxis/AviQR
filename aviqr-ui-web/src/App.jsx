@@ -2,6 +2,8 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth, ROLE_PERMISSIONS, ROLE_DEFAULT_ROUTE } from './context/AuthContext.jsx';
 import usePageViews from './hooks/useAnalytics.js';
 
+import CaptchaPortal from './pages/CaptchaPortal.jsx';
+import AccountSecurity from './pages/AccountSecurity.jsx';
 import DashboardLayout   from './layouts/DashboardLayout.jsx';
 import Landing           from './pages/landing/Landing.jsx';
 import Login             from './pages/auth/Login.jsx';
@@ -109,6 +111,7 @@ export default function App() {
 
   return (
     <Routes>
+      <Route path="/captcha" element={<CaptchaPortal />} />
       {/* Public */}
       <Route path="/"                element={<Landing />} />
       <Route path="/login"           element={<Login />} />
@@ -131,6 +134,8 @@ export default function App() {
       <Route path="/pms/contactless-checkin/:reservationId" element={<ContactlessCheckin />} />
       <Route path="/book/:hotelId" element={<BookingEngine />} />
       <Route path="/review/:hotelId" element={<StayReview />} />
+      <Route path="/account-security" element={<ProtectedRoute><AccountSecurity /></ProtectedRoute>} />
+      <Route path="/portal/security" element={<AccountSecurity customerMode />} />
       <Route path="/onboarding"      element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
       {/* Customer Portal — persistent bottom-nav shell (Home/Search/Cart/Orders/Profile)

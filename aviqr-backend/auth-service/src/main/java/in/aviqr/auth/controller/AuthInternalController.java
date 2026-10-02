@@ -1,6 +1,7 @@
 package in.aviqr.auth.controller;
 
 import in.aviqr.auth.dto.ApiResponse;
+import in.aviqr.auth.dto.DeviceInfo;
 import in.aviqr.auth.dto.ImpersonationTokenResponse;
 import in.aviqr.auth.dto.NearbyCustomerResponse;
 import in.aviqr.auth.dto.UserLookupResponse;
@@ -31,10 +32,20 @@ import java.util.UUID;
 public class AuthInternalController {
 
     private final AuthService authService;
+    private final in.aviqr.auth.service.StepUpService stepUp;
     private final CustomerAddressRepository addressRepo;
     private final UserRepository userRepo;
     private final in.aviqr.auth.repository.RefreshTokenRepository sessions;
     private final in.aviqr.auth.security.JwtService jwtService;
+
+    @PostMapping("/consume-step-up")
+    public ResponseEntity<Map<String,Boolean>> consume(@RequestBody Map<String,String> body,
+        @RequestHeader(value="X-Internal-Secret",required=false) String secret) {
+        if(internalSyncSecret.isBlank() || !internalSyncSecret.equals(secret))return ResponseEntity.status(401).build();
+        try {return ResponseEntity.ok(Map.of("active",stepUp.consume(UUID.fromString(body.get("userId")),UUID.fromString(body.get("sessionId")),body.get("token"),body.get("method"),body.get("target"),
+            DeviceInfo.builder().ipAddress(body.get("ip")).build())));}
+        catch(Exception e){return ResponseEntity.ok(Map.of("active",false));}
+    }
 
     @PostMapping("/validate-session")
     public ResponseEntity<Map<String,Boolean>> validateSession(@RequestBody Map<String,String> body,

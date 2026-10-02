@@ -30,6 +30,7 @@ class OrderServiceTest {
 
     @Mock OrderRepository repo;
     @Mock RabbitTemplate rabbit;
+    @Mock in.aviqr.order.service.MenuPricingClient menuPricing;
     @InjectMocks OrderService service;
 
     // ── Helpers ───────────────────────────────────────────────────────────────

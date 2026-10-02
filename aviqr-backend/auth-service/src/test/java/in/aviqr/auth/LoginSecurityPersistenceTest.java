@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.*;
 
 @DataJpaTest(properties={"spring.jpa.hibernate.ddl-auto=create-drop","spring.liquibase.enabled=false","spring.jpa.show-sql=false"})
 @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)
-@Import({LoginSecurityService.class,OtpVerificationService.class,LoginSecurityPersistenceTest.EncoderConfig.class})
+@Import({LoginSecurityService.class,OtpVerificationService.class,StepUpService.class,PasskeyService.class,LoginSecurityPersistenceTest.EncoderConfig.class})
 @Transactional(propagation=Propagation.NOT_SUPPORTED)
 @EnabledIfSystemProperty(named="aviqr.security.test-db",matches=".+")
 class LoginSecurityPersistenceTest {
@@ -34,8 +34,17 @@ class LoginSecurityPersistenceTest {
         properties.add("spring.datasource.password",()->"");
     }
     @TestConfiguration static class EncoderConfig {
+        @Bean com.fasterxml.jackson.databind.ObjectMapper json(){return new com.fasterxml.jackson.databind.ObjectMapper();}
         @Bean PasswordEncoder encoder() {return new BCryptPasswordEncoder(4);}
     }
+    @org.springframework.boot.test.mock.mockito.MockBean org.springframework.amqp.rabbit.core.RabbitTemplate rabbit;
+    @Autowired StepUpService stepUp;
+    @Autowired PasskeyService passkeys;
+    @Autowired RefreshTokenRepository sessions;
+    @Autowired SecurityNoticeRepository notices;
+    @Autowired PasskeyCeremonyRepository ceremonies;
+    @Autowired PasskeyRepository keys;
+    @Autowired com.fasterxml.jackson.databind.ObjectMapper json;
     @Autowired OtpRepository otps;
     @Autowired LoginSecurityRepository records;
     @Autowired UserRepository users;
@@ -141,4 +150,73 @@ class LoginSecurityPersistenceTest {
         var page=records.findSupportRecords("BLOCKED_LOGIN",List.of(UserRole.ADMIN,UserRole.SUPPORT),org.springframework.data.domain.PageRequest.of(0,100));
         assertThat(page.getContent()).extracting(LoginSecurityRecord::getEmail).contains(ordinary.getEmail()).doesNotContain(privileged.getEmail());
     }
+
+    private RefreshToken session(User user){return sessions.save(RefreshToken.builder().userId(user.getId()).token(LoginSecurityService.hash(UUID.randomUUID().toString())).expiresAt(LocalDateTime.now().plusDays(1)).createdAt(LocalDateTime.now()).build());}
+    @Test void freshGrantIsBoundToUserSessionActionAndActualIpAndCannotReplay() {
+        var user=owner();var session=session(user);var second=session(user);var ip=DeviceInfo.builder().ipAddress("198.51.100.100").build();
+        var raw=stepUp.grant(user,session.getId(),"POST /api/v1/payments/pay-test/refund",ip,"PASSWORD_OTP");
+        assertThat(stepUp.consume(user.getId(),second.getId(),raw,"POST","/api/v1/payments/pay-test/refund",ip)).isFalse();
+        assertThat(stepUp.consume(user.getId(),session.getId(),raw,"POST","/api/v1/payments/pay-other/refund",ip)).isFalse();
+        assertThat(stepUp.consume(user.getId(),session.getId(),raw,"POST","/api/v1/payments/pay-test/refund",DeviceInfo.builder().ipAddress("198.51.100.101").build())).isFalse();
+        assertThat(stepUp.consume(user.getId(),session.getId(),raw,"POST","/api/v1/payments/pay-test/refund",ip)).isTrue();
+        assertThat(stepUp.consume(user.getId(),session.getId(),raw,"POST","/api/v1/payments/pay-test/refund",ip)).isFalse();
+    }
+    @Test void simultaneousConsumptionAuthorizesOnlyOneAction() throws Exception {
+        var user=owner();var session=session(user);var ip=DeviceInfo.builder().ipAddress("198.51.100.102").build();
+        var raw=stepUp.grant(user,session.getId(),"DELETE /api/v1/auth/passkeys/test",ip,"PASSKEY");var executor=java.util.concurrent.Executors.newFixedThreadPool(4);
+        try{var jobs=new ArrayList<java.util.concurrent.Callable<Boolean>>();for(int i=0;i<4;i++)jobs.add(()->stepUp.consume(user.getId(),session.getId(),raw,"DELETE","/api/v1/auth/passkeys/test",ip));int accepted=0;for(var job:executor.invokeAll(jobs))if(job.get())accepted++;assertThat(accepted).isEqualTo(1);}finally{executor.shutdownNow();}
+    }
+    @Test void passwordAndOtpMustBothVerifyBeforeFreshGrant() {
+        var user=owner();user.setPasswordHash(encoder.encode("Correct-password-123"));users.save(user);var session=session(user);var ip=DeviceInfo.builder().ipAddress("198.51.100.103").build();
+        var challenge=stepUp.start(user.getId(),session.getId(),"Correct-password-123","POST","/api/v1/auth/admin/security/unblock",ip);
+        var message=org.mockito.ArgumentCaptor.forClass(Map.class);org.mockito.Mockito.verify(rabbit).convertAndSend(org.mockito.ArgumentMatchers.eq("aviqr.users"),org.mockito.ArgumentMatchers.eq("otp.requested"),message.capture());
+        var otp=String.valueOf(message.getValue().get("otp"));
+        assertThatThrownBy(()->stepUp.finish(user.getId(),session.getId(),challenge,"999999".equals(otp)?"999998":"999999",ip)).hasMessageContaining("Invalid verification");
+        var grant=stepUp.finish(user.getId(),session.getId(),challenge,otp,ip);
+        assertThat(stepUp.consume(user.getId(),session.getId(),grant,"POST","/api/v1/auth/admin/security/unblock",ip)).isTrue();
+        assertThatThrownBy(()->stepUp.finish(user.getId(),session.getId(),challenge,otp,ip)).hasMessageContaining("expired");
+    }
+    @Test void notificationsAreDurableAndNewIpEventsAreDeduplicated() {
+        var user=owner();var device=DeviceInfo.builder().ipAddress("198.51.100.104").build();
+        security.event(user.getEmail(),"LOGIN_SUCCESS","SUCCESS","Password login",device,null);
+        security.event(user.getEmail(),"LOGIN_SUCCESS","SUCCESS","Password login",device,null);
+        assertThat(notices.findAll().stream().filter(n->user.getId().equals(n.getUserId()))).hasSize(1);
+        security.event(user.getEmail(),"LOGIN_SUCCESS","SUCCESS","Password login",DeviceInfo.builder().ipAddress("198.51.100.105").build(),null);
+        assertThat(notices.findAll().stream().filter(n->user.getId().equals(n.getUserId()))).hasSize(2);
+    }
+    private String b64(byte[] bytes){return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);}
+    private byte[] hashBytes(byte[] bytes)throws Exception{return java.security.MessageDigest.getInstance("SHA-256").digest(bytes);}
+    private byte[] join(byte[]... parts){var out=new java.io.ByteArrayOutputStream();for(var bytes:parts)out.writeBytes(bytes);return out.toByteArray();}
+    private byte[] coordinate(java.math.BigInteger n){byte[] raw=n.toByteArray();return Arrays.copyOfRange(join(new byte[32],raw),raw.length,raw.length+32);}
+    private String clientData(Map<String,Object> options,String type,String origin)throws Exception{
+        var node=(com.fasterxml.jackson.databind.JsonNode)options.get("options");return json.writeValueAsString(Map.of("type",type,"origin",origin,"challenge",node.path("publicKey").path("challenge").asText(),"crossOrigin",false));
+    }
+    private byte[] authenticatorData(byte flags,int counter){return join(uncheckedHash("localhost".getBytes(java.nio.charset.StandardCharsets.UTF_8)),new byte[]{flags},java.nio.ByteBuffer.allocate(4).putInt(counter).array());}
+    private byte[] uncheckedHash(byte[] bytes){try{return hashBytes(bytes);}catch(Exception e){throw new IllegalStateException(e);}}
+    private String registration(Map<String,Object> options,java.security.KeyPair key,byte[] id,String origin)throws Exception{
+        var publicKey=(java.security.interfaces.ECPublicKey)key.getPublic();var cose=com.upokecenter.cbor.CBORObject.NewMap().Add(1,2).Add(3,-7).Add(-1,1).Add(-2,coordinate(publicKey.getW().getAffineX())).Add(-3,coordinate(publicKey.getW().getAffineY())).EncodeToBytes();
+        byte[] data=join(authenticatorData((byte)0x45,0),new byte[16],new byte[]{0,(byte)id.length},id,cose);
+        byte[] attestation=com.upokecenter.cbor.CBORObject.NewMap().Add("fmt","none").Add("attStmt",com.upokecenter.cbor.CBORObject.NewMap()).Add("authData",data).EncodeToBytes();
+        return json.writeValueAsString(Map.of("id",b64(id),"rawId",b64(id),"type","public-key","clientExtensionResults",Map.of(),"response",Map.of("clientDataJSON",b64(clientData(options,"webauthn.create",origin).getBytes(java.nio.charset.StandardCharsets.UTF_8)),"attestationObject",b64(attestation),"transports",List.of("internal"))));
+    }
+    private String assertion(Map<String,Object> options,java.security.KeyPair key,byte[] id,User user,String origin,boolean uv)throws Exception{
+        byte[] client=clientData(options,"webauthn.get",origin).getBytes(java.nio.charset.StandardCharsets.UTF_8),data=authenticatorData(uv?(byte)0x05:(byte)0x01,1);
+        var signature=java.security.Signature.getInstance("SHA256withECDSA");signature.initSign(key.getPrivate());signature.update(join(data,hashBytes(client)));
+        return json.writeValueAsString(Map.of("id",b64(id),"rawId",b64(id),"type","public-key","clientExtensionResults",Map.of(),"response",Map.of("clientDataJSON",b64(client),"authenticatorData",b64(data),"signature",b64(signature.sign()),"userHandle",b64(user.getId().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)))));
+    }
+    @Test void passkeyRegistrationAndVerifiedAssertionIssueSingleUseActionGrant()throws Exception{
+        var user=owner();user.setRole(UserRole.ADMIN);users.save(user);var session=session(user);var device=DeviceInfo.builder().ipAddress("198.51.100.106").build();
+        var generator=java.security.KeyPairGenerator.getInstance("EC");generator.initialize(new java.security.spec.ECGenParameterSpec("secp256r1"));var key=generator.generateKeyPair();byte[] id=new byte[32];new java.security.SecureRandom().nextBytes(id);
+        var registration=passkeys.registrationOptions(user.getId(),session.getId());var registrationId=(UUID)registration.get("ceremonyId");
+        passkeys.register(user.getId(),session.getId(),registrationId,registration(registration,key,id,"http://localhost:5173"),"Test authenticator",device);
+        assertThat(passkeys.list(user.getId(),session.getId())).hasSize(1);
+        var options=passkeys.assertionOptions(user.getId(),session.getId(),"POST","/api/v1/auth/admin/security/unblock");var ceremonyId=(UUID)options.get("ceremonyId");
+        assertThatThrownBy(()->passkeys.assertCredential(user.getId(),session.getId(),ceremonyId,assertion(options,key,id,user,"https://evil.example",true),device)).hasMessageContaining("could not be verified");
+        assertThatThrownBy(()->passkeys.assertCredential(user.getId(),session.getId(),ceremonyId,assertion(options,key,id,user,"http://localhost:5173",false),device)).hasMessageContaining("could not be verified");
+        var proof=passkeys.assertCredential(user.getId(),session.getId(),ceremonyId,assertion(options,key,id,user,"http://localhost:5173",true),device);
+        assertThat(stepUp.consume(user.getId(),session.getId(),proof,"POST","/api/v1/auth/admin/security/unblock",device)).isTrue();
+        assertThatThrownBy(()->passkeys.assertCredential(user.getId(),session.getId(),ceremonyId,assertion(options,key,id,user,"http://localhost:5173",true),device)).hasMessageContaining("already used");
+        var stored=keys.findByUserIdAndActiveTrue(user.getId()).get(0);passkeys.revoke(user.getId(),session.getId(),stored.getId(),device);assertThat(keys.findByUserIdAndActiveTrue(user.getId())).isEmpty();
+    }
+    @Test void ordinaryAccountsCannotEnrollPrivilegedPasskeys(){var user=owner();var session=session(user);assertThatThrownBy(()->passkeys.registrationOptions(user.getId(),session.getId())).hasMessageContaining("admin and support");}
 }

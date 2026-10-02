@@ -1,3 +1,5 @@
+import { requestCaptcha } from './captchaBroker.js';
+import { requestStepUp } from './stepUpBroker.js';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { tokenStorage } from './tokenStorage.js';
@@ -100,8 +102,24 @@ export function refreshSession() {
 }
 api.interceptors.response.use(r=>r,async error=>{
   const original=error.config;
+  if(original && error.response?.status===403 && error.response?.data?.captchaRequired && !original._captchaRetried){
+    original._captchaRetried=true;
+    const token=await requestCaptcha({siteKey:error.response.data.siteKey});
+    original.headers['X-Captcha-Token']=token;
+    return api(original);
+  }
+
+  if(original && error.response?.status===428 && error.response?.data?.requiresStepUp && !original._stepUpRetried){
+    original._stepUpRetried=true;
+    const target=new URL(api.getUri(original),'https://aviqr.invalid');
+    const token=await requestStepUp({method:(original.method||'POST').toUpperCase(),target:target.pathname+target.search,
+      config:{headers:{Authorization:original.headers.Authorization,'X-Auth-Audience':original.headers['X-Auth-Audience']||'staff'}}});
+    original.headers['X-Step-Up-Token']=token;
+    return api(original);
+  }
+
   if(original && error.response?.status===401 && !original._retry &&
-     !/\/auth\/(login|register|otp|refresh|forgot-password|reset-password)/.test(original.url||'')) {
+     !/\/auth\/(login|register|otp|refresh|forgot-password|reset-password|security\/step-up|passkeys)/.test(original.url||'')) {
     original._retry=true;
     try {const data=await refreshSession(); original.headers.Authorization=`Bearer ${data.accessToken}`;return api(original);}
     catch {await tokenStorage.del('aviqr_token');await tokenStorage.del('aviqr_refresh');}

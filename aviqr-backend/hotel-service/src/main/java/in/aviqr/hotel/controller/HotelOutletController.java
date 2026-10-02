@@ -179,11 +179,7 @@ public class HotelOutletController {
         if (outlet.getShopId() == null || outlet.getShopId().isBlank())
             return ResponseEntity.badRequest().body(ApiResponse.error("Outlet has no linked shop"));
         try {
-            RestTemplate rt = new RestTemplate();
-            rt.getInterceptors().add((request,body,execution) -> {
-                request.getHeaders().set("X-Internal-Secret",internalSyncSecret);
-                return execution.execute(request,body);
-            });
+            RestTemplate rt = restTemplate;
             String url = qrServiceUrl + "/api/v1/qr-codes/internal/shop/" + outlet.getShopId()
                 + "?label=" + outlet.getName() + "&type=HOTEL_OUTLET&group=" + outlet.getHotelId();
             @SuppressWarnings("unchecked")
