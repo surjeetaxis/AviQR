@@ -8,6 +8,6 @@ import java.time.Duration;
 public class ServiceClientConfig {
     @Bean @LoadBalanced
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
-        return builder.setConnectTimeout(Duration.ofSeconds(3)).setReadTimeout(Duration.ofSeconds(5)).build();
+        return builder.connectTimeout(Duration.ofSeconds(3)).readTimeout(Duration.ofSeconds(5)).build();
     }
 }
