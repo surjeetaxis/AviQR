@@ -1,4 +1,4 @@
-plugins { id 'org.springframework.boot' version '3.3.0' }
+plugins { id 'org.springframework.boot' version '3.5.16' }
 dependencies {
     implementation project(':security-common')
     implementation 'org.springframework.boot:spring-boot-starter-web'

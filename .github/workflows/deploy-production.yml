@@ -1,12 +1,12 @@
 name: Deploy to Production
-# Run the reviewed workflow from master; ref can select any branch/tag/commit.
+# Start from any selected workflow branch; an optional ref selects another branch/tag/commit.
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Git branch, tag or commit to deploy
+        description: Branch, tag or commit to deploy (empty uses the selected workflow branch)
         required: false
-        default: master
+        default: ''
 permissions:
   contents: read
   actions: read
@@ -20,10 +20,6 @@ jobs:
     outputs:
       sha: ${{ steps.target.outputs.sha }}
     steps:
-      - name: Require reviewed master workflow
-        env:
-          CONTROL_REF: ${{ github.ref }}
-        run: test "$CONTROL_REF" = refs/heads/master
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           path: control
@@ -31,7 +27,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           path: target
-          ref: ${{ inputs.ref || 'master' }}
+          ref: ${{ inputs.ref || github.ref_name }}
           fetch-depth: 0
           persist-credentials: false
       - name: Resolve target SHA

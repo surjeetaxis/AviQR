@@ -1,4 +1,4 @@
-plugins { id 'org.springframework.boot' version '3.3.0' }
+plugins { id 'org.springframework.boot' version '3.5.16' }
 
 dependencies {
     testImplementation 'com.upokecenter:cbor:4.5.6'
