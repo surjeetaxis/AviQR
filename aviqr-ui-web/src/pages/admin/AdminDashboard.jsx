@@ -19,6 +19,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
 import PermissionMatrixView from '../../components/shared/PermissionMatrixView.jsx';
 import AdminLeadsPage from './AdminLeadsPage.jsx';
+import AdminLoginSecurity from './AdminLoginSecurity.jsx';
 import '../admin/Admin.css';
 import './AdminExtra.css';
 
@@ -55,6 +56,7 @@ const VERTICAL_COLORS = {
 
 const NAV = [
   {key:'overview',      labelKey:'overview',      icon:BarChart2},
+  {key:'login-security', label:'Login Security', icon:Shield},
   {key:'users',         labelKey:'navUsers',         icon:Users},
   {key:'shops',         labelKey:'navShops',         icon:Store},
   {key:'hotels',        labelKey:'navHotels',        icon:Hotel},
@@ -135,8 +137,8 @@ export default function AdminDashboard() {
           {NAV.map(n => (
             <button key={n.key} className={`admin-nav-item ${tab === n.key ? 'active' : ''}`}
               onClick={() => { setTab(n.key); setSidebarOpen(false); }}
-              title={sidebarCollapsed ? t(n.labelKey, lang) : undefined}>
-              <n.icon size={16}/> <span>{t(n.labelKey, lang)}</span>
+              title={sidebarCollapsed ? n.label || t(n.labelKey, lang) : undefined}>
+              <n.icon size={16}/> <span>{n.label || t(n.labelKey, lang)}</span>
             </button>
           ))}
         </nav>
@@ -177,6 +179,7 @@ export default function AdminDashboard() {
 
         <main className="admin-content">
           {tab === 'overview'     && <AdminOverview ps={platformStats} us={userStats} loading={platformLoading} onNav={goTo} onRefresh={loadPlatform}/>}
+          {tab === 'login-security' && <AdminLoginSecurity/>}
           {tab === 'users'        && <LiveUsersPage initialRole={usersRoleFilter}/>}
           {tab === 'shops'        && <AdminShopsPage/>}
           {tab === 'hotels'       && <AdminHotelsPage/>}

@@ -25,13 +25,17 @@ export default function Login() {
   const [otpEmail, setOtpEmail] = useState('');
   const [otp, setOtp]       = useState('');
   const [sent, setSent]     = useState(false);
+  const [challengeId,setChallengeId] = useState(null);
+  const [trustDevice,setTrustDevice] = useState(false);
   const [loading, setLoad]  = useState(false);
   const [err, setErr]       = useState('');
 
   const doLogin = async () => {
     if(!email||!pw) return setErr('Enter email and password');
     setLoad(true); setErr('');
-    try { const u=await login(email,pw); router.replace(homeFor(u.role)); }
+    try { const u=await login(email,pw);
+      if(u.requiresOtp) {setChallengeId(u.challengeId);setOtpEmail(email);setSent(true);setTab('otp');setPw('');}
+      else router.replace(homeFor(u.role)); }
     catch(e){ setErr(e.response ? (e.response.data?.message||'Invalid credentials.') : 'Could not reach the server. Check your connection.'); }
     finally { setLoad(false); }
   };
@@ -47,8 +51,8 @@ export default function Login() {
   const verifyOtp = async () => {
     if(!otp) return;
     setLoad(true); setErr('');
-    try { const u=await loginOtp(otpEmail,otp); router.replace(homeFor(u.role)); }
-    catch { setErr('Invalid OTP'); }
+    try { const u=await loginOtp(otpEmail,otp,{challengeId,trustDevice}); router.replace(homeFor(u.role)); }
+    catch(e) { setErr(e.response?.data?.message || 'OTP verification failed'); }
     finally { setLoad(false); }
   };
 
@@ -68,7 +72,7 @@ export default function Login() {
 
         <View style={ss.tabs}>
           {['password','otp'].map(t=>(
-            <TouchableOpacity key={t} style={[ss.tab,tab===t&&ss.tabActive]} onPress={()=>{setTab(t);setErr('');}}>
+            <TouchableOpacity key={t} style={[ss.tab,tab===t&&ss.tabActive]} onPress={()=>{setTab(t);setErr('');if(t==='password'){setChallengeId(null);setSent(false);}}}>
               <Text style={[ss.tabTxt,tab===t&&ss.tabTxtActive]}>{t==='password'?'🔑 Password':'📧 OTP'}</Text>
             </TouchableOpacity>
           ))}
@@ -89,6 +93,9 @@ export default function Login() {
             {sent?(
               <View>
                 <Input label="OTP" placeholder="123456" value={otp} onChangeText={setOtp} keyboardType="number-pad"/>
+                <TouchableOpacity onPress={()=>setTrustDevice(!trustDevice)} style={{marginBottom:12}}>
+                  <Text>{trustDevice?'☑':'☐'} Trust this device for 30 days (excludes admin/support)</Text>
+                </TouchableOpacity>
                 <Button title={loading?'Verifying…':'Verify & Login'} onPress={verifyOtp} loading={loading}/>
                 <TouchableOpacity onPress={sendOtp} style={ss.resend}><Text style={ss.resendTxt}>Resend OTP</Text></TouchableOpacity>
               </View>

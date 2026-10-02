@@ -17,11 +17,20 @@ import java.util.UUID;
 public class AuthController {
 
     private final AuthService authService;
+    private final in.aviqr.auth.service.BrowserSessionService browserSessions;
+    private final in.aviqr.auth.service.LoginSecurityService loginSecurity;
+    private ResponseEntity<ApiResponse<AuthResponse>> session(AuthResponse data,HttpServletRequest req,String method) {
+        var headers = browserSessions.issue(data,req);
+        if (!data.isRequiresOtp()) loginSecurity.event(data.getEmail(),"LOGIN_SUCCESS","SUCCESS",method,
+            deviceInfo(req.getHeader("X-Platform"),req.getHeader("X-Device-Id"),req.getHeader("X-Device-Model"),req.getHeader("X-App-Version"),req),null);
+        return ResponseEntity.ok().headers(headers).body(ApiResponse.ok(data));
+    }
 
     // POST /api/v1/auth/register
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok("Registration successful", authService.register(req)));
+    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest req,HttpServletRequest httpReq) {
+        browserSessions.requireBrowserCsrf(httpReq);
+        return session(authService.register(req),httpReq,"Registration");
     }
 
     // POST /api/v1/auth/login
@@ -33,8 +42,8 @@ public class AuthController {
             @RequestHeader(value = "X-Device-Model", required = false) String deviceModel,
             @RequestHeader(value = "X-App-Version", required = false) String appVersion,
             HttpServletRequest httpReq) {
-        return ResponseEntity.ok(ApiResponse.ok("Login successful",
-                authService.login(req, deviceInfo(platform, deviceId, deviceModel, appVersion, httpReq))));
+        browserSessions.requireBrowserCsrf(httpReq);
+        return session(authService.login(req,deviceInfo(platform,deviceId,deviceModel,appVersion,httpReq)),httpReq,"Password login");
     }
 
     // POST /api/v1/auth/otp/send
@@ -52,14 +61,19 @@ public class AuthController {
             @RequestHeader(value = "X-Device-Model", required = false) String deviceModel,
             @RequestHeader(value = "X-App-Version", required = false) String appVersion,
             HttpServletRequest httpReq) {
-        return ResponseEntity.ok(ApiResponse.ok("Login successful",
-                authService.loginWithOtp(req, deviceInfo(platform, deviceId, deviceModel, appVersion, httpReq))));
+        browserSessions.requireBrowserCsrf(httpReq);
+        return session(authService.loginWithOtp(req,deviceInfo(platform,deviceId,deviceModel,appVersion,httpReq)),httpReq,"OTP verified login");
     }
 
     // POST /api/v1/auth/refresh
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<AuthResponse>> refresh(@Valid @RequestBody RefreshTokenRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok(authService.refreshToken(req)));
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(@RequestBody(required=false) RefreshTokenRequest req,HttpServletRequest httpReq) {
+        browserSessions.requireBrowserCsrf(httpReq);
+        if (req==null) req = new RefreshTokenRequest();
+        if (browserSessions.browser(httpReq) || req.getRefreshToken()==null) req.setRefreshToken(browserSessions.refreshCookie(httpReq));
+        if (req.getRefreshToken()==null || req.getRefreshToken().isBlank()) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED,"Refresh session required");
+        AuthResponse data = authService.refreshToken(req);
+        return ResponseEntity.ok().headers(browserSessions.issue(data,httpReq)).body(ApiResponse.ok(data));
     }
 
     // POST /api/v1/auth/logout — body is optional; pass {"refreshToken": "..."} to
@@ -67,10 +81,14 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @RequestHeader("X-User-Id") String userId,
-            @RequestBody(required = false) Map<String, String> body) {
-        authService.logout(UUID.fromString(userId), body != null ? body.get("refreshToken") : null);
-        return ResponseEntity.ok(ApiResponse.ok("Logged out", null));
+            @RequestBody(required = false) Map<String, String> body,HttpServletRequest httpReq) {
+        browserSessions.requireBrowserCsrf(httpReq);
+        String token = browserSessions.browser(httpReq) ? browserSessions.refreshCookie(httpReq) : body != null ? body.get("refreshToken") : null;
+        authService.logout(UUID.fromString(userId),token);
+        return ResponseEntity.ok().headers(browserSessions.clear(httpReq)).body(ApiResponse.ok("Logged out",null));
     }
+
+    private String bounded(String value,int max) {return value==null ? null : value.substring(0,Math.min(max,value.length()));}
 
     private DeviceInfo deviceInfo(String platform, String deviceId, String deviceModel,
                                   String appVersion, HttpServletRequest httpReq) {
@@ -80,11 +98,12 @@ public class AuthController {
                 : httpReq.getRemoteAddr();
         return DeviceInfo.builder()
                 .platform(Platform.from(platform))
-                .deviceId(deviceId)
-                .deviceModel(deviceModel)
-                .appVersion(appVersion)
-                .ipAddress(ip)
-                .userAgent(httpReq.getHeader("User-Agent"))
+                .deviceId(bounded(deviceId,255))
+                .deviceModel(bounded(deviceModel,255))
+                .appVersion(bounded(appVersion,50))
+                .ipAddress(bounded(ip,64))
+                .trustedDeviceToken(browserSessions.cookie(httpReq,"aviqr_trusted_device")!=null ? browserSessions.cookie(httpReq,"aviqr_trusted_device") : httpReq.getHeader("X-Trusted-Device"))
+                .userAgent(bounded(httpReq.getHeader("User-Agent"),255))
                 .build();
     }
 
@@ -122,8 +141,9 @@ public class AuthController {
     @PutMapping("/link-shop")
     public ResponseEntity<ApiResponse<AuthResponse>> linkShop(
             @RequestHeader("X-User-Id") String userId,
-            @RequestBody Map<String, String> body) {
-        return ResponseEntity.ok(ApiResponse.ok("Shop linked", authService.linkShop(UUID.fromString(userId), body.get("shopId"))));
+            @RequestBody Map<String, String> body,HttpServletRequest httpReq) {
+        browserSessions.requireBrowserCsrf(httpReq);
+        return session(authService.linkShop(UUID.fromString(userId),body.get("shopId")),httpReq,"Shop context linked");
     }
 
     // POST /api/v1/auth/forgot-password

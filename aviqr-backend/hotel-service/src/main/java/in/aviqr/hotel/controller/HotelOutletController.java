@@ -23,6 +23,7 @@ public class HotelOutletController {
     private final HotelAccessService accessService;
     private final RabbitTemplate rabbit;
     private final RestTemplate restTemplate;
+    @org.springframework.beans.factory.annotation.Value("${INTERNAL_SYNC_SECRET:}") private String internalSyncSecret;
     private final OutletTokenService outletTokenService;
 
     @Value("${qr.service.url:http://order-qr-service}")
@@ -109,14 +110,15 @@ public class HotelOutletController {
     public ResponseEntity<ApiResponse<Map<String, String>>> enter(
             @PathVariable UUID id,
             @RequestHeader("X-User-Id") String uid,
-            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+            @RequestHeader(value="X-User-Role", defaultValue="") String role,
+            @RequestHeader("X-Session-Id") String sessionId) {
         HotelOutlet outlet = outletRepo.findById(id).orElse(null);
         if (outlet == null) return ResponseEntity.notFound().build();
         if (!accessService.hasAccess(outlet.getHotelId(), uid, role))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         if (outlet.getShopId() == null || outlet.getShopId().isBlank())
             return ResponseEntity.badRequest().body(ApiResponse.error("Outlet has no linked shop"));
-        String token = outletTokenService.mintOutletToken(uid, outlet.getShopId());
+        String token = outletTokenService.mintOutletToken(uid, outlet.getShopId(), sessionId);
         return ResponseEntity.ok(ApiResponse.ok(Map.of("accessToken", token, "shopId", outlet.getShopId())));
     }
 
@@ -178,6 +180,10 @@ public class HotelOutletController {
             return ResponseEntity.badRequest().body(ApiResponse.error("Outlet has no linked shop"));
         try {
             RestTemplate rt = new RestTemplate();
+            rt.getInterceptors().add((request,body,execution) -> {
+                request.getHeaders().set("X-Internal-Secret",internalSyncSecret);
+                return execution.execute(request,body);
+            });
             String url = qrServiceUrl + "/api/v1/qr-codes/internal/shop/" + outlet.getShopId()
                 + "?label=" + outlet.getName() + "&type=HOTEL_OUTLET&group=" + outlet.getHotelId();
             @SuppressWarnings("unchecked")

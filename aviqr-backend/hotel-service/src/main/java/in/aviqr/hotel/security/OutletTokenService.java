@@ -29,16 +29,18 @@ public class OutletTokenService {
     @Value("${app.jwt.secret}")
     private String secret;
 
-    private static final long OUTLET_TOKEN_TTL_MS = 4 * 60 * 60 * 1000L; // 4 hours
+    private static final long OUTLET_TOKEN_TTL_MS = 15 * 60 * 1000L; // 15 minutes
 
     private SecretKey key() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String mintOutletToken(String userId, String shopId) {
+    public String mintOutletToken(String userId, String shopId, String sessionId) {
         return Jwts.builder()
                 .subject(userId)
                 .claims(Map.of(
+                        "sid", sessionId,
+                        "tokenType", "access",
                         "role",   "MANAGER",
                         "shopId", shopId
                 ))

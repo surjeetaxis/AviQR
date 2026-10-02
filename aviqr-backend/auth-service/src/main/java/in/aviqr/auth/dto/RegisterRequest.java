@@ -9,7 +9,7 @@ public class RegisterRequest {
     @NotBlank String name;
     @Email @NotBlank String email;
     @Pattern(regexp = "^[6-9]\\d{9}$", message = "Invalid Indian mobile number") String phone;
-    @Size(min = 8) String password;
+    @NotBlank @Size(min = 12, max = 128) String password;
     @NotNull UserRole role;
     String shopName;
     String hotelName;

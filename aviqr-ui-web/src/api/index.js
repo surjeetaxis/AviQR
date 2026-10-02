@@ -2,6 +2,7 @@
 // Auto-falls back to mock data when backend is unreachable
 
 import axios from 'axios';
+import { getAccessToken, setSession } from './sessionStore.js';
 import { getActiveOutletId, getActiveToken } from './outletContext.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -10,7 +11,8 @@ const APP_VERSION = '1.0.0';
 
 export const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 8000,
+  timeout: 12000,
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -25,14 +27,10 @@ api.interceptors.request.use((config) => {
   // at once, where the single module-level active-outlet token doesn't fit.
   if (!config.headers.Authorization) {
     const outletToken = getActiveOutletId() ? getActiveToken() : null;
-    const token = outletToken || localStorage.getItem('aviqr_token');
+    const token = outletToken || getAccessToken();
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
-  try {
-    const user = JSON.parse(localStorage.getItem('aviqr_user') || '{}');
-    if (user.shopId) config.headers['X-Shop-Id']   = user.shopId;
-    if (user.role)   config.headers['X-User-Role'] = user.role.toUpperCase();
-  } catch {}
+  config.headers['X-CSRF-Protection'] = '1';
   // Lets support/admin session analytics tell web logins apart from mobile —
   // see aviqr-mobile-expo's resolveDevHost()-adjacent header set for the
   // mobile-side equivalent of this.
@@ -41,31 +39,35 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ── Auto-refresh on 401 ───────────────────────────────────────────────────────
-api.interceptors.response.use(
-  (r) => r,
-  async (error) => {
-    const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
-      original._retry = true;
-      try {
-        const rt = localStorage.getItem('aviqr_refresh');
-        if (rt) {
-          const res = await axios.post(`${BASE_URL}/api/v1/auth/refresh`, { refreshToken: rt });
-          const newToken = res.data.data.accessToken;
-          localStorage.setItem('aviqr_token', newToken);
-          original.headers.Authorization = `Bearer ${newToken}`;
-          return api(original);
-        }
-      } catch {
-        localStorage.removeItem('aviqr_token');
-        localStorage.removeItem('aviqr_refresh');
-        window.location.href = '/login';
-      }
-    }
+// One refresh request per audience prevents concurrent refresh-token rotation races.
+const refreshes = {};
+export function refreshSession(audience = 'staff') {
+  if (!refreshes[audience]) {
+    refreshes[audience] = axios.post(`${BASE_URL}/api/v1/auth/refresh`, {}, {
+      withCredentials: true,
+      headers: { 'X-Platform': 'WEB', 'X-Auth-Audience': audience, 'X-CSRF-Protection': '1' },
+    }).then(res => { setSession(res.data.data, audience); return res.data.data; })
+      .finally(() => { delete refreshes[audience]; });
+  }
+  return refreshes[audience];
+}
+api.interceptors.response.use(r => r, async error => {
+  const original = error.config;
+  if (!original || error.response?.status !== 401 || original._retry ||
+      /\/auth\/(login|register|otp|refresh|forgot-password|reset-password)/.test(original.url || '')) {
     return Promise.reject(error);
   }
-);
+  original._retry = true;
+  const audience = original.headers?.['X-Auth-Audience'] || 'staff';
+  try {
+    const data = await refreshSession(audience);
+    original.headers.Authorization = `Bearer ${data.accessToken}`;
+    return api(original);
+  } catch {
+    setSession(null, audience);
+    return Promise.reject(error);
+  }
+});
 
 // ── Backend health check ──────────────────────────────────────────────────────
 // Uses a RELATIVE URL so Vite proxy handles it — avoids CORS in dev
@@ -86,14 +88,14 @@ export async function checkBackend() {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export const authApi = {
   login:          (d)    => api.post('/api/v1/auth/login', d),
-  loginOtp:       (d)    => api.post('/api/v1/auth/otp/login', d),
+  loginOtp:       (d, config={}) => api.post('/api/v1/auth/otp/login', d, config),
   sendOtp:        (email)=> api.post('/api/v1/auth/otp/send', { email }),
   register:       (d)    => api.post('/api/v1/auth/register', d),
-  logout:         ()     => api.post('/api/v1/auth/logout'),
+  logout:         (config={}) => api.post('/api/v1/auth/logout', {}, config),
   getProfile:     (config={})    => api.get('/api/v1/auth/profile', config),
   updateProfile:  (d, config={}) => api.put('/api/v1/auth/profile', d, config),
   deactivateAccount: (config={}) => api.put('/api/v1/auth/deactivate', {}, config),
-  forgotPassword:  (e)    => api.post(`/api/v1/auth/forgot-password?email=${e}`),
+  forgotPassword:  (e)    => api.post(`/api/v1/auth/forgot-password?email=${encodeURIComponent(e)}`),
   resetPassword:   (d)    => api.post('/api/v1/auth/reset-password', d),
   changePassword:  (d)    => api.post('/api/v1/auth/change-password', d),
   linkShop:        (shopId) => api.put('/api/v1/auth/link-shop', { shopId }),
@@ -794,4 +796,16 @@ export const diningAreaApi = {
   delete:     (id)           => api.delete(`/api/v1/dining-areas/${id}`),
   getPrices:  (areaId)       => api.get(`/api/v1/dining-areas/${areaId}/prices`),
   savePrices: (areaId, data) => api.put(`/api/v1/dining-areas/${areaId}/prices`, data),
+};
+
+export const adminSecurityApi = {
+  records: (kind, page=0) => api.get('/api/v1/auth/admin/security/records', { params: {kind,page} }),
+  exempt: data => api.post('/api/v1/auth/admin/security/otp-exemptions', data),
+  revoke: (id,reason) => api.post(`/api/v1/auth/admin/security/records/${id}/revoke`, {reason}),
+  reset: data => api.post('/api/v1/auth/admin/security/password-resets', data),
+  unblock: data => api.post('/api/v1/auth/admin/security/unblock', data),
+  support: (page=0) => api.get('/api/v1/auth/admin/security/support', { params: {page} }),
+  createSupport: data => api.post('/api/v1/auth/admin/security/support', data),
+  approve: (id,reason) => api.post(`/api/v1/auth/admin/security/support/${id}/approve`, {reason}),
+  terminate: (id,reason) => api.post(`/api/v1/auth/admin/security/support/${id}/terminate`, {reason}),
 };

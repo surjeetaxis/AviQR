@@ -30,4 +30,8 @@ public class OtpRecord {
     private Boolean used = false;
 
     private LocalDateTime createdAt;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private int failedAttempts = 0;
 }

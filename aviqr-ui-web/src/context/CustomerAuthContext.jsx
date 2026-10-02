@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { refreshSession } from '../api/index.js';
+import { setSession, subscribeSessions } from '../api/sessionStore.js';
 import { authApi } from '../api/index.js';
 
 // A separate, lightweight session for the Customer Portal (QR-scanning diners/guests),
@@ -12,7 +14,6 @@ import { authApi } from '../api/index.js';
 // Cart checkout, Orders, Rewards, Favorites, and Profile.
 const CustomerAuthContext = createContext(null);
 
-const TOKEN_KEY = 'aviqr_customer_token';
 const USER_KEY  = 'aviqr_customer';
 
 export function CustomerAuthProvider({ children }) {
@@ -21,29 +22,33 @@ export function CustomerAuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser  = localStorage.getItem(USER_KEY);
-    const savedToken = localStorage.getItem(TOKEN_KEY);
-    if (savedUser && savedToken) {
-      setCustomer(JSON.parse(savedUser));
-      setCustomerToken(savedToken);
-    }
-    setLoading(false);
+    const apply = (audience, data) => {
+      if (audience !== 'customer') return;
+      const {accessToken, refreshToken, trustedDeviceToken, ...profile} = data || {};
+      setCustomer(data ? profile : null); setCustomerToken(accessToken || null);
+    };
+    const unsubscribe = subscribeSessions(apply);
+    let cancelled = false;
+    refreshSession('customer').catch(() => { if (!cancelled) setSession(null,'customer'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; unsubscribe(); };
   }, []);
 
   const sendOtp = (email) => authApi.sendOtp(email);
 
   const loginWithOtp = async (email, otp) => {
-    const res = await authApi.loginOtp({ email, otp });
-    const { accessToken, ...userData } = res.data.data;
-    localStorage.setItem(TOKEN_KEY, accessToken);
+    const res = await authApi.loginOtp({ email, otp }, { headers: {'X-Auth-Audience': 'customer'} });
+    const { accessToken, refreshToken, trustedDeviceToken, ...userData } = res.data.data;
+    setSession(res.data.data,'customer');
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
     setCustomerToken(accessToken);
     setCustomer(userData);
     return userData;
   };
 
-  const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
+  const logout = async () => {
+    try { await authApi.logout({headers:{Authorization:`Bearer ${customerToken}`,'X-Auth-Audience':'customer'}}); } catch {}
+    setSession(null,'customer');
     localStorage.removeItem(USER_KEY);
     setCustomerToken(null);
     setCustomer(null);
@@ -52,7 +57,7 @@ export function CustomerAuthProvider({ children }) {
   // Header object to spread into any api.* call that needs the customer's identity
   // (favorites, orders, real checkout) — the shared axios interceptor only attaches
   // the staff aviqr_token, so customer-portal calls must pass this explicitly.
-  const authHeader = customerToken ? { headers: { Authorization: `Bearer ${customerToken}` } } : {};
+  const authHeader = customerToken ? { headers: { Authorization: `Bearer ${customerToken}`, 'X-Auth-Audience': 'customer' } } : {};
 
   const updateProfile = async (data) => {
     const res = await authApi.updateProfile(data, authHeader);

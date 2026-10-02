@@ -1,6 +1,7 @@
 plugins { id 'org.springframework.boot' version '3.3.0' }
 
 dependencies {
+    implementation project(':security-common')
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -15,4 +16,11 @@ dependencies {
     runtimeOnly  'io.jsonwebtoken:jjwt-jackson:0.12.6'
     implementation 'org.mapstruct:mapstruct:1.5.5.Final'
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
+}
+
+// Optional persistence regression tests must target a disposable PostgreSQL database.
+tasks.named('test') {
+    if (project.hasProperty('securityTestDbUrl')) {
+        systemProperty 'aviqr.security.test-db', project.property('securityTestDbUrl')
+    }
 }

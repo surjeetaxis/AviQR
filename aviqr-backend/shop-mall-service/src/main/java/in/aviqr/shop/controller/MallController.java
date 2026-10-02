@@ -106,7 +106,8 @@ public class MallController {
     public ResponseEntity<ApiResponse<Map<String, String>>> enterVendor(
             @PathVariable UUID id,
             @RequestHeader("X-User-Id") String uid,
-            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+            @RequestHeader(value="X-User-Role", defaultValue="") String role,
+            @RequestHeader("X-Session-Id") String sessionId) {
         Vendor v = vendorRepo.findById(id).orElse(null);
         if (v == null) return ResponseEntity.notFound().build();
         if (!"ADMIN".equals(role)) {
@@ -116,7 +117,7 @@ public class MallController {
         }
         if (v.getShopId() == null || v.getShopId().isBlank())
             return ResponseEntity.badRequest().body(ApiResponse.error("Vendor has no linked shop"));
-        String token = vendorTokenService.mintVendorToken(uid, v.getShopId());
+        String token = vendorTokenService.mintVendorToken(uid, v.getShopId(), sessionId);
         return ResponseEntity.ok(ApiResponse.ok(Map.of("accessToken", token, "shopId", v.getShopId())));
     }
 

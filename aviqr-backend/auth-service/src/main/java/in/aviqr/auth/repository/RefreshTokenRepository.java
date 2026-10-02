@@ -15,6 +15,7 @@ import java.util.UUID;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     Optional<RefreshToken> findByTokenAndRevokedFalse(String token);
 
     Optional<RefreshToken> findByIdAndUserId(UUID id, UUID userId);

@@ -1,3 +1,4 @@
+import { getAccessToken } from '../api/sessionStore.js';
 import { useState, useEffect } from 'react';
 import { Download, Search, Filter, Bike, ShoppingBag, UtensilsCrossed, FileText, RefreshCw, X, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -38,7 +39,7 @@ export default function OrderHistory() {
       if (startDate)params.append('startDate', startDate);
       if (endDate)  params.append('endDate', endDate);
       const res = await fetch(`${API_BASE}/api/v1/reports/shop/${shopId}/history?${params}`, {
-        headers:{ Authorization:`Bearer ${localStorage.getItem('aviqr_token')}` }
+        headers:{ Authorization:`Bearer ${getAccessToken()}` }
       });
       const data = await res.json();
       const d = data.data || {};

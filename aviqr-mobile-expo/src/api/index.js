@@ -69,41 +69,45 @@ export const BASE_URL =
   __DEV__ ? DEV_URL : PROD_URL;
 
 // ── Axios instance ──────────────────────────────────────────────────────────
-const api = axios.create({ baseURL: BASE_URL, timeout: 10000 });
+const api = axios.create({ baseURL: BASE_URL, timeout: 12000, withCredentials: Platform.OS==='web' });
 
 // ── Attach JWT ──────────────────────────────────────────────────────────────
 api.interceptors.request.use(async (config) => {
   try {
     const token = await tokenStorage.get('aviqr_token');
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (token && !config.headers.Authorization) config.headers.Authorization = `Bearer ${token}`;
   } catch {}
+  config.headers['X-Platform']=Platform.OS==='web'?'WEB':Platform.OS.toUpperCase();
+  if (Platform.OS==='web') config.headers['X-CSRF-Protection']='1';
+  const trusted=await tokenStorage.get('aviqr_trusted_device');
+  if(trusted && Platform.OS!=='web') config.headers['X-Trusted-Device']=trusted;
   return config;
 });
 
-// ── Auto-refresh on 401 ─────────────────────────────────────────────────────
-api.interceptors.response.use(
-  (r) => r,
-  async (error) => {
-    const orig = error.config;
-    if (error.response?.status === 401 && !orig._retry) {
-      orig._retry = true;
-      try {
-        const rt = await tokenStorage.get('aviqr_refresh');
-        if (rt) {
-          const res = await axios.post(`${BASE_URL}/api/v1/auth/refresh`, { refreshToken: rt });
-          const tok = res.data.data.accessToken;
-          await tokenStorage.set('aviqr_token', tok);
-          orig.headers.Authorization = `Bearer ${tok}`;
-          return api(orig);
-        }
-      } catch {
-        await tokenStorage.del('aviqr_token');
-        await tokenStorage.del('aviqr_refresh');
-      }
-    }
-    return Promise.reject(error);
+let refreshing;
+export function refreshSession() {
+  if (!refreshing) refreshing=(async()=>{
+    const rt=await tokenStorage.get('aviqr_refresh');
+    const response=await axios.post(`${BASE_URL}/api/v1/auth/refresh`,Platform.OS==='web'?{}:{refreshToken:rt}, {
+      withCredentials:Platform.OS==='web',headers:{'X-Platform':Platform.OS==='web'?'WEB':Platform.OS.toUpperCase(),'X-CSRF-Protection':'1'},
+    });
+    const data=response.data.data;
+    await tokenStorage.set('aviqr_token',data.accessToken);
+    if(data.refreshToken) await tokenStorage.set('aviqr_refresh',data.refreshToken);
+    return data;
+  })().finally(()=>{refreshing=null;});
+  return refreshing;
+}
+api.interceptors.response.use(r=>r,async error=>{
+  const original=error.config;
+  if(original && error.response?.status===401 && !original._retry &&
+     !/\/auth\/(login|register|otp|refresh|forgot-password|reset-password)/.test(original.url||'')) {
+    original._retry=true;
+    try {const data=await refreshSession(); original.headers.Authorization=`Bearer ${data.accessToken}`;return api(original);}
+    catch {await tokenStorage.del('aviqr_token');await tokenStorage.del('aviqr_refresh');}
   }
-);
+  return Promise.reject(error);
+});
 
 // ── Backend availability check ──────────────────────────────────────────────
 export async function isBackendOnline() {
@@ -689,3 +693,15 @@ export const notifApi = {
 };
 
 export default api;
+
+export const adminSecurityApi = {
+  records: (kind,page=0) => api.get('/api/v1/auth/admin/security/records',{params:{kind,page}}),
+  support: (page=0) => api.get('/api/v1/auth/admin/security/support',{params:{page}}),
+  createSupport: data => api.post('/api/v1/auth/admin/security/support',data),
+  approve: (id,reason) => api.post(`/api/v1/auth/admin/security/support/${id}/approve`,{reason}),
+  terminate: (id,reason) => api.post(`/api/v1/auth/admin/security/support/${id}/terminate`,{reason}),
+  exempt: data => api.post('/api/v1/auth/admin/security/otp-exemptions',data),
+  revoke: (id,reason) => api.post(`/api/v1/auth/admin/security/records/${id}/revoke`,{reason}),
+  reset: data => api.post('/api/v1/auth/admin/security/password-resets',data),
+  unblock: data => api.post('/api/v1/auth/admin/security/unblock',data),
+};

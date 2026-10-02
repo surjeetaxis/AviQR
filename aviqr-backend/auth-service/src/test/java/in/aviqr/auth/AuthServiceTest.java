@@ -29,6 +29,9 @@ class AuthServiceTest {
     @Mock PasswordEncoder     encoder;
     @Mock AuditLogService     auditService;
     @Mock RabbitTemplate      rabbit;
+    @Mock in.aviqr.auth.service.LoginSecurityService loginSecurity;
+    @Mock in.aviqr.auth.service.OtpVerificationService otpVerification;
+    @Mock in.aviqr.auth.service.ShopOwnershipService shopOwnership;
     @InjectMocks AuthService  service;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -45,7 +48,7 @@ class AuthServiceTest {
     private RegisterRequest registerReq(String email, String phone) {
         var r = new RegisterRequest();
         r.setName("New User"); r.setEmail(email);
-        r.setPhone(phone); r.setPassword("Test@1234");
+        r.setPhone(phone); r.setPassword("Test@12345678");
         return r;
     }
 
@@ -73,9 +76,9 @@ class AuthServiceTest {
         when(encoder.encode(anyString())).thenReturn("$hashed$");
         var saved = activeUser("new@test.com", "9900112233");
         when(userRepo.save(any())).thenReturn(saved);
-        when(jwtService.generateAccessToken(any())).thenReturn("access-tok");
+        when(jwtService.generateAccessToken(any(),anyMap(),anyLong())).thenReturn("access-tok");
         when(jwtService.generateRefreshToken(any())).thenReturn("ref-tok");
-        when(refreshRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(refreshRepo.save(any())).thenAnswer(inv -> { RefreshToken rt=inv.getArgument(0); rt.setId(UUID.randomUUID()); return rt; });
 
         AuthResponse resp = service.register(req);
 
@@ -110,9 +113,9 @@ class AuthServiceTest {
         // role is null on req
         when(userRepo.existsByEmail(anyString())).thenReturn(false);
         when(encoder.encode(anyString())).thenReturn("$hashed$");
-        when(jwtService.generateAccessToken(any())).thenReturn("tok");
+        when(jwtService.generateAccessToken(any(),anyMap(),anyLong())).thenReturn("tok");
         when(jwtService.generateRefreshToken(any())).thenReturn("ref");
-        when(refreshRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(refreshRepo.save(any())).thenAnswer(inv -> { RefreshToken rt=inv.getArgument(0); rt.setId(UUID.randomUUID()); return rt; });
 
         final User[] capturedUser = new User[1];
         when(userRepo.save(any(User.class))).thenAnswer(inv -> {
@@ -133,9 +136,9 @@ class AuthServiceTest {
         when(encoder.encode(anyString())).thenReturn("$hashed$");
         var saved = activeUser("rabbit@test.com", "9900112255");
         when(userRepo.save(any())).thenReturn(saved);
-        when(jwtService.generateAccessToken(any())).thenReturn("tok");
+        when(jwtService.generateAccessToken(any(),anyMap(),anyLong())).thenReturn("tok");
         when(jwtService.generateRefreshToken(any())).thenReturn("ref");
-        when(refreshRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(refreshRepo.save(any())).thenAnswer(inv -> { RefreshToken rt=inv.getArgument(0); rt.setId(UUID.randomUUID()); return rt; });
         doThrow(new RuntimeException("AMQP down")).when(rabbit)
                 .convertAndSend(anyString(), anyString(), any(Object.class));
 
@@ -150,10 +153,10 @@ class AuthServiceTest {
         var user = activeUser("sujeet@test.com", "9845012345");
         when(userRepo.findByEmail("sujeet@test.com")).thenReturn(Optional.of(user));
         when(encoder.matches("Axis321#", "$hashed$")).thenReturn(true);
-        when(jwtService.generateAccessToken(user)).thenReturn("access-ok");
+        when(jwtService.generateAccessToken(eq(user),anyMap(),anyLong())).thenReturn("access-ok");
         when(jwtService.generateRefreshToken(user.getId())).thenReturn("ref-ok");
         when(userRepo.save(any())).thenReturn(user);
-        when(refreshRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(refreshRepo.save(any())).thenAnswer(inv -> { RefreshToken rt=inv.getArgument(0); rt.setId(UUID.randomUUID()); return rt; });
 
         var resp = service.login(loginReq("sujeet@test.com", "Axis321#"));
         assertThat(resp.getAccessToken()).isEqualTo("access-ok");
@@ -191,7 +194,7 @@ class AuthServiceTest {
 
         assertThatThrownBy(() -> service.login(loginReq("sus@test.com", "pw")))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("suspended");
+                .hasMessageContaining("not active");
     }
 
     @Test
@@ -201,9 +204,9 @@ class AuthServiceTest {
         when(userRepo.findByEmail("ts@test.com")).thenReturn(Optional.of(user));
         when(encoder.matches("pw", "$hashed$")).thenReturn(true);
         when(userRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(jwtService.generateAccessToken(any())).thenReturn("tok");
+        when(jwtService.generateAccessToken(any(),anyMap(),anyLong())).thenReturn("tok");
         when(jwtService.generateRefreshToken(any())).thenReturn("ref");
-        when(refreshRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(refreshRepo.save(any())).thenAnswer(inv -> { RefreshToken rt=inv.getArgument(0); rt.setId(UUID.randomUUID()); return rt; });
 
         service.login(loginReq("ts@test.com", "pw"));
         assertThat(user.getLastLoginAt()).isNotNull();
@@ -241,7 +244,7 @@ class AuthServiceTest {
 
         var req = new ChangePasswordRequest();
         req.setCurrentPassword("wrong");
-        req.setNewPassword("NewPass@1");
+        req.setNewPassword("NewPass@123456");
 
         assertThatThrownBy(() -> service.changePassword(user.getId(), req))
                 .isInstanceOf(RuntimeException.class)

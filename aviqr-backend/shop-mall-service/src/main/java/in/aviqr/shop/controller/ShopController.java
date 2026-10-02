@@ -83,12 +83,13 @@ public class ShopController {
     public ResponseEntity<ApiResponse<Map<String, String>>> enter(
             @PathVariable UUID id,
             @RequestHeader("X-User-Id") String uid,
-            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+            @RequestHeader(value="X-User-Role", defaultValue="") String role,
+            @RequestHeader("X-Session-Id") String sessionId) {
         var shop = service.findRaw(id).orElse(null);
         if (shop == null) return ResponseEntity.notFound().build();
         if (!"ADMIN".equals(role) && !shop.getOwnerId().equals(uid))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
-        String token = shopTokenService.mintShopToken(uid, shop.getId().toString());
+        String token = shopTokenService.mintShopToken(uid, shop.getId().toString(), sessionId);
         return ResponseEntity.ok(ApiResponse.ok(Map.of("accessToken", token, "shopId", shop.getId().toString())));
     }
 

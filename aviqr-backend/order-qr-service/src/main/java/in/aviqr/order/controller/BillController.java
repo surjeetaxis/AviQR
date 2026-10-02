@@ -126,7 +126,7 @@ public class BillController {
     public ResponseEntity<ApiResponse<String>> paymentSync(
             @PathVariable UUID id,
             @RequestHeader(value="X-Internal-Secret", required=false) String secret) {
-        if (!internalSyncSecret.isBlank() && !internalSyncSecret.equals(secret))
+        if (internalSyncSecret.isBlank() || !internalSyncSecret.equals(secret))
             return ResponseEntity.status(401).body(ApiResponse.error("Invalid secret"));
         service.syncPaymentCaptured(id);
         return ResponseEntity.ok(ApiResponse.ok("Synced"));

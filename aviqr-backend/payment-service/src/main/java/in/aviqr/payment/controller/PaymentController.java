@@ -356,7 +356,7 @@ public class PaymentController {
     public ResponseEntity<ApiResponse<Payment>> byOrderId(
             @PathVariable String orderId,
             @RequestHeader(value="X-Internal-Secret", required=false) String secret) {
-        if (!internalSyncSecret.isBlank() && !internalSyncSecret.equals(secret))
+        if (internalSyncSecret.isBlank() || !internalSyncSecret.equals(secret))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return repo.findByOrderId(orderId)
             .map(p -> ResponseEntity.ok(ApiResponse.ok(p)))

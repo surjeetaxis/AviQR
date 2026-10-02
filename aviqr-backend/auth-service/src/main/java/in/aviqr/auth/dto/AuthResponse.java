@@ -8,6 +8,9 @@ import java.util.UUID;
 
 @Data @Builder
 public class AuthResponse {
+    boolean requiresOtp;
+    String challengeId;
+    String trustedDeviceToken;
     String accessToken;
     String refreshToken;
     String tokenType;

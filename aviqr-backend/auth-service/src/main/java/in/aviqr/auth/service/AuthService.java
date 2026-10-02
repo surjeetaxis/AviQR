@@ -16,7 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.Random;
+import java.security.SecureRandom;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import java.util.UUID;
 
 @Service @RequiredArgsConstructor @Slf4j
@@ -29,6 +31,12 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditService;
     private final RabbitTemplate rabbit;
+    private final LoginSecurityService loginSecurity;
+    private final OtpVerificationService otpVerification;
+    private final ShopOwnershipService shopOwnership;
+    private static final SecureRandom RANDOM = new SecureRandom();
+    @Value("${app.login.require-otp:true}")
+    private boolean requireLoginOtp;
 
     // Dev convenience only — application-production.properties forces this to false,
     // so production always verifies the real OTP that was generated and sent via SMS.
@@ -40,6 +48,10 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest req) {
+        if (req.getRole() != null && !java.util.Set.of(UserRole.OWNER,UserRole.HOTEL,UserRole.MALL,UserRole.SUPPLIER,UserRole.CUSTOMER).contains(req.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"This role requires administrator provisioning");
+        req.setEmail(req.getEmail().trim().toLowerCase(java.util.Locale.ROOT));
+        LoginSecurityService.validatePassword(req.getPassword());
         if (userRepo.existsByEmail(req.getEmail())) throw new RuntimeException("Email already registered");
         if (req.getPhone() != null && userRepo.existsByPhone(req.getPhone())) throw new RuntimeException("Phone already registered");
 
@@ -73,13 +85,21 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest req, DeviceInfo device) {
-        User user = userRepo.findByEmail(req.getEmail())
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
-
-        if (!passwordEncoder.matches(req.getPassword(), user.getPasswordHash()))
-            throw new RuntimeException("Invalid credentials");
-        if (user.getStatus() == UserStatus.SUSPENDED)
-            throw new RuntimeException("Account suspended. Contact support.");
+        String email = req.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
+        loginSecurity.checkBlocked(email,device);
+        User user = userRepo.findByEmail(email).orElse(null);
+        if (user == null || !passwordEncoder.matches(req.getPassword(),user.getPasswordHash())) {
+            loginSecurity.event(email,"LOGIN_FAILURE","FAILED","Invalid credentials",device,null);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Invalid credentials");
+        }
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            loginSecurity.event(email,"BLOCKED_LOGIN","BLOCKED","Account status: "+user.getStatus(),device,null);
+            LoginSecurityService.requireActive(user);
+        }
+        if ((requireLoginOtp || LoginSecurityService.privileged(user)) && !loginSecurity.exempt(user,device)) {
+            sendOtp(newSendOtp(email));
+            return AuthResponse.builder().requiresOtp(true).challengeId(loginSecurity.challenge(user,device)).build();
+        }
 
         user.setLastLoginAt(LocalDateTime.now());
         userRepo.save(user);
@@ -100,7 +120,7 @@ public class AuthService {
         long recentCount = otpRepo.countByTargetAndCreatedAtAfter(email, LocalDateTime.now().minusMinutes(10));
         if (recentCount >= 3) throw new RuntimeException("Too many OTP requests. Wait 10 minutes.");
 
-        String otp = String.format("%06d", new Random().nextInt(999999));
+        String otp = String.format("%06d", RANDOM.nextInt(1_000_000));
 
         OtpRecord record = OtpRecord.builder()
                 .target(email)
@@ -132,11 +152,12 @@ public class AuthService {
     @Transactional
     public String forgotPassword(String email) {
         String normalized = email.trim().toLowerCase();
-        userRepo.findByEmail(normalized).ifPresent(user -> {
+        loginSecurity.event(normalized,"PASSWORD_RESET","REQUESTED","Self-service reset requested",DeviceInfo.builder().build(),null);
+        userRepo.findByEmail(normalized).filter(user -> user.getStatus()==UserStatus.ACTIVE).ifPresent(user -> {
             long recentCount = otpRepo.countByTargetAndCreatedAtAfter(normalized, LocalDateTime.now().minusMinutes(10));
             if (recentCount >= 3) return; // silently drop — an error here would itself leak that the email exists
 
-            String otp = String.format("%06d", new Random().nextInt(999999));
+            String otp = String.format("%06d", RANDOM.nextInt(1_000_000));
             OtpRecord record = OtpRecord.builder()
                     .target(normalized)
                     .otp(passwordEncoder.encode(otp))
@@ -162,19 +183,16 @@ public class AuthService {
     @Transactional
     public void resetPassword(ResetPasswordRequest req) {
         String email = req.getEmail().trim().toLowerCase();
+        LoginSecurityService.validatePassword(req.getNewPassword());
 
-        var candidates = otpRepo.findByTargetAndTypeAndUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
-                email, OtpType.PASSWORD_RESET, LocalDateTime.now());
-        var record = candidates.stream()
-                .filter(r -> passwordEncoder.matches(req.getOtp(), r.getOtp()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Invalid or expired code"));
-
-        User user = userRepo.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Invalid or expired code"));
-
-        record.setUsed(true);
-        otpRepo.save(record);
+        if (!otpVerification.verify(email,OtpType.PASSWORD_RESET,req.getOtp())) {
+            loginSecurity.event(email,"LOGIN_FAILURE","FAILED","Invalid password reset code",DeviceInfo.builder().build(),null);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Invalid or expired code");
+        }
+        User user = userRepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Invalid or expired code"));
+        LoginSecurityService.requireActive(user);
+        loginSecurity.revokeGrants(user.getId());
+        loginSecurity.event(email,"PASSWORD_RESET","COMPLETED","Password reset by verified email",DeviceInfo.builder().build(),null);
 
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         userRepo.save(user);
@@ -190,20 +208,22 @@ public class AuthService {
     @Transactional
     public AuthResponse loginWithOtp(OtpLoginRequest req, DeviceInfo device) {
         String email = req.getEmail().trim().toLowerCase();
-        boolean devBypass = otpDevMode && otpFixedCode.equals(req.getOtp());
-
-        if (!devBypass) {
-            var candidates = otpRepo.findByTargetAndTypeAndUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
-                    email, OtpType.EMAIL_LOGIN, LocalDateTime.now());
-
-            var otpRecord = candidates.stream()
-                    .filter(r -> passwordEncoder.matches(req.getOtp(), r.getOtp()))
-                    .findFirst()
-                    .orElseThrow(() -> new RuntimeException("Invalid or expired OTP"));
-
-            otpRecord.setUsed(true);
-            otpRepo.save(otpRecord);
+        loginSecurity.checkBlocked(email,device);
+        User existing = userRepo.findByEmail(email).orElse(null);
+        if (existing != null) {
+            if (existing.getStatus() != UserStatus.ACTIVE) {
+                loginSecurity.event(email,"BLOCKED_LOGIN","BLOCKED","Account status: "+existing.getStatus(),device,null);
+                LoginSecurityService.requireActive(existing);
+            }
+            if (LoginSecurityService.privileged(existing) && (req.getChallengeId() == null || req.getChallengeId().isBlank()))
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Privileged accounts require password and OTP");
         }
+        boolean devBypass = otpDevMode && otpFixedCode.equals(req.getOtp()) && (existing == null || !LoginSecurityService.privileged(existing));
+        if (!devBypass && !otpVerification.verify(email,OtpType.EMAIL_LOGIN,req.getOtp())) {
+            loginSecurity.event(email,"LOGIN_FAILURE","FAILED","Invalid OTP",device,null);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Invalid or expired OTP");
+        }
+        if (req.getChallengeId() != null) loginSecurity.consumeChallenge(req.getChallengeId(),email);
 
         // A verified OTP is proof of email ownership, so a first-time email (the common
         // case — a customer scanning a QR code has never registered anywhere) self-registers
@@ -230,12 +250,14 @@ public class AuthService {
         auditService.log("USER_LOGIN_OTP", user.getId().toString(),
                 "Login via OTP: " + email + " [" + device.getPlatform() + "]");
 
-        return buildAuthResponse(user, device);
+        AuthResponse response = buildAuthResponse(user,device);
+        if (req.isTrustDevice() && !LoginSecurityService.privileged(user)) response.setTrustedDeviceToken(loginSecurity.trustDevice(user,device));
+        return response;
     }
 
     @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest req) {
-        var stored = refreshRepo.findByTokenAndRevokedFalse(req.getRefreshToken())
+        var stored = refreshRepo.findByTokenAndRevokedFalse(LoginSecurityService.hash(req.getRefreshToken()))
                 .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
 
         if (stored.getExpiresAt().isBefore(LocalDateTime.now())) {
@@ -247,24 +269,13 @@ public class AuthService {
         User user = userRepo.findById(stored.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Carry the session's device info forward onto the new row, and revoke
-        // the old one — otherwise every silent token refresh would leave behind
-        // a stale-but-still-"active" session row, multiplying forever.
-        DeviceInfo device = DeviceInfo.builder()
-                .platform(stored.getPlatform())
-                .deviceId(stored.getDeviceId())
-                .deviceModel(stored.getDeviceModel())
-                .appVersion(stored.getAppVersion())
-                .ipAddress(stored.getIpAddress())
-                .userAgent(stored.getUserAgent())
-                .build();
-
-        stored.setRevoked(true);
-        stored.setRevokedAt(LocalDateTime.now());
-        stored.setRevokedBy("ROTATED");
+        LoginSecurityService.requireActive(user);
+        // Rotate the credential atomically while preserving the session ID used by access/scoped tokens.
+        String refreshToken = jwtService.generateRefreshToken(user.getId());
+        stored.setToken(LoginSecurityService.hash(refreshToken));
+        stored.setLastActiveAt(LocalDateTime.now());
         refreshRepo.save(stored);
-
-        return buildAuthResponse(user, device);
+        return responseForSession(user,stored,refreshToken);
     }
 
     // Backward-compatible "kill everything" logout — still used by
@@ -282,7 +293,7 @@ public class AuthService {
             logout(userId);
             return;
         }
-        refreshRepo.findByTokenAndRevokedFalse(refreshToken)
+        refreshRepo.findByTokenAndRevokedFalse(LoginSecurityService.hash(refreshToken))
                 .filter(rt -> rt.getUserId().equals(userId))
                 .ifPresentOrElse(rt -> {
                     rt.setRevoked(true);
@@ -356,8 +367,12 @@ public class AuthService {
         User target = userRepo.findById(targetUserId)
                 .orElseThrow(() -> new RuntimeException("Target user not found"));
 
-        long impersonationExpiryMs = 30 * 60 * 1000L;
-        String token = jwtService.generateAccessToken(target, Map.of("impersonatedBy", agentId), impersonationExpiryMs);
+        LoginSecurityService.requireActive(target);
+        User agent = userRepo.findById(UUID.fromString(agentId)).orElseThrow(() -> new RuntimeException("Agent not found"));
+        LoginSecurityService.requireActive(agent);
+        if (!LoginSecurityService.privileged(agent) || LoginSecurityService.privileged(target))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Invalid impersonation target or agent");
+        long impersonationExpiryMs = 15 * 60 * 1000L;
         LocalDateTime now = LocalDateTime.now();
 
         RefreshToken session = refreshRepo.save(RefreshToken.builder()
@@ -369,6 +384,7 @@ public class AuthService {
                 .expiresAt(now.plusSeconds(impersonationExpiryMs / 1000))
                 .build());
 
+        String token = jwtService.generateAccessToken(target,Map.of("impersonatedBy",agentId,"sid",session.getId().toString(),"tokenType","access"),impersonationExpiryMs);
         auditService.log("IMPERSONATION_TOKEN_ISSUED", agentId, "Issued impersonation token for user " + targetUserId);
 
         return ImpersonationTokenResponse.builder()
@@ -396,8 +412,10 @@ public class AuthService {
     @Transactional
     public void changePassword(UUID userId, ChangePasswordRequest req) {
         User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        LoginSecurityService.validatePassword(req.getNewPassword());
         if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPasswordHash()))
             throw new RuntimeException("Current password incorrect");
+        loginSecurity.revokeGrants(userId);
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         userRepo.save(user);
         refreshRepo.deleteByUserId(userId); // invalidate all sessions
@@ -406,6 +424,7 @@ public class AuthService {
     @Transactional
     public void deactivateAccount(UUID userId) {
         User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        loginSecurity.revokeGrants(userId);
         user.setStatus(UserStatus.INACTIVE);
         userRepo.save(user);
         refreshRepo.deleteByUserId(userId); // invalidate all sessions
@@ -418,12 +437,18 @@ public class AuthService {
     @Transactional
     public AuthResponse linkShop(UUID userId, String shopId) {
         User user = userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        LoginSecurityService.requireActive(user);
+        if (!java.util.Set.of(UserRole.OWNER,UserRole.SUPPLIER,UserRole.HOTEL,UserRole.MALL,UserRole.ADMIN).contains(user.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"This role cannot link shops");
+        shopOwnership.requireOwner(userId,shopId);
         user.setShopId(shopId);
         userRepo.save(user);
         return buildAuthResponse(user);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+    private SendOtpRequest newSendOtp(String email) { var request = new SendOtpRequest(); request.setEmail(email); return request; }
+
     private String maskEmail(String email) {
         int at = email.indexOf('@');
         if (at <= 1) return email;
@@ -436,12 +461,11 @@ public class AuthService {
     }
 
     private AuthResponse buildAuthResponse(User user, DeviceInfo device) {
-        String accessToken  = jwtService.generateAccessToken(user);
         String refreshToken = jwtService.generateRefreshToken(user.getId());
         LocalDateTime now = LocalDateTime.now();
 
         RefreshToken session = refreshRepo.save(RefreshToken.builder()
-                .token(refreshToken)
+                .token(LoginSecurityService.hash(refreshToken))
                 .userId(user.getId())
                 .expiresAt(now.plusSeconds(jwtService.getRefreshExpirationMs() / 1000))
                 .createdAt(now)
@@ -454,9 +478,14 @@ public class AuthService {
                 .userAgent(device.getUserAgent())
                 .build());
 
+        return responseForSession(user,session,refreshToken);
+    }
+
+    private AuthResponse responseForSession(User user,RefreshToken session,String rawRefreshToken) {
+        String accessToken = jwtService.generateAccessToken(user,Map.of("sid",session.getId().toString(),"tokenType","access"),jwtService.getExpirationMs());
         return AuthResponse.builder()
                 .accessToken(accessToken)
-                .refreshToken(refreshToken)
+                .refreshToken(rawRefreshToken)
                 .tokenType("Bearer")
                 .expiresIn(jwtService.getExpirationMs() / 1000)
                 .userId(user.getId())

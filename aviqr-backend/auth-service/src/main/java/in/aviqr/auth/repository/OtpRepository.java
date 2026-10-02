@@ -10,6 +10,7 @@ import java.util.UUID;
 public interface OtpRepository extends JpaRepository<OtpRecord, UUID> {
     // OTP is stored hashed (see AuthService#sendOtp), so it can't be matched by equality —
     // fetch live candidates and compare with PasswordEncoder#matches in the service layer.
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     List<OtpRecord> findByTargetAndTypeAndUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(
             String target, OtpType type, LocalDateTime now);
     void deleteByExpiresAtBefore(LocalDateTime cutoff);

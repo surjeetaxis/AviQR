@@ -76,7 +76,7 @@ export default function Register() {
           <Input label="Full Name *" placeholder="Sujeet Narayanan" value={form.name} onChangeText={v=>set('name',v)}/>
           <Input label="Email *" placeholder="you@restaurant.in" value={form.email} onChangeText={v=>set('email',v)} keyboardType="email-address" autoCapitalize="none"/>
           <Input label="Phone" placeholder="9845012345" value={form.phone} onChangeText={v=>set('phone',v)} keyboardType="phone-pad"/>
-          <Input label="Password *" placeholder="Min 8 characters" value={form.password} onChangeText={v=>set('password',v)} secureEntry/>
+          <Input label="Password *" placeholder="Min 12 characters" value={form.password} onChangeText={v=>set('password',v)} secureEntry/>
           {/* Terms of Service checkbox */}
           <TouchableOpacity onPress={()=>setAgreed(a=>!a)} style={[ss.termsRow,agreed&&ss.termsChecked]}>
             <View style={[ss.checkbox,agreed&&ss.checkboxFilled]}>

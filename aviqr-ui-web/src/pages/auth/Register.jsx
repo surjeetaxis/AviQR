@@ -148,8 +148,8 @@ export default function Register() {
                 </div>
                 <div className="field">
                   <label className="field-label">Password *</label>
-                  <input className="field-input" type="password" placeholder="Minimum 8 characters"
-                    value={form.password} onChange={e=>set('password',e.target.value)} required/>
+                  <input className="field-input" type="password" placeholder="Minimum 12 characters"
+                    value={form.password} onChange={e=>set('password',e.target.value)} minLength={12} maxLength={128} required/>
                 </div>
 
                 {/* ── Terms checkbox (legally required) ────────────────── */}

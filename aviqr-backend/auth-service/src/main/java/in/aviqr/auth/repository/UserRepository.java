@@ -25,6 +25,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
            "u.phone LIKE CONCAT('%', :search, '%')")
     Page<User> search(String search, Pageable pageable);
 
+    Page<User> findByRole(UserRole role, Pageable pageable);
     long countByRole(UserRole role);
     long countByStatus(UserStatus status);
     List<User> findByShopId(String shopId);

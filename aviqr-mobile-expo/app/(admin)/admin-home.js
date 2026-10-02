@@ -32,6 +32,7 @@ export default function AdminHomeScreen() {
   const onRefresh = async () => { setRef(true); await load(); setRef(false); };
 
   const NAV_ITEMS = [
+    { icon: '🔐', label: 'Login Security', href: '/(admin)/admin-login-security', color: Colors.primary },
     { icon: '👥', label: 'Users',       href: '/(admin)/admin-users',        color: Colors.primary },
     { icon: '🏪', label: 'Shops',       href: '/(admin)/admin-shops',        color: '#2563EB' },
     { icon: '🏨', label: 'Hotels',      href: '/(admin)/hotels',       color: '#7C3AED' },

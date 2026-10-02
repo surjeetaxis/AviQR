@@ -57,6 +57,8 @@ export default function Login() {
   const [otpEmail, setOtpEmail] = useState('');
   const [otp,   setOtp]   = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [challengeId, setChallengeId] = useState(null);
+  const [trustDevice, setTrustDevice] = useState(false);
   const [verified, setVerified] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -76,7 +78,10 @@ export default function Login() {
     setLoading(true); setError('');
     try {
       const u = await login(email, pw);
-      goHome(u.role);
+      if (u.requiresOtp) {
+        setChallengeId(u.challengeId); setOtpEmail(email); setOtpSent(true); setTab('otp'); setPw('');
+        setResendCooldown(RESEND_COOLDOWN_SECONDS);
+      } else goHome(u.role);
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Check your email and password.');
     } finally { setLoading(false); }
@@ -104,11 +109,11 @@ export default function Login() {
     if (!value || value.length < 6) return;
     setLoading(true); setError('');
     try {
-      const u = await loginWithOtp(otpEmail, value);
+      const u = await loginWithOtp(otpEmail, value, {challengeId,trustDevice});
       setVerified(true);
       setTimeout(() => goHome(u.role), 1200);
     } catch {
-      setError('Invalid OTP. Please try again.');
+      setError('OTP verification failed. Admin and support accounts must start with password login.');
       setLoading(false);
     }
   };
@@ -163,7 +168,7 @@ export default function Login() {
 
           {/* Mode toggle */}
           <div className="auth-mode-toggle">
-            <button className={`mode-btn${tab==='password'?' active':''}`} onClick={() => { setTab('password'); setError(''); }}>
+            <button className={`mode-btn${tab==='password'?' active':''}`} onClick={() => { setTab('password'); setError(''); setChallengeId(null); setOtpSent(false); }}>
               🔑 Password
             </button>
             <button className={`mode-btn${tab==='otp'?' active':''}`} onClick={() => { setTab('otp'); setError(''); }}>
@@ -218,6 +223,10 @@ export default function Login() {
               <p className="otp-verify-sub">
                 We've sent a 6-digit code to {otpEmail}. It'll auto-verify once entered.
               </p>
+              <label style={{display:'flex',gap:8,alignItems:'center',marginBottom:16}}>
+                <input type="checkbox" checked={trustDevice} onChange={e => setTrustDevice(e.target.checked)}/>
+                Trust this device for 30 days (not available for admin or support)
+              </label>
               <OtpInput length={6} value={otp} onChange={setOtp} onComplete={handleOtp} disabled={loading} />
               <button type="button" className="btn-auth-primary" style={{ marginTop: 20 }}
                 onClick={() => handleOtp()} disabled={loading || otp.length < 6}>

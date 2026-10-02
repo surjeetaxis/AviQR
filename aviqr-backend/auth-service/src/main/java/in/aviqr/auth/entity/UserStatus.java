@@ -1,3 +1,3 @@
 package in.aviqr.auth.entity;
 
-public enum UserStatus { ACTIVE, INACTIVE, SUSPENDED }
+public enum UserStatus { ACTIVE, INACTIVE, SUSPENDED, PENDING, TERMINATED }

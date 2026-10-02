@@ -1,3 +1,4 @@
+import { getAccessToken } from '../../api/sessionStore.js';
 const MODEL = 'claude-sonnet-4-6';
 const API_URL = '/api/v1/ai/messages';
 
@@ -11,7 +12,7 @@ const OPENAI_MODEL = 'gpt-4o-mini';
 const OPENAI_API_URL = '/api/v1/ai-openai/chat/completions';
 
 function authHeaders() {
-  const token = localStorage.getItem('aviqr_token');
+  const token = getAccessToken();
   return token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
                : { 'Content-Type': 'application/json' };
 }

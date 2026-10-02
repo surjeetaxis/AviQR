@@ -11,6 +11,7 @@ import org.springframework.security.web.SecurityFilterChain;
  * Auth is enforced by the API Gateway. This service permits all requests.
  * /actuator/health must remain open for Eureka heartbeat.
  */
+@org.springframework.context.annotation.Import(in.aviqr.security.ServiceTrustConfiguration.class)
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {

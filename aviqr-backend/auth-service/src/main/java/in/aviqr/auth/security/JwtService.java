@@ -27,6 +27,12 @@ public class JwtService {
     @Value("${app.jwt.refresh-expiration-ms}")
     private long refreshExpirationMs;
 
+    @jakarta.annotation.PostConstruct
+    void validateSecret() {
+        if (secret==null || secret.getBytes(StandardCharsets.UTF_8).length<48 || secret.startsWith("replace_") || secret.startsWith("aviqr_super_secret"))
+            throw new IllegalStateException("JWT_SECRET must be a random secret of at least 48 bytes; example/default values are forbidden");
+    }
+
     private SecretKey key() {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
@@ -60,6 +66,7 @@ public class JwtService {
         return Jwts.builder()
                 .subject(userId.toString())
                 .id(UUID.randomUUID().toString())
+                .claim("tokenType","refresh")
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + refreshExpirationMs))
                 .signWith(key())

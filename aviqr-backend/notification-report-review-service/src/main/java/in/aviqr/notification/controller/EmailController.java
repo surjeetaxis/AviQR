@@ -30,7 +30,7 @@ public class EmailController {
     public ResponseEntity<ApiResponse<Boolean>> send(
             @RequestBody SendRequest req,
             @RequestHeader(value = "X-Internal-Secret", required = false) String secret) {
-        if (!internalSyncSecret.isBlank() && !internalSyncSecret.equals(secret))
+        if (internalSyncSecret.isBlank() || !internalSyncSecret.equals(secret))
             return ResponseEntity.status(401).body(ApiResponse.error("Invalid secret"));
         boolean sent = emailService.send(req.getTo(), req.getSubject(), req.getHtmlBody());
         return ResponseEntity.ok(sent ? ApiResponse.ok("Sent", true) : ApiResponse.error("Email send failed"));

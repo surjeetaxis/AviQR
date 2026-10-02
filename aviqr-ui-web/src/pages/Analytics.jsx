@@ -1,3 +1,4 @@
+import { getAccessToken } from '../api/sessionStore.js';
 import { useState, useEffect } from 'react';
 import {
   TrendingUp, BarChart3, DollarSign, Package,
@@ -59,10 +60,10 @@ export default function Analytics() {
         reportApi.getPeakHours(shopId),
         rawMaterialApi.getByShop(shopId),
         fetch(`${import.meta.env.VITE_API_URL||'http://localhost:8080'}/api/v1/reports/shop/${shopId}/order-types?days=${range}`, {
-          headers:{ Authorization:`Bearer ${localStorage.getItem('aviqr_token')}` }
+          headers:{ Authorization:`Bearer ${getAccessToken()}` }
         }).then(r=>r.json()),
         fetch(`${import.meta.env.VITE_API_URL||'http://localhost:8080'}/api/v1/reports/shop/${shopId}/aggregator-breakdown?days=${range}`, {
-          headers:{ Authorization:`Bearer ${localStorage.getItem('aviqr_token')}` }
+          headers:{ Authorization:`Bearer ${getAccessToken()}` }
         }).then(r=>r.json()),
       ]);
       if (sR.status === 'fulfilled') setStats(sR.value.data.data);
