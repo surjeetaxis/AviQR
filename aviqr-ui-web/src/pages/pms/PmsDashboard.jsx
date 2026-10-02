@@ -64,7 +64,7 @@ export function Overview({ hotelName, reservations, audit, requests, onNav }) {
         <div className="support-alert-banner"><AlertCircle size={16} /><span><strong>{urgentReqs.length} urgent request{urgentReqs.length > 1 ? 's' : ''}</strong> need immediate attention.</span><button className="support-alert-action" onClick={() => onNav('requests')}>View all →</button></div>
       )}
 
-      <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
+      <div className="admin-kpi-grid workspace-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
         {kpis.map(k => (
           <div key={k.label} className="admin-kpi-card">
             <div className={`admin-kpi-icon icon-${k.color}`}><k.icon size={18} /></div>
@@ -73,7 +73,7 @@ export function Overview({ hotelName, reservations, audit, requests, onNav }) {
           </div>
         ))}
       </div>
-      <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
+      <div className="admin-kpi-grid workspace-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
         <div className="admin-kpi-card"><div className="admin-kpi-icon icon-green"><LogIn size={18} /></div><div className="admin-kpi-value">{arrivalsToday.length}</div><div className="admin-kpi-label">Arrivals today</div></div>
         <div className="admin-kpi-card"><div className="admin-kpi-icon icon-amber"><DoorOpen size={18} /></div><div className="admin-kpi-value">{departuresToday.length}</div><div className="admin-kpi-label">Departures today</div></div>
         <div className="admin-kpi-card"><div className="admin-kpi-icon icon-blue"><Users size={18} /></div><div className="admin-kpi-value">{inHouse.length}</div><div className="admin-kpi-label">Guests in-house</div></div>
@@ -622,7 +622,7 @@ export function GroupsTab({ hotelId, groups, onChange, onReservationsChanged }) 
 
           {folio && (
             <>
-              <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+              <div className="admin-kpi-grid workspace-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
                 <div className="admin-kpi-card"><div className="admin-kpi-value">₹{Number(folio.totalCharges).toLocaleString('en-IN')}</div><div className="admin-kpi-label">Total charges (all rooms)</div></div>
                 <div className="admin-kpi-card"><div className="admin-kpi-value">₹{Number(folio.totalPayments).toLocaleString('en-IN')}</div><div className="admin-kpi-label">Total payments</div></div>
                 <div className="admin-kpi-card"><div className="admin-kpi-value">₹{Number(folio.balance).toLocaleString('en-IN')}</div><div className="admin-kpi-label">Balance due</div></div>
@@ -835,7 +835,7 @@ export function FolioTab({ hotelId, reservations, selectedId, onSelect }) {
               <CreditCard size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} /><strong>Card charged</strong> — ₹{Number(preAuth.amount).toLocaleString('en-IN')} captured and posted below
             </div>
           )}
-          <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+          <div className="admin-kpi-grid workspace-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
             <div className="admin-kpi-card"><div className="admin-kpi-value">₹{Number(folio.totalCharges).toLocaleString('en-IN')}</div><div className="admin-kpi-label">Total charges</div></div>
             <div className="admin-kpi-card"><div className="admin-kpi-value">₹{Number(folio.totalPayments).toLocaleString('en-IN')}</div><div className="admin-kpi-label">Total payments</div></div>
             <div className="admin-kpi-card"><div className="admin-kpi-value">₹{Number(folio.balance).toLocaleString('en-IN')}</div><div className="admin-kpi-label">Balance due</div></div>
@@ -1100,7 +1100,7 @@ export function ReportsTab({ hotelId, chainId }) {
       </div>
 
       <h2 style={{ fontSize: 15, fontWeight: 700, margin: '4px 0 0' }}>Revenue breakdown — last 30 days (by check-in date)</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+      <div className="workspace-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
         <div>
           <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--gray-600)', marginBottom: 6 }}>By room type</div>
           <div className="admin-table-card">{revenueTable(revenue?.byRoomType, 'Room type')}</div>
@@ -2434,7 +2434,7 @@ export function ChainTemplatesTab({ chainId }) {
       </div>
 
       {pushResult && (
-        <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)' }}>
+        <div className="admin-kpi-grid workspace-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)' }}>
           <div className="admin-kpi-card"><div className="admin-kpi-value">{pushResult.hotelsProcessed}</div><div className="admin-kpi-label">Properties updated</div></div>
           <div className="admin-kpi-card"><div className="admin-kpi-value">{pushResult.roomTypesCreated}</div><div className="admin-kpi-label">Room types created</div></div>
           <div className="admin-kpi-card"><div className="admin-kpi-value">{pushResult.roomTypesUpdated}</div><div className="admin-kpi-label">Room types updated</div></div>
@@ -2533,7 +2533,7 @@ export function ImportTab({ hotelId, onImported }) {
 
       {result && (
         <>
-          <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+          <div className="admin-kpi-grid workspace-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
             <div className="admin-kpi-card"><div className="admin-kpi-value">{result.totalRows}</div><div className="admin-kpi-label">Rows processed</div></div>
             <div className="admin-kpi-card"><div className="admin-kpi-value">{result.succeeded}</div><div className="admin-kpi-label">Imported</div></div>
             <div className="admin-kpi-card"><div className="admin-kpi-value">{result.failed}</div><div className="admin-kpi-label">Failed</div></div>
@@ -2553,5 +2553,5 @@ export function ImportTab({ hotelId, onImported }) {
 }
 
 const inputStyle = { height: 34, padding: '0 10px', borderRadius: 8, border: '1px solid var(--gray-200)', fontSize: 13 };
-const btnPrimary = { width: 'auto', height: 34, padding: '0 12px', background: 'var(--blue)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none' };
+const btnPrimary = { width: 'auto', height: 34, padding: '0 12px', background: 'var(--green)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none' };
 const btnSecondary = { width: 'auto', height: 34, padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: 6 };

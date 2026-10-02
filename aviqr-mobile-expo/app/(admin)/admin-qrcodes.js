@@ -62,7 +62,7 @@ export default function AdminQrCodesScreen() {
       <View style={ss.statGrid}>
         <View style={ss.statCard}><Text style={ss.statVal}>{codes.length}</Text><Text style={ss.statLabel}>This page</Text></View>
         <View style={ss.statCard}><Text style={[ss.statVal, { color: '#059669' }]}>{activeCount}</Text><Text style={ss.statLabel}>Active</Text></View>
-        <View style={ss.statCard}><Text style={[ss.statVal, { color: '#6B7280' }]}>{codes.length - activeCount}</Text><Text style={ss.statLabel}>Inactive</Text></View>
+        <View style={ss.statCard}><Text style={[ss.statVal, { color: Colors.gray500 }]}>{codes.length - activeCount}</Text><Text style={ss.statLabel}>Inactive</Text></View>
         <View style={ss.statCard}><Text style={[ss.statVal, { color: '#7C3AED' }]}>{totalScans.toLocaleString('en-IN')}</Text><Text style={ss.statLabel}>Total scans</Text></View>
       </View>
 
@@ -169,7 +169,7 @@ const ss = StyleSheet.create({
   pageBtn: { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: Colors.white, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border },
   pageBtnTxt: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray700 },
   pageLabel: { fontSize: FontSize.xs, color: Colors.gray500 },
-  sheetTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900, marginBottom: 14 },
+  sheetTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900, marginBottom: 14 },
   qrImage: { width: 200, height: 200, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border },
   targetUrl: { fontSize: 11, color: Colors.gray400, marginTop: 12, textAlign: 'center' },
   actionBtn: { flex: 1, backgroundColor: Colors.gray100, borderRadius: Radius.md, paddingVertical: 12, alignItems: 'center' },

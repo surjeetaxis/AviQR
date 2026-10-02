@@ -351,7 +351,7 @@ const SHOPS = {
     phone: '+91 98450 12345',
     location: 'MG Road, Bengaluru',
     minOrder: 100,
-    color: '#1D9E75',
+    color: "#146c50",
     categories: [
       { id:'c1', name:'Starters', nameHi:'स्टार्टर', nameTa:'தொடக்க உணவு', nameTe:'ప్రారంభం', nameKn:'ಸ್ಟಾರ್ಟರ್', nameMl:'ആദ്യ ഭക്ഷണം', nameBn:'স্টার্টার', nameMr:'स्टार्टर', nameGu:'સ્ટાર્ટર', emoji:'🥗',
         items:[
@@ -386,7 +386,7 @@ const SHOPS = {
       },
     ]
   },
-  demo: { id:'demo', name:'Spice Route', nameHi:'स्पाइस रूट', tagline:'Demo Restaurant', emoji:'🍛', rating:4.6, reviews:284, timing:'9 AM – 11 PM', phone:'+91 98450 12345', location:'MG Road, Bengaluru', minOrder:100, color:'#1D9E75', categories:[] },
+  demo: { id:'demo', name:'Spice Route', nameHi:'स्पाइस रूट', tagline:'Demo Restaurant', emoji:'🍛', rating:4.6, reviews:284, timing:'9 AM – 11 PM', phone:'+91 98450 12345', location:'MG Road, Bengaluru', minOrder:100, color:"#146c50", categories:[] },
 };
 
 // Fall back to spiceroute data for demo
@@ -770,8 +770,8 @@ export default function CustomerMenu() {
 
   if (menuLoading) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',flexDirection:'column',gap:12}}>
-      <div style={{width:40,height:40,border:'3px solid #E5E7EB',borderTopColor:'#1D9E75',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
-      <p style={{fontSize:14,color:'#6B7280'}}>Loading menu…</p>
+      <div style={{width:40,height:40,border:'3px solid #E5E7EB',borderTopColor:"#146c50",borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+      <p style={{fontSize:14,color:"#65766c"}}>Loading menu…</p>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );

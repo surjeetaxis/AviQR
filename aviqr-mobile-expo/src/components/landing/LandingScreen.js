@@ -128,7 +128,7 @@ export default function LandingScreen() {
   return (
     <ScrollView style={ss.screen} showsVerticalScrollIndicator={false}>
       {/* Hero */}
-      <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.hero} pointerEvents="box-none">
+      <LinearGradient colors={[Colors.brandSurface, Colors.brandRaised]} style={ss.hero} pointerEvents="box-none">
         <View style={ss.topBar}>
           <View style={ss.topBarBrand}>
             <Logo size={22} />
@@ -318,7 +318,7 @@ export default function LandingScreen() {
       </View>
 
       {/* CTA banner */}
-      <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.ctaBanner} pointerEvents="box-none">
+      <LinearGradient colors={[Colors.brandSurface, Colors.brandRaised]} style={ss.ctaBanner} pointerEvents="box-none">
         <Text style={ss.ctaBannerTitle}>Ready to go digital?</Text>
         <Text style={ss.ctaBannerSub}>Set up your digital menu in under 10 minutes. No hardware. No app download.</Text>
         <TouchableOpacity style={ss.ctaBannerBtn} onPress={() => router.push('/register')}>
@@ -355,7 +355,7 @@ const ss = StyleSheet.create({
   topBarBrandTxt: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.white },
   topBarLogin: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)', borderRadius: Radius.full, paddingVertical: 6, paddingHorizontal: 16 },
   topBarLoginTxt: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
-  accent: { color: '#A7F3D0' },
+  accent: { color: Colors.mint },
   eyebrow: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.75)', fontWeight: '600', marginBottom: 12 },
   headline: { fontSize: FontSize['3xl'], fontWeight: '800', color: Colors.white, lineHeight: 36, marginBottom: 12 },
   heroSub: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.85)', lineHeight: 20, marginBottom: 20 },
@@ -373,7 +373,7 @@ const ss = StyleSheet.create({
   statLabel: { fontSize: FontSize.xs, color: Colors.gray500, textAlign: 'center', marginTop: 2 },
   section: { padding: Spacing.base, borderBottomWidth: 8, borderBottomColor: Colors.gray100 },
   eyebrowLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary, letterSpacing: 0.8 },
-  sectionTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900, marginTop: 4, marginBottom: 12 },
+  sectionTitle: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.gray900, marginTop: 4, marginBottom: 12 },
   sectionSub: { fontSize: FontSize.sm, color: Colors.gray500, marginTop: -8, marginBottom: 12 },
   groupBadge: { alignSelf: 'flex-start', backgroundColor: Colors.primaryLight, borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 12 },
   groupBadgeTxt: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primaryDark },
@@ -384,11 +384,11 @@ const ss = StyleSheet.create({
   dishSpotlight: { marginTop: 16, backgroundColor: '#F5FBF9', borderRadius: Radius.xl, padding: 18, borderWidth: 1, borderColor: '#D3EEE5' },
   dishBadge: { alignSelf: 'flex-start', backgroundColor: Colors.primaryLight, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8 },
   dishBadgeTxt: { fontSize: 11, fontWeight: '700', color: Colors.primaryDark },
-  dishTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900 },
+  dishTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900 },
   dishDesc: { fontSize: FontSize.sm, color: Colors.gray600, marginTop: 6, lineHeight: 19, marginBottom: 14 },
   dishCard: { backgroundColor: Colors.white, borderRadius: Radius.lg, ...Shadow.md, overflow: 'hidden' },
   dishMedia: { height: 130, backgroundColor: '#FDECEA', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  dishPlayBtn: { position: 'absolute', width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
+  dishPlayBtn: { position: 'absolute', width: 34, height: 44, borderRadius: 17, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
   dish3dBadge: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3 },
   dish3dBadgeTxt: { color: Colors.white, fontSize: 10, fontWeight: '700' },
   dishInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12 },
@@ -432,7 +432,7 @@ const ss = StyleSheet.create({
   testimonialName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray900 },
   testimonialShop: { fontSize: FontSize.xs, color: Colors.gray500 },
   ctaBanner: { padding: Spacing.xl, alignItems: 'center' },
-  ctaBannerTitle: { fontSize: FontSize['2xl'], fontWeight: '800', color: Colors.white, textAlign: 'center' },
+  ctaBannerTitle: { fontSize: FontSize['2xl'], fontWeight: '600', color: Colors.white, textAlign: 'center' },
   ctaBannerSub: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.85)', textAlign: 'center', marginTop: 8, marginBottom: 20 },
   ctaBannerBtn: { backgroundColor: Colors.white, borderRadius: Radius.full, paddingVertical: 14, paddingHorizontal: 28, marginBottom: 12 },
   ctaBannerBtnTxt: { color: Colors.primaryDark, fontWeight: '800' },

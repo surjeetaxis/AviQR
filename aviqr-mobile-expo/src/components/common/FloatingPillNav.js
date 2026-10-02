@@ -66,7 +66,7 @@ const U_TOP = 4; // small gap from the bar's own top edge; bottom edge (U_TOP + 
 
 export function FloatingPillNav({
   tabs, activeIndex, onPressTab, renderBadge,
-  accentColor = Colors.primary,
+  accentColor = Colors.brandSurface,
   bottomOffset, reserveSpace = false,
 }) {
   // Clear the home indicator on notched iPhones and the gesture-nav strip
@@ -208,9 +208,9 @@ const styles = StyleSheet.create({
     height: NAV_HEIGHT,
     borderRadius: 22, // matches web's BottomNav.css (26px on a 70px bar) — less curved than a full pill
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 10,
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 5,
   },
   navBlur: {
     flex: 1,
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   labelActive: {
     color: Colors.white,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   indicator: {
     position: 'absolute',

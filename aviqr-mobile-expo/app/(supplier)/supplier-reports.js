@@ -89,7 +89,7 @@ const ss = StyleSheet.create({
   kpiVal: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900 },
   kpiLabel: { fontSize: 10, color: Colors.gray500, marginTop: 2 },
   groupRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  groupChip: { flex: 1, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.md, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
+  groupChip: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.md, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
   groupChipActive: { backgroundColor: Colors.gray900, borderColor: Colors.gray900 },
   groupChipTxt: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },
   groupChipTxtActive: { color: Colors.white },

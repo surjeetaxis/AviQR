@@ -11,7 +11,7 @@ import { loyaltyApi, orderApi, shopApi, customerApi } from '../api/index.js';
 
 const TIERS = [
   { name:'Bronze',  min:0,    max:499,   color:'#CD7F32', bg:'#FDF3E7', emoji:'🥉' },
-  { name:'Silver',  min:500,  max:1999,  color:'#9CA3AF', bg:'#F9FAFB', emoji:'🥈' },
+  { name:'Silver',  min:500,  max:1999,  color:"#74847b", bg:"#f8faf9", emoji:'🥈' },
   { name:'Gold',    min:2000, max:4999,  color:'#D97706', bg:'#FFFBEB', emoji:'🥇' },
   { name:'Platinum',min:5000, max:Infinity, color:'#7C3AED', bg:'#F5F3FF', emoji:'💎' },
 ];
@@ -218,7 +218,7 @@ export default function Loyalty() {
       {loyaltyEnabled === false && (
         <div style={{
           display:'flex', alignItems:'center', gap:14,
-          background:'linear-gradient(135deg, #1D9E75 0%, #065F46 100%)',
+          background:"linear-gradient(135deg, #146c50 0%, #065F46 100%)",
           border:'none', borderRadius:14, padding:'18px 22px', marginBottom:20, color:'#fff',
         }}>
           <div style={{ fontSize:36, flexShrink:0 }}>🎁</div>
@@ -388,7 +388,7 @@ export default function Loyalty() {
                 <button className="btn btn-secondary" style={{ flexShrink:0 }} onClick={() => lookupBalance(form.phone)}>Check</button>
               </div>
               {balRes && (
-                <div style={{ marginTop:8, background:'#E1F5EE', border:'1px solid #A7F3D0', borderRadius:6, padding:'8px 12px', fontSize:12 }}>
+                <div style={{ marginTop:8, background:"#edf6f0", border:'1px solid #A7F3D0', borderRadius:6, padding:'8px 12px', fontSize:12 }}>
                   <strong>{balRes.customerName || 'Customer'}</strong> — {balRes.totalPoints||0} points
                   {balRes.totalPoints > 0 && ` (≈ ₹${Math.floor((balRes.totalPoints||0)/100)*10} redeemable)`}
                   {balRes.totalPoints === 0 && ' — no loyalty account yet, will be created'}

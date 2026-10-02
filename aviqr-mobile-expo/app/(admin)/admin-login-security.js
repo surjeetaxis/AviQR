@@ -5,7 +5,7 @@ import { adminSecurityApi, authApi } from '../../src/api/index.js';
 import { Input } from '../../src/components/common/Input.js';
 import { Button } from '../../src/components/common/Button.js';
 import { useAuth } from '../../src/context/AuthContext.js';
-import { Colors } from '../../src/theme/index.js';
+import { Colors, Radius } from '../../src/theme/index.js';
 
 const TABS=[['LOGIN_SUCCESS','Login History'],['LOGIN_FAILURE','Failed Logins'],['ACCOUNT_LOCK','Blocked Accounts'],['BLOCKED_LOGIN','Blocked Logins'],
  ['OTP_EXEMPTION','OTP Exemptions'],['TRUSTED_DEVICE','Trusted Devices'],['PASSWORD_RESET','Reset Password'],['SUPPORT','Support Accounts'],['ADMIN_ACTION','Admin Actions']];
@@ -86,4 +86,4 @@ export default function AdminLoginSecurity() {
   </View></View></Modal>
  </View>;
 }
-const styles=StyleSheet.create({screen:{flex:1,backgroundColor:'#f8fafc'},header:{paddingTop:55,padding:20,gap:12,backgroundColor:'white'},back:{color:'#0f766e'},title:{fontSize:24,fontWeight:'700'},tabs:{maxHeight:65},tab:{padding:12,backgroundColor:'white',borderRadius:8},selected:{backgroundColor:'#0f766e'},content:{padding:16,gap:16,paddingBottom:40},card:{padding:16,backgroundColor:'white',borderRadius:12,gap:10},subtitle:{fontSize:16,fontWeight:'700'},status:{fontWeight:'700',color:'#0f766e'},actions:{gap:8},error:{padding:12,backgroundColor:'#fee2e2',color:'#991b1b',borderRadius:8},message:{padding:12,backgroundColor:'#dcfce7',color:'#166534',borderRadius:8},pagination:{flexDirection:'row',justifyContent:'space-between',padding:12},overlay:{flex:1,justifyContent:'center',padding:24,backgroundColor:'#0008'},modal:{backgroundColor:'white',borderRadius:12,padding:20,gap:12}});
+const styles=StyleSheet.create({screen:{flex:1,backgroundColor:'#f8fafc'},header:{paddingTop:55,padding:20,gap:12,backgroundColor:'white'},back:{color:'#0f766e'},title:{fontSize:24,fontWeight:'700'},tabs:{maxHeight:65},tab:{padding:12,backgroundColor:'white',borderRadius:8},selected:{backgroundColor:'#0f766e'},content:{padding:16,gap:16,paddingBottom:40},card:{padding:16,backgroundColor:'white',borderRadius:Radius.lg,gap:10},subtitle:{fontSize:16,fontWeight:'700'},status:{fontWeight:'700',color:'#0f766e'},actions:{gap:8},error:{padding:12,backgroundColor:'#fee2e2',color:'#991b1b',borderRadius:8},message:{padding:12,backgroundColor:'#dcfce7',color:'#166534',borderRadius:8},pagination:{flexDirection:'row',justifyContent:'space-between',padding:12},overlay:{flex:1,justifyContent:'center',padding:24,backgroundColor:'#0008'},modal:{backgroundColor:'white',borderRadius:Radius.lg,padding:20,gap:12}});

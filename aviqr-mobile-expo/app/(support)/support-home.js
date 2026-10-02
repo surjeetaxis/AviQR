@@ -15,6 +15,7 @@ import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 const PRIORITY_COLOR = { LOW:'#6B7280', MEDIUM:'#2563EB', HIGH:'#D97706', URGENT:'#DC2626' };
 const FILTERS = ['ALL','OPEN','PENDING','RESOLVED','CLOSED'];
 const NAV_ITEMS = [
+  { icon: '🔐', label: 'Account Security', href: '/account-security' },
   { icon: '🔐', label: 'Login Security', href: '/(support)/support-login-security' },
   { icon: '🧾', label: 'Orders',      href: '/(support)/support-orders' },
   { icon: '💳', label: 'Payments',    href: '/(support)/support-payments' },
@@ -87,7 +88,7 @@ export default function SupportHomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <LinearGradient colors={['#0C4A6E','#0891B2']} style={styles.header}>
+      <LinearGradient colors={[Colors.brandSurface, Colors.brandRaised]} style={styles.header}>
         <View style={styles.headerRow}>
           <View style={styles.brandRow}>
             <Logo size={30} />
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
   navEmoji:     { fontSize: 22 },
   navLabel:     { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray700, textAlign: 'center' },
   controls:     { padding: Spacing.base, paddingBottom: 8 },
-  chip:         { height: 30, paddingHorizontal: 12, borderRadius: Radius.full, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', marginRight: 6 },
+  chip:         { height: 44, paddingHorizontal: 12, borderRadius: Radius.full, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', marginRight: 6 },
   chipActive:   { backgroundColor: Colors.gray900, borderColor: Colors.gray900 },
   chipText:     { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },
   chipActiveText:{ color: Colors.white },

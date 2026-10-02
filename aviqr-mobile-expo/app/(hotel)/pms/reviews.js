@@ -74,7 +74,7 @@ export default function ReviewsScreen() {
 
 const ss = StyleSheet.create({
   sub: { fontSize: FontSize.sm, color: Colors.gray500, marginBottom: 14 },
-  cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 10 },
+  cardTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 10 },
   avgValue: { fontSize: 40, fontWeight: '800', color: Colors.gray900 },
   avgStars: { fontSize: FontSize.lg, color: '#F5A623', marginTop: 4 },
   avgCount: { fontSize: FontSize.sm, color: Colors.gray500, marginTop: 4 },

@@ -10,7 +10,7 @@ const COLS = [
   { status: 'NEW',       label: 'New Orders',   next: 'ACCEPTED',  color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE', icon: '🆕' },
   { status: 'ACCEPTED',  label: 'Cooking',      next: 'PREPARING', color: '#D97706', bg: '#FFFBEB', border: '#FDE68A', icon: '👨‍🍳' },
   { status: 'PREPARING', label: 'Finishing',    next: 'READY',     color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', icon: '⏳' },
-  { status: 'READY',     label: 'Ready to Serve', next: null,      color: '#1D9E75', bg: '#ECFDF5', border: '#6EE7B7', icon: '🔔' },
+  { status: 'READY',     label: 'Ready to Serve', next: null,      color: "#146c50", bg: '#ECFDF5', border: '#6EE7B7', icon: '🔔' },
 ];
 
 const TYPE_LABEL = { DINE_IN: 'Dine-in', TAKEAWAY: 'Takeaway', DELIVERY: 'Delivery' };
@@ -62,7 +62,7 @@ function KotCard({ order, col, onAdvance, onComplete, onCancel }) {
               </span>
             )}
             {order.customerName && order.customerName !== 'Walk-in' && (
-              <span style={{ fontSize: 11, color: '#6B7280' }}>{order.customerName}</span>
+              <span style={{ fontSize: 11, color: "#65766c" }}>{order.customerName}</span>
             )}
           </div>
         </div>
@@ -132,7 +132,7 @@ function KotCard({ order, col, onAdvance, onComplete, onCancel }) {
             onClick={() => onComplete(order)}
             style={{
               flex:1, padding: '9px 0', borderRadius: 8, border: 'none',
-              background: '#1D9E75', color: 'white', fontWeight: 700, fontSize: 13,
+              background: "#146c50", color: 'white', fontWeight: 700, fontSize: 13,
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}>
             ✅ Mark Delivered / Done
@@ -278,7 +278,7 @@ export default function KOT() {
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 400, flexDirection: 'column', gap: 12 }}>
       <div className="spinner" />
-      <p style={{ color: '#6B7280', fontSize: 14 }}>Loading KOT display…</p>
+      <p style={{ color: "#65766c", fontSize: 14 }}>Loading KOT display…</p>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}.spinner{width:32px;height:32px;border:3px solid #1D9E75;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite}`}</style>
     </div>
   );

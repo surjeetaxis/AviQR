@@ -14,7 +14,7 @@ import './Orders.css';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const ORDER_TYPES = {
-  DINE_IN:  { label:'Dine-in',  icon:UtensilsCrossed, color:'#1D9E75', bg:'#E1F5EE' },
+  DINE_IN:  { label:'Dine-in',  icon:UtensilsCrossed, color:"#146c50", bg:"#edf6f0" },
   TAKEAWAY: { label:'Takeaway', icon:ShoppingBag,     color:'#7C3AED', bg:'#F5F3FF' },
   DELIVERY: { label:'Delivery', icon:Bike,            color:'#D97706', bg:'#FFFBEB' },
 };
@@ -320,8 +320,8 @@ export default function Orders() {
       <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap' }}>
         {/* Order type filter */}
         {[
-          { key:'ALL',      label:'All',      count:counts.ALL,      icon:Package,          color:'#6B7280' },
-          { key:'DINE_IN',  label:'Dine-in',  count:counts.DINE_IN,  icon:UtensilsCrossed,  color:'#1D9E75' },
+          { key:'ALL',      label:'All',      count:counts.ALL,      icon:Package,          color:"#65766c" },
+          { key:'DINE_IN',  label:'Dine-in',  count:counts.DINE_IN,  icon:UtensilsCrossed,  color:"#146c50" },
           { key:'TAKEAWAY', label:'Takeaway', count:counts.TAKEAWAY, icon:ShoppingBag,      color:'#7C3AED' },
           { key:'DELIVERY', label:'Delivery', count:counts.DELIVERY, icon:Bike,             color:'#D97706' },
         ].map(({ key, label, count, icon:Icon, color }) => (
@@ -428,7 +428,7 @@ export default function Orders() {
                 {(order.items || []).map((it, i) => (
                   <span key={i} className="order-item-tag">
                     {it.itemName || it.name} ×{it.quantity}
-                    {it.notes && <em style={{ color:'#9CA3AF', fontSize:11 }}> ({it.notes})</em>}
+                    {it.notes && <em style={{ color:"#74847b", fontSize:11 }}> ({it.notes})</em>}
                   </span>
                 ))}
               </div>
@@ -442,7 +442,7 @@ export default function Orders() {
 
               {/* Delivery address if delivery order */}
               {order.type === 'DELIVERY' && order.deliveryAddress && (
-                <div style={{ fontSize:12, color:'#4B5563', background:'#F9FAFB', borderRadius:6, padding:'5px 10px', marginTop:6 }}>
+                <div style={{ fontSize:12, color:"#53645e", background:"#f8faf9", borderRadius:6, padding:'5px 10px', marginTop:6 }}>
                   📍 {order.deliveryAddress}
                 </div>
               )}

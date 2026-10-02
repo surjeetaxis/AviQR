@@ -341,9 +341,9 @@ const ss = StyleSheet.create({
   modeTabTxt: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray700 },
   modeTabTxtActive: { color: Colors.white },
   uploadBox: { height: 140, borderRadius: Radius.md, borderWidth: 2, borderColor: Colors.border, borderStyle: 'dashed', backgroundColor: Colors.gray50, alignItems: 'center', justifyContent: 'center', marginBottom: 12, overflow: 'hidden' },
-  categoryLabel: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray700, marginBottom: 4 },
+  categoryLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray700, marginBottom: 4 },
   ocrItemRow: { flexDirection: 'row', paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
   successBox: { fontSize: FontSize.sm, color: '#166534', backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#86EFAC', borderRadius: Radius.md, padding: 12 },
   qrBox: { width: 100, height: 100, borderRadius: Radius.md, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 12, borderWidth: 2, borderColor: Colors.primary, borderStyle: 'dashed' },
-  trialBanner: { fontSize: FontSize.sm, color: '#0F6E56', backgroundColor: Colors.primaryLight, borderRadius: Radius.md, padding: 10, textAlign: 'center' },
+  trialBanner: { fontSize: FontSize.sm, color: Colors.primaryDark, backgroundColor: Colors.primaryLight, borderRadius: Radius.md, padding: 10, textAlign: 'center' },
 });

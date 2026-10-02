@@ -11,6 +11,7 @@ import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
 import { StatusBadge } from '../../src/components/common/StatusBadge.js';
 import { OwnerDrawer } from '../../src/components/common/OwnerDrawer.js';
 import { Colors, Spacing, Radius, FontSize, Shadow } from '../../src/theme/index.js';
+import { ShoppingBagIcon, BarChartIcon, UserIcon, BookOpenIcon, DashboardIcon, SettingsIcon } from '../../src/components/common/NavIcons.js';
 import { confirmAction } from '../../src/utils/confirmAction.js';
 
 const STATUS_NEXT = { NEW:'ACCEPTED', ACCEPTED:'PREPARING', PREPARING:'READY', READY:'COMPLETED' };
@@ -121,26 +122,26 @@ export default function Dashboard() {
   ];
 
   const KPI = [
-    { label:"Today's Revenue", value: stats?.totalRevenue ? `₹${fmt(stats.totalRevenue)}` : '—', color:'#1D9E75', sub: stats?.totalOrders ? `${stats.totalOrders} orders` : '' },
-    { label:'Active Orders',   value: activeOrders.length,                                         color:'#2563EB', sub: `${newOrders.length} new` },
-    { label:'Avg Order',       value: stats?.avgOrderValue ? `₹${fmt(stats.avgOrderValue)}` : '—', color:'#7C3AED', sub: 'Today' },
-    { label:'New Customers',   value: stats?.newCustomers ?? '—',                                   color:'#D97706', sub: 'Today' },
+    { Icon:BarChartIcon, label:"Today's Revenue", value: stats?.totalRevenue ? `₹${fmt(stats.totalRevenue)}` : '—', color:Colors.primary, sub: stats?.totalOrders ? `${stats.totalOrders} orders` : '' },
+    { Icon:ShoppingBagIcon, label:'Active Orders',   value: activeOrders.length,                                         color:'#2563EB', sub: `${newOrders.length} new` },
+    { Icon:BarChartIcon, label:'Avg Order',       value: stats?.avgOrderValue ? `₹${fmt(stats.avgOrderValue)}` : '—', color:'#7C3AED', sub: 'Today' },
+    { Icon:UserIcon, label:'New Customers',   value: stats?.newCustomers ?? '—',                                   color:'#D97706', sub: 'Today' },
   ];
 
   return (
     <ScrollView style={ss.screen} showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRef(true); await load(); setRef(false); }} tintColor={Colors.white} />}>
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRef(true); await load(); setRef(false); }} tintColor={Colors.primary} />}>
 
       {/* Header */}
-      <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.header}>
+      <LinearGradient colors={[Colors.brandSurface, Colors.brandRaised]} style={ss.header}>
         <View style={ss.hRow}>
           <View style={{ flexDirection:'row', alignItems:'center', gap:12 }}>
             <TouchableOpacity onPress={() => setDrawerOpen(true)} style={ss.menuBtn} accessibilityLabel="Open menu">
               <Text style={ss.menuIcon}>☰</Text>
             </TouchableOpacity>
             <View>
-              <Text style={ss.greet}>{greeting()} 👋</Text>
-              <Text style={ss.shopName}>{user?.shopName || user?.name || 'My Shop'}</Text>
+              <Text style={ss.greet}>YOUR RESTAURANT AT A GLANCE</Text>
+              <Text style={ss.shopName}>{greeting()}, {user?.name?.split(' ')[0] || 'there'}.</Text>
             </View>
           </View>
           <TouchableOpacity onPress={() => confirmAction('Sign out?', 'You will need to log in again.', logout, 'Sign out')} style={ss.avatarBtn}>
@@ -148,16 +149,6 @@ export default function Dashboard() {
           </TouchableOpacity>
         </View>
 
-        {/* KPI row */}
-        <View style={ss.kpiRow}>
-          {KPI.slice(0, 2).map((k, i) => (
-            <View key={i} style={ss.kpiCard}>
-              <Text style={ss.kpiVal}>{k.value}</Text>
-              <Text style={ss.kpiLabel}>{k.label}</Text>
-              {k.sub ? <Text style={[ss.kpiSub, { color: '#A7F3D0' }]}>{k.sub}</Text> : null}
-            </View>
-          ))}
-        </View>
       </LinearGradient>
 
       <View style={ss.body}>
@@ -193,12 +184,14 @@ export default function Dashboard() {
           </View>
         ))}
 
-        {/* Secondary KPIs */}
-        <View style={ss.kpiRow2}>
-          {KPI.slice(2).map((k, i) => (
-            <View key={i} style={[ss.kpiCard2, { borderLeftColor: k.color }]}>
-              <Text style={[ss.kpiVal2, { color: k.color }]}>{k.value}</Text>
-              <Text style={ss.kpiLabel2}>{k.label}</Text>
+        <View style={ss.serviceOverview}><View style={ss.liveDot} /><Text style={ss.serviceText}>Service overview · {activeOrders.length} active orders</Text></View>
+        <View style={ss.kpiGrid}>
+          {KPI.map(k => (
+            <View key={k.label} style={ss.overviewCard}>
+              <View style={[ss.overviewIcon,{backgroundColor:k.color+'14'}]}><k.Icon size={20} color={k.color} /></View>
+              <Text style={ss.overviewLabel}>{k.label}</Text>
+              <Text style={[ss.overviewValue,{color:k.color}]}>{k.value}</Text>
+              <Text style={ss.overviewSub}>{k.sub || 'Today'}</Text>
             </View>
           ))}
         </View>
@@ -298,24 +291,33 @@ export default function Dashboard() {
 }
 
 const ss = StyleSheet.create({
-  screen:     { flex:1, backgroundColor:'#F8FAFB' },
+  screen:     { flex:1, backgroundColor:Colors.background },
   header:     { padding:Spacing.lg, paddingTop:56, paddingBottom:28 },
   hRow:       { flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 },
-  greet:      { color:'rgba(255,255,255,0.8)', fontSize:13 },
-  shopName:   { color:'white', fontSize:20, fontWeight:'800', marginTop:2 },
-  avatarBtn:  { width:40, height:40, borderRadius:20, backgroundColor:'rgba(255,255,255,0.2)', alignItems:'center', justifyContent:'center' },
+  greet:      { color:Colors.mint, fontSize:9, letterSpacing:1.2, fontWeight:'700' },
+  shopName:   { color:Colors.white, fontSize:24, fontWeight:'600', letterSpacing:-0.6, marginTop:8 },
+  avatarBtn:  { width:40, height:44, borderRadius:20, backgroundColor:'rgba(255,255,255,0.2)', alignItems:'center', justifyContent:'center' },
   avatarText: { color:'white', fontSize:14, fontWeight:'700' },
-  menuBtn:    { width:36, height:36, borderRadius:18, backgroundColor:'rgba(255,255,255,0.15)', alignItems:'center', justifyContent:'center' },
+  menuBtn:    { width:36, height:44, borderRadius:18, backgroundColor:'rgba(255,255,255,0.15)', alignItems:'center', justifyContent:'center' },
   menuIcon:   { color:'white', fontSize:18, fontWeight:'700' },
+  serviceOverview:{flexDirection:'row',alignItems:'center',gap:8,backgroundColor:Colors.primaryLight,borderWidth:1,borderColor:Colors.border,padding:14,borderRadius:Radius.md,marginBottom:8},
+  liveDot:{width:7,height:7,borderRadius:4,backgroundColor:Colors.primary},
+  serviceText:{fontSize:12,color:Colors.primaryDark,flex:1},
+  kpiGrid:{flexDirection:'row',flexWrap:'wrap',gap:12,marginBottom:8},
+  overviewCard:{width:'48%',flexGrow:1,backgroundColor:Colors.white,borderRadius:Radius.lg,borderWidth:1,borderColor:Colors.border,padding:18,...Shadow.sm},
+  overviewIcon:{width:38,height:38,borderRadius:10,alignItems:'center',justifyContent:'center',marginBottom:18},
+  overviewLabel:{fontSize:12,color:Colors.gray600},
+  overviewValue:{fontSize:26,fontWeight:'700',letterSpacing:-0.6,marginTop:6,fontVariant:['tabular-nums']},
+  overviewSub:{fontSize:11,color:Colors.gray500,marginTop:6},
   kpiRow:     { flexDirection:'row', gap:12 },
-  kpiCard:    { flex:1, backgroundColor:'rgba(255,255,255,0.15)', borderRadius:12, padding:12 },
+  kpiCard:    { flex:1, backgroundColor:'rgba(255,255,255,0.15)', borderRadius:Radius.lg, padding:12 },
   kpiVal:     { color:'white', fontSize:22, fontWeight:'800' },
   kpiLabel:   { color:'rgba(255,255,255,0.75)', fontSize:11, marginTop:2 },
   kpiSub:     { fontSize:10, marginTop:2 },
-  body:       { padding:Spacing.md, gap:4 },
+  body:       { padding:Spacing.base, gap:8 },
   newOrderBanner: { backgroundColor:'#EFF6FF', borderRadius:10, padding:12, marginBottom:8, borderWidth:1, borderColor:'#BFDBFE' },
   newOrderText:   { color:'#1D4ED8', fontSize:13, fontWeight:'600', textAlign:'center' },
-  inviteCard:     { backgroundColor:'#FEF3C7', borderRadius:10, padding:12, marginBottom:8, borderWidth:1, borderColor:'#FDE68A' },
+  inviteCard:     { backgroundColor:'#FEF3C7', borderRadius:Radius.lg, padding:12, marginBottom:8, borderWidth:1, borderColor:'#FDE68A' },
   inviteTitle:    { fontSize:13, fontWeight:'700', color:'#92400E' },
   inviteSub:      { fontSize:11, color:'#B45309', marginTop:2 },
   inviteActions:  { flexDirection:'row', gap:8, marginTop:10 },
@@ -325,13 +327,13 @@ const ss = StyleSheet.create({
   inviteAcceptText: { color:'white', fontWeight:'700', fontSize:12.5 },
   inviteRejectText: { color:'#DC2626', fontWeight:'700', fontSize:12.5 },
   kpiRow2:    { flexDirection:'row', gap:10, marginVertical:8 },
-  kpiCard2:   { flex:1, backgroundColor:'white', borderRadius:10, padding:12, borderLeftWidth:3, ...Shadow.sm },
+  kpiCard2:   { flex:1, backgroundColor:'white', borderRadius:Radius.lg, padding:12, borderLeftWidth:3, ...Shadow.sm },
   kpiVal2:    { fontSize:18, fontWeight:'800' },
-  kpiLabel2:  { fontSize:11, color:'#6B7280', marginTop:2 },
+  kpiLabel2:  { fontSize:11, color:Colors.gray500, marginTop:2 },
   sectionHeader: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginTop:16, marginBottom:8 },
-  sectionTitle:  { fontSize:16, fontWeight:'700', color:'#111827', marginTop:8, marginBottom:6 },
+  sectionTitle:  { fontSize:16, fontWeight:'700', color:Colors.gray900, marginTop:8, marginBottom:6 },
   chartCard:     { backgroundColor: Colors.white, borderRadius: Radius.lg, padding: 14, marginTop: 8, ...Shadow.sm },
-  sectionTitle2: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 12 },
+  sectionTitle2: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 12 },
   chartWrap:     { flexDirection: 'row', alignItems: 'flex-end', height: 110, gap: 4 },
   barCol:        { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
   bar:           { width: '70%', backgroundColor: Colors.primary, borderRadius: 3, minHeight: 4 },
@@ -340,27 +342,27 @@ const ss = StyleSheet.create({
   topRank:       { width: 26, fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray400 },
   topName:       { flex: 1, fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900 },
   topRev:        { fontSize: FontSize.sm, fontWeight: '800', color: Colors.primary },
-  seeAll:     { fontSize:13, color:'#1D9E75', fontWeight:'600' },
+  seeAll:     { fontSize:13, color:Colors.primary, fontWeight:'600' },
   quickGrid:  { flexDirection:'row', flexWrap:'wrap', gap:10 },
-  quickCard:  { width:'30%', backgroundColor:'white', borderRadius:12, padding:14, alignItems:'center', ...Shadow.sm, position:'relative' },
+  quickCard:  { width:'30%', backgroundColor:'white', borderRadius:Radius.lg, padding:14, alignItems:'center', ...Shadow.sm, position:'relative' },
   quickEmoji: { fontSize:24, marginBottom:6 },
-  quickLabel: { fontSize:11, fontWeight:'600', color:'#374151', textAlign:'center' },
+  quickLabel: { fontSize:11, fontWeight:'600', color:Colors.gray700, textAlign:'center' },
   badge:      { position:'absolute', top:8, right:8, backgroundColor:'#DC2626', borderRadius:10, minWidth:18, height:18, alignItems:'center', justifyContent:'center', paddingHorizontal:4 },
   badgeText:  { color:'white', fontSize:10, fontWeight:'800' },
-  emptyCard:  { backgroundColor:'white', borderRadius:12, padding:32, alignItems:'center', ...Shadow.sm },
+  emptyCard:  { backgroundColor:'white', borderRadius:Radius.lg, padding:32, alignItems:'center', ...Shadow.sm },
   emptyEmoji: { fontSize:36, marginBottom:8 },
-  emptyText:  { fontSize:15, fontWeight:'700', color:'#374151' },
-  emptySub:   { fontSize:12, color:'#9CA3AF', marginTop:4, textAlign:'center' },
-  orderCard:  { backgroundColor:'white', borderRadius:12, padding:14, marginBottom:10, ...Shadow.sm },
+  emptyText:  { fontSize:15, fontWeight:'700', color:Colors.gray700 },
+  emptySub:   { fontSize:12, color:Colors.gray400, marginTop:4, textAlign:'center' },
+  orderCard:  { backgroundColor:'white', borderRadius:Radius.lg, padding:14, marginBottom:10, ...Shadow.sm },
   orderTop:   { flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 },
-  orderNum:   { fontSize:14, fontWeight:'700', color:'#111827' },
-  orderCustomer: { fontSize:12, color:'#6B7280', marginTop:2 },
+  orderNum:   { fontSize:14, fontWeight:'700', color:Colors.gray900 },
+  orderCustomer: { fontSize:12, color:Colors.gray500, marginTop:2 },
   statusPill: { borderRadius:999, paddingHorizontal:10, paddingVertical:3 },
   statusText: { fontSize:11, fontWeight:'700' },
-  orderItems: { fontSize:12, color:'#6B7280', marginBottom:10, lineHeight:18 },
+  orderItems: { fontSize:12, color:Colors.gray500, marginBottom:10, lineHeight:18 },
   orderFoot:  { flexDirection:'row', alignItems:'center', gap:8 },
-  orderTime:  { fontSize:11, color:'#9CA3AF', flex:1 },
-  orderAmt:   { fontSize:14, fontWeight:'700', color:'#111827' },
-  advBtn:     { backgroundColor:'#1D9E75', borderRadius:8, paddingHorizontal:14, paddingVertical:6 },
+  orderTime:  { fontSize:11, color:Colors.gray400, flex:1 },
+  orderAmt:   { fontSize:14, fontWeight:'700', color:Colors.gray900 },
+  advBtn:     { backgroundColor:Colors.primary, borderRadius:8, paddingHorizontal:14, paddingVertical:6 },
   advBtnText: { color:'white', fontSize:12, fontWeight:'700' },
 });

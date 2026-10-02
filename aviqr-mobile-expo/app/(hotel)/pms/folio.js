@@ -230,13 +230,13 @@ export default function FolioScreen() {
 
 const ss = StyleSheet.create({
   fieldLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500, marginBottom: 6 },
-  cardTitle: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray900, marginBottom: 10 },
+  cardTitle: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900, marginBottom: 10 },
   chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: Radius.full, backgroundColor: Colors.gray100, maxWidth: 220 },
   chipActive: { backgroundColor: Colors.primaryLight },
   chipTxt: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },
   chipTxtActive: { color: Colors.primary },
   bannerCard: { marginBottom: 12, backgroundColor: Colors.white },
-  bannerTitle: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray900 },
+  bannerTitle: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900 },
   bannerSub: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 4 },
   kpiRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   kpi: { flex: 1, backgroundColor: Colors.white, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, padding: 10, alignItems: 'center' },

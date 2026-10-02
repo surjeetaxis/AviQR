@@ -538,9 +538,9 @@ export function BookingsView({bookings,onUpdate,compact}) {
     const map = {
       REQUESTED: {bg:'var(--amber-bg,#FEF3C7)', c:'var(--amber,#B45309)', label:'Requested'},
       CONFIRMED: {bg:'var(--green-bg,#D1FAE5)', c:'var(--green,#047857)', label:'Confirmed'},
-      COMPLETED: {bg:'var(--gray-100,#F3F4F6)', c:'var(--gray-500,#6B7280)', label:'Completed'},
+      COMPLETED: {bg:"var(--gray-100,#eaf0ed)", c:'var(--gray-500,#6B7280)', label:'Completed'},
       CANCELLED: {bg:'var(--red-bg,#FEE2E2)', c:'var(--red,#DC2626)', label:'Cancelled'},
-    }[s] || {bg:'#F3F4F6', c:'#6B7280', label:s};
+    }[s] || {bg:"#eaf0ed", c:'#6B7280', label:s};
     return <span style={{fontSize:11,fontWeight:700,color:map.c,background:map.bg,padding:'3px 10px',borderRadius:99}}>{map.label}</span>;
   };
   return (
@@ -617,7 +617,7 @@ export function OutletsPage({hotelId}) {
       </div>
 
       {showForm && (
-        <form onSubmit={create} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
+        <form onSubmit={create} className="admin-chart-card workspace-grid" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
           <div className="form-field">
             <label className="form-label">Name</label>
             <input className="form-input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. The Garden Cafe" required/>
@@ -769,7 +769,7 @@ export function HotelStaffPage({hotelId}) {
     <div>
       <div className="page-header"><h1 className="page-title">{t('navHotelStaff', lang)}</h1><p className="page-subtitle">Hotel-wide roles — separate from an individual outlet's own staff</p></div>
 
-      <form onSubmit={grant} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:12,alignItems:'end'}}>
+      <form onSubmit={grant} className="admin-chart-card workspace-grid" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:12,alignItems:'end'}}>
         <div className="form-field">
           <label className="form-label">User ID</label>
           <input className="form-input" value={form.userId} onChange={e=>setForm(f=>({...f,userId:e.target.value}))} placeholder="user id to grant access" required/>
@@ -856,7 +856,7 @@ export function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
         <button className="btn-refresh" onClick={()=>setShowAdd(f=>!f)}><Plus size={13}/> Add room</button>
       </div>
       {showAdd && (
-        <form onSubmit={addRoom} className="admin-chart-card" style={{marginBottom:14,display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
+        <form onSubmit={addRoom} className="admin-chart-card workspace-grid" style={{marginBottom:14,display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
           <div className="form-field">
             <label className="form-label">Room number</label>
             <input className="form-input" value={form.number} onChange={e=>setForm(f=>({...f,number:e.target.value}))} placeholder="e.g. 501" required/>
@@ -1052,7 +1052,7 @@ function RoomBillModal({room,onClose}) {
           <p style={{textAlign:'center',color:'var(--gray-400)',padding:'20px 0'}}>Loading bill…</p>
         ) : (
           <>
-            <div style={{background:'linear-gradient(135deg,#1D9E75,#178A65)',color:'#fff',borderRadius:12,padding:'14px 16px',marginBottom:14}}>
+            <div style={{background:"linear-gradient(135deg,#146c50,#146c50)",color:'#fff',borderRadius:12,padding:'14px 16px',marginBottom:14}}>
               <div style={{fontSize:11,opacity:0.85}}>PENDING</div>
               <div style={{fontSize:24,fontWeight:800}}>₹{Number(data?.pendingTotal||0).toLocaleString('en-IN')}</div>
             </div>
@@ -1098,7 +1098,7 @@ export function HousekeepingPage({requests,rooms,hotelId}) {
   return (
     <div>
       <div className="page-header"><h1 className="page-title">{t('housekeeping', lang)}</h1><p className="page-subtitle">{(rooms||[]).length} rooms</p></div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:12,marginBottom:20}}>
+      <div className="workspace-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:12,marginBottom:20}}>
         {Object.entries(STATUS_META).map(([key,m])=>(
           <div key={key} className="admin-kpi-card" style={{textAlign:'center'}}>
             <div style={{fontSize:28,marginBottom:8}}>{m.icon}</div>
@@ -1542,7 +1542,7 @@ function RoomQrGrid({ rooms, outlets, hotelId, hotelName, toggleRoomQR }) {
       ) : rooms.length === 0 ? (
         <div className="admin-table-card" style={{padding:20,textAlign:'center',color:'var(--gray-400)',marginBottom:20}}>No rooms yet.</div>
       ) : (
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))',gap:12,marginBottom:20}}>
+        <div className="workspace-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))',gap:12,marginBottom:20}}>
           {rooms.map(r => {
             const qr = qrMap[r.number];
             return (
@@ -1714,7 +1714,7 @@ function QrScanAnalytics({ hotelId }) {
       {loading ? (
         <div className="admin-table-card" style={{padding:24,textAlign:'center',color:'var(--gray-400)',fontSize:13,marginBottom:20}}>Loading scan analytics…</div>
       ) : (
-        <div style={{display:'grid',gridTemplateColumns:'1.3fr 1fr',gap:16,marginBottom:16}}>
+        <div className="workspace-grid" style={{display:'grid',gridTemplateColumns:'1.3fr 1fr',gap:16,marginBottom:16}}>
           <div className="admin-chart-card">
             <div style={{fontSize:12,color:'var(--gray-500)',marginBottom:10}}>
               {totalInPeriod.toLocaleString('en-IN')} scans in the last {days} days
@@ -2097,7 +2097,7 @@ export function HotelSettings({user,lang,hotelId}) {
       <div className="page-header"><h1 className="page-title">{t('settings',lang)}</h1></div>
       <div className="admin-chart-card">
         <h3 style={{marginBottom:16}}>Hotel profile</h3>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+        <div className="workspace-grid" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
           {[['hotelName','Hotel name'],['phone','Phone'],['email','Email'],['address','Address'],['checkinTime','Check-in time'],['checkoutTime','Check-out time'],['currency','Currency'],['taxPercent','Tax %']].map(([k,label])=>(
             <div key={k} className="form-field">
               <label className="form-label">{label}</label>

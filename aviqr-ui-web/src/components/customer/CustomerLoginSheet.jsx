@@ -91,7 +91,7 @@ export default function CustomerLoginSheet({ onClose, onLoggedIn }) {
           </div>
         ) : (
           <div className="cm-checkout-form" style={{ textAlign: 'center' }}>
-            <p style={{ fontSize: 12.5, color: '#6B7280', marginBottom: 18 }}>
+            <p style={{ fontSize: 12.5, color: "#65766c", marginBottom: 18 }}>
               We've sent a 6-digit code to {email}. It'll auto-verify once entered.
             </p>
             <OtpInput length={6} value={otp} onChange={setOtp} onComplete={submitOtp} disabled={loading} />

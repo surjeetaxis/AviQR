@@ -196,7 +196,7 @@
 
 /* Plan */
 .plan-current {
-  background: linear-gradient(135deg, #0F6E56, #1D9E75);
+  background: linear-gradient(135deg, var(--green-dark), var(--green));
   border-radius: var(--radius-lg);
   padding: 24px;
   color: white;

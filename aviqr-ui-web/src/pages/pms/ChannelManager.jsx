@@ -9,7 +9,7 @@ import { pmsApi } from '../../api/index.js';
 import '../admin/Admin.css';
 
 const inputStyle = { height: 34, padding: '0 10px', borderRadius: 8, border: '1px solid var(--gray-200)', fontSize: 13 };
-const btnPrimary = { width: 'auto', height: 34, padding: '0 12px', background: 'var(--blue)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none' };
+const btnPrimary = { width: 'auto', height: 34, padding: '0 12px', background: 'var(--green)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none' };
 // .admin-row-btn is styled for small grey icon buttons, so text buttons set their own colours.
 const btnSecondary = { width: 'auto', height: 34, padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: 'var(--gray-700)', fontWeight: 500 };
 const btnSmall = { width: 'auto', height: 28, padding: '0 8px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', color: 'var(--gray-700)', fontWeight: 500 };

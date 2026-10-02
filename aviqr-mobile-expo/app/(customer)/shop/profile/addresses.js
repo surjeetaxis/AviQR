@@ -125,7 +125,7 @@ const ss = StyleSheet.create({
   iconBtn: { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.gray50, alignItems: 'center', justifyContent: 'center' },
   addBtn: { alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.gray300, borderStyle: 'dashed', marginTop: 4 },
   addBtnTxt: { color: Colors.primary, fontWeight: '700', fontSize: FontSize.sm },
-  sheetTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900, marginBottom: 16 },
+  sheetTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900, marginBottom: 16 },
   labelRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   labelChip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border },
   labelChipActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },

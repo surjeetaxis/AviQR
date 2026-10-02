@@ -34,11 +34,11 @@ export default function Menu() {
   const shopId = useActiveShopId();
 
   if (!shopId) return (
-    <div style={{ textAlign:'center', padding:'60px 24px', color:'#6B7280' }}>
+    <div style={{ textAlign:'center', padding:'60px 24px', color:"#65766c" }}>
       <div style={{ fontSize:48, marginBottom:16 }}>🍽️</div>
-      <h2 style={{ fontSize:20, fontWeight:700, color:'#111827', marginBottom:8 }}>No restaurant yet</h2>
+      <h2 style={{ fontSize:20, fontWeight:700, color:"#18382c", marginBottom:8 }}>No restaurant yet</h2>
       <p style={{ fontSize:14, marginBottom:24 }}>Complete the setup to start adding your menu.</p>
-      <button onClick={() => nav('/')} style={{ padding:'10px 24px', background:'#1D9E75', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer' }}>
+      <button onClick={() => nav('/')} style={{ padding:'10px 24px', background:"#146c50", color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer' }}>
         Complete setup →
       </button>
     </div>
@@ -267,7 +267,7 @@ export default function Menu() {
       {categories.length === 0 && (
         <div style={{ textAlign:'center', padding:'64px 24px', background:'white', borderRadius:16, border:'2px dashed var(--gray-200)' }}>
           <div style={{ fontSize:56, marginBottom:16 }}>🍽️</div>
-          <h2 style={{ fontSize:20, fontWeight:700, color:'#111827', marginBottom:8 }}>No menu items yet</h2>
+          <h2 style={{ fontSize:20, fontWeight:700, color:"#18382c", marginBottom:8 }}>No menu items yet</h2>
           <p style={{ fontSize:14, color:'var(--gray-500)', marginBottom:28, maxWidth:320, margin:'0 auto 28px' }}>
             Start by creating a category (e.g. "Starters", "Main Course"), then add dishes inside it.
           </p>

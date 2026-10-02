@@ -673,7 +673,7 @@ function SupportBillingPanel() {
     ACTIVE:        { label: 'Active',        color: '#059669', bg: '#DCFCE7' },
     TRIALING:      { label: 'Trialing',      color: '#2563EB', bg: '#DBEAFE' },
     TRIAL_EXPIRED: { label: 'Trial expired', color: '#DC2626', bg: '#FEE2E2' },
-    CANCELED:      { label: 'Canceled',      color: '#6B7280', bg: '#F3F4F6' },
+    CANCELED:      { label: 'Canceled',      color: "#65766c", bg: "#eaf0ed" },
   };
 
   const setSubscriptionStatus = async (shop, status) => {
@@ -689,7 +689,7 @@ function SupportBillingPanel() {
   return (
     <div>
       {toast && (
-        <div style={{ position:'fixed', bottom:24, right:24, background:'#1F2937', color:'white', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
+        <div style={{ position:'fixed', bottom:24, right:24, background:"#24483c", color:'white', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
           ✓ {toast}
         </div>
       )}

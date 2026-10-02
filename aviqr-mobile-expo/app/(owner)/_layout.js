@@ -1,10 +1,11 @@
+import { Colors } from '../../src/theme/index.js';
 import { Tabs } from 'expo-router';
 import { OwnerTabBar } from '../../src/components/common/OwnerTabBar.js';
 
 export default function OwnerLayout() {
   return (
     <Tabs
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: Colors.background } }}
       tabBar={props => <OwnerTabBar {...props} />}
     >
       <Tabs.Screen name="dashboard" options={{ title: 'Home' }} />

@@ -71,7 +71,7 @@ export default function AdminLoginSecurity({supportOnly=false}) {
     } catch (err) {setError(err.response?.data?.message || 'Action failed.');}
     finally {setBusy(false);}
   };
-  return <section className="login-security">
+  return <section className="security-console">
     <header className="security-heading"><div><h1>Login Security</h1><p>Review sign-ins and manage access to AviQR.</p></div>
       <button type="button" onClick={load} disabled={loading || busy}>Refresh</button></header>
     <div className="security-tabs" role="tablist" aria-label="Login security sections">

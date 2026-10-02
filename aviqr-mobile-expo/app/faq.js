@@ -72,7 +72,7 @@ const ss = StyleSheet.create({
   h1: { fontSize: FontSize['2xl'], fontWeight: '800', color: Colors.gray900, marginTop: 4, marginBottom: 8 },
   sub: { fontSize: FontSize.sm, color: Colors.gray600 },
   link: { color: Colors.primary, fontWeight: '700' },
-  groupTitle: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray400, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 },
+  groupTitle: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray400, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 },
   item: { backgroundColor: Colors.white, borderRadius: Radius.md, padding: 14, marginBottom: 8, ...Shadow.sm },
   qRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   q: { flex: 1, fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray900 },

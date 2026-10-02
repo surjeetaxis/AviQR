@@ -180,14 +180,14 @@ export default function ChainTemplatesScreen() {
 
 const ss = StyleSheet.create({
   sub: { fontSize: FontSize.sm, color: Colors.gray500, marginBottom: 14 },
-  cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 10 },
+  cardTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 10 },
   fieldLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500, marginBottom: 6 },
   resultRow: { fontSize: FontSize.sm, color: Colors.gray700, marginTop: 2 },
   chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: Radius.full, backgroundColor: Colors.gray100 },
   chipActive: { backgroundColor: Colors.primaryLight },
   chipTxt: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },
   chipTxtActive: { color: Colors.primary },
-  itemTitle: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray900 },
+  itemTitle: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900 },
   itemMeta: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 2 },
   emptyTxt: { fontSize: FontSize.xs, color: Colors.gray400, textAlign: 'center', paddingVertical: 12 },
 });

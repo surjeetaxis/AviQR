@@ -81,7 +81,7 @@ export default function AdminPaymentsScreen() {
 
 const ss = StyleSheet.create({
   chipList: { paddingHorizontal: Spacing.base, paddingVertical: 8 },
-  chip: { height: 32, paddingHorizontal: 14, borderRadius: Radius.full, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', marginRight: 6 },
+  chip: { height: 44, paddingHorizontal: 14, borderRadius: Radius.full, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', marginRight: 6 },
   chipActive: { backgroundColor: Colors.gray900, borderColor: Colors.gray900 },
   chipTxt: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },
   chipActiveTxt: { color: Colors.white },

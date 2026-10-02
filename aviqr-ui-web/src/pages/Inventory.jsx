@@ -266,7 +266,7 @@ export default function Inventory() {
           {/* KPI cards */}
           <div className="kpi-grid" style={{ marginBottom:16 }}>
             {[
-              { label:'Total items',   value: items.length,                                  color:'#1D9E75' },
+              { label:'Total items',   value: items.length,                                  color:"#146c50" },
               { label:'Tracking',      value: tracked.length,                                color:'#7C3AED', onClick:() => setFilter('TRACKING') },
               { label:'Out of stock',  value: outCount,  color: outCount  > 0 ? '#DC2626' : '#1D9E75', onClick:() => setFilter('OUT') },
               { label:'Low stock',     value: lowCount,  color: lowCount  > 0 ? '#D97706' : '#1D9E75', onClick:() => setFilter('LOW') },

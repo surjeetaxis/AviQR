@@ -148,12 +148,12 @@ export default function GlobalSearch({ open, onClose }) {
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKey}
             placeholder="Search pages, orders, menu items…"
-            style={{ flex:1, border:'none', outline:'none', fontSize:14, color:'#111827',
+            style={{ flex:1, border:'none', outline:'none', fontSize:14, color:"#18382c",
                      background:'transparent', minWidth:0 }}
           />
           {query
-            ? <button onClick={() => setQuery('')} style={{ background:'none', border:'none', cursor:'pointer', color:'#9CA3AF', padding:2 }}><X size={15}/></button>
-            : <kbd style={{ fontSize:10, color:'#9CA3AF', background:'#F9FAFB', border:'1px solid #E5E7EB', borderRadius:4, padding:'2px 6px', whiteSpace:'nowrap' }}>Esc</kbd>
+            ? <button onClick={() => setQuery('')} style={{ background:'none', border:'none', cursor:'pointer', color:"#74847b", padding:2 }}><X size={15}/></button>
+            : <kbd style={{ fontSize:10, color:"#74847b", background:"#f8faf9", border:'1px solid #E5E7EB', borderRadius:4, padding:'2px 6px', whiteSpace:'nowrap' }}>Esc</kbd>
           }
         </div>
 
@@ -162,14 +162,14 @@ export default function GlobalSearch({ open, onClose }) {
 
           {/* Empty state */}
           {allResults.length === 0 && q && !loading && (
-            <div style={{ padding:'36px 16px', textAlign:'center', color:'#9CA3AF', fontSize:13 }}>
+            <div style={{ padding:'36px 16px', textAlign:'center', color:"#74847b", fontSize:13 }}>
               No results for <strong>"{query}"</strong>
             </div>
           )}
 
           {/* Loading */}
           {loading && (
-            <div style={{ padding:'20px 16px', textAlign:'center', color:'#9CA3AF', fontSize:12 }}>
+            <div style={{ padding:'20px 16px', textAlign:'center', color:"#74847b", fontSize:12 }}>
               Searching…
             </div>
           )}
@@ -184,8 +184,8 @@ export default function GlobalSearch({ open, onClose }) {
                 return (
                   <Row key={item.to} active={active} onClick={() => go(item)} onHover={() => setActive(idx)}>
                     <IconBox active={active} color="#1D9E75" bg="#F0FDF8"><Icon size={14}/></IconBox>
-                    <span style={{ fontSize:13, fontWeight:500, color:'#111827' }}>{item.label}</span>
-                    <ArrowRight size={13} style={{ marginLeft:'auto', color:'#D1D5DB' }}/>
+                    <span style={{ fontSize:13, fontWeight:500, color:"#18382c" }}>{item.label}</span>
+                    <ArrowRight size={13} style={{ marginLeft:'auto', color:"#c3d0c8" }}/>
                   </Row>
                 );
               })}
@@ -203,8 +203,8 @@ export default function GlobalSearch({ open, onClose }) {
                   <Row key={o.id} active={active} onClick={() => go({ to:'/orders' })} onHover={() => setActive(idx)}>
                     <IconBox active={active} color="#2563EB" bg="#EFF6FF"><ShoppingBag size={14}/></IconBox>
                     <div>
-                      <div style={{ fontSize:13, fontWeight:700, fontFamily:'monospace', color:'#111827' }}>#{o.orderNumber}</div>
-                      <div style={{ fontSize:11, color:'#6B7280' }}>{o.customerName}{o.tableNumber ? ` · T-${o.tableNumber}` : ''}</div>
+                      <div style={{ fontSize:13, fontWeight:700, fontFamily:'monospace', color:"#18382c" }}>#{o.orderNumber}</div>
+                      <div style={{ fontSize:11, color:"#65766c" }}>{o.customerName}{o.tableNumber ? ` · T-${o.tableNumber}` : ''}</div>
                     </div>
                     <span style={{ marginLeft:'auto', fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999,
                                    background:col+'18', color:col }}>{o.status}</span>
@@ -224,10 +224,10 @@ export default function GlobalSearch({ open, onClose }) {
                   <Row key={m.id} active={active} onClick={() => go({ to:'/menu' })} onHover={() => setActive(idx)}>
                     <IconBox active={active} color="#1D9E75" bg="#F0FDF8"><BookOpen size={14}/></IconBox>
                     <div>
-                      <div style={{ fontSize:13, fontWeight:500, color:'#111827' }}>{m.name}</div>
-                      <div style={{ fontSize:11, color:'#9CA3AF' }}>{m.veg === false ? '🔴 Non-veg' : '🟢 Veg'}</div>
+                      <div style={{ fontSize:13, fontWeight:500, color:"#18382c" }}>{m.name}</div>
+                      <div style={{ fontSize:11, color:"#74847b" }}>{m.veg === false ? '🔴 Non-veg' : '🟢 Veg'}</div>
                     </div>
-                    <span style={{ marginLeft:'auto', fontSize:13, fontWeight:700, color:'#1D9E75' }}>₹{m.price}</span>
+                    <span style={{ marginLeft:'auto', fontSize:13, fontWeight:700, color:"#146c50" }}>₹{m.price}</span>
                   </Row>
                 );
               })}
@@ -237,7 +237,7 @@ export default function GlobalSearch({ open, onClose }) {
 
         {/* ── Footer ─────────────────────────────────────────────── */}
         <div style={{ padding:'7px 16px', borderTop:'1px solid #F3F4F6', display:'flex', gap:14,
-                      fontSize:10, color:'#9CA3AF' }}>
+                      fontSize:10, color:"#74847b" }}>
           <span>↑ ↓ navigate</span>
           <span>↵ select</span>
           <span>Esc close</span>
@@ -250,7 +250,7 @@ export default function GlobalSearch({ open, onClose }) {
 function Section({ label, children }) {
   return (
     <div>
-      <div style={{ fontSize:10, fontWeight:700, color:'#9CA3AF', textTransform:'uppercase',
+      <div style={{ fontSize:10, fontWeight:700, color:"#74847b", textTransform:'uppercase',
                     letterSpacing:.8, padding:'10px 16px 3px' }}>{label}</div>
       {children}
     </div>

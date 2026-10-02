@@ -154,15 +154,15 @@ export default function Analytics() {
                     <AreaChart data={revenue} margin={{top:4,right:4,bottom:0,left:-16}}>
                       <defs>
                         <linearGradient id="gr" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#1D9E75" stopOpacity={0.2}/>
-                          <stop offset="95%" stopColor="#1D9E75" stopOpacity={0}/>
+                          <stop offset="5%" stopColor="var(--green)" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="var(--green)" stopOpacity={0}/>
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
                       <XAxis dataKey="date" tick={{fontSize:10,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
                       <YAxis tick={{fontSize:10,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={v=>`₹${v>=1000?Math.round(v/1000)+'k':v}`}/>
                       <Tooltip formatter={v=>[fmtRupee(v),'Revenue']} contentStyle={{borderRadius:8,fontSize:12}}/>
-                      <Area type="monotone" dataKey="revenue" stroke="#1D9E75" strokeWidth={2.5} fill="url(#gr)" dot={false} activeDot={{r:4}}/>
+                      <Area type="monotone" dataKey="revenue" stroke="var(--green)" strokeWidth={2.5} fill="url(#gr)" dot={false} activeDot={{r:4}}/>
                     </AreaChart>
                   </ResponsiveContainer>
               }
@@ -198,7 +198,7 @@ export default function Analytics() {
             {orderTypes.length === 0
               ? <div style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)', fontSize:13 }}>No order type data yet</div>
               : orderTypes.map((t,i)=>{
-                  const typeInfo = { DINE_IN:{label:'Dine-in',icon:UtensilsCrossed,color:'#1D9E75'}, TAKEAWAY:{label:'Takeaway',icon:ShoppingBag,color:'#7C3AED'}, DELIVERY:{label:'Delivery',icon:Bike,color:'#D97706'} }[t.type] || {label:t.type,icon:Package,color:'#6B7280'};
+                  const typeInfo = { DINE_IN:{label:'Dine-in',icon:UtensilsCrossed,color:"#146c50"}, TAKEAWAY:{label:'Takeaway',icon:ShoppingBag,color:'#7C3AED'}, DELIVERY:{label:'Delivery',icon:Bike,color:'#D97706'} }[t.type] || {label:t.type,icon:Package,color:"#65766c"};
                   const totalOrd = orderTypes.reduce((s,x)=>s+Number(x.orders||0),0);
                   const pct = totalOrd > 0 ? ((Number(t.orders||0)/totalOrd)*100).toFixed(0) : 0;
                   return (
@@ -208,7 +208,7 @@ export default function Analytics() {
                       </div>
                       <div style={{ flex:1 }}>
                         <div style={{ fontSize:14, fontWeight:600 }}>{typeInfo.label}</div>
-                        <div style={{ height:6, borderRadius:3, background:'#f3f4f6', marginTop:6, overflow:'hidden' }}>
+                        <div style={{ height:6, borderRadius:3, background:"#eaf0ed", marginTop:6, overflow:'hidden' }}>
                           <div style={{ height:'100%', width:`${pct}%`, background:typeInfo.color, borderRadius:3 }}/>
                         </div>
                       </div>
@@ -234,7 +234,7 @@ export default function Analytics() {
                       <YAxis tick={{fontSize:10,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
                       <Tooltip contentStyle={{borderRadius:8,fontSize:12}}/>
                       <Legend iconType="circle" iconSize={8} formatter={v=><span style={{fontSize:11}}>{v}</span>}/>
-                      <Area type="monotone" dataKey="dine_in"  stackId="1" stroke="#1D9E75" fill="#1D9E7533" name="Dine-in"/>
+                      <Area type="monotone" dataKey="dine_in"  stackId="1" stroke="var(--green)" fill="#1D9E7533" name="Dine-in"/>
                       <Area type="monotone" dataKey="takeaway" stackId="1" stroke="#7C3AED" fill="#7C3AED33" name="Takeaway"/>
                       <Area type="monotone" dataKey="delivery" stackId="1" stroke="#D97706" fill="#D9770633" name="Delivery"/>
                     </AreaChart>
@@ -280,7 +280,7 @@ export default function Analytics() {
                           <span style={{ fontSize:11, color:'var(--gray-400)', marginLeft:6 }}>{pct}%</span>
                         </div>
                       </div>
-                      <div style={{ height:6, borderRadius:3, background:'#f3f4f6', overflow:'hidden' }}>
+                      <div style={{ height:6, borderRadius:3, background:"#eaf0ed", overflow:'hidden' }}>
                         <div style={{ height:'100%', width:`${pct}%`, background:col, borderRadius:3 }}/>
                       </div>
                       <div style={{ fontSize:11, color:'var(--gray-400)', marginTop:3 }}>{Number(a.orders||0).toLocaleString('en-IN')} orders</div>
@@ -333,7 +333,7 @@ export default function Analytics() {
                           <div style={{ fontSize:11, color:'var(--gray-400)' }}>{item.qty_sold||item.qty||0} sold</div>
                         </div>
                       </div>
-                      <div style={{ height:5, borderRadius:3, background:'#f3f4f6' }}>
+                      <div style={{ height:5, borderRadius:3, background:"#eaf0ed" }}>
                         <div style={{ height:'100%', width:`${pct}%`, background:i<3?'#1D9E75':'#93C5FD', borderRadius:3 }}/>
                       </div>
                     </div>
@@ -369,7 +369,7 @@ export default function Analytics() {
           <div className="card">
             <div className="card-title" style={{ marginBottom:16 }}>Gross Margin Breakdown</div>
             {[
-              { label:'Selling Price (Revenue)', value:'100%',                          color:'#1D9E75', bar:100 },
+              { label:'Selling Price (Revenue)', value:'100%',                          color:"#146c50", bar:100 },
               { label:'Estimated Food Cost',     value:`${estFoodCostPct.toFixed(1)}%`, color:'#DC2626', bar:estFoodCostPct },
               { label:'Gross Margin',            value:`${grossMargin.toFixed(1)}%`,    color:'#7C3AED', bar:grossMargin },
             ].map(({ label, value, color, bar })=>(
@@ -378,7 +378,7 @@ export default function Analytics() {
                   <span style={{ fontWeight:500 }}>{label}</span>
                   <span style={{ fontWeight:700, color }}>{value}</span>
                 </div>
-                <div style={{ height:10, borderRadius:5, background:'#f3f4f6', overflow:'hidden' }}>
+                <div style={{ height:10, borderRadius:5, background:"#eaf0ed", overflow:'hidden' }}>
                   <div style={{ height:'100%', width:`${bar}%`, background:color, borderRadius:5, transition:'width .6s' }}/>
                 </div>
               </div>
@@ -405,7 +405,7 @@ export default function Analytics() {
                         <span style={{ fontWeight:500 }}>{m.name}</span>
                         <span style={{ color:isLow?'#D97706':'#1D9E75', fontWeight:600 }}>{cur.toFixed(2)} {m.unit}</span>
                       </div>
-                      <div style={{ height:6, borderRadius:3, background:'#f3f4f6', overflow:'hidden' }}>
+                      <div style={{ height:6, borderRadius:3, background:"#eaf0ed", overflow:'hidden' }}>
                         <div style={{ height:'100%', width:`${pct}%`, background:isLow?'#FCD34D':'#1D9E75', borderRadius:3 }}/>
                       </div>
                     </div>

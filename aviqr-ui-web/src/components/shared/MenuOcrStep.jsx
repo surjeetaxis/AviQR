@@ -122,14 +122,14 @@ export default function MenuOcrStep({ shopId, onApproved }) {
           onClick={() => fileInputRef.current?.click()}
           style={{
             width: 120, height: 120, borderRadius: 12, border: '2px dashed #E5E7EB',
-            background: '#FAFAFA', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: "#f8faf9", display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer', overflow: 'hidden', flexShrink: 0,
           }}
         >
           {previewUrl ? (
             <img src={previewUrl} alt="Menu preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: '#9CA3AF', fontSize: 11, textAlign: 'center', padding: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: "#74847b", fontSize: 11, textAlign: 'center', padding: 8 }}>
               <Upload size={22} />
               <span>Choose a photo</span>
             </div>
@@ -137,7 +137,7 @@ export default function MenuOcrStep({ shopId, onApproved }) {
         </div>
         <input ref={fileInputRef} type="file" accept="image/*,application/pdf" style={{ display: 'none' }} onChange={onFileChange} />
         <div style={{ flex: 1, minWidth: 180 }}>
-          <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 10 }}>
+          <p style={{ fontSize: 13, color: "#65766c", marginBottom: 10 }}>
             A clear photo of your printed menu (JPG, PNG or PDF, up to 20&nbsp;MB).
           </p>
           <button type="button" style={{ ...btnGhost, marginRight: 8 }} onClick={() => fileInputRef.current?.click()}>Choose photo</button>
@@ -153,7 +153,7 @@ export default function MenuOcrStep({ shopId, onApproved }) {
       </div>
 
       {job?.status === 'PROCESSING' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#6B7280', fontSize: 13, padding: '12px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: "#65766c", fontSize: 13, padding: '12px 0' }}>
           <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
           Extracting items from your menu photo…
         </div>
@@ -170,14 +170,14 @@ export default function MenuOcrStep({ shopId, onApproved }) {
           <div style={{ maxHeight: 320, overflowY: 'auto', marginBottom: 14 }}>
             {Object.entries(groupedItems).map(([category, items]) => (
               <div key={category} style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 4 }}>{category}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#374b42", marginBottom: 4 }}>{category}</div>
                 {items.map((item) => (
                   <div key={item._idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #F3F4F6' }}>
                     <span style={{ width: 10, height: 10, borderRadius: 2, border: `2px solid ${item.veg !== false ? '#1D9E75' : '#DC2626'}`, flexShrink: 0 }} />
                     <div style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{item.name}</div>
                     <div style={{ fontSize: 13, fontWeight: 700 }}>₹{item.price}</div>
                     <button type="button" title="Edit item"
-                      style={{ width: 26, height: 26, borderRadius: 6, border: 'none', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                      style={{ width: 26, height: 26, borderRadius: 6, border: 'none', background: "#eaf0ed", display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                       onClick={() => setEditIdx(item._idx)}>
                       <Edit2 size={12} />
                     </button>
@@ -206,10 +206,10 @@ export default function MenuOcrStep({ shopId, onApproved }) {
 }
 
 const btnGhost = {
-  padding: '10px 16px', background: 'transparent', color: '#6B7280',
+  padding: '10px 16px', background: 'transparent', color: "#65766c",
   border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer',
 };
 const btnPrimarySm = {
-  padding: '10px 18px', background: '#1D9E75', color: '#fff',
+  padding: '10px 18px', background: "#146c50", color: '#fff',
   border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
 };

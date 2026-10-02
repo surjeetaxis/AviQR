@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuth } from '../src/context/AuthContext.js';
 import { Button } from '../src/components/common/Button.js';
@@ -23,6 +24,7 @@ function homeFor(role) {
 
 export default function Register() {
   const {register} = useAuth();
+  const insets = useSafeAreaInsets();
   const [step, setStep]   = useState(0);
   const [role, setRole]   = useState('');
   const [form, setForm]   = useState({name:'',email:'',phone:'',password:''});
@@ -41,7 +43,7 @@ export default function Register() {
   };
 
   return (
-    <ScrollView style={ss.screen} contentContainerStyle={{padding:24,paddingTop:60}} keyboardShouldPersistTaps="handled">
+    <ScrollView style={ss.screen} contentContainerStyle={{padding:24,paddingTop:insets.top+20,paddingBottom:insets.bottom+32,maxWidth:560,width:"100%",alignSelf:"center"}} keyboardShouldPersistTaps="handled">
       <View style={ss.topRow}>
         <TouchableOpacity onPress={()=>router.push('/landing')}>
           <Logo size={28} />
@@ -51,12 +53,13 @@ export default function Register() {
         </TouchableOpacity>
       </View>
 
+      <Text style={ss.progress}>STEP {step+1} OF 2 · {step===0?"CHOOSE YOUR BUSINESS":"YOUR DETAILS"}</Text>
       {step===0?(
         <View>
           <Text style={ss.title}>Create account</Text>
           <Text style={ss.sub}>Choose your account type</Text>
           {TYPES.map(t=>(
-            <TouchableOpacity key={t.role} style={[ss.typeCard,role===t.role&&ss.typeSelected]} onPress={()=>setRole(t.role)}>
+            <TouchableOpacity key={t.role} accessibilityRole="radio" accessibilityState={{checked:role===t.role}} accessibilityLabel={t.label} style={[ss.typeCard,role===t.role&&ss.typeSelected]} onPress={()=>setRole(t.role)}>
               <Text style={ss.typeEmoji}>{t.emoji}</Text>
               <View style={{flex:1}}>
                 <Text style={ss.typeLabel}>{t.label}</Text>
@@ -76,17 +79,17 @@ export default function Register() {
           <Input label="Full Name *" placeholder="Sujeet Narayanan" value={form.name} onChangeText={v=>set('name',v)}/>
           <Input label="Email *" placeholder="you@restaurant.in" value={form.email} onChangeText={v=>set('email',v)} keyboardType="email-address" autoCapitalize="none"/>
           <Input label="Phone" placeholder="9845012345" value={form.phone} onChangeText={v=>set('phone',v)} keyboardType="phone-pad"/>
-          <Input label="Password *" placeholder="Min 12 characters" value={form.password} onChangeText={v=>set('password',v)} secureEntry/>
+          <Input label="Password *" placeholder="Min 12 characters" value={form.password} onChangeText={v=>set('password',v)} secureEntry maxLength={128} autoComplete="new-password"/>
           {/* Terms of Service checkbox */}
-          <TouchableOpacity onPress={()=>setAgreed(a=>!a)} style={[ss.termsRow,agreed&&ss.termsChecked]}>
+          <TouchableOpacity accessibilityRole="checkbox" accessibilityLabel="Accept Terms of Service and Privacy Policy" accessibilityState={{checked:agreed}} onPress={()=>setAgreed(a=>!a)} style={[ss.termsRow,agreed&&ss.termsChecked]}>
             <View style={[ss.checkbox,agreed&&ss.checkboxFilled]}>
               {agreed&&<Text style={{color:'white',fontSize:12,fontWeight:'700'}}>✓</Text>}
             </View>
             <Text style={ss.termsTxt}>
               I agree to the{' '}
-              <Text style={{color:Colors.primary,fontWeight:'700'}}>Terms of Service</Text>
+              <Text accessibilityRole="link" onPress={()=>router.push("/terms")} style={{color:Colors.primary,fontWeight:'700'}}>Terms of Service</Text>
               {' '}and{' '}
-              <Text style={{color:Colors.primary,fontWeight:'700'}}>Privacy Policy</Text>
+              <Text accessibilityRole="link" onPress={()=>router.push("/privacy")} style={{color:Colors.primary,fontWeight:'700'}}>Privacy Policy</Text>
             </Text>
           </TouchableOpacity>
           <Button title={loading?'Creating account…':'Create Account'} onPress={doRegister} loading={loading} disabled={!agreed} style={{marginTop:8,opacity:agreed?1:0.6}}/>
@@ -100,10 +103,11 @@ export default function Register() {
   );
 }
 const ss=StyleSheet.create({
+  progress:{fontSize:11,fontWeight:"600",letterSpacing:1,color:Colors.primary,marginBottom:20},
   screen:{flex:1,backgroundColor:Colors.background},
   topRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:24},
   backTxt:{color:Colors.primary,fontWeight:'600',fontSize:FontSize.base},
-  title:{fontSize:26,fontWeight:'800',color:Colors.gray900,marginBottom:6},
+  title:{fontSize:26,fontWeight:'600',color:Colors.gray900,marginBottom:6},
   sub:{fontSize:FontSize.base,color:Colors.gray500,marginBottom:20},
   typeCard:{flexDirection:'row',alignItems:'center',gap:14,padding:16,backgroundColor:Colors.white,borderRadius:Radius.lg,borderWidth:1.5,borderColor:Colors.border,marginBottom:10},
   typeSelected:{borderColor:Colors.primary,backgroundColor:Colors.primaryLight},

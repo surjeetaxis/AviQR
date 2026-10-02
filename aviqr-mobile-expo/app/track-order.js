@@ -124,5 +124,5 @@ const ss = StyleSheet.create({
   itemName: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900 },
   itemMeta: { fontSize: FontSize.xs, color: Colors.gray400, marginTop: 2 },
   itemPrice: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray900 },
-  totalLabel: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900 },
+  totalLabel: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900 },
 });

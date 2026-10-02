@@ -153,7 +153,7 @@ export default function MallHomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <LinearGradient colors={['#1E3A5F','#2563EB']} style={styles.header}>
+      <LinearGradient colors={[Colors.brandSurface, Colors.brandRaised]} style={styles.header}>
         <View style={styles.headerRow}>
           <View style={styles.brandRow}>
             <Logo size={30} />
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   vendorMeta:   { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 1 },
   vendorContact:{ fontSize: FontSize.xs, color: Colors.gray400 },
   vendorRight:  { alignItems: 'center', gap: 10 },
-  sheetTitle:   { fontSize: FontSize.lg, fontWeight: '800', marginBottom: Spacing.base },
+  sheetTitle:   { fontSize: FontSize.lg, fontWeight: '600', marginBottom: Spacing.base },
   linkBadge:    { paddingHorizontal: 7, paddingVertical: 2, borderRadius: Radius.full },
   linkBadgeTxt: { fontSize: 9.5, fontWeight: '700' },
   filterRow:    { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.base, paddingBottom: Spacing.sm },

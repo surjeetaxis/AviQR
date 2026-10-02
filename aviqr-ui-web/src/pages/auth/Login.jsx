@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, KeyRound, Mail, ShieldCheck, UtensilsCrossed, QrCode, BarChart3, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { authApi } from '../../api/index.js';
 import OtpInput from '../../components/shared/OtpInput.jsx';
@@ -119,7 +119,7 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-page">
+    <div className="auth-page login-page">
 
       {/* ── Left panel ── */}
       <div className="auth-left">
@@ -144,62 +144,70 @@ export default function Login() {
         </div>
 
         <div className="auth-left-body">
-          <h2 className="auth-left-title">Run your restaurant from a single QR.</h2>
-          <p className="auth-left-sub">Orders, menus, payments, staff and reports — one platform for restaurants, hotels and malls across India.</p>
-          <div className="auth-left-badges">
-            {['🍽️ Live order tracking', '🌐 9 Indian languages', '⚡ Dynamic pricing', '📊 Revenue analytics', '🏨 Hotel room service', '🏬 Mall food courts'].map(b => (
-              <span key={b} className="auth-badge">{b}</span>
+          <p className="login-eyebrow">LESS BUSYWORK. MORE HOSPITALITY.</p>
+          <h2 className="auth-left-title">Great service starts <span>behind the scenes.</span></h2>
+          <p className="auth-left-sub">Bring your orders, team and everyday operations together. Make more room for the guests who matter.</p>
+          <div className="login-workflow" aria-label="How AviQR works">
+            <div className="login-workflow-heading"><span>Your service, connected</span><span className="login-workflow-tag">AviQR</span></div>
+            {[
+              { Icon: QrCode, title: 'One scan. A warm welcome.', text: 'Let guests explore your menu at their table.' },
+              { Icon: UtensilsCrossed, title: 'Every order in the right hands.', text: 'Keep your kitchen and service team in sync.' },
+              { Icon: BarChart3, title: 'A clearer view of your business.', text: 'Follow revenue and discover your top dishes.' },
+            ].map(({ Icon, title, text }) => (
+              <div className="login-workflow-row" key={title}>
+                <span className="login-workflow-icon"><Icon size={20} aria-hidden="true" /></span>
+                <div><strong>{title}</strong><p>{text}</p></div>
+                <CheckCircle2 size={16} className="login-workflow-check" aria-hidden="true" />
+              </div>
             ))}
           </div>
         </div>
 
-        <p style={{ fontSize:12, color:'var(--gray-600)', marginTop:'auto' }}>
-          New here? <Link to="/register" style={{ color:'var(--gray-400)', fontWeight:600 }}>Create an account →</Link>
+        <p className="login-left-footer">
+          New here? <Link to="/register" className="login-footer-link">Create an account →</Link>
         </p>
       </div>
 
       {/* ── Right panel ── */}
       <div className="auth-right">
         <div className="auth-form-wrap">
+          <Link to="/" className="login-mobile-brand" aria-label="AviQR home"><AuthBrand /></Link>
           <div className="auth-form-header">
+            <span className="login-form-eyebrow">YOUR WORKSPACE AWAITS</span>
             <h1 className="auth-title">Welcome back</h1>
-            <p className="auth-subtitle">Sign in to your AviQR dashboard</p>
+            <p className="auth-subtitle">A fresh start for your next service. Sign in below.</p>
           </div>
 
           {/* Mode toggle */}
           <div className="auth-mode-toggle">
-            <button className={`mode-btn${tab==='password'?' active':''}`} onClick={() => { setTab('password'); setError(''); setChallengeId(null); setOtpSent(false); }}>
-              🔑 Password
+            <button aria-pressed={tab==='password'} className={`mode-btn${tab==='password'?' active':''}`} onClick={() => { setTab('password'); setError(''); setChallengeId(null); setOtpSent(false); }}>
+              <KeyRound size={16} aria-hidden="true" /> Password
             </button>
-            <button className={`mode-btn${tab==='otp'?' active':''}`} onClick={() => { setTab('otp'); setError(''); }}>
-              📧 OTP
+            <button aria-pressed={tab==='otp'} className={`mode-btn${tab==='otp'?' active':''}`} onClick={() => { setTab('otp'); setError(''); }}>
+              <Mail size={16} aria-hidden="true" /> Email OTP
             </button>
           </div>
 
-          {error && <div className="auth-error">{error}</div>}
+          {error && <div className="auth-error" role="alert">{error}</div>}
 
-          <label style={{display:'flex',gap:8,alignItems:'center',marginBottom:16}}>
-            <input type="checkbox" checked={trustDevice} onChange={e => setTrustDevice(e.target.checked)}/>
-            Trust this device for 15 days (saved after OTP verification)
-          </label>
-          <p className="auth-subtitle">Admin and support require password + OTP. Five wrong attempts lock your account for one hour; a verified password reset unlocks it. Maximum five OTP sends per hour.</p>
+
 
           {tab === 'password' ? (
             <form onSubmit={handleLogin} className="auth-form">
               <div className="field">
-                <label className="field-label">Email address</label>
-                <input className="field-input" type="email" placeholder="you@restaurant.in"
+                <label className="field-label" htmlFor="login-email">Email address</label>
+                <input id="login-email" className="field-input" type="email" placeholder="you@restaurant.in"
                   value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" required/>
               </div>
               <div className="field">
-                <label className="field-label" style={{ justifyContent:'space-between' }}>
+                <label htmlFor="login-password" className="field-label" style={{ justifyContent:'space-between' }}>
                   Password
                   <Link to="/forgot-password" style={{ fontSize:12, color:'var(--green-dark)', fontWeight:500 }}>Forgot?</Link>
                 </label>
                 <div className="field-input-wrap">
-                  <input className="field-input" type={showPw ? 'text' : 'password'} placeholder="Password"
+                  <input id="login-password" className="field-input" type={showPw ? 'text' : 'password'} placeholder="Password"
                     value={pw} onChange={e => setPw(e.target.value)} autoComplete="current-password" required/>
-                  <button type="button" className="field-eye" onClick={() => setShowPw(s => !s)}>
+                  <button type="button" className="field-eye" aria-label={showPw ? 'Hide password' : 'Show password'} aria-pressed={showPw} onClick={() => setShowPw(s => !s)}>
                     {showPw ? <EyeOff size={16}/> : <Eye size={16}/>}
                   </button>
                 </div>
@@ -211,9 +219,9 @@ export default function Login() {
           ) : !otpSent ? (
             <div className="auth-form">
               <div className="field">
-                <label className="field-label">Email address</label>
+                <label className="field-label" htmlFor="login-otp-email">Email address</label>
                 <div className="field-phone-wrap">
-                  <input className="field-input" type="email" placeholder="you@restaurant.in"
+                  <input id="login-otp-email" className="field-input" type="email" placeholder="you@restaurant.in"
                     value={otpEmail} onChange={e => setOtpEmail(e.target.value)} autoComplete="email"/>
                   <button className="btn-send-otp" type="button" onClick={sendOtp} disabled={loading}>
                     {loading ? 'Sending…' : 'Send OTP'}
@@ -240,6 +248,17 @@ export default function Login() {
               </button>
             </div>
           )}
+
+          <div className="login-security">
+            <label className="login-trust">
+              <input type="checkbox" checked={trustDevice} onChange={e => setTrustDevice(e.target.checked)}/>
+              <span>Trust this device for 15 days<small>Saved after OTP verification. Use on your personal device.</small></span>
+            </label>
+            <details className="login-security-details">
+              <summary><ShieldCheck size={15} aria-hidden="true" /> Account security</summary>
+              <p>Admin and support require password + OTP. Five wrong attempts lock your account for one hour; a verified password reset unlocks it. Maximum five OTP sends per hour.</p>
+            </details>
+          </div>
 
           <p style={{ textAlign:'center', fontSize:13, color:'var(--gray-500)' }}>
             New to AviQR? <Link to="/register" className="auth-link">Create account</Link>

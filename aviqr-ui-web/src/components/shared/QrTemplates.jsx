@@ -7,7 +7,7 @@ import '../../pages/QRCodes.css';
 // same template/theme picker and printable banner instead of one-off plain QRs.
 
 export const THEMES = {
-  green:  { name: 'Brand Green',   bg: '#1D9E75', fg: '#ffffff', accent: '#d1fae5', acFg: '#065f46', qrDark: '#0a5c3e' },
+  green:  { name: 'Brand Green',   bg: "#146c50", fg: '#ffffff', accent: '#d1fae5', acFg: '#065f46', qrDark: '#0a5c3e' },
   dark:   { name: 'Dark Luxury',   bg: '#18181b', fg: '#ffffff', accent: '#fbbf24', acFg: '#18181b', qrDark: '#18181b' },
   warm:   { name: 'Warm Sunset',   bg: '#ea580c', fg: '#ffffff', accent: '#fff7ed', acFg: '#7c2d12', qrDark: '#7c2d12' },
   blue:   { name: 'Ocean Blue',    bg: '#1d4ed8', fg: '#ffffff', accent: '#dbeafe', acFg: '#1e3a8a', qrDark: '#1e3a8a' },

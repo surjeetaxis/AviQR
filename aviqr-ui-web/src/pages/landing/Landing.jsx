@@ -596,7 +596,7 @@ function HeroDashboard() {
         </div>
       </div>
       <div className="hero-qr-float">
-        <QrCode size={32} style={{ color: '#1D9E75' }} />
+        <QrCode size={32} style={{ color: "#146c50" }} />
         <span>Scan to order</span>
       </div>
     </div>

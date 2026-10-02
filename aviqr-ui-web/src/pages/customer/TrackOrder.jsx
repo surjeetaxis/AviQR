@@ -71,7 +71,7 @@ export default function TrackOrder() {
           <div style={sx.resultHeader}>
             <div>
               <div style={sx.orderNum}>#{order.orderNumber}</div>
-              <div style={{ fontSize: 12, color: '#9CA3AF' }}>
+              <div style={{ fontSize: 12, color: "#74847b" }}>
                 {order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
               </div>
             </div>
@@ -91,7 +91,7 @@ export default function TrackOrder() {
                 <div key={it.id || i} style={sx.itemRow}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 13.5 }}>{it.itemName}</div>
-                    <div style={{ fontSize: 12, color: '#9CA3AF' }}>Qty {it.quantity} · ₹{it.unitPrice}</div>
+                    <div style={{ fontSize: 12, color: "#74847b" }}>Qty {it.quantity} · ₹{it.unitPrice}</div>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: 13.5 }}>₹{it.totalPrice}</div>
                 </div>
@@ -111,17 +111,17 @@ export default function TrackOrder() {
 const sx = {
   wrap: { maxWidth: 480, margin: '0 auto', padding: '24px 16px 60px' },
   header: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 },
-  backBtn: { background: '#F9FAFB', border: '1px solid #F0F0F0', borderRadius: 10, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 },
-  title: { fontSize: 18, fontWeight: 800, margin: 0, color: '#111827' },
+  backBtn: { background: "#f8faf9", border: '1px solid #F0F0F0', borderRadius: 10, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 },
+  title: { fontSize: 18, fontWeight: 800, margin: 0, color: "#18382c" },
   card: { background: '#fff', borderRadius: 16, border: '1px solid var(--gray-200)', padding: 20 },
   errMsg: { color: '#DC2626', fontSize: 13, marginTop: 10, marginBottom: 0, padding: '8px 12px', background: '#FEF2F2', borderRadius: 6, border: '1px solid #FCA5A5' },
   result: { marginTop: 20 },
   resultHeader: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 },
-  orderNum: { fontSize: 16, fontWeight: 800, color: '#111827' },
-  refreshBtn: { marginLeft: 'auto', background: '#F9FAFB', border: '1px solid #F0F0F0', borderRadius: 10, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: '#374151' },
+  orderNum: { fontSize: 16, fontWeight: 800, color: "#18382c" },
+  refreshBtn: { marginLeft: 'auto', background: "#f8faf9", border: '1px solid #F0F0F0', borderRadius: 10, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: "#374b42" },
   statusBadge: { fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 99, flexShrink: 0 },
   section: { marginBottom: 16 },
-  sectionTitle: { fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8, textTransform: 'uppercase', letterSpacing: .3 },
+  sectionTitle: { fontSize: 13, fontWeight: 700, color: "#374b42", marginBottom: 8, textTransform: 'uppercase', letterSpacing: .3 },
   itemsCard: { background: '#fff', border: '1px solid #F0F0F0', borderRadius: 14, padding: '12px 14px' },
   itemRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F9FAFB' },
 };

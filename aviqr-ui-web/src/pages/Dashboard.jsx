@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { TrendingUp, ShoppingBag, Users, Clock, ArrowRight, Plus, QrCode, RefreshCw, Bell, AlertTriangle, Package, ChevronRight, Zap, Store, Check, X } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Users, Clock, ArrowRight, Plus, QrCode, RefreshCw, Bell, AlertTriangle, Package, ChevronRight, Zap, Store, Check, X, Wallet, BarChart3, UtensilsCrossed, Settings, Sparkles } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useNavigate, useParams } from 'react-router-dom';
 import StatCard from '../components/StatCard.jsx';
@@ -90,16 +90,24 @@ export default function Dashboard() {
   );
 
   const QUICK_ACTIONS = [
-    { icon:'📋', title:'Menu',       desc:'Add or edit dishes',      href:'/menu',     color:'#1D9E75' },
-    { icon:'📱', title:'QR Codes',   desc:'Generate & print QR',     href:'/qr-codes', color:'#2563EB' },
-    { icon:'👥', title:'Staff',      desc:'Manage your team',        href:'/staff',    color:'#7C3AED' },
-    { icon:'📊', title:'Reports',    desc:'Revenue & analytics',     href:'/reports',  color:'#D97706' },
-    { icon:'⚙️', title:'Settings',   desc:'Shop profile & billing',  href:'/settings', color:'#6B7280' },
-    { icon:'🤖', title:'AI Features',desc:'11 AI tools for growth',  href:'/ai',       color:'#DC2626' },
+    { icon:<UtensilsCrossed size={20} aria-hidden="true" />, title:'Menu',       desc:'Add or edit dishes',      href:'/menu',     color:"#146c50" },
+    { icon:<QrCode size={20} aria-hidden="true" />, title:'QR Codes',   desc:'Generate & print QR',     href:'/qr-codes', color:'#2563EB' },
+    { icon:<Users size={20} aria-hidden="true" />, title:'Staff',      desc:'Manage your team',        href:'/staff',    color:'#7C3AED' },
+    { icon:<BarChart3 size={20} aria-hidden="true" />, title:'Reports',    desc:'Revenue & analytics',     href:'/reports',  color:'#D97706' },
+    { icon:<Settings size={20} aria-hidden="true" />, title:'Settings',   desc:'Shop profile & billing',  href:'/settings', color:"#65766c" },
+    { icon:<Sparkles size={20} aria-hidden="true" />, title:'AI Features',desc:'11 AI tools for growth',  href:'/ai',       color:'#DC2626' },
   ];
 
   return (
-    <div className="dashboard">
+    <div className="dashboard dashboard-refresh">
+      <div className="dashboard-welcome">
+        <div>
+          <p className="dashboard-eyebrow">YOUR RESTAURANT AT A GLANCE</p>
+          <h1>{greeting()}, {user?.name?.split(' ')[0] || 'there'}.</h1>
+          <p>Here’s what’s happening in your restaurant today.</p>
+        </div>
+        <button className="btn btn-primary" onClick={() => nav('/orders')}><ShoppingBag size={16} /> Manage orders <ArrowRight size={15} /></button>
+      </div>
 
       {/* Error banner */}
       {error && (
@@ -147,7 +155,7 @@ export default function Dashboard() {
       <div className="live-ticker">
         <div className="live-ticker-pulse" />
         <p className="live-ticker-text">
-          <strong>{greeting()}, {user?.name?.split(' ')[0] || 'there'} 👋</strong>
+          <strong>Service overview</strong>
           &nbsp;·&nbsp;{activeOrders.length} active order{activeOrders.length !== 1 ? 's' : ''} right now
           &nbsp;·&nbsp;Last updated {lastRefresh.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}
         </p>
@@ -157,10 +165,10 @@ export default function Dashboard() {
 
       {/* KPIs */}
       <div className="kpi-grid">
-        <StatCard icon="💰" label="Today's Revenue"   value={stats?.totalRevenue  ? `₹${fmt(stats.totalRevenue)}`  : '—'} color="#1D9E75" up sub={stats?.totalOrders ? `${stats.totalOrders} orders today` : 'No orders yet'} />
-        <StatCard icon="📦" label="Active Orders"     value={activeOrders.length ?? '—'}                                   color="#2563EB" sub={`${orders.filter(o => o.status === 'NEW').length} awaiting acceptance`} />
-        <StatCard icon="📊" label="Avg Order Value"   value={stats?.avgOrderValue ? `₹${fmt(stats.avgOrderValue)}` : '—'} color="#7C3AED" sub="Today" />
-        <StatCard icon="👤" label="New Customers"     value={stats?.newCustomers  ?? '—'}                                   color="#D97706" sub="Today" />
+        <StatCard icon={<Wallet size={21} aria-hidden="true" />} label="Today's Revenue"   value={stats?.totalRevenue  ? `₹${fmt(stats.totalRevenue)}`  : '—'} color="#1D9E75" sub={stats?.totalOrders ? `${stats.totalOrders} orders today` : 'No orders yet'} />
+        <StatCard icon={<ShoppingBag size={21} aria-hidden="true" />} label="Active Orders"     value={activeOrders.length ?? '—'}                                   color="#2563EB" sub={`${orders.filter(o => o.status === 'NEW').length} awaiting acceptance`} />
+        <StatCard icon={<BarChart3 size={21} aria-hidden="true" />} label="Avg Order Value"   value={stats?.avgOrderValue ? `₹${fmt(stats.avgOrderValue)}` : '—'} color="#7C3AED" sub="Today" />
+        <StatCard icon={<Users size={21} aria-hidden="true" />} label="New Customers"     value={stats?.newCustomers  ?? '—'}                                   color="#D97706" sub="Today" />
       </div>
 
       {/* Charts row */}
@@ -177,15 +185,15 @@ export default function Dashboard() {
                   <AreaChart data={revenue} margin={{ top:4, right:4, bottom:0, left:-16 }}>
                     <defs>
                       <linearGradient id="gr" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor="#1D9E75" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#1D9E75" stopOpacity={0} />
+                        <stop offset="5%"  stopColor="var(--green)" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="var(--green)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                     <XAxis dataKey="day" tick={{ fontSize:11, fill:'#9CA3AF' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize:11, fill:'#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v >= 1000 ? Math.round(v/1000)+'k' : v}`} />
                     <Tooltip formatter={v => [`₹${Number(v).toLocaleString('en-IN')}`, 'Revenue']} contentStyle={{ borderRadius:8, fontSize:12, border:'1px solid #e5e7eb' }} />
-                    <Area type="monotone" dataKey="revenue" stroke="#1D9E75" strokeWidth={2.5} fill="url(#gr)" dot={false} activeDot={{ r:4, fill:'#1D9E75' }} />
+                    <Area type="monotone" dataKey="revenue" stroke="var(--green)" strokeWidth={2.5} fill="url(#gr)" dot={false} activeDot={{ r:4, fill:'#1D9E75' }} />
                   </AreaChart>
                 </ResponsiveContainer>
             }
@@ -249,7 +257,7 @@ export default function Dashboard() {
           {QUICK_ACTIONS.map(a => (
             <button key={a.href} className="quick-action" onClick={() => nav(a.href)}>
               <div className="quick-action-icon" style={{ background: a.color + '18' }}>
-                <span style={{ fontSize:20 }}>{a.icon}</span>
+                {a.icon}
               </div>
               <div className="quick-action-body">
                 <div className="quick-action-title">{a.title}</div>

@@ -157,9 +157,9 @@ export default function MenuOcrScan() {
 
   if (!shopId) {
     return (
-      <div style={{ textAlign: 'center', padding: '60px 24px', color: '#6B7280' }}>
+      <div style={{ textAlign: 'center', padding: '60px 24px', color: "#65766c" }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🍽️</div>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', marginBottom: 8 }}>No restaurant yet</h2>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: "#18382c", marginBottom: 8 }}>No restaurant yet</h2>
         <p style={{ fontSize: 14 }}>Complete the setup before scanning a menu.</p>
       </div>
     );

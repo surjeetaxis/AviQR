@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   modalCard:    { backgroundColor: Colors.white, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Spacing.base, maxHeight: '85%' },
   modalHead:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.base },
-  modalTitle:   { fontSize: FontSize.lg, fontWeight: '800' },
+  modalTitle:   { fontSize: FontSize.lg, fontWeight: '600' },
   modalClose:   { backgroundColor: Colors.gray100, borderRadius: Radius.md, padding: 8 },
   pendingCard:  { borderRadius: Radius.lg, padding: Spacing.base, marginBottom: Spacing.base },
   pendingLabel: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.85)' },

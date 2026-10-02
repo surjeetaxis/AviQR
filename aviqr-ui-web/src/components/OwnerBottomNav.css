@@ -89,7 +89,7 @@
   z-index: 1;
   background-repeat: no-repeat;
   background-size: 100% 100%;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 34'%3E%3Cpath d='M0,0 C30,0 50,34 60,34 C70,34 90,0 120,0 Z' fill='%23FAFAFA'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 34'%3E%3Cpath d='M0,0 C30,0 50,34 60,34 C70,34 90,0 120,0 Z' fill='%23F8FAF9'/%3E%3C/svg%3E");
 }
 
 .obn-indicator-circle {

@@ -4,6 +4,7 @@ import { Store, Hotel, Building2, ShoppingBag, ArrowRight,
          Check, Utensils } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { captureReferralCode } from '../../utils/referral.js';
+import LogoMark from '../../components/landing/LogoMark.jsx';
 import './Auth.css';
 
 const TYPES = [
@@ -14,7 +15,7 @@ const TYPES = [
 ];
 
 const ROLE_HOME = { OWNER:'/dashboard', SUPPLIER:'/supplier', HOTEL:'/hotel', MALL:'/mall' };
-const STEPS = ['Choose type','Your details','Done'];
+const STEPS = ['Choose your business','Create your account'];
 
 export default function Register() {
   const nav = useNavigate();
@@ -43,15 +44,15 @@ export default function Register() {
   };
 
   return (
-    <div className="auth-page">
+    <div className="auth-page register-page">
       <div className="auth-left">
         <div className="auth-brand">
           <Link to="/" style={{ textDecoration:'none', display:'block' }}>
-            <div className="auth-brand-logo"><span>🍽️</span></div>
+            <div className="auth-brand-logo"><LogoMark /></div>
             <h1 className="auth-brand-name">Avi<em>QR</em></h1>
           </Link>
           <p style={{ color:'rgba(255,255,255,0.55)', fontSize:14, marginTop:6 }}>
-            Restaurant &amp; Hotel OS
+            One workspace for better hospitality
           </p>
         </div>
 
@@ -74,6 +75,8 @@ export default function Register() {
 
       <div className="auth-right">
         <div className="auth-form-wrap">
+          <Link to="/" className="register-mobile-brand"><LogoMark /><strong>AviQR</strong></Link>
+          <div className="register-progress" aria-label={`Step ${step} of 2`}>Step {step} of 2 <span>{STEPS[step-1]}</span></div>
           {step === 1 && (
             <>
               <div className="auth-form-header">
@@ -82,27 +85,27 @@ export default function Register() {
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                 {TYPES.map(({ key, Icon, label, desc }) => (
-                  <button key={key} type="button" onClick={() => setRole(key)}
+                  <button key={key} type="button" aria-pressed={role===key} onClick={() => setRole(key)}
                     style={{
                       display:'flex', alignItems:'center', gap:16, padding:'16px 20px',
-                      background: role===key ? '#E1F5EE' : '#fff',
-                      border: `2px solid ${role===key ? '#1D9E75' : '#E5E7EB'}`,
+                      background: role===key ? '#edf6f0' : '#fff',
+                      border: `2px solid ${role===key ? '#146c50' : '#e1e8e3'}`,
                       borderRadius:12, cursor:'pointer', textAlign:'left',
                       transition:'all .15s', position:'relative',
                     }}>
                     <div style={{
                       width:44, height:44, borderRadius:10, flexShrink:0,
-                      background: role===key ? '#1D9E75' : '#F3F4F6',
+                      background: role===key ? '#146c50' : '#eaf0ed',
                       display:'flex', alignItems:'center', justifyContent:'center',
                     }}>
-                      <Icon size={20} color={role===key ? '#fff' : '#6B7280'}/>
+                      <Icon size={20} color={role===key ? '#fff' : '#53645e'}/>
                     </div>
                     <div style={{ flex:1 }}>
-                      <div style={{ fontSize:15, fontWeight:700, color:'#111827' }}>{label}</div>
-                      <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>{desc}</div>
+                      <div style={{ fontSize:15, fontWeight:700, color:"#18382c" }}>{label}</div>
+                      <div style={{ fontSize:12, color:"#65766c", marginTop:2 }}>{desc}</div>
                     </div>
                     {role===key && (
-                      <div style={{ width:22, height:22, borderRadius:11, background:'#1D9E75', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <div style={{ width:22, height:22, borderRadius:11, background:"#146c50", display:'flex', alignItems:'center', justifyContent:'center' }}>
                         <Check size={12} color="#fff"/>
                       </div>
                     )}
@@ -119,7 +122,7 @@ export default function Register() {
             <>
               <div className="auth-form-header">
                 <button type="button" onClick={() => setStep(1)}
-                  style={{ background:'none', border:'none', cursor:'pointer', color:'#6B7280', fontSize:13, fontWeight:600, padding:0, marginBottom:12, display:'flex', alignItems:'center', gap:4 }}>
+                  style={{ background:'none', border:'none', cursor:'pointer', color:"#65766c", fontSize:13, fontWeight:600, padding:0, marginBottom:12, display:'flex', alignItems:'center', gap:4 }}>
                   ← Back
                 </button>
                 <h1 className="auth-title">Your details</h1>
@@ -128,42 +131,42 @@ export default function Register() {
                 </p>
               </div>
 
-              {error && <div className="auth-error">{error}</div>}
+              {error && <div className="auth-error" role="alert">{error}</div>}
 
               <form onSubmit={handleSubmit} className="auth-form">
                 <div className="field">
-                  <label className="field-label">Full Name *</label>
-                  <input className="field-input" type="text" placeholder="Sujeet Narayanan"
+                  <label className="field-label" htmlFor="register-name">Full Name *</label>
+                  <input className="field-input" type="text" id="register-name" autoComplete="name" placeholder="Sujeet Narayanan"
                     value={form.name} onChange={e=>set('name',e.target.value)} required/>
                 </div>
                 <div className="field">
-                  <label className="field-label">Email *</label>
-                  <input className="field-input" type="email" placeholder="you@restaurant.in"
+                  <label className="field-label" htmlFor="register-email">Email *</label>
+                  <input className="field-input" type="email" id="register-email" autoComplete="email" placeholder="you@restaurant.in"
                     value={form.email} onChange={e=>set('email',e.target.value)} required/>
                 </div>
                 <div className="field">
-                  <label className="field-label">Phone</label>
-                  <input className="field-input" type="tel" placeholder="9845012345"
+                  <label className="field-label" htmlFor="register-phone">Phone</label>
+                  <input className="field-input" type="tel" id="register-phone" autoComplete="tel" placeholder="9845012345"
                     value={form.phone} onChange={e=>set('phone',e.target.value)}/>
                 </div>
                 <div className="field">
-                  <label className="field-label">Password *</label>
-                  <input className="field-input" type="password" placeholder="Minimum 12 characters"
+                  <label className="field-label" htmlFor="register-password">Password *</label>
+                  <input className="field-input" type="password" id="register-password" autoComplete="new-password" placeholder="Minimum 12 characters"
                     value={form.password} onChange={e=>set('password',e.target.value)} minLength={12} maxLength={128} required/>
                 </div>
 
                 {/* ── Terms checkbox (legally required) ────────────────── */}
-                <label style={{ display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer', padding:'10px 14px', borderRadius:10, background: agreed ? '#E1F5EE' : '#F9FAFB', border:`1.5px solid ${agreed?'#1D9E75':'#E5E7EB'}`, transition:'all .15s' }}>
+                <label style={{ display:'flex', alignItems:'flex-start', gap:10, cursor:'pointer', padding:'10px 14px', borderRadius:10, background: agreed ? '#edf6f0' : '#f8faf9', border:`1.5px solid ${agreed?'#146c50':'#e1e8e3'}`, transition:'all .15s' }}>
                   <input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)}
-                    style={{ marginTop:2, accentColor:'#1D9E75', width:16, height:16, flexShrink:0 }}/>
-                  <span style={{ fontSize:13, color:'#374151', lineHeight:1.5 }}>
+                    style={{ marginTop:2, accentColor:'#146c50', width:16, height:16, flexShrink:0 }}/>
+                  <span style={{ fontSize:13, color:"#374b42", lineHeight:1.5 }}>
                     I have read and agree to the{' '}
                     <a href="/terms" target="_blank" rel="noreferrer"
-                      style={{ color:'#1D9E75', fontWeight:600, textDecoration:'none' }}>
+                      style={{ color:"#146c50", fontWeight:600, textDecoration:'none' }}>
                       Terms of Service
                     </a>{' '}and{' '}
                     <a href="/privacy" target="_blank" rel="noreferrer"
-                      style={{ color:'#1D9E75', fontWeight:600, textDecoration:'none' }}>
+                      style={{ color:"#146c50", fontWeight:600, textDecoration:'none' }}>
                       Privacy Policy
                     </a>
                   </span>
@@ -176,6 +179,7 @@ export default function Register() {
               </form>
             </>
           )}
+          <p className="register-form-footer">Already have an account? <Link to="/login">Sign in</Link></p>
         </div>
       </div>
     </div>

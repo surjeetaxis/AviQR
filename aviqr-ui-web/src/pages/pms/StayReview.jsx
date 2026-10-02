@@ -43,7 +43,7 @@ export default function StayReview() {
       <div style={sx.page}>
         <div style={sx.center}>
           <AlertTriangle size={40} style={{ color: '#B91C1C' }} />
-          <p style={{ color: '#6B7280', fontSize: 14, textAlign: 'center', padding: '0 30px', marginTop: 12 }}>
+          <p style={{ color: "#65766c", fontSize: 14, textAlign: 'center', padding: '0 30px', marginTop: 12 }}>
             This review link is missing some information. Please use the link from your checkout message.
           </p>
         </div>
@@ -55,9 +55,9 @@ export default function StayReview() {
     return (
       <div style={sx.page}>
         <div style={sx.center}>
-          <CheckCircle2 size={56} style={{ color: '#1D9E75' }} />
+          <CheckCircle2 size={56} style={{ color: "#146c50" }} />
           <h2 style={{ margin: '16px 0 6px' }}>Thanks for your feedback!</h2>
-          <p style={{ color: '#6B7280', fontSize: 14, textAlign: 'center', padding: '0 30px' }}>
+          <p style={{ color: "#65766c", fontSize: 14, textAlign: 'center', padding: '0 30px' }}>
             Your review has been submitted. We hope to host you again soon.
           </p>
         </div>
@@ -69,9 +69,9 @@ export default function StayReview() {
     return (
       <div style={sx.page}>
         <div style={sx.center}>
-          <CheckCircle2 size={48} style={{ color: '#1D9E75' }} />
+          <CheckCircle2 size={48} style={{ color: "#146c50" }} />
           <h2 style={{ margin: '16px 0 6px' }}>Already reviewed</h2>
-          <p style={{ color: '#6B7280', fontSize: 14, textAlign: 'center', padding: '0 30px' }}>
+          <p style={{ color: "#65766c", fontSize: 14, textAlign: 'center', padding: '0 30px' }}>
             You've already left a review for this stay. Thanks again for sharing your feedback!
           </p>
         </div>
@@ -136,13 +136,13 @@ export default function StayReview() {
 }
 
 const sx = {
-  page: { maxWidth: 480, margin: '0 auto', minHeight: '100vh', background: '#F9FAFB', fontFamily: 'system-ui,-apple-system,sans-serif' },
+  page: { maxWidth: 480, margin: '0 auto', minHeight: '100vh', background: "#f8faf9", fontFamily: 'system-ui,-apple-system,sans-serif' },
   center: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '0 20px' },
-  header: { background: 'linear-gradient(135deg,#1D9E75,#178A65)', color: '#fff', padding: '28px 22px 20px' },
+  header: { background: "linear-gradient(135deg,#146c50,#146c50)", color: '#fff', padding: '28px 22px 20px' },
   body: { padding: '18px 16px 40px' },
-  label: { fontSize: 12, fontWeight: 600, color: '#6B7280' },
+  label: { fontSize: 12, fontWeight: 600, color: "#65766c" },
   input: { width: '100%', padding: '11px 12px', border: '1px solid #E5E7EB', borderRadius: 10, fontSize: 14, boxSizing: 'border-box', background: '#fff' },
-  primaryBtn: { width: '100%', padding: 14, background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  primaryBtn: { width: '100%', padding: 14, background: "#146c50", color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
   starBtn: { background: 'none', border: 'none', padding: 4, cursor: 'pointer', display: 'flex' },
   errorBox: { display: 'flex', alignItems: 'center', gap: 8, background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: 10, padding: '10px 12px', fontSize: 13, marginBottom: 14 },
 };

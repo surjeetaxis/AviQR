@@ -48,9 +48,9 @@ export default function ContactlessCheckin() {
     return (
       <div style={sx.page}>
         <div style={sx.center}>
-          <CheckCircle2 size={56} style={{ color: '#1D9E75' }} />
+          <CheckCircle2 size={56} style={{ color: "#146c50" }} />
           <h2 style={{ margin: '16px 0 6px' }}>You're all set!</h2>
-          <p style={{ color: '#6B7280', fontSize: 14, textAlign: 'center', padding: '0 30px' }}>
+          <p style={{ color: "#65766c", fontSize: 14, textAlign: 'center', padding: '0 30px' }}>
             Your signed registration card is on file. Just collect your room key at the front desk on arrival.
           </p>
         </div>
@@ -82,13 +82,13 @@ export default function ContactlessCheckin() {
           <>
             <div style={sx.summaryCard}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>{reservation.guestName}</div>
-              <div style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>
+              <div style={{ fontSize: 13, color: "#65766c", marginTop: 4 }}>
                 {reservation.checkInDate} → {reservation.checkOutDate}
               </div>
             </div>
             {reservation.preCheckedIn ? (
               <div style={sx.summaryCard}>
-                <CheckCircle2 size={20} style={{ color: '#1D9E75' }} />
+                <CheckCircle2 size={20} style={{ color: "#146c50" }} />
                 <div style={{ marginTop: 8 }}>You've already completed pre-check-in for this stay.</div>
               </div>
             ) : (
@@ -181,14 +181,14 @@ const SignaturePad = forwardRef(function SignaturePad(_props, ref) {
 });
 
 const sx = {
-  page: { maxWidth: 480, margin: '0 auto', minHeight: '100vh', background: '#F9FAFB', fontFamily: 'system-ui,-apple-system,sans-serif' },
+  page: { maxWidth: 480, margin: '0 auto', minHeight: '100vh', background: "#f8faf9", fontFamily: 'system-ui,-apple-system,sans-serif' },
   center: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '0 20px' },
-  header: { background: 'linear-gradient(135deg,#1D9E75,#178A65)', color: '#fff', padding: '28px 22px 20px' },
+  header: { background: "linear-gradient(135deg,#146c50,#146c50)", color: '#fff', padding: '28px 22px 20px' },
   body: { padding: '18px 16px 40px' },
-  label: { fontSize: 12, fontWeight: 600, color: '#6B7280' },
+  label: { fontSize: 12, fontWeight: 600, color: "#65766c" },
   input: { width: '100%', padding: '11px 12px', border: '1px solid #E5E7EB', borderRadius: 10, fontSize: 14, boxSizing: 'border-box', background: '#fff' },
-  primaryBtn: { width: '100%', padding: 14, background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  primaryBtn: { width: '100%', padding: 14, background: "#146c50", color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
   summaryCard: { background: '#fff', border: '1px solid #F0F0F0', borderRadius: 14, padding: 16 },
   errorBox: { display: 'flex', alignItems: 'center', gap: 8, background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: 10, padding: '10px 12px', fontSize: 13, marginBottom: 14 },
-  clearBtn: { marginTop: 6, background: 'none', border: 'none', color: '#6B7280', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', padding: 0 },
+  clearBtn: { marginTop: 6, background: 'none', border: 'none', color: "#65766c", fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', padding: 0 },
 };

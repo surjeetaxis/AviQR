@@ -9,7 +9,7 @@ const COLS = [
   { status: 'NEW',       label: 'New Orders',     next: 'ACCEPTED',  color: '#2563EB', bg: '#EFF6FF', icon: '🆕' },
   { status: 'ACCEPTED',  label: 'Cooking',        next: 'PREPARING', color: '#D97706', bg: '#FFFBEB', icon: '👨‍🍳' },
   { status: 'PREPARING', label: 'Finishing',      next: 'READY',     color: '#7C3AED', bg: '#F5F3FF', icon: '⏳' },
-  { status: 'READY',     label: 'Ready to Serve', next: null,        color: '#1D9E75', bg: '#ECFDF5', icon: '🔔' },
+  { status: 'READY',     label: 'Ready to Serve', next: null,        color: Colors.primary, bg: '#ECFDF5', icon: '🔔' },
 ];
 const TYPE_LABEL = { DINE_IN: 'Dine-in', TAKEAWAY: 'Takeaway', DELIVERY: 'Delivery' };
 const { width } = Dimensions.get('window');
@@ -136,7 +136,7 @@ export default function KotScreen() {
                             </Text>
                           </TouchableOpacity>
                         ) : (
-                          <TouchableOpacity style={[ss.advBtn, { backgroundColor: '#1D9E75' }]} onPress={() => complete(order)}>
+                          <TouchableOpacity style={[ss.advBtn, { backgroundColor: Colors.primary }]} onPress={() => complete(order)}>
                             <Text style={ss.advTxt}>✅ Mark Done</Text>
                           </TouchableOpacity>
                         )}
@@ -156,10 +156,10 @@ export default function KotScreen() {
 const ss = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12, backgroundColor: Colors.gray900 },
   back: { fontSize: FontSize.base, color: Colors.white, fontWeight: '600' },
-  title: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.white },
+  title: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.white },
   column: { flex: 1, backgroundColor: Colors.background },
   colHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14 },
-  colTitle: { fontSize: FontSize.base, fontWeight: '800' },
+  colTitle: { fontSize: FontSize.base, fontWeight: '600' },
   colCount: { minWidth: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   colCountTxt: { color: Colors.white, fontWeight: '800', fontSize: FontSize.sm },
   emptyTxt: { textAlign: 'center', color: Colors.gray400, marginTop: 40 },

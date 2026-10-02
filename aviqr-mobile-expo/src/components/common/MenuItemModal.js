@@ -122,7 +122,7 @@ export function MenuItemModal({ visible, title, submitLabel, initialForm, onSave
 const ss = StyleSheet.create({
   modal: { flex: 1, backgroundColor: Colors.background },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900 },
+  modalTitle: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.gray900 },
   switches: { flexDirection: 'row', gap: 10, marginTop: 4 },
   switchRow: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.gray50, borderRadius: Radius.md, padding: 10 },
   switchLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray700 },
@@ -135,6 +135,6 @@ const ss = StyleSheet.create({
   translationsToggle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary, marginTop: 14, marginBottom: 8 },
   imageRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   imageThumb: { width: 44, height: 44, borderRadius: Radius.md, backgroundColor: Colors.gray100, marginBottom: 6 },
-  uploadBtn: { height: 40, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 8, marginBottom: 4 },
+  uploadBtn: { height: 44, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 8, marginBottom: 4 },
   uploadBtnTxt: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray700 },
 });

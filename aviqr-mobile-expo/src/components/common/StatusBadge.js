@@ -1,37 +1,37 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { Radius } from '../../theme/index.js';
+import { Radius, Colors } from '../../theme/index.js';
 const MAP = {
   NEW:       {bg:'#EFF6FF',text:'#2563EB',dot:'#2563EB',label:'New'},
   ACCEPTED:  {bg:'#FEF3C7',text:'#D97706',dot:'#D97706',label:'Accepted'},
   PREPARING: {bg:'#FEF3C7',text:'#D97706',dot:'#D97706',label:'Preparing'},
   READY:     {bg:'#ECFDF5',text:'#065F46',dot:'#059669',label:'Ready'},
-  COMPLETED: {bg:'#F3F4F6',text:'#6B7280',dot:'#9CA3AF',label:'Done'},
+  COMPLETED: {bg:Colors.gray100,text:Colors.gray500,dot:Colors.gray400,label:'Done'},
   CANCELLED: {bg:'#FEE2E2',text:'#DC2626',dot:'#DC2626',label:'Cancelled'},
-  ACTIVE:    {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Active'},
-  INACTIVE:  {bg:'#F3F4F6',text:'#6B7280',dot:'#9CA3AF',label:'Inactive'},
+  ACTIVE:    {bg:Colors.primaryLight,text:Colors.primaryDark,dot:Colors.primary,label:'Active'},
+  INACTIVE:  {bg:Colors.gray100,text:Colors.gray500,dot:Colors.gray400,label:'Inactive'},
   SUSPENDED: {bg:'#FEE2E2',text:'#DC2626',dot:'#DC2626',label:'Suspended'},
   OPEN:      {bg:'#EFF6FF',text:'#2563EB',dot:'#2563EB',label:'Open'},
   PENDING:   {bg:'#FEF3C7',text:'#D97706',dot:'#D97706',label:'Pending'},
-  RESOLVED:  {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Resolved'},
-  OCCUPIED:  {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Occupied'},
-  VACANT:    {bg:'#F3F4F6',text:'#6B7280',dot:'#9CA3AF',label:'Vacant'},
+  RESOLVED:  {bg:Colors.primaryLight,text:Colors.primaryDark,dot:Colors.primary,label:'Resolved'},
+  OCCUPIED:  {bg:Colors.primaryLight,text:Colors.primaryDark,dot:Colors.primary,label:'Occupied'},
+  VACANT:    {bg:Colors.gray100,text:Colors.gray500,dot:Colors.gray400,label:'Vacant'},
   MAINTENANCE:{bg:'#FEF3C7',text:'#D97706',dot:'#D97706',label:'Maintenance'},
   NEW_REQ:   {bg:'#EFF6FF',text:'#2563EB',dot:'#2563EB',label:'New'},
-  DONE:      {bg:'#F3F4F6',text:'#6B7280',dot:'#9CA3AF',label:'Done'},
-  CONFIRMED: {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Confirmed'},
-  UP:        {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Up'},
+  DONE:      {bg:Colors.gray100,text:Colors.gray500,dot:Colors.gray400,label:'Done'},
+  CONFIRMED: {bg:Colors.primaryLight,text:Colors.primaryDark,dot:Colors.primary,label:'Confirmed'},
+  UP:        {bg:Colors.primaryLight,text:Colors.primaryDark,dot:Colors.primary,label:'Up'},
   DOWN:      {bg:'#FEE2E2',text:'#DC2626',dot:'#DC2626',label:'Down'},
   BOOKED:      {bg:'#EFF6FF',text:'#2563EB',dot:'#2563EB',label:'Booked'},
-  CHECKED_IN:  {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Checked in'},
-  CHECKED_OUT: {bg:'#F3F4F6',text:'#6B7280',dot:'#9CA3AF',label:'Checked out'},
+  CHECKED_IN:  {bg:Colors.primaryLight,text:Colors.primaryDark,dot:Colors.primary,label:'Checked in'},
+  CHECKED_OUT: {bg:Colors.gray100,text:Colors.gray500,dot:Colors.gray400,label:'Checked out'},
   NO_SHOW:     {bg:'#FEE2E2',text:'#DC2626',dot:'#DC2626',label:'No-show'},
   AUTHORIZED:  {bg:'#FEF3C7',text:'#D97706',dot:'#D97706',label:'Authorized'},
-  CAPTURED:    {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Captured'},
+  CAPTURED:    {bg:Colors.primaryLight,text:Colors.primaryDark,dot:Colors.primary,label:'Captured'},
   WAITING:     {bg:'#FEF3C7',text:'#D97706',dot:'#D97706',label:'Waiting'},
-  NOTIFIED:    {bg:'#E1F5EE',text:'#0F6E56',dot:'#1D9E75',label:'Notified'},
+  NOTIFIED:    {bg:Colors.primaryLight,text:Colors.primaryDark,dot:Colors.primary,label:'Notified'},
 };
 export function StatusBadge({ status }) {
-  const c=MAP[status]||{bg:'#F3F4F6',text:'#6B7280',dot:'#9CA3AF',label:status};
+  const c=MAP[status]||{bg:Colors.gray100,text:Colors.gray500,dot:Colors.gray400,label:status};
   return (
     <View style={[ss.b,{backgroundColor:c.bg}]}>
       <View style={[ss.dot,{backgroundColor:c.dot}]}/>

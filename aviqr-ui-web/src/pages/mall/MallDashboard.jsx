@@ -266,7 +266,7 @@ function VendorsFull({vendors,onToggle,onAdd,onRemove,onInvite,compact}) {
         </div>
       )}
       {!compact&&showInvite&&(
-        <form onSubmit={submitInvite} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'end'}}>
+        <form onSubmit={submitInvite} className="admin-chart-card workspace-grid" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr auto',gap:12,alignItems:'end'}}>
           <div className="form-field">
             <label className="form-label">Restaurant ID</label>
             <input className="form-input" value={inviteId} onChange={e=>setInviteId(e.target.value)} placeholder="Paste the restaurant's shop ID" required/>
@@ -276,7 +276,7 @@ function VendorsFull({vendors,onToggle,onAdd,onRemove,onInvite,compact}) {
         </form>
       )}
       {!compact&&showForm&&(
-        <form onSubmit={submit} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
+        <form onSubmit={submit} className="admin-chart-card workspace-grid" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
           <div className="form-field"><label className="form-label">Name</label><input className="form-input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Spice Route" required/></div>
           <div className="form-field"><label className="form-label">Category</label><input className="form-input" value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} placeholder="e.g. North Indian"/></div>
           <div className="form-field"><label className="form-label">Floor</label><input className="form-input" value={form.floor} onChange={e=>setForm(f=>({...f,floor:e.target.value}))} placeholder="e.g. F1"/></div>
@@ -334,7 +334,7 @@ function RevenueShare({vendors}) {
   return (
     <div>
       <div className="page-header"><h1 className="page-title">{t('navRevenueShare', lang)}</h1></div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:20}}>
+      <div className="workspace-grid" style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:20}}>
         {[{l:'Total GMV',v:`₹${total.toLocaleString('en-IN')}`,c:'green'},{l:'Commission (10%)',v:`₹${comm.toLocaleString('en-IN')}`,c:'blue'},{l:'Vendors',v:vendors.length,c:'purple'}].map(k=>(
           <div key={k.l} className="admin-kpi-card"><div className={`admin-kpi-value`} style={{fontSize:24,fontWeight:800,color:`var(--${k.c})`}}>{k.v}</div><div className="admin-kpi-label">{k.l}</div></div>
         ))}
@@ -618,7 +618,7 @@ function MallSettings({mall,lang}) {
       <div className="page-header"><h1 className="page-title">{t('settings',lang)}</h1></div>
       <div className="admin-chart-card">
         <h3 style={{marginBottom:16}}>Mall profile</h3>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+        <div className="workspace-grid" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
           {MALL_SAVED_FIELDS.map(f=>(
             <div key={f.key} className="form-field"><label className="form-label">{f.label}</label><input className="form-input" value={form[f.key]} onChange={e=>set(f.key,e.target.value)} placeholder={f.label}/></div>
           ))}

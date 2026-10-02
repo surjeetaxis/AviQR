@@ -231,7 +231,7 @@ const ss = StyleSheet.create({
   headerTxt: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.gray500 },
   groupHeaderCell: { height: ROW_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: Spacing.base, paddingRight: 4, backgroundColor: Colors.gray50 || '#F9FAFB', borderBottomWidth: 1, borderBottomColor: Colors.border },
   groupChevron: { fontSize: FontSize.sm, color: Colors.gray500, width: 12 },
-  groupTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.gray900, flexShrink: 1 },
+  groupTitle: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray900, flexShrink: 1 },
   availCell: { height: ROW_HEIGHT, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.gray50 || '#F9FAFB', borderBottomWidth: 1, borderBottomColor: Colors.border, borderLeftWidth: 1, borderLeftColor: Colors.border },
   availTxt: { fontSize: FontSize.xs, fontWeight: '800' },
   roomCell: { height: ROW_HEIGHT, justifyContent: 'center', paddingLeft: Spacing.base, borderBottomWidth: 1, borderBottomColor: Colors.border },

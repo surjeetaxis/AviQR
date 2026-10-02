@@ -9,7 +9,7 @@ import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
 
 const PLANS = {
-  STARTER:    { label: 'Starter',    color: '#6B7280', bg: '#F3F4F6' },
+  STARTER:    { label: 'Starter',    color: Colors.gray500, bg: Colors.gray100 },
   GROWTH:     { label: 'Growth',     color: '#059669', bg: '#DCFCE7' },
   BUSINESS:   { label: 'Business',   color: '#7C3AED', bg: '#EDE9FE' },
   ENTERPRISE: { label: 'Enterprise', color: '#D97706', bg: '#FEF3C7' },
@@ -188,7 +188,7 @@ const ss = StyleSheet.create({
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: Radius.full },
   badgeTxt: { fontSize: 11, fontWeight: '700' },
   chevron: { fontSize: 18, color: Colors.gray300 },
-  sheetTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900, marginBottom: 16 },
+  sheetTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900, marginBottom: 16 },
   fieldRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.gray100, gap: 10 },
   fieldLabel: { fontSize: FontSize.sm, color: Colors.gray500 },
   fieldValue: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900, flex: 1, textAlign: 'right' },

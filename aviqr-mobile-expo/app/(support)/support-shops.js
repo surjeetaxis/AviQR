@@ -6,7 +6,7 @@ import { EmptyState } from '../../src/components/common/EmptyState.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
 
-const PLANS = { STARTER: { label: 'Starter', color: '#6B7280', bg: '#F3F4F6' }, GROWTH: { label: 'Growth', color: '#059669', bg: '#DCFCE7' }, BUSINESS: { label: 'Business', color: '#7C3AED', bg: '#EDE9FE' }, ENTERPRISE: { label: 'Enterprise', color: '#D97706', bg: '#FEF3C7' } };
+const PLANS = { STARTER: { label: 'Starter', color: Colors.gray500, bg: Colors.gray100 }, GROWTH: { label: 'Growth', color: '#059669', bg: '#DCFCE7' }, BUSINESS: { label: 'Business', color: '#7C3AED', bg: '#EDE9FE' }, ENTERPRISE: { label: 'Enterprise', color: '#D97706', bg: '#FEF3C7' } };
 const planInfo = p => PLANS[(p || 'STARTER').toUpperCase()] || PLANS.STARTER;
 
 // View-only — no status toggle here (that's ADMIN-only), matching web's ShopsPanel.

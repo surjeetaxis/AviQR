@@ -11,6 +11,7 @@ import { registerServiceWorker } from './pwa/registerServiceWorker.js';
 import { initAnalytics } from './analytics.js';
 import App from './App.jsx';
 import './styles/index.css';
+import './styles/hospitality.css';
 
 registerServiceWorker();
 initAnalytics();

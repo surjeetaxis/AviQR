@@ -8,6 +8,22 @@ import Svg, { Path, Circle, Line, Rect } from 'react-native-svg';
 // lucide-react icons (Home, Search, ShoppingCart, Package, User).
 const base = { fill: 'none', strokeLinecap: 'round', strokeLinejoin: 'round' };
 
+export function EyeIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" {...base} stroke={color} strokeWidth={strokeWidth}><Path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><Circle cx="12" cy="12" r="3" /></Svg>;
+}
+export function EyeOffIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" {...base} stroke={color} strokeWidth={strokeWidth}><Path d="M3 3l18 18M10.5 5.1A11 11 0 0 1 12 5c6.5 0 10 7 10 7a19 19 0 0 1-3 4M6.5 6.5A19 19 0 0 0 2 12s3.5 7 10 7a11 11 0 0 0 5.5-1.5M9.9 9.9a3 3 0 0 0 4.2 4.2" /></Svg>;
+}
+export function ShieldIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" {...base} stroke={color} strokeWidth={strokeWidth}><Path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" /><Path d="m8 12 3 3 5-6" /></Svg>;
+}
+export function MailIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" {...base} stroke={color} strokeWidth={strokeWidth}><Rect x="3" y="5" width="18" height="14" rx="2" /><Path d="m3 6 9 7 9-7" /></Svg>;
+}
+export function KeyIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
+  return <Svg width={size} height={size} viewBox="0 0 24 24" {...base} stroke={color} strokeWidth={strokeWidth}><Circle cx="8" cy="15" r="5" /><Path d="m11.5 11.5 9-9M18 6l3 3M15 9l3 3" /></Svg>;
+}
+
 export function HomeIcon({ size = 20, color = '#000', strokeWidth = 2 }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" {...base} stroke={color} strokeWidth={strokeWidth}>

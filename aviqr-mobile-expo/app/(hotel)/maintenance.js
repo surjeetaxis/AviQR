@@ -145,8 +145,8 @@ function ChipRow({ options, value, onChange }) {
 const ss = StyleSheet.create({
   sub: { fontSize: FontSize.sm, color: Colors.gray500, marginBottom: 14 },
   fieldLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500, marginBottom: 6 },
-  cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 10 },
-  taskTitle: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray900, flex: 1, marginRight: 8 },
+  cardTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 10 },
+  taskTitle: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900, flex: 1, marginRight: 8 },
   taskMeta: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 2 },
   statusTxt: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
   actionsRow: { flexDirection: 'row', gap: 8, marginTop: 8 },

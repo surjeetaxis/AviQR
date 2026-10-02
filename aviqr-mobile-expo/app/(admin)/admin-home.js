@@ -32,6 +32,7 @@ export default function AdminHomeScreen() {
   const onRefresh = async () => { setRef(true); await load(); setRef(false); };
 
   const NAV_ITEMS = [
+  { icon: '🔐', label: 'Account Security', href: '/account-security' },
     { icon: '🔐', label: 'Login Security', href: '/(admin)/admin-login-security', color: Colors.primary },
     { icon: '👥', label: 'Users',       href: '/(admin)/admin-users',        color: Colors.primary },
     { icon: '🏪', label: 'Shops',       href: '/(admin)/admin-shops',        color: '#2563EB' },
@@ -48,7 +49,7 @@ export default function AdminHomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <LinearGradient colors={['#111827','#1F2937']} style={styles.header}>
+      <LinearGradient colors={[Colors.brandSurface, Colors.brandRaised]} style={styles.header}>
         <View style={styles.headerRow}>
           <View style={styles.brandRow}>
             <Logo size={30} />
@@ -126,10 +127,10 @@ const styles = StyleSheet.create({
   headerName:   { fontSize: FontSize['2xl'], fontWeight: '800', color: Colors.white, marginTop: 4 },
   logoutBtn:    { padding: 10 },
   scroll:       { padding: Spacing.base, paddingBottom: 40 },
-  sectionTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: Spacing.sm, marginTop: Spacing.md },
+  sectionTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: Spacing.sm, marginTop: Spacing.md },
   kpiGrid:      { flexDirection: 'row', gap: 10, marginBottom: 10 },
   userCard:     { padding: Spacing.base, marginTop: Spacing.sm },
-  userCardTitle:{ fontSize: FontSize.base, fontWeight: '800', marginBottom: 12 },
+  userCardTitle:{ fontSize: FontSize.base, fontWeight: '600', marginBottom: 12 },
   userRow:      { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   userRole:     { width: 96, fontSize: FontSize.xs, color: Colors.gray700 },
   userBar:      { flex: 1, height: 6, backgroundColor: Colors.gray100, borderRadius: 3, marginHorizontal: 10, overflow: 'hidden' },

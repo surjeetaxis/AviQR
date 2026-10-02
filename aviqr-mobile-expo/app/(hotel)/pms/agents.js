@@ -147,7 +147,7 @@ export default function AgentsScreen() {
 
 const ss = StyleSheet.create({
   sub: { fontSize: FontSize.sm, color: Colors.gray500, marginBottom: 14 },
-  cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900 },
+  cardTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900 },
   agentName: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray900 },
   agentMeta: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 2 },
   statusChip: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: Radius.full },

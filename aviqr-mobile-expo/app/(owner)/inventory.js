@@ -131,7 +131,7 @@ const ss = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
   back: { fontSize: FontSize.base, color: Colors.primary, fontWeight: '600' },
-  title: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900 },
+  title: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.gray900 },
   alertBanner: { backgroundColor: '#FEF3C7', margin: Spacing.base, marginBottom: 0, padding: 10, borderRadius: Radius.md, borderWidth: 1, borderColor: '#FCD34D' },
   alertTxt: { fontSize: FontSize.xs, color: '#92400E', fontWeight: '700' },
   card: { backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.base, ...Shadow.sm },

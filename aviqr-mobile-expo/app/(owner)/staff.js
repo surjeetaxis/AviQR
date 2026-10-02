@@ -139,7 +139,7 @@ export default function StaffScreen() {
 const styles = StyleSheet.create({
   header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
   back:         { fontSize: FontSize.base, color: Colors.primary, fontWeight: '600' },
-  title:        { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900 },
+  title:        { fontSize: FontSize.xl, fontWeight: '600', color: Colors.gray900 },
   addBtn:       { padding: 8 },
   card:         { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.base, gap: 12, borderWidth: 1, borderColor: Colors.border },
   avatar:       { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   roleBadge:    { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.full, marginTop: 4 },
   roleText:     { fontSize: FontSize.xs, fontWeight: '700' },
   actions:      { gap: 14 },
-  sheetTitle:   { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900, marginBottom: Spacing.base },
+  sheetTitle:   { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900, marginBottom: Spacing.base },
   roleLabel:    { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray700, marginBottom: 8, marginTop: 4 },
   roleGrid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   roleChip:     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border },

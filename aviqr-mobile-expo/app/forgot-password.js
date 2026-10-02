@@ -40,7 +40,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <ScrollView style={ss.screen} contentContainerStyle={ss.scroll} keyboardShouldPersistTaps="handled">
-      <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.hero}>
+      <LinearGradient colors={[Colors.brandSurface, Colors.brandRaised]} style={ss.hero}>
         <Text style={ss.brand}>Avi<Text style={ss.accent}>QR</Text></Text>
         <Text style={ss.tagline}>Reset your password</Text>
       </LinearGradient>
@@ -86,9 +86,9 @@ const ss = StyleSheet.create({
   scroll: { flexGrow: 1 },
   hero: { paddingTop: 64, paddingBottom: 36, alignItems: 'center' },
   brand: { fontSize: FontSize['3xl'], fontWeight: '800', color: Colors.white },
-  accent: { color: '#A7F3D0' },
+  accent: { color: Colors.mint },
   tagline: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.85)', marginTop: 6 },
   body: { padding: Spacing.lg },
-  title: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900, textAlign: 'center', marginBottom: 8 },
+  title: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.gray900, textAlign: 'center', marginBottom: 8 },
   sub: { fontSize: FontSize.sm, color: Colors.gray500, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
 });

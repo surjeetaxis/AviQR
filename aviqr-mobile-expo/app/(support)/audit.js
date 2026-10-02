@@ -40,11 +40,11 @@ export default function SupportAuditScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <PageHeader title="Audit Logs" />
+      <PageHeader title="Audit logs" subtitle="Activity across your workspace" />
       {offline && <OfflineBadge onRetry={load} />}
       <View style={ss.chipRow}>
         {LEVELS.map(l => (
-          <TouchableOpacity key={l} style={[ss.chip, level === l && ss.chipActive]} onPress={() => setLevel(l)}>
+          <TouchableOpacity key={l} accessibilityRole="button" accessibilityState={{selected:level===l}} style={[ss.chip, level === l && ss.chipActive]} onPress={() => setLevel(l)}>
             <Text style={[ss.chipTxt, level === l && ss.chipActiveTxt]}>{l.charAt(0).toUpperCase() + l.slice(1)}</Text>
           </TouchableOpacity>
         ))}
@@ -61,7 +61,7 @@ export default function SupportAuditScreen() {
             <View style={{ flex: 1 }}>
               <Text style={ss.action}>{item.description || item.action}</Text>
               <View style={ss.metaRow}>
-                <Text style={ss.actor}>{item.actorId?.slice(0, 12)}…</Text>
+                <Text style={ss.actor}>{item.actorId || "System"}</Text>
                 <Text style={ss.time}>{item.timestamp ? new Date(item.timestamp).toLocaleString('en-IN') : '—'}</Text>
               </View>
             </View>
@@ -74,14 +74,14 @@ export default function SupportAuditScreen() {
 
 const ss = StyleSheet.create({
   chipRow: { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.base, paddingVertical: 10 },
-  chip: { height: 30, paddingHorizontal: 14, borderRadius: Radius.full, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center' },
+  chip: { height: 44, paddingHorizontal: 14, borderRadius: Radius.full, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center' },
   chipActive: { backgroundColor: Colors.gray900, borderColor: Colors.gray900 },
   chipTxt: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },
   chipActiveTxt: { color: Colors.white },
-  card: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.base, gap: 10, ...Shadow.sm },
+  card: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.base, gap: 10, borderWidth:1, borderColor:Colors.border, ...Shadow.sm },
   dot: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
   action: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray900 },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  actor: { fontSize: 11, color: Colors.gray400, fontFamily: 'monospace' },
-  time: { fontSize: 11, color: Colors.gray400 },
+  metaRow: { flexDirection: 'row', flexWrap:'wrap', gap:8, marginTop: 8 },
+  actor: { fontSize: 11, color: Colors.gray600, fontFamily: 'monospace' },
+  time: { fontSize: 11, color: Colors.gray600 },
 });

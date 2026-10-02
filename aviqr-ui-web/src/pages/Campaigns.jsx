@@ -11,9 +11,9 @@ const AUDIENCE_META = {
 };
 
 const STATUS_COLORS = {
-  DRAFT:     { bg:'#F3F4F6', color:'#6B7280' },
+  DRAFT:     { bg:"#eaf0ed", color:"#65766c" },
   SCHEDULED: { bg:'#EFF6FF', color:'#2563EB' },
-  ACTIVE:    { bg:'#E1F5EE', color:'#1D9E75' },
+  ACTIVE:    { bg:"#edf6f0", color:"#146c50" },
   SENT:      { bg:'#F5F3FF', color:'#7C3AED' },
   PAUSED:    { bg:'#FFFBEB', color:'#D97706' },
 };
@@ -218,7 +218,7 @@ export default function Campaigns() {
               </div>
             )}
             {isRecurringType && (
-              <p style={{ fontSize:11.5, color:'#1D9E75', background:'#E1F5EE', borderRadius:8, padding:'8px 12px', marginBottom:20 }}>
+              <p style={{ fontSize:11.5, color:"#146c50", background:"#edf6f0", borderRadius:8, padding:'8px 12px', marginBottom:20 }}>
                 This campaign runs automatically every day for customers whose {form.audienceType === 'BIRTHDAY_TODAY' ? 'birthday' : 'anniversary'} is today.
               </p>
             )}

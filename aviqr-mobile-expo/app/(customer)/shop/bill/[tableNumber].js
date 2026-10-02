@@ -244,7 +244,7 @@ const ss = StyleSheet.create({
   billLabel: { fontSize: FontSize.sm, color: Colors.gray600 },
   billVal: { fontSize: FontSize.sm, color: Colors.gray900 },
   billTotal: { borderTopWidth: 1, borderTopColor: Colors.gray100, marginTop: 6, paddingTop: 8 },
-  totalLabel: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900 },
+  totalLabel: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900 },
   totalVal: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900 },
   payBtn: { backgroundColor: Colors.primary, borderRadius: Radius.md, paddingVertical: 14, alignItems: 'center', marginTop: 12 },
   payBtnTxt: { color: Colors.white, fontSize: FontSize.base, fontWeight: '800' },

@@ -6,7 +6,7 @@ import { menuApi, posApi, paymentApi, addonApi, variantApi, invoiceApi, shopApi,
 import ConfirmCodeModal from '../components/shared/ConfirmCodeModal.jsx';
 
 const PAY_METHODS = [
-  { key:'CASH',   label:'Cash',    icon:Banknote,    color:'#1D9E75' },
+  { key:'CASH',   label:'Cash',    icon:Banknote,    color:"#146c50" },
   { key:'UPI',    label:'UPI',     icon:Wallet,      color:'#7C3AED' },
   { key:'CARD',   label:'Card',    icon:CreditCard,  color:'#2563EB' },
 ];
@@ -248,14 +248,14 @@ export default function Billing() {
     <div style={{ display:'flex', gap:0, height: expanded ? '100vh' : 'calc(100vh - 64px)', overflow:'hidden' }}>
 
       {/* ── Left: Menu browser ────────────────────────────────────────────── */}
-      <div style={{ flex:1, overflowY:'auto', padding:'16px 12px', borderRight:'1px solid var(--gray-100)', background:'#FAFAFA' }}>
+      <div style={{ flex:1, overflowY:'auto', padding:'16px 12px', borderRight:'1px solid var(--gray-100)', background:"#f8faf9" }}>
         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
           <h2 style={{ fontSize:16, fontWeight:700, flex:1, margin:0 }}>🧾 POS — Select Items</h2>
           {/* Confirm a customer's pay-at-counter order code: check payment status,
               take cash or acknowledge an already-paid order, and send it to the kitchen */}
           <button
             onClick={() => setShowCodeModal(true)}
-            style={{ background:'#1D9E75', border:'none', borderRadius:8,
+            style={{ background:"#146c50", border:'none', borderRadius:8,
                      padding:'6px 10px', cursor:'pointer', color:'white',
                      display:'flex', alignItems:'center', gap:5, fontSize:12, fontWeight:700 }}
             title="Confirm a customer's order code">
@@ -396,7 +396,7 @@ export default function Billing() {
                 {item.addons.length > 0 && <div style={{ fontSize:11, color:'var(--gray-400)' }}>+ {item.addons.map(a=>a.name).join(', ')}</div>}
                 <input placeholder="Note (no onion, extra spicy…)" value={item.note}
                   onChange={e => setCart(prev => prev.map(c => c.id === item.id ? { ...c, note:e.target.value } : c))}
-                  style={{ marginTop:4, width:'100%', fontSize:11, border:'1px solid var(--gray-200)', borderRadius:4, padding:'2px 6px', color:'#6B7280' }} />
+                  style={{ marginTop:4, width:'100%', fontSize:11, border:'1px solid var(--gray-200)', borderRadius:4, padding:'2px 6px', color:"#65766c" }} />
               </div>
               <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
                 <button onClick={() => changeQty(item.id, -1)} style={{ width:24, height:24, borderRadius:6, background:'var(--gray-100)', border:'none', cursor:'pointer', fontSize:14, fontWeight:700 }}>−</button>
@@ -500,7 +500,7 @@ export default function Billing() {
 
         {/* Success banner */}
         {success && (
-          <div style={{ padding:'12px 16px', background:'#E1F5EE', borderTop:'1px solid #A7F3D0', display:'flex', alignItems:'center', gap:10, fontSize:13, color:'#065F46' }}>
+          <div style={{ padding:'12px 16px', background:"#edf6f0", borderTop:'1px solid #A7F3D0', display:'flex', alignItems:'center', gap:10, fontSize:13, color:'#065F46' }}>
             <CheckCircle size={16} />
             <div style={{ flex:1 }}>
               <strong>{success.orderNumber}</strong> billed ✓

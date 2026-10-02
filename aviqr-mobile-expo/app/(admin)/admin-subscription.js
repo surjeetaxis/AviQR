@@ -11,7 +11,7 @@ import { confirmAction } from '../../src/utils/confirmAction.js';
 import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index.js';
 
 const FALLBACK_PLANS = {
-  STARTER:    { label: 'Starter',    color: '#6B7280', bg: '#F3F4F6', price: 0 },
+  STARTER:    { label: 'Starter',    color: Colors.gray500, bg: Colors.gray100, price: 0 },
   GROWTH:     { label: 'Growth',     color: '#059669', bg: '#DCFCE7', price: 999 },
   BUSINESS:   { label: 'Business',   color: '#7C3AED', bg: '#EDE9FE', price: 2499 },
   ENTERPRISE: { label: 'Enterprise', color: '#D97706', bg: '#FEF3C7', price: 0 },
@@ -20,7 +20,7 @@ const SUB_STATUS_CFG = {
   ACTIVE:        { label: 'Active',        color: '#059669', bg: '#DCFCE7' },
   TRIALING:      { label: 'Trialing',      color: '#2563EB', bg: '#DBEAFE' },
   TRIAL_EXPIRED: { label: 'Trial expired', color: '#DC2626', bg: '#FEE2E2' },
-  CANCELED:      { label: 'Canceled',      color: '#6B7280', bg: '#F3F4F6' },
+  CANCELED:      { label: 'Canceled',      color: Colors.gray500, bg: Colors.gray100 },
 };
 const VERTICALS = ['SHOP', 'HOTEL', 'MALL', 'SUPPLIER'];
 const TABS = [
@@ -280,7 +280,7 @@ function PlansTab({ plans, loading, reload }) {
 const EMPTY_OFFER = { title: '', description: '', code: '', discountPercent: '10', applicablePlans: 'ALL', startsAt: '', endsAt: '' };
 
 function offerStatus(o) {
-  if (!o.active) return { label: 'Draft', color: '#6B7280', bg: '#F3F4F6' };
+  if (!o.active) return { label: 'Draft', color: Colors.gray500, bg: Colors.gray100 };
   const now = Date.now();
   if (o.startsAt && new Date(o.startsAt).getTime() > now) return { label: 'Scheduled', color: '#2563EB', bg: '#DBEAFE' };
   if (o.endsAt && new Date(o.endsAt).getTime() < now) return { label: 'Expired', color: '#DC2626', bg: '#FEE2E2' };
@@ -404,7 +404,7 @@ const ss = StyleSheet.create({
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full },
   badgeTxt: { fontSize: 11, fontWeight: '700' },
   linkTxt: { fontSize: 11, fontWeight: '700', color: Colors.primary },
-  sheetTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900, marginBottom: 4 },
+  sheetTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900, marginBottom: 4 },
   currentPlan: { fontSize: FontSize.sm, color: Colors.gray500, marginBottom: 16 },
   planRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.gray50, borderRadius: Radius.md, padding: 14, marginBottom: 8, borderWidth: 1.5, borderColor: 'transparent' },
   planRowActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },

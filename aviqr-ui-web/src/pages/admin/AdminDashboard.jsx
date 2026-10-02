@@ -27,7 +27,7 @@ const ROLES_ALL = ['owner','manager','cashier','kitchen','admin','support','supp
 const ROLE_CLR = { owner:'green',manager:'blue',cashier:'blue',kitchen:'green',admin:'purple',support:'amber',supplier:'blue',hotel:'purple',mall:'blue',customer:'gray' };
 
 const PLANS = {
-  STARTER:    { label:'Starter',    color:'#6B7280', bg:'#F3F4F6', price:0       },
+  STARTER:    { label:'Starter',    color:"#65766c", bg:"#eaf0ed", price:0       },
   GROWTH:     { label:'Growth',     color:'#059669', bg:'#DCFCE7', price:999     },
   BUSINESS:   { label:'Business',   color:'#7C3AED', bg:'#EDE9FE', price:2499   },
   ENTERPRISE: { label:'Enterprise', color:'#D97706', bg:'#FEF3C7', price:0       },
@@ -40,12 +40,12 @@ function planInfo(p) { return PLANS[p?.toUpperCase()] || PLANS.STARTER; }
 // every non-ACTIVE value, including INACTIVE, to "Suspended").
 const SHOP_STATUS = {
   ACTIVE:    { label:'Active',    color:'#059669' },
-  INACTIVE:  { label:'Inactive',  color:'#6B7280' },
+  INACTIVE:  { label:'Inactive',  color:"#65766c" },
   SUSPENDED: { label:'Suspended', color:'#DC2626' },
   PENDING:   { label:'Pending',   color:'#D97706' },
-  CLOSED:    { label:'Closed',    color:'#6B7280' },
+  CLOSED:    { label:'Closed',    color:"#65766c" },
 };
-function shopStatusInfo(status) { return SHOP_STATUS[status] || { label: status || '—', color:'#6B7280' }; }
+function shopStatusInfo(status) { return SHOP_STATUS[status] || { label: status || '—', color:"#65766c" }; }
 
 const VERTICAL_COLORS = {
   SHOP:     { label:'Restaurant/Shop', color:'#059669', bg:'#DCFCE7' },
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
       <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="admin-sidebar-header">
           <div className="admin-brand">
-            <QrCode size={18} style={{ color: '#5DCAA5' }}/>
+            <QrCode size={18} style={{ color: "#9dddc6" }}/>
             <span className="admin-brand-name">Avi<em>QR</em></span>
             <span className="admin-role-tag">ADMIN</span>
           </div>
@@ -250,7 +250,7 @@ function AdminOverview({ ps, us, loading, onNav, onRefresh }) {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginTop: 16 }}>
+      <div className="workspace-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginTop: 16 }}>
         <div className="admin-chart-card">
           <h3 style={{ marginBottom: 12 }}>Revenue trend — last 14 days</h3>
           {trendLoad ? (
@@ -260,12 +260,12 @@ function AdminOverview({ ps, us, loading, onNav, onRefresh }) {
           ) : (
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={trend} margin={{ top: 4, right: 4, bottom: 0, left: -16 }}>
-                <defs><linearGradient id="overviewRevGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1D9E75" stopOpacity={0.15}/><stop offset="95%" stopColor="#1D9E75" stopOpacity={0}/></linearGradient></defs>
+                <defs><linearGradient id="overviewRevGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--green)" stopOpacity={0.15}/><stop offset="95%" stopColor="var(--green)" stopOpacity={0}/></linearGradient></defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false}/>
                 <YAxis tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => `₹${v/1000}k`}/>
                 <Tooltip formatter={v => [`₹${Number(v).toLocaleString('en-IN')}`, 'Revenue']} contentStyle={{ borderRadius: 8, fontSize: 12 }}/>
-                <Area type="monotone" dataKey="revenue" stroke="#1D9E75" strokeWidth={2.5} fill="url(#overviewRevGrad)" dot={false}/>
+                <Area type="monotone" dataKey="revenue" stroke="var(--green)" strokeWidth={2.5} fill="url(#overviewRevGrad)" dot={false}/>
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -1575,7 +1575,7 @@ function AdminSubscriptionManagement() {
     ACTIVE:        { label: 'Active',        color: '#059669', bg: '#DCFCE7' },
     TRIALING:      { label: 'Trialing',      color: '#2563EB', bg: '#DBEAFE' },
     TRIAL_EXPIRED: { label: 'Trial expired', color: '#DC2626', bg: '#FEE2E2' },
-    CANCELED:      { label: 'Canceled',      color: '#6B7280', bg: '#F3F4F6' },
+    CANCELED:      { label: 'Canceled',      color: "#65766c", bg: "#eaf0ed" },
   };
 
   const trialDaysLeft = (shop) => {
@@ -1618,7 +1618,7 @@ function AdminSubscriptionManagement() {
   return (
     <div>
       {toast && (
-        <div style={{ position:'fixed', bottom:24, right:24, background:'#1F2937', color:'white', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
+        <div style={{ position:'fixed', bottom:24, right:24, background:"#24483c", color:'white', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
           ✓ {toast}
         </div>
       )}
@@ -1651,7 +1651,7 @@ function AdminSubscriptionManagement() {
       {subTab === 'assignments' && (
         <>
           {/* KPI Cards */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
+          <div className="workspace-grid" style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
             {[
               { label:'Total shops',      value: total,            icon: Store,    color:'#2563EB', bg:'#DBEAFE' },
               { label:'Paid subscribers', value: paid,             icon: BadgeCheck,color:'#059669', bg:'#DCFCE7' },
@@ -1870,7 +1870,7 @@ function AdminPlansManager({ plans, loading, onChanged }) {
   return (
     <div>
       {toast && (
-        <div style={{ position:'fixed', bottom:24, right:24, background:'#1F2937', color:'#fff', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
+        <div style={{ position:'fixed', bottom:24, right:24, background:"#24483c", color:'#fff', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
           ✓ {toast}
         </div>
       )}
@@ -1882,7 +1882,7 @@ function AdminPlansManager({ plans, loading, onChanged }) {
         </select>
         <button onClick={openNew}
           style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6,
-            background:'linear-gradient(135deg,#0F6E56,#1D9E75)', color:'#fff', border:'none',
+            background:"linear-gradient(135deg,#105940,#146c50)", color:'#fff', border:'none',
             borderRadius:8, padding:'9px 16px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
           <Plus size={14}/> Add Plan
         </button>
@@ -1962,7 +1962,7 @@ function AdminPlansManager({ plans, loading, onChanged }) {
                   placeholder="e.g. Growth"
                   style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box' }}/>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div className="workspace-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
                   <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Vertical</label>
                   <select value={form.vertical} onChange={e => setForm(f => ({ ...f, vertical: e.target.value }))}
@@ -2005,7 +2005,7 @@ function AdminPlansManager({ plans, loading, onChanged }) {
 const EMPTY_OFFER_FORM = { id:null, title:'', description:'', code:'', discountPercent:10, applicablePlans:'ALL', startsAt:'', endsAt:'' };
 
 function offerStatus(o) {
-  if (!o.active) return { label:'Draft', color:'#6B7280', bg:'#F3F4F6' };
+  if (!o.active) return { label:'Draft', color:"#65766c", bg:"#eaf0ed" };
   const now = new Date();
   if (o.startsAt && new Date(o.startsAt) > now) return { label:'Scheduled', color:'#D97706', bg:'#FEF3C7' };
   if (o.endsAt && new Date(o.endsAt) < now)     return { label:'Expired',   color:'#DC2626', bg:'#FEE2E2' };
@@ -2076,7 +2076,7 @@ function AdminOffersManager({ plans }) {
   return (
     <div>
       {toast && (
-        <div style={{ position:'fixed', bottom:24, right:24, background:'#1F2937', color:'#fff', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
+        <div style={{ position:'fixed', bottom:24, right:24, background:"#24483c", color:'#fff', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
           ✓ {toast}
         </div>
       )}
@@ -2085,7 +2085,7 @@ function AdminOffersManager({ plans }) {
         <span style={{ fontSize:12, color:'var(--gray-500)' }}>{offers.length} offer{offers.length !== 1 ? 's' : ''}</span>
         <button onClick={openNew}
           style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6,
-            background:'linear-gradient(135deg,#0F6E56,#1D9E75)', color:'#fff', border:'none',
+            background:"linear-gradient(135deg,#105940,#146c50)", color:'#fff', border:'none',
             borderRadius:8, padding:'9px 16px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
           <Plus size={14}/> Create Offer
         </button>
@@ -2155,7 +2155,7 @@ function AdminOffersManager({ plans }) {
                 <textarea rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1.5px solid var(--gray-200)', boxSizing:'border-box', fontFamily:'inherit', fontSize:13 }}/>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div className="workspace-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
                   <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Discount %</label>
                   <input type="number" min={1} max={100} value={form.discountPercent}
@@ -2177,7 +2177,7 @@ function AdminOffersManager({ plans }) {
                   {plans.map(p => <option key={p.planKey} value={p.planKey}>{p.label} ({VERTICAL_COLORS[p.vertical]?.label || p.vertical})</option>)}
                 </select>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div className="workspace-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
                   <label style={{ display:'block', fontSize:12, fontWeight:600, marginBottom:4 }}>Starts <span style={{ color:'var(--gray-400)', fontWeight:400 }}>(optional)</span></label>
                   <input type="datetime-local" value={form.startsAt} onChange={e => setForm(f => ({ ...f, startsAt: e.target.value }))}
@@ -2285,7 +2285,7 @@ export function AdminReports() {
   return (
     <div>
       {toast && (
-        <div style={{ position:'fixed', bottom:24, right:24, background:'#1F2937', color:'#fff', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
+        <div style={{ position:'fixed', bottom:24, right:24, background:"#24483c", color:'#fff', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
           ✓ {toast}
         </div>
       )}
@@ -2306,7 +2306,7 @@ export function AdminReports() {
         <div style={{ padding:'48px 0', textAlign:'center', color:'var(--gray-400)' }}>Loading…</div>
       ) : stats ? (
         <>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:16 }}>
+          <div className="workspace-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:16 }}>
             {CARDS.map(c => (
               <div key={c.label} className="admin-chart-card" style={{ textAlign:'center' }}>
                 <div style={{ fontSize:26, fontWeight:700, color:'var(--gray-900)' }}>{c.value}</div>
@@ -2315,19 +2315,19 @@ export function AdminReports() {
             ))}
           </div>
 
-          <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:14, marginBottom:16 }}>
+          <div className="workspace-grid" style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:14, marginBottom:16 }}>
             <div className="admin-chart-card">
               <h3>Revenue trend — last {days} days</h3>
               {trend.length === 0
                 ? <div style={{ height:220, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--gray-400)', fontSize:13 }}>No data for this period</div>
                 : <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={trend} margin={{top:4,right:4,bottom:0,left:-16}}>
-                      <defs><linearGradient id="adminRevGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1D9E75" stopOpacity={0.15}/><stop offset="95%" stopColor="#1D9E75" stopOpacity={0}/></linearGradient></defs>
+                      <defs><linearGradient id="adminRevGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--green)" stopOpacity={0.15}/><stop offset="95%" stopColor="var(--green)" stopOpacity={0}/></linearGradient></defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
                       <XAxis dataKey="date" tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
                       <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={v=>`₹${v/1000}k`}/>
                       <Tooltip formatter={v=>[`₹${Number(v).toLocaleString('en-IN')}`, 'Revenue']} contentStyle={{borderRadius:8,fontSize:12}}/>
-                      <Area type="monotone" dataKey="revenue" stroke="#1D9E75" strokeWidth={2.5} fill="url(#adminRevGrad)" dot={false}/>
+                      <Area type="monotone" dataKey="revenue" stroke="var(--green)" strokeWidth={2.5} fill="url(#adminRevGrad)" dot={false}/>
                     </AreaChart>
                   </ResponsiveContainer>
               }
@@ -2419,7 +2419,7 @@ function AdminSettings() {
       {sections.map(s => (
         <div key={s.title} className="admin-chart-card">
           <h3 style={{ marginBottom:16 }}>{s.title}</h3>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          <div className="workspace-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             {s.fields.map(f => (
               <div key={f} className="form-field">
                 <label className="form-label">{f}</label>
@@ -2541,7 +2541,7 @@ export function AdminQRCodesPage() {
             <div className="qps-body" style={{ padding: '24px', textAlign: 'center' }}>
               <img src={qrApi.imageUrl(previewQr.qrCode)} alt="QR Code"
                 style={{ width: 200, height: 200, borderRadius: 12, border: '1px solid var(--gray-200, #e5e7eb)' }}/>
-              <p style={{ marginTop: 14, fontSize: 11, fontFamily: 'monospace', color: 'var(--gray-400, #9ca3af)', wordBreak: 'break-all' }}>
+              <p style={{ marginTop: 14, fontSize: 11, fontFamily: 'monospace', color: "var(--gray-400, #74847b)", wordBreak: 'break-all' }}>
                 {previewQr.targetUrl}
               </p>
             </div>
@@ -2557,11 +2557,11 @@ export function AdminQRCodesPage() {
         </div>
       )}
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:18 }}>
+      <div className="workspace-grid" style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:18 }}>
         {[
           { label:'Total QR Codes', value: codes.length, icon: QrCode, color:'#7C3AED' },
           { label:'Active',         value: activeCount,  icon: CheckCircle2, color:'#059669' },
-          { label:'Inactive',       value: codes.length - activeCount, icon: XCircle, color:'#6B7280' },
+          { label:'Inactive',       value: codes.length - activeCount, icon: XCircle, color:"#65766c" },
           { label:'Total Scans',    value: totalScans,   icon: ScanLine, color:'#D97706' },
         ].map(s => (
           <div key={s.label} className="stat-card" style={{ padding:'14px 16px' }}>
@@ -2723,7 +2723,7 @@ function AdminShopPicker({ open, onClose, onPick, onPickMarketing }) {
             className="qps-dest-card"
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}
             onClick={onPickMarketing}>
-            <Sparkles size={16} style={{ flexShrink: 0, color: '#0F6E56' }}/>
+            <Sparkles size={16} style={{ flexShrink: 0, color: "#105940" }}/>
             <span>
               <div className="qps-dest-title">🌐 Marketing / Landing Page</div>
               <div className="qps-dest-desc">Not tied to a shop — website, pricing, demo, custom URL…</div>

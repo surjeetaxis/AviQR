@@ -8,7 +8,7 @@ const SUB_STATUS_CFG = {
   ACTIVE:        { label: 'Active',        color: '#059669', bg: '#DCFCE7' },
   TRIALING:      { label: 'Trialing',      color: '#2563EB', bg: '#DBEAFE' },
   TRIAL_EXPIRED: { label: 'Trial expired', color: '#DC2626', bg: '#FEE2E2' },
-  CANCELED:      { label: 'Canceled',      color: '#6B7280', bg: '#F3F4F6' },
+  CANCELED:      { label: 'Canceled',      color: Colors.gray500, bg: Colors.gray100 },
 };
 
 // Plans/offers stay read-only for support (ADMIN-managed), but shop
@@ -121,7 +121,7 @@ export default function SupportBillingScreen() {
 const ss = StyleSheet.create({
   hint: { fontSize: FontSize.xs, color: Colors.gray500, marginBottom: 16 },
   loading: { textAlign: 'center', color: Colors.gray400, paddingVertical: 40 },
-  sectionTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900, marginTop: 16, marginBottom: 10 },
+  sectionTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900, marginTop: 16, marginBottom: 10 },
   empty: { fontSize: FontSize.sm, color: Colors.gray400 },
   alertBanner: { backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FCD34D', borderRadius: Radius.md, padding: 12, marginBottom: 8 },
   alertTxt: { fontSize: FontSize.xs, color: '#92400E', fontWeight: '600' },

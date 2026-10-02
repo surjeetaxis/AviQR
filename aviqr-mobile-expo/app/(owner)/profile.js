@@ -113,7 +113,7 @@ export default function ProfileScreen() {
 }
 
 const ss = StyleSheet.create({
-  headerBar:     { flexDirection:'row', alignItems:'center', justifyContent:'space-between', padding:16, borderBottomWidth:1, borderBottomColor:'#E5E7EB' },
+  headerBar:     { flexDirection:'row', alignItems:'center', justifyContent:'space-between', padding:16, borderBottomWidth:1, borderBottomColor:Colors.border },
   backBtn:       { paddingVertical:4, paddingHorizontal:8 },
   backTxt:       { fontSize:14, color:Colors.primary, fontWeight:'600' },
   headerTitle:   { fontSize:17, fontWeight:'700', color:Colors.gray900 },
@@ -126,9 +126,9 @@ const ss = StyleSheet.create({
   roleText:      { fontSize:FontSize.sm, fontWeight:'700' },
   userEmail:     { fontSize:FontSize.sm, color:Colors.gray400 },
   formCard:      { padding:Spacing.base, marginBottom:Spacing.base },
-  sectionTitle:  { fontSize:FontSize.base, fontWeight:'800', marginBottom:Spacing.base },
+  sectionTitle:  { fontSize:FontSize.base, fontWeight:'600', marginBottom:Spacing.base },
   infoCard:      { padding:Spacing.base },
-  infoRow:       { flexDirection:'row', alignItems:'center', paddingVertical:10, borderBottomWidth:1, borderBottomColor:'#F3F4F6' },
+  infoRow:       { flexDirection:'row', alignItems:'center', paddingVertical:10, borderBottomWidth:1, borderBottomColor:Colors.gray100 },
   infoLabel:     { width:70, fontSize:FontSize.sm, color:Colors.gray500 },
   infoValue:     { flex:1, fontSize:FontSize.sm, fontWeight:'600', color:Colors.gray900, textAlign:'right' },
   deleteLink:    { alignItems:'center', paddingVertical:16, marginTop:8 },
