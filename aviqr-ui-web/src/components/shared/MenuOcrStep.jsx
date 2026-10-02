@@ -1,3 +1,4 @@
+import SafeFilePreview from './SafeFilePreview.jsx';
 import { useState, useEffect, useRef } from 'react';
 import { Upload, CheckCircle2, Loader2, Edit2 } from 'lucide-react';
 import { ocrApi } from '../../api/index.js';
@@ -39,7 +40,6 @@ export default function MenuOcrStep({ shopId, onApproved }) {
   const pollRef = useRef(null);
 
   const [file, setFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [job, setJob] = useState(null);
   const [editedItems, setEditedItems] = useState([]);
@@ -72,7 +72,6 @@ export default function MenuOcrStep({ shopId, onApproved }) {
     const f = e.target.files?.[0];
     if (!f) return;
     setFile(f);
-    setPreviewUrl(URL.createObjectURL(f));
     setJob(null);
   };
 
@@ -126,8 +125,8 @@ export default function MenuOcrStep({ shopId, onApproved }) {
             cursor: 'pointer', overflow: 'hidden', flexShrink: 0,
           }}
         >
-          {previewUrl ? (
-            <img src={previewUrl} alt="Menu preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          {file ? (
+            <SafeFilePreview file={file} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: "#74847b", fontSize: 11, textAlign: 'center', padding: 8 }}>
               <Upload size={22} />

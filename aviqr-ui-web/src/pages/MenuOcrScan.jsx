@@ -1,3 +1,4 @@
+import SafeFilePreview from '../components/shared/SafeFilePreview.jsx';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ScanLine, Upload, CheckCircle2, XCircle, Edit2 } from 'lucide-react';
@@ -52,7 +53,6 @@ export default function MenuOcrScan() {
   const pollRef = useRef(null);
 
   const [file, setFile]         = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
   const [uploading, setUploading]   = useState(false);
   const [job, setJob]               = useState(null);
   const [editedItems, setEditedItems] = useState([]);
@@ -102,7 +102,6 @@ export default function MenuOcrScan() {
     const f = e.target.files?.[0];
     if (!f) return;
     setFile(f);
-    setPreviewUrl(URL.createObjectURL(f));
     setJob(null);
     setApproved(false);
   };
@@ -178,8 +177,8 @@ export default function MenuOcrScan() {
       <div className="card">
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div className="ocr-upload-box" onClick={() => fileInputRef.current?.click()}>
-            {previewUrl ? (
-              <img src={previewUrl} alt="Menu preview" className="ocr-upload-preview" />
+            {file ? (
+              <SafeFilePreview file={file} className="ocr-upload-preview" />
             ) : (
               <div className="ocr-upload-placeholder">
                 <Upload size={28} />

@@ -21,7 +21,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { copyFile, readFile } from 'node:fs/promises';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join, extname, dirname } from 'node:path';
+import { join, extname, dirname, resolve as resolvePath, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -48,8 +48,10 @@ const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 function startStaticServer() {
   return new Promise(resolve => {
     const server = createServer(async (req, res) => {
-      let path = req.url.split('?')[0];
-      let filePath = join(DIST, path);
+      let path;
+      try { path = decodeURIComponent(req.url.split('?')[0]); } catch { res.writeHead(400); res.end(); return; }
+      const filePath = resolvePath(DIST, '.' + path);
+      if (!filePath.startsWith(resolvePath(DIST) + sep)) { res.writeHead(403); res.end(); return; }
       try {
         const stat = await readFile(filePath).catch(() => null);
         if (stat === null) throw new Error('not found');
@@ -62,7 +64,7 @@ function startStaticServer() {
         res.end(html);
       }
     });
-    server.listen(PORT, () => resolve(server));
+    server.listen(PORT, '127.0.0.1', () => resolve(server));
   });
 }
 

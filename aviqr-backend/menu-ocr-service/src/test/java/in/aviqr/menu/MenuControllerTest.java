@@ -45,6 +45,15 @@ class MenuControllerTest {
     @MockBean RestTemplate           restTemplate; // MenuController fetches shop info (name/rating/etc.) for the public menu banner
     @MockBean MenuImportService      importService;
 
+    @Test
+    void paginationRejectsOverflowNegativeAndUnboundedInputs() throws Exception {
+        for (String[] params : List.of(new String[]{"2147483647","20"}, new String[]{"-1","20"}, new String[]{"0","2147483647"}, new String[]{"0","0"})) {
+            mvc.perform(get("/api/v1/items/shop/shop-101").header("X-User-Role","OWNER").header("X-Shop-Id","shop-101")
+                .param("page",params[0]).param("size",params[1])).andExpect(status().isBadRequest());
+        }
+        verify(itemRepo, never()).findByShopIdOrderBySortOrder(anyString());
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private Category cat(String shopId, String name) {

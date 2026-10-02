@@ -91,8 +91,10 @@ public class ServiceTrustConfiguration {
                         @Override public jakarta.servlet.ServletInputStream getInputStream(){var input=new java.io.ByteArrayInputStream(body);return new jakarta.servlet.ServletInputStream(){public int read(){return input.read();}public boolean isFinished(){return input.available()==0;}public boolean isReady(){return true;}public void setReadListener(jakarta.servlet.ReadListener listener){throw new UnsupportedOperationException();}};}
                         @Override public java.io.BufferedReader getReader(){return new java.io.BufferedReader(new java.io.InputStreamReader(getInputStream(),StandardCharsets.UTF_8));}
                     };
+                    req.setAttribute("aviqr.authenticatedService", Boolean.TRUE);
                     chain.doFilter(wrapped,res);return;
                 }
+                req.setAttribute("aviqr.authenticatedService", Boolean.TRUE);
                 chain.doFilter(req, res);
             }
         };
