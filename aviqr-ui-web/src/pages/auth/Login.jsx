@@ -178,6 +178,12 @@ export default function Login() {
 
           {error && <div className="auth-error">{error}</div>}
 
+          <label style={{display:'flex',gap:8,alignItems:'center',marginBottom:16}}>
+            <input type="checkbox" checked={trustDevice} onChange={e => setTrustDevice(e.target.checked)}/>
+            Trust this device for 15 days (saved after OTP verification)
+          </label>
+          <p className="auth-subtitle">Admin and support require password + OTP. Five wrong attempts lock your account for one hour; a verified password reset unlocks it. Maximum five OTP sends per hour.</p>
+
           {tab === 'password' ? (
             <form onSubmit={handleLogin} className="auth-form">
               <div className="field">
@@ -191,7 +197,7 @@ export default function Login() {
                   <Link to="/forgot-password" style={{ fontSize:12, color:'var(--green-dark)', fontWeight:500 }}>Forgot?</Link>
                 </label>
                 <div className="field-input-wrap">
-                  <input className="field-input" type={showPw ? 'text' : 'password'} placeholder="Min 8 characters"
+                  <input className="field-input" type={showPw ? 'text' : 'password'} placeholder="Password"
                     value={pw} onChange={e => setPw(e.target.value)} autoComplete="current-password" required/>
                   <button type="button" className="field-eye" onClick={() => setShowPw(s => !s)}>
                     {showPw ? <EyeOff size={16}/> : <Eye size={16}/>}
@@ -223,10 +229,6 @@ export default function Login() {
               <p className="otp-verify-sub">
                 We've sent a 6-digit code to {otpEmail}. It'll auto-verify once entered.
               </p>
-              <label style={{display:'flex',gap:8,alignItems:'center',marginBottom:16}}>
-                <input type="checkbox" checked={trustDevice} onChange={e => setTrustDevice(e.target.checked)}/>
-                Trust this device for 30 days (not available for admin or support)
-              </label>
               <OtpInput length={6} value={otp} onChange={setOtp} onComplete={handleOtp} disabled={loading} />
               <button type="button" className="btn-auth-primary" style={{ marginTop: 20 }}
                 onClick={() => handleOtp()} disabled={loading || otp.length < 6}>

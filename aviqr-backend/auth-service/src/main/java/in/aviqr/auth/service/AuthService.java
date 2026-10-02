@@ -35,8 +35,6 @@ public class AuthService {
     private final OtpVerificationService otpVerification;
     private final ShopOwnershipService shopOwnership;
     private static final SecureRandom RANDOM = new SecureRandom();
-    @Value("${app.login.require-otp:true}")
-    private boolean requireLoginOtp;
 
     // Dev convenience only — application-production.properties forces this to false,
     // so production always verifies the real OTP that was generated and sent via SMS.
@@ -90,14 +88,15 @@ public class AuthService {
         User user = userRepo.findByEmail(email).orElse(null);
         if (user == null || !passwordEncoder.matches(req.getPassword(),user.getPasswordHash())) {
             loginSecurity.event(email,"LOGIN_FAILURE","FAILED","Invalid credentials",device,null);
+            loginSecurity.checkBlocked(email,device);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Invalid credentials");
         }
         if (user.getStatus() != UserStatus.ACTIVE) {
             loginSecurity.event(email,"BLOCKED_LOGIN","BLOCKED","Account status: "+user.getStatus(),device,null);
             LoginSecurityService.requireActive(user);
         }
-        if ((requireLoginOtp || LoginSecurityService.privileged(user)) && !loginSecurity.exempt(user,device)) {
-            sendOtp(newSendOtp(email));
+        if (LoginSecurityService.privileged(user)) {
+            sendOtp(newSendOtp(email),device);
             return AuthResponse.builder().requiresOtp(true).challengeId(loginSecurity.challenge(user,device)).build();
         }
 
@@ -114,11 +113,14 @@ public class AuthService {
     // login/register OTP is delivered exclusively via MSG91 email until those are live.
     @Transactional
     public String sendOtp(SendOtpRequest req) {
-        String email = req.getEmail().trim().toLowerCase();
+        return sendOtp(req,DeviceInfo.builder().build());
+    }
 
-        // Rate limit: max 3 OTPs per email per 10 minutes
-        long recentCount = otpRepo.countByTargetAndCreatedAtAfter(email, LocalDateTime.now().minusMinutes(10));
-        if (recentCount >= 3) throw new RuntimeException("Too many OTP requests. Wait 10 minutes.");
+    @Transactional
+    public String sendOtp(SendOtpRequest req,DeviceInfo device) {
+        String email = req.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
+        loginSecurity.checkBlocked(email,device);
+        loginSecurity.reserveOtpSend(email,device,false);
 
         String otp = String.format("%06d", RANDOM.nextInt(1_000_000));
 
@@ -151,12 +153,14 @@ public class AuthService {
     // non-existent account gets the identical response and no OTP record, no event, no error.
     @Transactional
     public String forgotPassword(String email) {
+        return forgotPassword(email,DeviceInfo.builder().build());
+    }
+    @Transactional
+    public String forgotPassword(String email,DeviceInfo device) {
         String normalized = email.trim().toLowerCase();
-        loginSecurity.event(normalized,"PASSWORD_RESET","REQUESTED","Self-service reset requested",DeviceInfo.builder().build(),null);
+        loginSecurity.reserveOtpSend(normalized,device,true);
+        loginSecurity.event(normalized,"PASSWORD_RESET","REQUESTED","Self-service reset requested",device,null);
         userRepo.findByEmail(normalized).filter(user -> user.getStatus()==UserStatus.ACTIVE).ifPresent(user -> {
-            long recentCount = otpRepo.countByTargetAndCreatedAtAfter(normalized, LocalDateTime.now().minusMinutes(10));
-            if (recentCount >= 3) return; // silently drop — an error here would itself leak that the email exists
-
             String otp = String.format("%06d", RANDOM.nextInt(1_000_000));
             OtpRecord record = OtpRecord.builder()
                     .target(normalized)
@@ -182,11 +186,15 @@ public class AuthService {
 
     @Transactional
     public void resetPassword(ResetPasswordRequest req) {
+        resetPassword(req,DeviceInfo.builder().build());
+    }
+    @Transactional
+    public void resetPassword(ResetPasswordRequest req,DeviceInfo device) {
         String email = req.getEmail().trim().toLowerCase();
         LoginSecurityService.validatePassword(req.getNewPassword());
 
         if (!otpVerification.verify(email,OtpType.PASSWORD_RESET,req.getOtp())) {
-            loginSecurity.event(email,"LOGIN_FAILURE","FAILED","Invalid password reset code",DeviceInfo.builder().build(),null);
+            loginSecurity.event(email,"LOGIN_FAILURE","FAILED","Invalid password reset code",device,null);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Invalid or expired code");
         }
         User user = userRepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Invalid or expired code"));
@@ -197,6 +205,8 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         userRepo.save(user);
         refreshRepo.deleteByUserId(user.getId()); // invalidate all sessions, same as changePassword
+        // Unlock commits with the successful password change, never on code request.
+        loginSecurity.unlockAfterReset(email,device);
         auditService.log("PASSWORD_RESET", user.getId().toString(), "Password reset via forgot-password flow");
     }
 
@@ -221,6 +231,7 @@ public class AuthService {
         boolean devBypass = otpDevMode && otpFixedCode.equals(req.getOtp()) && (existing == null || !LoginSecurityService.privileged(existing));
         if (!devBypass && !otpVerification.verify(email,OtpType.EMAIL_LOGIN,req.getOtp())) {
             loginSecurity.event(email,"LOGIN_FAILURE","FAILED","Invalid OTP",device,null);
+            loginSecurity.checkBlocked(email,device);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Invalid or expired OTP");
         }
         if (req.getChallengeId() != null) loginSecurity.consumeChallenge(req.getChallengeId(),email);

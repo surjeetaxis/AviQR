@@ -19,6 +19,7 @@ class BrowserSessionTest {
         assertThat(data.getRefreshToken()).isNull();assertThat(data.getTrustedDeviceToken()).isNull();
         assertThat(headers.get(HttpHeaders.SET_COOKIE)).allMatch(cookie->cookie.contains("HttpOnly") && cookie.contains("Secure") && cookie.contains("SameSite=Lax"));
         assertThat(headers.getFirst(HttpHeaders.SET_COOKIE)).contains("aviqr_refresh_customer=refresh");
+        assertThat(headers.get(HttpHeaders.SET_COOKIE)).anyMatch(cookie->cookie.contains("aviqr_trusted_device=device") && cookie.contains("Max-Age=1296000"));
         assertThat(headers.getCacheControl()).isEqualTo("no-store");
     }
     @Test void hostileOriginCannotUseBrowserCookiesEvenWithCsrfHeader() {

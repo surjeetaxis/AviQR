@@ -70,6 +70,7 @@ class LoginSecurityPersistenceTest {
     @Test void trustedCredentialIsHashedAndRevocationPreventsReuse() {
         var user=owner();var raw=security.trustDevice(user,DeviceInfo.builder().deviceId("test-device").build());
         var grant=records.findByUserIdAndKindAndStatus(user.getId(),"TRUSTED_DEVICE","ACTIVE").get(0);
+        assertThat(grant.getExpiresAt()).isBetween(LocalDateTime.now().plusDays(15).minusMinutes(1),LocalDateTime.now().plusDays(15).plusMinutes(1));
         assertThat(grant.getTokenHash()).isNotEqualTo(raw).isEqualTo(LoginSecurityService.hash(raw));
         assertThat(security.exempt(user,DeviceInfo.builder().trustedDeviceToken(raw).build())).isTrue();
         security.revokeGrants(user.getId());
@@ -87,5 +88,57 @@ class LoginSecurityPersistenceTest {
         assertThatThrownBy(()->security.checkBlocked(user.getEmail(),device)).hasMessageContaining("temporarily blocked");
         security.event(user.getEmail(),"LOGIN_UNBLOCK","COMPLETED","Verified identity",DeviceInfo.builder().build(),"admin");
         assertThatCode(()->security.checkBlocked(user.getEmail(),device)).doesNotThrowAnyException();
+    }
+    @Test void fifthFailureCreatesFixedOneHourLockAndExpiryRestartsCounter() {
+        var user=owner();var device=DeviceInfo.builder().ipAddress("198.51.100.10").build();
+        for(int i=0;i<4;i++)security.event(user.getEmail(),"LOGIN_FAILURE","FAILED","wrong password",device,null);
+        assertThatCode(()->security.checkBlocked(user.getEmail(),device)).doesNotThrowAnyException();
+        security.event(user.getEmail(),"LOGIN_FAILURE","FAILED","wrong OTP",device,null);
+        var lock=security.activeLock(user.getEmail()).orElseThrow();
+        assertThat(lock.getExpiresAt()).isBetween(lock.getCreatedAt().plusHours(1).minusSeconds(1),lock.getCreatedAt().plusHours(1).plusSeconds(1));
+        assertThatThrownBy(()->security.checkBlocked(user.getEmail(),device)).hasMessageContaining("one hour");
+        assertThat(security.activeLock(user.getEmail()).orElseThrow().getExpiresAt()).isEqualTo(lock.getExpiresAt());
+        lock.setCreatedAt(LocalDateTime.now().minusHours(2));
+        lock.setExpiresAt(LocalDateTime.now().minusHours(1));records.save(lock);
+        for(var failure:records.findAll()) if(user.getEmail().equals(failure.getEmail()) && "LOGIN_FAILURE".equals(failure.getKind())) {
+            failure.setCreatedAt(LocalDateTime.now().minusHours(2).minusMinutes(1));records.save(failure);
+        }
+        security.event(user.getEmail(),"LOGIN_FAILURE","FAILED","new attempt",device,null);
+        assertThat(security.activeLock(user.getEmail())).isEmpty();
+    }
+    @Test void otpSendingAllowsExactlyFivePerHourAndTracksActualIp() {
+        var user=owner();var device=DeviceInfo.builder().ipAddress("198.51.100.11").build();
+        for(int i=0;i<5;i++)security.reserveOtpSend(user.getEmail(),device,false);
+        assertThatThrownBy(()->security.reserveOtpSend(user.getEmail(),device,false)).hasMessageContaining("five codes");
+        assertThat(records.countByEmailAndKindAndCreatedAtAfter(user.getEmail(),"OTP_SEND",LocalDateTime.now().minusHours(1))).isEqualTo(5);
+        assertThat(records.countByIpAddressAndKindAndCreatedAtAfter(device.getIpAddress(),"OTP_SEND",LocalDateTime.now().minusHours(1))).isEqualTo(5);
+        // Recovery has a separate five-code quota so login-send exhaustion cannot prevent resetting.
+        assertThatCode(()->security.reserveOtpSend(user.getEmail(),device,true)).doesNotThrowAnyException();
+    }
+    @Test void resetUnlockRollsBackWithFailedPasswordChange() {
+        var user=owner();var device=DeviceInfo.builder().build();
+        for(int i=0;i<5;i++)security.event(user.getEmail(),"LOGIN_FAILURE","FAILED","wrong",device,null);
+        var transaction=new TransactionTemplate(transactions);
+        assertThatThrownBy(()->transaction.execute(status->{security.unlockAfterReset(user.getEmail(),device);throw new IllegalStateException("Reset failed");})).hasMessageContaining("Reset failed");
+        assertThat(security.activeLock(user.getEmail())).isPresent();
+        security.unlockAfterReset(user.getEmail(),device);
+        assertThat(security.activeLock(user.getEmail())).isEmpty();
+    }
+    @Test void simultaneousOtpRequestsCannotExceedQuota() throws Exception {
+        var user=owner();var device=DeviceInfo.builder().ipAddress("198.51.100.20").build();
+        var executor=java.util.concurrent.Executors.newFixedThreadPool(8);
+        try {
+            var jobs=new ArrayList<java.util.concurrent.Callable<Boolean>>();
+            for(int i=0;i<8;i++) jobs.add(()->{try{security.reserveOtpSend(user.getEmail(),device,false);return true;}
+                catch(org.springframework.web.server.ResponseStatusException e){assertThat(e.getStatusCode().value()).isEqualTo(429);return false;}});
+            int sent=0;for(var result:executor.invokeAll(jobs))if(result.get())sent++;
+            assertThat(sent).isEqualTo(5);
+        } finally {executor.shutdownNow();}
+    }
+    @Test void supportRecordsExcludeAdminAndSupportAccounts() {
+        var ordinary=owner();var privileged=owner();privileged.setRole(UserRole.ADMIN);users.save(privileged);
+        for(var user:List.of(ordinary,privileged))security.event(user.getEmail(),"BLOCKED_LOGIN","BLOCKED","wrong",DeviceInfo.builder().build(),null);
+        var page=records.findSupportRecords("BLOCKED_LOGIN",List.of(UserRole.ADMIN,UserRole.SUPPORT),org.springframework.data.domain.PageRequest.of(0,100));
+        assertThat(page.getContent()).extracting(LoginSecurityRecord::getEmail).contains(ordinary.getEmail()).doesNotContain(privileged.getEmail());
     }
 }

@@ -115,4 +115,24 @@ class LoginSecurityTest {
         assertThatThrownBy(()->LoginSecurityService.validatePassword("€".repeat(25))).hasMessageContaining("72");
         assertThatCode(()->LoginSecurityService.validatePassword("A secure long password")).doesNotThrowAnyException();
     }
+    @Test void ordinaryPasswordLoginDoesNotRequestOtp() {
+        var user=user(UserRole.OWNER,UserStatus.ACTIVE);
+        when(users.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(encoder.matches("password",user.getPasswordHash())).thenReturn(true);
+        when(jwt.generateRefreshToken(user.getId())).thenReturn("refresh");
+        when(sessions.save(any())).thenAnswer(inv->{RefreshToken session=inv.getArgument(0);session.setId(UUID.randomUUID());return session;});
+        when(jwt.generateAccessToken(eq(user),anyMap(),anyLong())).thenReturn("access");
+        var req=new LoginRequest();req.setEmail(user.getEmail());req.setPassword("password");
+        var result=auth.login(req);
+        assertThat(result.isRequiresOtp()).isFalse();assertThat(result.getAccessToken()).isEqualTo("access");
+        verify(security,never()).reserveOtpSend(any(),any(),anyBoolean());verify(security,never()).challenge(any(),any());
+    }
+    @Test void verifiedResetClearsLockOnlyAfterPasswordChange() {
+        var user=user(UserRole.OWNER,UserStatus.ACTIVE);
+        when(users.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(verification.verify(user.getEmail(),OtpType.PASSWORD_RESET,"123456")).thenReturn(true);
+        var req=new ResetPasswordRequest();req.setEmail(user.getEmail());req.setOtp("123456");req.setNewPassword("A secure new password");
+        auth.resetPassword(req);
+        var order=inOrder(users,sessions,security);order.verify(users).save(user);order.verify(sessions).deleteByUserId(user.getId());order.verify(security).unlockAfterReset(eq(user.getEmail()),any());
+    }
 }

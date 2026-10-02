@@ -41,10 +41,15 @@ public class AdminSecurityController {
     public ApiResponse<Page<LoginSecurityRecord>> records(@RequestParam(defaultValue="LOGIN_SUCCESS") String kind,
         @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="20") int size,
         @RequestHeader("X-User-Role") String role) {
-        admin(role);
-        var result = records.findByKindOrderByCreatedAtDesc(kind,PageRequest.of(Math.max(0,page),Math.min(100,Math.max(1,size))));
+        boolean support="SUPPORT".equals(role);
+        if(support && !Set.of("ACCOUNT_LOCK","BLOCKED_LOGIN").contains(kind))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Administrator access required");
+        if(!support) admin(role);
+        var pageable=PageRequest.of(Math.max(0,page),Math.min(100,Math.max(1,size)));
+        var result=support ? records.findSupportRecords(kind,List.of(UserRole.ADMIN,UserRole.SUPPORT),pageable) : records.findByKindOrderByCreatedAtDesc(kind,pageable);
         return ApiResponse.ok(result.map(r -> LoginSecurityRecord.builder().id(r.getId()).userId(r.getUserId()).email(r.getEmail())
-            .kind(r.getKind()).status("ACTIVE".equals(r.getStatus()) && r.getExpiresAt()!=null && r.getExpiresAt().isBefore(LocalDateTime.now()) ? "EXPIRED" : r.getStatus())
+            .kind(r.getKind()).status("ACCOUNT_LOCK".equals(r.getKind()) ?
+                (security.activeLock(r.getEmail()).filter(lock -> lock.getId().equals(r.getId())).isPresent()?"BLOCKED":r.getExpiresAt().isAfter(LocalDateTime.now())?"RELEASED":"EXPIRED") : "ACTIVE".equals(r.getStatus()) && r.getExpiresAt()!=null && r.getExpiresAt().isBefore(LocalDateTime.now()) ? "EXPIRED" : r.getStatus())
             .reason(r.getReason()).actorId(r.getActorId()).ipAddress(r.getIpAddress()).userAgent(r.getUserAgent()).deviceId(r.getDeviceId())
             .createdAt(r.getCreatedAt()).expiresAt(r.getExpiresAt()).build()));
     }
@@ -89,7 +94,11 @@ public class AdminSecurityController {
     @PostMapping("/unblock")
     public ApiResponse<Void> unblock(@Valid @RequestBody EmailRequest req,
         @RequestHeader("X-User-Role") String role, @RequestHeader("X-User-Id") String actor) {
-        admin(role);
+        if(!"SUPPORT".equals(role)) admin(role);
+        var target=users.findByEmail(req.email().trim().toLowerCase(Locale.ROOT))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,"User not found"));
+        if("SUPPORT".equals(role) && LoginSecurityService.privileged(target))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Support cannot unlock privileged accounts");
         security.event(req.email(),"LOGIN_UNBLOCK","COMPLETED",req.reason(),DeviceInfo.builder().build(),actor);
         audit.log("LOGIN_UNBLOCKED",actor,req.email()+": "+req.reason());
         return ApiResponse.ok("Account attempt lock cleared; IP limits and account status still apply",null);

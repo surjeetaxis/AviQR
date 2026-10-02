@@ -4,13 +4,13 @@ import './AdminLoginSecurity.css';
 
 const TABS = [
   ['LOGIN_SUCCESS', 'Login History'], ['LOGIN_FAILURE', 'Failed Logins'],
-  ['BLOCKED_LOGIN', 'Blocked Logins'], ['OTP_EXEMPTION', 'OTP Exemptions'],
+  ['ACCOUNT_LOCK', 'Blocked Accounts'], ['BLOCKED_LOGIN', 'Blocked Logins'], ['OTP_EXEMPTION', 'OTP Exemptions'],
   ['TRUSTED_DEVICE', 'Trusted Devices'], ['PASSWORD_RESET', 'Reset Password'], ['SUPPORT', 'Support Accounts'], ['ADMIN_ACTION', 'Admin Actions'],
 ];
 const format = value => value ? new Date(value).toLocaleString() : '—';
 
-export default function AdminLoginSecurity() {
-  const [kind, setKind] = useState('LOGIN_SUCCESS');
+export default function AdminLoginSecurity({supportOnly=false}) {
+  const [kind, setKind] = useState(supportOnly?'ACCOUNT_LOCK':'LOGIN_SUCCESS');
   const [page, setPage] = useState(0);
   const [data, setData] = useState({content: [], totalPages: 0});
   const [loading, setLoading] = useState(false);
@@ -75,7 +75,7 @@ export default function AdminLoginSecurity() {
     <header className="security-heading"><div><h1>Login Security</h1><p>Review sign-ins and manage access to AviQR.</p></div>
       <button type="button" onClick={load} disabled={loading || busy}>Refresh</button></header>
     <div className="security-tabs" role="tablist" aria-label="Login security sections">
-      {TABS.map(([key,label]) => <button type="button" key={key} role="tab" aria-selected={kind===key}
+      {TABS.filter(([key]) => !supportOnly || ['ACCOUNT_LOCK','BLOCKED_LOGIN'].includes(key)).map(([key,label]) => <button type="button" key={key} role="tab" aria-selected={kind===key}
         className={kind===key?'selected':''} onClick={() => {setKind(key);setPage(0);setAction(null);setMessage('');setError('');}}>{label}</button>)}
     </div>
     {error && <p className="security-error" role="alert">{error}</p>}
@@ -95,8 +95,8 @@ export default function AdminLoginSecurity() {
       <p>{action.type==='terminate'?'Termination blocks login and revokes all sessions and security grants.':action.type==='approve'?'Approval enables the account and requests a password setup code by email.':'This action will be recorded in the audit log.'}</p>
       <button type="submit" disabled={busy}>Confirm {action.type}</button><button type="button" disabled={busy} onClick={() => setAction(null)}>Cancel</button>
     </form>}
-    {kind==='TRUSTED_DEVICE' && <p>Devices become trusted only after OTP verification. Device credentials expire after 30 days; revoking a device also ends the user’s sessions.</p>}
-    {kind==='BLOCKED_LOGIN' && <p>These are historical blocked attempts. Account attempt locks expire after 15 minutes. Clearing a lock does not reactivate a suspended or terminated account.</p>}
+    {kind==='TRUSTED_DEVICE' && <p>Devices become trusted only after OTP verification. Device credentials expire after 15 days; revoking a device also ends the user’s sessions.</p>}
+    {['ACCOUNT_LOCK','BLOCKED_LOGIN'].includes(kind) && <p>These are historical blocked attempts. Account attempt locks expire after one hour. A verified password reset releases the account lock. Clearing a lock does not reactivate a suspended or terminated account.</p>}
     <div className="security-table-wrap"><table><thead><tr>
       <th>Account</th><th>Status</th><th>{kind==='SUPPORT'?'Last login':'Reason / method'}</th><th>{kind==='SUPPORT'?'Created':'Device / IP'}</th>
       {kind!=='SUPPORT' && <><th>Recorded</th><th>Expires</th></>}<th>Actions</th>
@@ -110,7 +110,7 @@ export default function AdminLoginSecurity() {
           {row.status==='PENDING' && <button disabled={busy} type="button" onClick={() => {setAction({type:'approve',row});setActionReason('');}}>Approve</button>}
           {row.status!=='TERMINATED' && <button disabled={busy} type="button" onClick={() => {setAction({type:'terminate',row});setActionReason('');}}>Terminate</button>}
         </> : ['OTP_EXEMPTION','TRUSTED_DEVICE'].includes(kind) && row.status==='ACTIVE' ? <button disabled={busy} type="button" onClick={() => {setAction({type:'revoke',row});setActionReason('');}}>Revoke</button>
-          : kind==='BLOCKED_LOGIN' ? <button disabled={busy} type="button" onClick={() => {setAction({type:'unblock',row});setActionReason('');}}>Clear account lock</button> : '—'}</td>
+          : kind==='ACCOUNT_LOCK' && row.status==='BLOCKED' ? <button disabled={busy} type="button" onClick={() => {setAction({type:'unblock',row});setActionReason('');}}>Clear account lock</button> : '—'}</td>
       </tr>)}
     </tbody></table></div>
     <footer className="security-pagination"><button disabled={page===0 || loading || busy} onClick={() => setPage(page-1)}>Previous</button>

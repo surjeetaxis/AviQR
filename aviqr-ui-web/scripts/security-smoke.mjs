@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_BROWSER_CHANNEL || 'chrome'});
 const page=await browser.newPage({viewport:{width:1440,height:1000},serviceWorkers:'block'});
 const support=[];
-let signedOut=false;
+let signedOut=false;let currentRole='ADMIN';
 const records={LOGIN_SUCCESS:[{id:'event',email:'admin@example.com',status:'SUCCESS',reason:'OTP verified login',createdAt:new Date().toISOString()}],
- BLOCKED_LOGIN:[{id:'blocked',email:'owner@example.com',status:'BLOCKED',reason:'Too many attempts'}],OTP_EXEMPTION:[]};
+ ACCOUNT_LOCK:[{id:'blocked',email:'owner@example.com',status:'BLOCKED',reason:'Too many attempts'}],OTP_EXEMPTION:[],TRUSTED_DEVICE:[{id:'device',email:'owner@example.com',status:'ACTIVE',ipAddress:'198.51.100.1',expiresAt:new Date(Date.now()+15*86400000).toISOString()}]};
 const calls=[];const errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 page.on('requestfailed',request=>console.error('Request failed:',request.url(),request.failure()?.errorText));
@@ -16,7 +16,7 @@ await page.route('**/api/v1/**',async route=>{
  const body=request.postDataJSON();calls.push({path,method,body});let data={};
  if(path.endsWith('/auth/refresh')) {
   if(signedOut || request.headers()['x-auth-audience']==='customer') return route.fulfill({status:401,json:{message:'No customer session'}});
-  data={userId:'admin',name:'Administrator',email:'admin@example.com',role:'ADMIN',accessToken:'memory-access'};
+  data={userId:'admin',name:'Administrator',email:'admin@example.com',role:currentRole,accessToken:'memory-access'};
  } else if(path.endsWith('/auth/logout')) { signedOut=true; }
  else if(path.endsWith('/auth/login')) { data={requiresOtp:true,challengeId:'password-challenge'}; }
  else if(path.endsWith('/auth/otp/login')) {
@@ -31,7 +31,7 @@ await page.route('**/api/v1/**',async route=>{
  else if(path.endsWith('/admin/users')) data={content:[{id:'owner',email:'owner@example.com',role:'OWNER'}],totalPages:1};
  else if(path.endsWith('/security/otp-exemptions')) {
   data={id:'grant',email:'owner@example.com',status:'ACTIVE',reason:body.reason,expiresAt:new Date(Date.now()+86400000).toISOString()};records.OTP_EXEMPTION.push(data);
- } else if(path.endsWith('/revoke')) records.OTP_EXEMPTION[0].status='REVOKED';
+ } else if(path.endsWith('/revoke')) Object.values(records).flat().find(record=>record.id===path.split('/').at(-2)).status='REVOKED';
  else if(path.includes('revenue-trend')) data=[];
  else if(path.endsWith('/users/stats')) data={total:1,admin:1};
  await route.fulfill({json:{success:true,data}});
@@ -51,7 +51,8 @@ try {
  await tab('OTP Exemptions');await page.getByLabel('Account email').fill('owner@example.com');await reason('Temporary exception');
  await page.getByLabel('Expires in days').fill('1');await click('Grant exemption');await status('ACTIVE');
  await click('Revoke');await reason('Exception ended');await click('Confirm revoke');await status('REVOKED');
- await tab('Blocked Logins');await click('Clear account lock');await reason('Owner verified');await click('Confirm unblock');
+ await tab('Trusted Devices');await status('ACTIVE');await click('Revoke');await reason('Device lost');await click('Confirm revoke');await status('REVOKED');
+ await tab('Blocked Accounts');await click('Clear account lock');await reason('Owner verified');await click('Confirm unblock');
  await page.getByText('Account attempt lock cleared. IP limits and account status still apply.',{exact:true}).waitFor();
  await tab('Reset Password');await page.getByLabel('Account email').fill('owner@example.com');await reason('Owner requested reset');await click('Send reset request');
  await page.getByText('Sessions revoked and password reset requested. The user completes the reset using the email code.').waitFor();
@@ -60,6 +61,7 @@ try {
  assert.deepEqual(errors,[]);
  await page.screenshot({path:'/private/tmp/aviqr-admin-login-security.png',fullPage:true});
  await click('Sign out');await page.goto(`${process.env.SECURITY_SMOKE_URL||'http://127.0.0.1:4179'}/login`);
+ await page.getByRole('checkbox',{name:/Trust this device for 15 days/}).check();
  await page.getByPlaceholder('you@restaurant.in').first().fill('admin@example.com');
  await page.locator('input[type=password]').fill('A secure admin password');await click('Sign in');
  await page.getByRole('group',{name:'One-time password'}).waitFor();
@@ -68,6 +70,16 @@ try {
  const afterLogin=await page.evaluate(()=>Object.entries(localStorage));
  assert.ok(!afterLogin.some(([key,value])=>/token|refresh/.test(key)||value.includes('verified-memory-access')));
  assert.deepEqual(errors,[]);
- console.log('PASS: support lifecycle, OTP exemption/revocation, blocked-login controls, password resets, password→OTP login, no stored browser tokens.');
+ // Support can see account locks and unlock ordinary users, with no grant/lifecycle tabs.
+ await Promise.all([page.waitForResponse(response=>response.url().endsWith('/auth/logout')),click('Sign out')]);
+ currentRole='SUPPORT';signedOut=false;
+ await page.goto(`${process.env.SECURITY_SMOKE_URL||'http://127.0.0.1:4179'}/support`);
+ await click('Login Security');await status('owner@example.com');
+ assert.equal(await page.getByRole('tab').count(),2);
+ assert.equal(await page.getByRole('tab',{name:'Trusted Devices',exact:true}).count(),0);
+ await click('Clear account lock');await reason('Support verified user identity');await click('Confirm unblock');
+ await page.getByText('Account attempt lock cleared. IP limits and account status still apply.',{exact:true}).waitFor();
+ assert.deepEqual(errors,[]);
+ console.log('PASS: support lifecycle, OTP exemption/revocation, blocked-login controls, password resets, password→OTP login, visible 15-day trust option, support blocked-account controls, no stored browser tokens.');
  console.log(`Verified ${calls.filter(call=>call.path.includes('/admin/security/')).length} security API interactions.`);
 } catch (error) { await page.screenshot({path:'/private/tmp/aviqr-security-smoke-failure.png',fullPage:true}); console.error('UI errors:',errors); console.error('API paths:',calls.map(call=>call.path)); throw error; } finally {await browser.close();}

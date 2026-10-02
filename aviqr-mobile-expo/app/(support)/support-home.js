@@ -15,6 +15,7 @@ import { Colors, FontSize, Spacing, Radius } from '../../src/theme/index.js';
 const PRIORITY_COLOR = { LOW:'#6B7280', MEDIUM:'#2563EB', HIGH:'#D97706', URGENT:'#DC2626' };
 const FILTERS = ['ALL','OPEN','PENDING','RESOLVED','CLOSED'];
 const NAV_ITEMS = [
+  { icon: '🔐', label: 'Login Security', href: '/(support)/support-login-security' },
   { icon: '🧾', label: 'Orders',      href: '/(support)/support-orders' },
   { icon: '💳', label: 'Payments',    href: '/(support)/support-payments' },
   { icon: '👥', label: 'Users',       href: '/(support)/support-users' },

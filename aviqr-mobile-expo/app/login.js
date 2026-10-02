@@ -78,6 +78,10 @@ export default function Login() {
           ))}
         </View>
 
+        <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:trustDevice}} onPress={()=>setTrustDevice(!trustDevice)} style={{marginBottom:12}}>
+          <Text>{trustDevice?'☑':'☐'} Trust this device for 15 days (saved after OTP verification)</Text>
+        </TouchableOpacity>
+        <Text style={{marginBottom:12}}>Admin/support require password + OTP. Five wrong attempts lock the account for one hour. Reset your password to unlock it. Maximum five OTP sends per hour.</Text>
         {tab==='password'?(
           <View>
             <Input label="Email" placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none"/>
@@ -93,9 +97,6 @@ export default function Login() {
             {sent?(
               <View>
                 <Input label="OTP" placeholder="123456" value={otp} onChangeText={setOtp} keyboardType="number-pad"/>
-                <TouchableOpacity onPress={()=>setTrustDevice(!trustDevice)} style={{marginBottom:12}}>
-                  <Text>{trustDevice?'☑':'☐'} Trust this device for 30 days (excludes admin/support)</Text>
-                </TouchableOpacity>
                 <Button title={loading?'Verifying…':'Verify & Login'} onPress={verifyOtp} loading={loading}/>
                 <TouchableOpacity onPress={sendOtp} style={ss.resend}><Text style={ss.resendTxt}>Resend OTP</Text></TouchableOpacity>
               </View>

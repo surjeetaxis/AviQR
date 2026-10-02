@@ -20,9 +20,9 @@ Existing support accounts retain their existing statuses during migration. Revie
 ### Console tabs
 
 - **Login History / Failed Logins:** recorded account, result, method/reason, device metadata, IP and timestamp.
-- **Blocked Logins:** historical blocked attempts. Five failed attempts per account or 30 per IP within 15 minutes trigger a temporary lock. An administrator may clear the account attempt lock with a reason; IP limits and account status still apply.
+- **Blocked Logins:** historical blocked attempts. Five wrong password/OTP attempts within one hour create a fixed one-hour account lock. Thirty failures per IP within one hour also block login. A verified password reset clears the account lock. Admin and support can review blocked accounts; support can unlock ordinary accounts only. Unblocking requires a reason; IP limits and account status still apply.
 - **OTP Exemptions:** an administrator may grant a reasoned exception lasting 1–30 days for an active non-privileged account. The password is still required. ADMIN and SUPPORT cannot receive exemptions.
-- **Trusted Devices:** an opaque credential is issued only after successful OTP verification and explicit user consent, expires after 30 days, and is stored as a SHA-256 hash. A supplied device ID is never proof of trust. Revoking a device/exemption also revokes the user's sessions. ADMIN/SUPPORT cannot skip OTP using device trust.
+- **Trusted Devices:** an opaque credential is issued only after successful OTP verification and explicit user consent, expires after 15 days, and is stored as a SHA-256 hash. A supplied device ID is never proof of trust. Revoking a device/exemption also revokes the user's sessions. ADMIN/SUPPORT cannot skip OTP using device trust.
 - **Reset Password:** an administrator requests the existing verified-email reset flow and revokes sessions/grants. No administrator receives the user's code or password. Delivery depends on the configured email provider and RabbitMQ pipeline.
 - **Support Accounts:** pending, active, suspended/inactive legacy accounts and terminated accounts, with approve/terminate controls.
 - **Admin Actions:** durable PostgreSQL history of support creation, approval, termination and security-grant revocation.
@@ -31,7 +31,7 @@ Existing support accounts retain their existing statuses during migration. Revie
 
 - Public registration accepts only OWNER, HOTEL, MALL, SUPPLIER and CUSTOMER. Staff and privileged roles require administrator provisioning.
 - Passwords require at least 12 characters and at most 72 UTF-8 bytes to avoid bcrypt truncation. Existing passwords still work for login.
-- Password login requires an OTP by default. ADMIN and SUPPORT always require both, even when the ordinary-user OTP setting is overridden.
+- Ordinary users can sign in with email/password or email/OTP. ADMIN and SUPPORT always require password followed by OTP. The trusted-device checkbox is visible on the initial sign-in form; a device credential is saved only after OTP verification.
 - OTP generation uses SecureRandom. Verification checks only the newest live code; five failures consume it. Codes and password challenges are single-use. Attempt counters use an independent transaction, so a failed login cannot roll back the counters.
 - Inactive, suspended, pending and terminated accounts cannot log in or refresh. Auth-service checks active account/session state for every protected gateway request. Auth-service outages fail closed.
 - Access JWTs expire after 15 minutes, carry tokenType=access and a database session ID. Refresh JWTs cannot authenticate API requests. Refresh-token rotation preserves the session ID; only refresh-token hashes are stored. Impersonation and outlet/vendor/shop-scoped tokens inherit a revocable session.
@@ -49,6 +49,8 @@ Auth-service Liquibase change **003-login-security**:
 - widens the users.status check constraint for PENDING and TERMINATED;
 - adds otp_records.failed_attempts with a zero default;
 - creates login_security_records and indexes for account/event/time/token lookups.
+
+Migration 004 caps existing trusted-device credentials at 15 days from issuance and adds an IP counter index.
 
 Login events, grants, challenges and admin security actions are persisted in PostgreSQL. Existing general audit events continue to use MongoDB. Raw passwords, OTPs, trusted-device credentials and refresh credentials must not be written into audit records. ADMIN responses omit stored credential hashes.
 
@@ -103,3 +105,5 @@ Track these organizational requirements separately from the code change:
 | Assurance | Internal audits, management reviews and corrective-action evidence |
 
 These controls are an implementation contribution, not a declaration that the entire application or organization is secure or ISO certified.
+
+OTP sending allows five login codes per account per hour and a separate five password-reset codes per hour for recovery. Both count toward a 30-code IP limit per hour. Counters are serialized with PostgreSQL transaction locks and persist even if delivery/login transactions fail. Only trusted proxy forwarding is used for recorded client IP; configure TRUSTED_PROXY_IPS for the deployed proxy.

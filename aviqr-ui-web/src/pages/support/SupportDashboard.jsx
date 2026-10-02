@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { supportApi, orderApi, authApi, shopApi, paymentApi, ocrApi, auditApi, planApi, offerApi } from '../../api/index.js';
 import { AdminQRCodesPage, AdminReports } from '../admin/AdminDashboard.jsx';
+import AdminLoginSecurity from '../admin/AdminLoginSecurity.jsx';
 import AdminLeadsPage from '../admin/AdminLeadsPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import {
@@ -43,6 +44,7 @@ const NAV = [
   { key:'shops',       label:'Shops',          icon:Store },
   { key:'qrcodes',     label:'QR Codes',       icon:QrCode },
   { key:'ocr',         label:'OCR Jobs',       icon:ScanLine },
+  { key:'security', label:'Login Security', icon:Shield },
   { key:'audit',       label:'Audit Logs',     icon:FileText },
   { key:'reports',     label:'Reports',        icon:TrendingUp },
   { key:'billing',     label:'Billing',        icon:Layers },
@@ -159,6 +161,7 @@ export default function SupportDashboard() {
         </header>
 
         <main className="admin-content">
+          {tab === 'security' && <AdminLoginSecurity supportOnly />}
           {tab === 'overview'    && <SupportOverview onNavigate={setTab} tickets={tickets} orders={orders} auditLogs={auditLogs} />}
           {tab === 'tickets'     && <TicketsPanel tickets={tickets} onUpdate={t => setTickets(ts => ts.map(x => x.id===t.id?t:x))} />}
           {tab === 'orders'      && <OrdersPanel orders={orders} />}

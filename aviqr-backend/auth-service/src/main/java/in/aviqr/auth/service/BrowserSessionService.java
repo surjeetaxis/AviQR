@@ -40,7 +40,7 @@ public class BrowserSessionService {
                 data.setRefreshToken(null);
             }
             if (data.getTrustedDeviceToken()!=null) {
-                headers.add(HttpHeaders.SET_COOKIE,serializeCookie("aviqr_trusted_device",data.getTrustedDeviceToken(),2592000));
+                headers.add(HttpHeaders.SET_COOKIE,serializeCookie("aviqr_trusted_device",data.getTrustedDeviceToken(),1296000));
                 data.setTrustedDeviceToken(null);
             }
         }

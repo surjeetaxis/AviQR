@@ -71,4 +71,16 @@ class AdminSecurityTest {
         assertThatThrownBy(()->controller.revoke(record.getId(),new AdminSecurityController.ActionRequest("remove"),"ADMIN",actor)).hasMessageContaining("Only grants");
         verify(records,never()).save(any());
     }
+    @Test void supportCanReviewOrdinaryAccountLocksButCannotUnlockPrivilegedAccounts() {
+        when(records.findSupportRecords(eq("ACCOUNT_LOCK"),any(),any())).thenReturn(org.springframework.data.domain.Page.empty());
+        controller.records("ACCOUNT_LOCK",0,20,"SUPPORT");
+        verify(records).findSupportRecords(eq("ACCOUNT_LOCK"),eq(List.of(UserRole.ADMIN,UserRole.SUPPORT)),any());
+        var target=support(UserStatus.ACTIVE);when(users.findByEmail(target.getEmail())).thenReturn(Optional.of(target));
+        assertThatThrownBy(()->controller.unblock(new AdminSecurityController.EmailRequest(target.getEmail(),"Verified"),"SUPPORT",actor)).hasMessageContaining("privileged");
+        verifyNoInteractions(security);
+    }
+    @Test void supportCannotRevokeTrustedDevices() {
+        assertThatThrownBy(()->controller.revoke(UUID.randomUUID(),new AdminSecurityController.ActionRequest("reason"),"SUPPORT",actor)).hasMessageContaining("Administrator");
+        verifyNoInteractions(records,sessions);
+    }
 }

@@ -12,13 +12,13 @@ public class OtpVerificationService {
     private final PasswordEncoder encoder;
     @Transactional(propagation=Propagation.REQUIRES_NEW)
     public boolean verify(String email, OtpType type, String code) {
-        var candidates = records.findByTargetAndTypeAndUsedFalseAndExpiresAtAfterOrderByCreatedAtDesc(email,type,LocalDateTime.now());
+        var candidates = records.findByTargetAndTypeAndExpiresAtAfterOrderByCreatedAtDesc(email,type,LocalDateTime.now());
         if (candidates.isEmpty()) return false;
         var latest = candidates.get(0);
-        if (latest.getFailedAttempts() >= 5) return false;
+        if (Boolean.TRUE.equals(latest.getUsed()) || latest.getFailedAttempts() >= 5) return false;
         boolean valid = encoder.matches(code,latest.getOtp());
         if (valid) latest.setUsed(true);
-        else { latest.setFailedAttempts(latest.getFailedAttempts()+1); if (latest.getFailedAttempts() >= 5) latest.setUsed(true); }
+        else { latest.setFailedAttempts(latest.getFailedAttempts()+1); if (Boolean.TRUE.equals(latest.getUsed()) || latest.getFailedAttempts() >= 5) latest.setUsed(true); }
         records.save(latest);
         return valid;
     }

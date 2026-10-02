@@ -48,8 +48,8 @@ public class AuthController {
 
     // POST /api/v1/auth/otp/send
     @PostMapping("/otp/send")
-    public ResponseEntity<ApiResponse<String>> sendOtp(@Valid @RequestBody SendOtpRequest req) {
-        return ResponseEntity.ok(ApiResponse.ok(authService.sendOtp(req)));
+    public ResponseEntity<ApiResponse<String>> sendOtp(@Valid @RequestBody SendOtpRequest req,HttpServletRequest httpReq) {
+        return ResponseEntity.ok(ApiResponse.ok(authService.sendOtp(req,deviceInfo(null,null,null,null,httpReq))));
     }
 
     // POST /api/v1/auth/otp/login
@@ -148,14 +148,14 @@ public class AuthController {
 
     // POST /api/v1/auth/forgot-password
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestParam String email) {
-        return ResponseEntity.ok(ApiResponse.ok(authService.forgotPassword(email)));
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@RequestParam String email,HttpServletRequest httpReq) {
+        return ResponseEntity.ok(ApiResponse.ok(authService.forgotPassword(email,deviceInfo(null,null,null,null,httpReq))));
     }
 
     // POST /api/v1/auth/reset-password
     @PostMapping("/reset-password")
-    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
-        authService.resetPassword(req);
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest req,HttpServletRequest httpReq) {
+        authService.resetPassword(req,deviceInfo(null,null,null,null,httpReq));
         return ResponseEntity.ok(ApiResponse.ok("Password reset successful", null));
     }
 

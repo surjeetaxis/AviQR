@@ -6,4 +6,5 @@
     <include file="db/changelog/changes/001-refresh-token-session-columns.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/002-otp-records-email-login-type.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/003-login-security.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/004-trusted-device-policy.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>
