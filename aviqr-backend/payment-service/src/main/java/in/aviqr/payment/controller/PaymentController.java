@@ -33,6 +33,13 @@ public class PaymentController {
 
     private final PaymentRepository repo;
     private final RestTemplate restTemplate;
+    @org.springframework.beans.factory.annotation.Autowired private org.springframework.core.env.Environment environment;
+    @Value("${app.payment.allow-mock:false}") private boolean allowMock;
+    @jakarta.annotation.PostConstruct void validateProductionKeys(){
+        if(environment.acceptsProfiles(org.springframework.core.env.Profiles.of("production")) &&
+           (allowMock || razorpayKeyId==null || razorpayKeyId.contains("placeholder") || razorpaySecret==null || razorpaySecret.length()<16 || razorpaySecret.contains("placeholder") || razorpayWebhookSecret==null || razorpayWebhookSecret.length()<32 || razorpayWebhookSecret.contains("placeholder")))
+            throw new IllegalStateException("Production payments require real provider credentials and a webhook secret of at least 32 characters");
+    }
 
     @Value("${razorpay.key.id:rzp_test_placeholder}")
     private String razorpayKeyId;
@@ -131,7 +138,7 @@ public class PaymentController {
         } catch (Exception e) {
             log.error("Razorpay order creation failed: {}", e.getMessage(), e);
             // Graceful degradation in dev/staging with placeholder keys
-            if (razorpayKeyId.startsWith("rzp_test_placeholder")) {
+            if (allowMock && razorpayKeyId.startsWith("rzp_test_placeholder")) {
                 String mockId = "order_mock_" + UUID.randomUUID().toString().replace("-","").substring(0,16);
                 result.put("razorpayOrderId", mockId);
                 result.put("amount",   req.getAmount().multiply(BigDecimal.valueOf(100)).longValue());
@@ -147,13 +154,14 @@ public class PaymentController {
     }
 
     /** Verify Razorpay payment signature — called after Razorpay checkout completes */
+    @org.springframework.transaction.annotation.Transactional
     @PostMapping("/verify")
     public ResponseEntity<ApiResponse<Map<String,Object>>> verify(@RequestBody PaymentVerifyRequest req,
         @RequestHeader(value="X-User-Id",defaultValue="") String uid,
         @RequestHeader(value="X-User-Role",defaultValue="") String role,
         @RequestHeader(value="X-Shop-Id",defaultValue="") String callerShop,
         @RequestHeader(value="X-Internal-Secret",defaultValue="") String internal) {
-        var stored=repo.findByRazorpayOrderId(req.getRazorpayOrderId()).orElse(null);
+        var stored=repo.lockByRazorpayOrderId(req.getRazorpayOrderId()).orElse(null);
         if(stored==null || !Objects.equals(stored.getOrderId(),req.getOrderId()))return ResponseEntity.badRequest().body(ApiResponse.error("Payment order mismatch"));
         boolean allowed=in.aviqr.security.ServiceTrustConfiguration.matches(internalSyncSecret,internal) || PLATFORM_ROLES.contains(role) ||
             (!uid.isBlank() && uid.equals(stored.getCustomerId())) || (SHOP_VIEW_ROLES.contains(role) && Objects.equals(stored.getShopId(),callerShop));
@@ -167,6 +175,11 @@ public class PaymentController {
             boolean valid = req.getRazorpaySignature()!=null && java.security.MessageDigest.isEqual(generated.getBytes(StandardCharsets.UTF_8),req.getRazorpaySignature().getBytes(StandardCharsets.UTF_8));
             if(!valid)return ResponseEntity.badRequest().body(ApiResponse.error("Invalid payment signature"));
 
+            if(stored.getStatus()==PaymentStatus.REFUNDED)return ResponseEntity.status(409).body(ApiResponse.error("Payment already refunded"));
+            if((stored.getStatus()==PaymentStatus.CAPTURED || stored.getStatus()==PaymentStatus.AUTHORIZED) && !Objects.equals(stored.getPaymentId(),req.getRazorpayPaymentId()))
+                return ResponseEntity.status(409).body(ApiResponse.error("Payment already verified with another payment reference"));
+            if(stored.getStatus()==PaymentStatus.CAPTURED || stored.getStatus()==PaymentStatus.AUTHORIZED)
+                return ResponseEntity.ok(ApiResponse.ok(Map.of("verified",true,"orderId",req.getOrderId())));
             var paymentOpt = Optional.of(stored);
             paymentOpt.ifPresent(p -> {
                 p.setPaymentId(req.getRazorpayPaymentId());
@@ -195,6 +208,7 @@ public class PaymentController {
     }
 
     /** Razorpay webhook — processes payment.captured, payment.failed, refund.processed events */
+    @org.springframework.transaction.annotation.Transactional
     @PostMapping("/webhook/razorpay")
     public ResponseEntity<String> webhook(
             @RequestBody String payload,
@@ -239,7 +253,9 @@ public class PaymentController {
                 String rzpPayId   = paymentEntity.optString("id");
 
                 switch (eventName) {
-                    case "payment.captured" -> repo.findByRazorpayOrderId(rzpOrderId).ifPresent(p -> {
+                    case "payment.captured" -> repo.lockByRazorpayOrderId(rzpOrderId).ifPresent(p -> {
+                        if(p.getStatus()==PaymentStatus.REFUNDED || p.getStatus()==PaymentStatus.CAPTURED)return;
+                        if(paymentEntity.optLong("amount",-1)!=p.getAmount().multiply(BigDecimal.valueOf(100)).longValueExact() || !p.getCurrency().equals(paymentEntity.optString("currency")))throw new IllegalArgumentException("Webhook amount or currency mismatch");
                         p.setPaymentId(rzpPayId);
                         p.setStatus(PaymentStatus.CAPTURED);
                         p.setPaidAt(LocalDateTime.now());
@@ -247,12 +263,13 @@ public class PaymentController {
                         log.info("Webhook: payment.captured for orderId={}", rzpOrderId);
                         syncOrderPaymentCaptured(p.getOrderId(), p.getTargetType());
                     });
-                    case "payment.failed" -> repo.findByRazorpayOrderId(rzpOrderId).ifPresent(p -> {
+                    case "payment.failed" -> repo.lockByRazorpayOrderId(rzpOrderId).ifPresent(p -> {
+                        if(p.getStatus()==PaymentStatus.CAPTURED || p.getStatus()==PaymentStatus.REFUNDED)return;
                         p.setStatus(PaymentStatus.FAILED);
                         repo.save(p);
                         log.info("Webhook: payment.failed for orderId={}", rzpOrderId);
                     });
-                    case "refund.processed" -> repo.findByRazorpayOrderId(rzpOrderId).ifPresent(p -> {
+                    case "refund.processed" -> repo.lockByRazorpayOrderId(rzpOrderId).ifPresent(p -> {
                         p.setStatus(PaymentStatus.REFUNDED);
                         p.setRefundedAt(LocalDateTime.now());
                         repo.save(p);
@@ -262,7 +279,8 @@ public class PaymentController {
                 }
             }
         } catch (Exception e) {
-            log.error("Webhook processing error: {}", e.getMessage(), e);
+            log.error("Webhook processing error", e);
+            return ResponseEntity.status(500).body("Webhook processing failed");
         }
 
         return ResponseEntity.ok("OK");
@@ -338,7 +356,7 @@ public class PaymentController {
             }
             if(p.getStatus()!=PaymentStatus.CAPTURED)return ResponseEntity.status(409).body(ApiResponse.<Map<String,Object>>error("Only captured payments can be refunded"));
             try {
-                if (!razorpaySecret.startsWith("rzp_test_placeholder")) {
+                if (!allowMock || !razorpaySecret.startsWith("rzp_test_placeholder")) {
                     RazorpayClient rzp = new RazorpayClient(razorpayKeyId, razorpaySecret);
                     rzp.payments.refund(p.getPaymentId(), new JSONObject().put("speed","normal"));
                 }
@@ -368,7 +386,7 @@ public class PaymentController {
             if (p.getStatus() != PaymentStatus.AUTHORIZED)
                 return ResponseEntity.badRequest().body(ApiResponse.<Payment>error("Only an AUTHORIZED hold can be captured (current status: " + p.getStatus() + ")"));
             try {
-                if (!razorpayKeyId.startsWith("rzp_test_placeholder")) {
+                if (!allowMock || !razorpayKeyId.startsWith("rzp_test_placeholder")) {
                     RazorpayClient rzp = new RazorpayClient(razorpayKeyId, razorpaySecret);
                     long amountPaise = p.getAmount().multiply(BigDecimal.valueOf(100)).longValue();
                     rzp.payments.capture(p.getPaymentId(), new JSONObject().put("amount", amountPaise).put("currency", p.getCurrency()));
