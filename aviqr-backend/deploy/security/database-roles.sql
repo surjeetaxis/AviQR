@@ -18,6 +18,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE :"migration_role" IN SCHEMA public GRANT USAGE
 SELECT format('REVOKE UPDATE, DELETE ON public.login_security_records FROM %I', :'app_role') WHERE to_regclass('public.login_security_records') IS NOT NULL \gexec
 SELECT format('GRANT UPDATE (status) ON public.login_security_records TO %I', :'app_role') WHERE to_regclass('public.login_security_records') IS NOT NULL \gexec
 
--- The migration ledger is maintained only by the migrator.
-SELECT format('REVOKE ALL ON public.databasechangelog FROM %I', :'app_role') WHERE to_regclass('public.databasechangelog') IS NOT NULL \gexec
-SELECT format('REVOKE ALL ON public.databasechangeloglock FROM %I', :'app_role') WHERE to_regclass('public.databasechangeloglock') IS NOT NULL \gexec
+-- Runtime can read checksums and lock state during startup, but only the migrator writes the ledger.
+SELECT format('GRANT SELECT ON public.databasechangelog TO %I', :'app_role') WHERE to_regclass('public.databasechangelog') IS NOT NULL \gexec
+SELECT format('REVOKE INSERT, UPDATE, DELETE ON public.databasechangelog FROM %I', :'app_role') WHERE to_regclass('public.databasechangelog') IS NOT NULL \gexec
+SELECT format('GRANT SELECT ON public.databasechangeloglock TO %I', :'app_role') WHERE to_regclass('public.databasechangeloglock') IS NOT NULL \gexec
+SELECT format('REVOKE INSERT, UPDATE, DELETE ON public.databasechangeloglock FROM %I', :'app_role') WHERE to_regclass('public.databasechangeloglock') IS NOT NULL \gexec
