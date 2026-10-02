@@ -136,7 +136,7 @@ export default function Settings() {
 
   // Payment method modal
   const [payModal, setPayModal]   = useState(null); // null | { type, mode:'enable'|'configure' }
-  const [payForm, setPayForm]     = useState({ razorpayKeyId:'', upiId:'', loyaltyPointsPerRupee:1, loyaltyRedemptionRate:100 });
+  const [payForm, setPayForm]     = useState({ razorpayKeyId:'', razorpayKeySecret:'', razorpayWebhookSecret:'', upiId:'', loyaltyPointsPerRupee:1, loyaltyRedemptionRate:100 });
   const [paySaving, setPaySaving] = useState(false);
   const [payError, setPayError]   = useState('');
 
@@ -306,6 +306,8 @@ export default function Settings() {
     setPayError('');
     setPayForm({
       razorpayKeyId: settings.razorpayKeyId || '',
+      razorpayKeySecret: '',
+      razorpayWebhookSecret: '',
       upiId: settings.upiId || '',
       loyaltyPointsPerRupee: settings.loyaltyPointsPerRupee || 1,
       loyaltyRedemptionRate: settings.loyaltyRedemptionRate || 100,
@@ -318,13 +320,17 @@ export default function Settings() {
     if (!shopId || !payModal) return;
     const { type } = payModal;
     setPayError('');
-    if (type === 'online' && !payForm.razorpayKeyId.trim())
-      return setPayError('Razorpay Key ID is required');
+    if (type === 'online' && (!payForm.razorpayKeyId.trim() || !payForm.razorpayKeySecret.trim() || !payForm.razorpayWebhookSecret.trim()))
+      return setPayError('Razorpay Key ID, Key Secret, and Webhook Secret are required to enable online payments');
     if (type === 'upi' && !payForm.upiId.trim())
       return setPayError('UPI ID is required');
     setPaySaving(true);
     const patch = { [`${type}Enabled`]: true };
-    if (type === 'online')  patch.razorpayKeyId = payForm.razorpayKeyId.trim();
+    if (type === 'online') {
+      patch.razorpayKeyId = payForm.razorpayKeyId.trim();
+      patch.razorpayKeySecret = payForm.razorpayKeySecret.trim();
+      patch.razorpayWebhookSecret = payForm.razorpayWebhookSecret.trim();
+    }
     if (type === 'upi')     patch.upiId = payForm.upiId.trim();
     if (type === 'loyalty') {
       patch.loyaltyPointsPerRupee = Number(payForm.loyaltyPointsPerRupee);
@@ -333,7 +339,10 @@ export default function Settings() {
     const updated = { ...settings, ...patch };
     try {
       await shopApi.saveSettings(shopId, updated);
-      setSettings(updated);
+      const safeSettings = { ...updated };
+      delete safeSettings.razorpayKeySecret;
+      delete safeSettings.razorpayWebhookSecret;
+      setSettings(safeSettings);
       setPayModal(null);
     } catch (e) { setPayError(e.response?.data?.message || 'Save failed'); }
     finally { setPaySaving(false); }
@@ -915,16 +924,16 @@ export default function Settings() {
               ))}
             </div>
 
-            {/* Razorpay — server-side note */}
+            {/* Razorpay is optional and configured independently for each business. */}
             <div style={{ background:'white', borderRadius:12, border:'1px solid var(--gray-200)', padding:24 }}>
-              <SectionHeader title="Payment Gateway" subtitle="Razorpay credentials for card and net banking payments"/>
+              <SectionHeader title="Payment Gateway" subtitle="Connect Razorpay only if your business wants to accept online payments"/>
               <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'#F8FAFC', borderRadius:10, border:'1px solid var(--gray-200)' }}>
                 <div style={{ width:40, height:40, borderRadius:10, background:'#EEF2FF', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>💳</div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:14, fontWeight:600 }}>Razorpay</div>
-                  <div style={{ fontSize:12, color:'var(--gray-500)' }}>Configure via server environment: RAZORPAY_KEY_ID + RAZORPAY_KEY_SECRET</div>
+                  <div style={{ fontSize:12, color:'var(--gray-500)' }}>Optional. Each shop, hotel, or resort uses its own Razorpay account. Cash and direct UPI can be used without it.</div>
                 </div>
-                <span style={{ fontSize:11, fontWeight:700, color:"#65766c", background:"#eaf0ed", padding:'3px 10px', borderRadius:999 }}>Server-side config</span>
+                <span style={{ fontSize:11, fontWeight:700, color:settings.onlineEnabled ? '#047857' : '#65766c', background:settings.onlineEnabled ? '#D1FAE5' : '#eaf0ed', padding:'3px 10px', borderRadius:999 }}>{settings.onlineEnabled ? 'Connected' : 'Optional'}</span>
               </div>
             </div>
           </div>
@@ -1260,16 +1269,26 @@ export default function Settings() {
                   </>
                 )}
 
-                {/* ONLINE — Razorpay Key ID */}
+                {/* ONLINE — client-owned Razorpay account */}
                 {type === 'online' && (
                   <>
                     <div style={{ padding:'10px 14px', background:'#EFF6FF', borderRadius:8, border:'1px solid #BFDBFE', fontSize:12, color:'#1D4ED8' }}>
-                      <strong>Where to find your Key ID:</strong> Log in to <em>dashboard.razorpay.com</em> → Settings → API Keys → Generate Key. Copy the <strong>Key ID</strong> (starts with <code>rzp_</code>).
+                      <strong>Optional setup:</strong> Use this business’s Razorpay account. Find API keys at <em>dashboard.razorpay.com</em> → Settings → API Keys. The webhook signing secret is set when configuring a webhook in Razorpay. Leave Razorpay disconnected to accept cash or direct UPI only.
                     </div>
-                    <Field label="Razorpay Key ID *" hint="Public key — safe to store here (starts with rzp_live_ or rzp_test_)">
+                    <Field label="Razorpay Key ID *" hint="Starts with rzp_live_ or rzp_test_">
                       <input className="field-input" placeholder="rzp_live_XXXXXXXXXXXX"
                         value={payForm.razorpayKeyId}
                         onChange={e => setPayForm(f => ({ ...f, razorpayKeyId:e.target.value }))}/>
+                    </Field>
+                    <Field label="Razorpay Key Secret *" hint="Stored for this business and never returned by the settings API">
+                      <input className="field-input" type="password" autoComplete="new-password" placeholder="Enter the business's Razorpay Key Secret"
+                        value={payForm.razorpayKeySecret}
+                        onChange={e => setPayForm(f => ({ ...f, razorpayKeySecret:e.target.value }))}/>
+                    </Field>
+                    <Field label="Razorpay Webhook Secret *" hint="At least 32 characters; use the signing secret configured for this business's Razorpay webhook">
+                      <input className="field-input" type="password" autoComplete="new-password" placeholder="Enter this business's webhook signing secret"
+                        value={payForm.razorpayWebhookSecret}
+                        onChange={e => setPayForm(f => ({ ...f, razorpayWebhookSecret:e.target.value }))}/>
                     </Field>
                   </>
                 )}

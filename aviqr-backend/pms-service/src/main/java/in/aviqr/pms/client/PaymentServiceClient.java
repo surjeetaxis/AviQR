@@ -39,6 +39,7 @@ public class PaymentServiceClient {
             "preAuth", preAuth);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Internal-Secret", internalSyncSecret);
         Map<?,?> resp = restTemplate.exchange(paymentServiceUrl + "/api/v1/payments/create-order",
             HttpMethod.POST, new HttpEntity<>(body, headers), Map.class).getBody();
         Object data = resp != null ? resp.get("data") : null;
@@ -53,6 +54,7 @@ public class PaymentServiceClient {
             "orderId", reservationId.toString());
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Internal-Secret", internalSyncSecret);
         Map<?,?> resp = restTemplate.exchange(paymentServiceUrl + "/api/v1/payments/verify",
             HttpMethod.POST, new HttpEntity<>(body, headers), Map.class).getBody();
         Object data = resp != null ? resp.get("data") : null;

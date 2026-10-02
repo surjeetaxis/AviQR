@@ -2,6 +2,7 @@ package in.aviqr.shop.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.UUID;
 
 @Entity @Table(name="shop_settings")
@@ -11,7 +12,12 @@ public class ShopSettings {
 
     // Payment gateways
     private String razorpayKeyId;
+    @Convert(converter = in.aviqr.shop.security.RazorpaySecretConverter.class)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String razorpayKeySecret;
+    @Convert(converter = in.aviqr.shop.security.RazorpaySecretConverter.class)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String razorpayWebhookSecret;
     private String phonePeMerchantId;
     private Boolean cashEnabled;
     private Boolean onlineEnabled;
