@@ -17,3 +17,15 @@ test('a check that fails after waiting still blocks deployment',async()=>{
  github.rest.actions.listWorkflowRuns=async()=>({data:{workflow_runs:[{id:1,head_sha:sha,status:++calls===1?'in_progress':'completed',conclusion:calls===1?null:'failure'}]}});
  await assert.rejects(gateDeployment(github,{owner:'owner',repo:'repo',sha,controlSha,sleep:async()=>{},log:()=>{}}),/finished with failure/);
 });
+test('failed Security scan is reported but successful exact-commit CI permits deployment',async()=>{
+ const github=fixture();const warnings=[];
+ github.rest.actions.listWorkflowRuns=async({workflow_id})=>({data:{workflow_runs:[{id:1,head_sha:sha,status:'completed',conclusion:workflow_id==='security.yml'?'failure':'success',html_url:'https://example.com/security-run'}]}});
+ await gateDeployment(github,{owner:'owner',repo:'repo',sha,controlSha,warn:message=>warnings.push(message)});
+ assert.equal(warnings.length,1);assert.match(warnings[0],/advisory.*failure/);assert.match(warnings[0],/security-run/);
+});
+test('unavailable advisory scan does not block passing CI',async()=>{
+ const github=fixture();const original=github.rest.actions.listWorkflowRuns;const warnings=[];
+ github.rest.actions.listWorkflowRuns=async args=>{if(args.workflow_id==='security.yml')throw new Error('API unavailable');return original(args);};
+ await gateDeployment(github,{owner:'owner',repo:'repo',sha,controlSha,warn:message=>warnings.push(message)});
+ assert.match(warnings[0],/API unavailable/);
+});

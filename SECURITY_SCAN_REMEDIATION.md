@@ -24,15 +24,19 @@ Run: https://github.com/surjeetaxis/AviQR/actions/runs/37031771029
   Browser cookie/origin checks remain enforced at the gateway. Eureka ignores
   CSRF only on its private /eureka/** API; its dashboard keeps CSRF enabled.
 
-## Remaining deployment blocker
+## Remaining security finding
 
 Expo CLI and @expo/code-signing-certificates depend on node-forge 1.4.0.
 CVE-2026-85393 affects that latest published release; npm currently provides no
 patched version. Even Expo CLI 57.0.27 still depends on node-forge.
 https://github.com/advisories/GHSA-86w9-cpqp-85rv
 
-No CVE exception or security gate bypass has been added. Deployment remains
-blocked until a vetted fixed dependency or compatible replacement is available.
+At the user's explicit request, Security scans are now advisory for deployment.
+They continue to fail and report findings, but only successful exact-commit CI
+and all required CI jobs gate deployment. This permits deployment with known
+security findings and does not resolve this dependency vulnerability.
+The deployment verification step warns about failed or unfinished scans.
+Remediation still requires a vetted fixed dependency or compatible replacement.
 Do not use a version-label change as evidence that the cryptography is patched.
 
 ## Validation

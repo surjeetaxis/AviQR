@@ -41,7 +41,8 @@ jobs:
         with:
           script: |
             const {gateDeployment}=await import(`${process.env.GITHUB_WORKSPACE}/control/.github/scripts/gate-deployment.mjs`);
-            await gateDeployment(github,{...context.repo,sha:process.env.TARGET_SHA,controlSha:process.env.CONTROL_SHA});
+            await gateDeployment(github,{...context.repo,sha:process.env.TARGET_SHA,controlSha:process.env.CONTROL_SHA,warn:message=>core.warning(message)});
+            await core.summary.addRaw('CI passed for the selected commit. Security scans are advisory and do not block deployment.').write();
   deploy:
     name: Deploy (SSH + systemd)
     needs: verify
