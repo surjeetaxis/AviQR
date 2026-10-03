@@ -14,8 +14,8 @@ public class Room {
     // only available-room DTOs expose these descriptive fields to prospective guests.
     private String roomSide;
     private String viewType;
-    private Integer mapX;
-    private Integer mapY;
+    @Column(name="map_x") private Integer mapX;
+    @Column(name="map_y") private Integer mapY;
     @Column(length=1000) private String panoramaUrl;
     @Column(length=1000) private String model3dUrl;
     @Column(length=1000) private String tourVideoUrl;
