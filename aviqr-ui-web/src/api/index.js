@@ -1,14 +1,16 @@
+import { encryptPayload, encryptRequest } from './payloadEncryption.js';
 import { requestCaptcha } from './captchaBroker.js';
 import { requestStepUp } from './stepUpBroker.js';
 // AviQR Web — API Client
 // Auto-falls back to mock data when backend is unreachable
 
 import axios from 'axios';
+import { API_BASE_URL, assertSecureApiUrl } from './transportSecurity.js';
 import { getAccessToken, setSession } from './sessionStore.js';
 import { getActiveOutletId, getActiveToken } from './outletContext.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const BASE_URL = API_BASE_URL;
 const APP_VERSION = '1.0.0';
 
 export const api = axios.create({
@@ -19,7 +21,8 @@ export const api = axios.create({
 });
 
 // ── Attach JWT + shop context on every request ────────────────────────────────
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
+  assertSecureApiUrl(api.getUri(config));
   // While managing a hotel outlet, use the short-lived outlet-scoped token
   // (carries the outlet's real shopId) instead of the user's own login token,
   // so gateway-derived X-Shop-Id checks in shop/order/menu/report/qr/payment
@@ -38,17 +41,17 @@ api.interceptors.request.use((config) => {
   // mobile-side equivalent of this.
   config.headers['X-Platform'] = 'WEB';
   config.headers['X-App-Version'] = APP_VERSION;
-  return config;
+  return encryptRequest(config, BASE_URL, api.getUri(config));
 });
 
 // One refresh request per audience prevents concurrent refresh-token rotation races.
 const refreshes = {};
 export function refreshSession(audience = 'staff') {
   if (!refreshes[audience]) {
-    refreshes[audience] = axios.post(`${BASE_URL}/api/v1/auth/refresh`, {}, {
+    refreshes[audience] = encryptPayload({}, 'POST', '/api/v1/auth/refresh', BASE_URL).then(body => axios.post(`${BASE_URL}/api/v1/auth/refresh`, body, {
       withCredentials: true,
       headers: { 'X-Platform': 'WEB', 'X-Auth-Audience': audience, 'X-CSRF-Protection': '1' },
-    }).then(res => { setSession(res.data.data, audience); return res.data.data; })
+    })).then(res => { setSession(res.data.data, audience); return res.data.data; })
       .finally(() => { delete refreshes[audience]; });
   }
   return refreshes[audience];

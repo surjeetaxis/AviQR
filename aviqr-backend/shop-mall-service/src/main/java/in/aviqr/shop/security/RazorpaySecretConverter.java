@@ -12,7 +12,7 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
 
-/** Encrypts tenant Razorpay API secrets in the database using AES-GCM. */
+/** Encrypts tenant payment and notification credentials in the database using AES-GCM. */
 @Converter
 public class RazorpaySecretConverter implements AttributeConverter<String, String> {
     private static final String PREFIX = "enc:v1:";
@@ -32,7 +32,7 @@ public class RazorpaySecretConverter implements AttributeConverter<String, Strin
             System.arraycopy(encrypted, 0, packed, nonce.length, encrypted.length);
             return PREFIX + Base64.getEncoder().encodeToString(packed);
         } catch (Exception e) {
-            throw new IllegalStateException("Could not encrypt Razorpay credentials", e);
+            throw new IllegalStateException("Could not encrypt tenant credentials", e);
         }
     }
 
@@ -48,14 +48,16 @@ public class RazorpaySecretConverter implements AttributeConverter<String, Strin
             cipher.init(Cipher.DECRYPT_MODE, key(), new GCMParameterSpec(128, nonce));
             return new String(cipher.doFinal(encrypted), StandardCharsets.UTF_8);
         } catch (Exception e) {
-            throw new IllegalStateException("Could not decrypt Razorpay credentials; verify INTERNAL_SYNC_SECRET", e);
+            throw new IllegalStateException("Could not decrypt tenant credentials; verify INTERNAL_SYNC_SECRET", e);
         }
     }
 
+    protected String encryptionSecret() { return System.getenv("INTERNAL_SYNC_SECRET"); }
+
     private SecretKeySpec key() throws Exception {
-        String secret = System.getenv("INTERNAL_SYNC_SECRET");
+        String secret = encryptionSecret();
         if (secret == null || secret.length() < 32)
-            throw new IllegalStateException("INTERNAL_SYNC_SECRET must be set to encrypt Razorpay credentials");
+            throw new IllegalStateException("INTERNAL_SYNC_SECRET must be set to encrypt tenant credentials");
         return new SecretKeySpec(MessageDigest.getInstance("SHA-256").digest(secret.getBytes(StandardCharsets.UTF_8)), "AES");
     }
 }

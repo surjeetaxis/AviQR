@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../api/transportSecurity.js';
 import { getAccessToken } from '../api/sessionStore.js';
 import { useState, useEffect } from 'react';
 import {
@@ -59,10 +60,10 @@ export default function Analytics() {
         reportApi.getTopItems(shopId),
         reportApi.getPeakHours(shopId),
         rawMaterialApi.getByShop(shopId),
-        fetch(`${import.meta.env.VITE_API_URL||'http://localhost:8080'}/api/v1/reports/shop/${shopId}/order-types?days=${range}`, {
+        fetch(`${API_BASE_URL}/api/v1/reports/shop/${shopId}/order-types?days=${range}`, {
           headers:{ Authorization:`Bearer ${getAccessToken()}` }
         }).then(r=>r.json()),
-        fetch(`${import.meta.env.VITE_API_URL||'http://localhost:8080'}/api/v1/reports/shop/${shopId}/aggregator-breakdown?days=${range}`, {
+        fetch(`${API_BASE_URL}/api/v1/reports/shop/${shopId}/aggregator-breakdown?days=${range}`, {
           headers:{ Authorization:`Bearer ${getAccessToken()}` }
         }).then(r=>r.json()),
       ]);

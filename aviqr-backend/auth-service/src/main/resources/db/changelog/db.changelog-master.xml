@@ -8,4 +8,5 @@
     <include file="db/changelog/changes/003-login-security.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/004-trusted-device-policy.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/005-security-layer.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/006-security-notice-status.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

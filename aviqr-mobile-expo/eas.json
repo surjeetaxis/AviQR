@@ -19,6 +19,13 @@
       "env": {
         "EXPO_PUBLIC_GA_MEASUREMENT_ID": "G-GVW95252XV"
       }
+    },
+    "staging": {
+      "distribution": "internal",
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "staging"
+      }
     }
   },
   "submit": {

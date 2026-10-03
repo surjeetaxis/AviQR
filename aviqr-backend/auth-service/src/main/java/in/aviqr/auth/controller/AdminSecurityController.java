@@ -63,6 +63,7 @@ public class AdminSecurityController {
         for (var grant : records.findByUserIdAndKindAndStatus(target.getId(),"OTP_EXEMPTION","ACTIVE")) { grant.setStatus("REVOKED"); records.save(grant); }
         var saved = records.save(LoginSecurityRecord.builder().userId(target.getId()).email(target.getEmail()).kind("OTP_EXEMPTION")
             .status("ACTIVE").actorId(actor).reason(req.reason()).createdAt(LocalDateTime.now()).expiresAt(LocalDateTime.now().plusDays(req.days())).build());
+        security.event(target.getEmail(),"OTP_EXEMPTION","GRANTED",req.reason(),DeviceInfo.builder().build(),actor);
         audit.log("OTP_EXEMPTION_GRANTED",actor,"User "+target.getId()+": "+req.reason());
         return ApiResponse.ok(saved);
     }
@@ -118,6 +119,7 @@ public class AdminSecurityController {
         var saved = users.save(User.builder().name(req.name()).email(email).role(UserRole.SUPPORT).status(UserStatus.PENDING)
             .passwordHash(encoder.encode(LoginSecurityService.randomToken())).preferredLanguage("en").build());
         action(saved,"SUPPORT_CREATED","Pending support account registered",actor);
+        security.event(saved.getEmail(),"SUPPORT_CREATED","PENDING","Support account registered",DeviceInfo.builder().build(),actor);
         audit.log("SUPPORT_CREATED",actor,"Pending support account "+saved.getId());
         return ApiResponse.ok(safeUser(saved));
     }
@@ -129,6 +131,7 @@ public class AdminSecurityController {
         target.setStatus(UserStatus.ACTIVE); users.save(target);
         auth.forgotPassword(target.getEmail());
         action(target,"SUPPORT_APPROVED",req.reason(),actor);
+        security.event(target.getEmail(),"SUPPORT_APPROVED","COMPLETED",req.reason(),DeviceInfo.builder().build(),actor);
         audit.log("SUPPORT_APPROVED",actor,id+": "+req.reason());
         return ApiResponse.ok(safeUser(target));
     }
@@ -139,6 +142,7 @@ public class AdminSecurityController {
         target.setStatus(UserStatus.TERMINATED); users.save(target);
         sessions.revokeAllByUserId(id,actor,LocalDateTime.now()); security.revokeGrants(id);
         action(target,"SUPPORT_TERMINATED",req.reason(),actor);
+        security.event(target.getEmail(),"SUPPORT_TERMINATED","COMPLETED",req.reason(),DeviceInfo.builder().build(),actor);
         audit.log("SUPPORT_TERMINATED",actor,id+": "+req.reason());
         return ApiResponse.ok(safeUser(target));
     }

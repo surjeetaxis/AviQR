@@ -1,3 +1,4 @@
+import { encryptPayload, encryptRequest } from './payloadEncryption.js';
 import { requestCaptcha } from './captchaBroker.js';
 import { requestStepUp } from './stepUpBroker.js';
 import axios from 'axios';
@@ -56,7 +57,7 @@ const DEV_URL = Platform.OS === 'web'
 // Shared staging box (bm) — same gateway the web dashboard hits, reachable
 // over the public internet so it works on physical devices too, not just
 // simulators/emulators on the dev machine's LAN.
-const STAGING_URL = 'http://65.109.133.21:8080';
+const STAGING_URL = process.env.EXPO_PUBLIC_STAGING_API_URL;
 
 const PROD_URL = 'https://api.aviqr.com';
 
@@ -70,11 +71,24 @@ export const BASE_URL =
   APP_ENV === 'production' ? PROD_URL :
   __DEV__ ? DEV_URL : PROD_URL;
 
+if (APP_ENV === 'staging' && !STAGING_URL) {
+  throw new Error('EXPO_PUBLIC_STAGING_API_URL must specify the staging HTTPS endpoint');
+}
+export function assertSecureApiUrl(value, base = BASE_URL) {
+  const resolved = new URL(value, base);
+  if ((!__DEV__ || APP_ENV === 'staging' || APP_ENV === 'production') && resolved.protocol !== 'https:') {
+    throw new Error('Secure HTTPS is required for API requests');
+  }
+  return resolved.href;
+}
+assertSecureApiUrl(BASE_URL);
+
 // ── Axios instance ──────────────────────────────────────────────────────────
 const api = axios.create({ baseURL: BASE_URL, timeout: 12000, withCredentials: Platform.OS==='web' });
 
 // ── Attach JWT ──────────────────────────────────────────────────────────────
 api.interceptors.request.use(async (config) => {
+  assertSecureApiUrl(api.getUri(config));
   try {
     const token = await tokenStorage.get('aviqr_token');
     if (token && !config.headers.Authorization) config.headers.Authorization = `Bearer ${token}`;
@@ -83,14 +97,14 @@ api.interceptors.request.use(async (config) => {
   if (Platform.OS==='web') config.headers['X-CSRF-Protection']='1';
   const trusted=await tokenStorage.get('aviqr_trusted_device');
   if(trusted && Platform.OS!=='web') config.headers['X-Trusted-Device']=trusted;
-  return config;
+  return encryptRequest(config, BASE_URL, api.getUri(config));
 });
 
 let refreshing;
 export function refreshSession() {
   if (!refreshing) refreshing=(async()=>{
     const rt=await tokenStorage.get('aviqr_refresh');
-    const response=await axios.post(`${BASE_URL}/api/v1/auth/refresh`,Platform.OS==='web'?{}:{refreshToken:rt}, {
+    const response=await axios.post(`${BASE_URL}/api/v1/auth/refresh`,await encryptPayload(Platform.OS==='web'?{}:{refreshToken:rt}, 'POST', '/api/v1/auth/refresh', BASE_URL), {
       withCredentials:Platform.OS==='web',headers:{'X-Platform':Platform.OS==='web'?'WEB':Platform.OS.toUpperCase(),'X-CSRF-Protection':'1'},
     });
     const data=response.data.data;

@@ -59,7 +59,8 @@ public class LoginSecurityService {
                 .map(u -> u.getCreatedAt().isBefore(r.getCreatedAt())).orElse(true));
     }
     private void saveEvent(String email,String kind,String status,String reason,DeviceInfo device,String actor,LocalDateTime expires) {
-        boolean notify=Set.of("ACCOUNT_LOCK","TRUSTED_DEVICE_REGISTERED","PASSKEY_REGISTERED","PASSKEY_REVOKED","SESSION_REVOKED").contains(kind) ||
+        boolean notify=Set.of("ACCOUNT_LOCK","TRUSTED_DEVICE_REGISTERED","PASSKEY_REGISTERED","PASSKEY_REVOKED","SESSION_REVOKED",
+            "OTP_EXEMPTION","SUPPORT_CREATED","SUPPORT_APPROVED","SUPPORT_TERMINATED").contains(kind) ||
             ("PASSWORD_RESET".equals(kind) && "COMPLETED".equals(status)) ||
             ("LOGIN_SUCCESS".equals(kind) && !records.existsByEmailAndKindAndIpAddress(email,kind,device.getIpAddress()));
         records.save(LoginSecurityRecord.builder().email(email)
@@ -67,7 +68,7 @@ public class LoginSecurityService {
             .kind(kind).status(status).reason(trim(reason,500)).actorId(actor)
             .ipAddress(trim(device.getIpAddress(),64)).userAgent(trim(device.getUserAgent(),500))
             .deviceId(trim(device.getDeviceId(),255)).createdAt(LocalDateTime.now()).expiresAt(expires).build());
-        if(notify && notices!=null) users.findByEmail(email).ifPresent(user -> notices.save(SecurityNotice.builder().userId(user.getId()).email(email).kind(kind)
+        if(notify && notices!=null) users.findByEmail(email).ifPresent(user -> notices.save(SecurityNotice.builder().userId(user.getId()).email(email).kind(kind).status(status)
             .ipAddress(device.getIpAddress()).message("AviQR security event: "+kind+". If this was not you, reset your password and review Account Security. Recorded IP: "+(device.getIpAddress()==null?"unknown":device.getIpAddress()))
             .createdAt(LocalDateTime.now()).nextAttemptAt(LocalDateTime.now()).build()));
     }

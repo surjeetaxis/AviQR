@@ -8,12 +8,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service @RequiredArgsConstructor @Slf4j
 public class NotificationConsumer {
+
+    @Value("${app.security.alert-recipients:}")
+    private String securityAlertRecipients;
 
     private final NotificationRepository repo;
     private final WaSenderWhatsAppService whatsApp;
@@ -258,7 +261,25 @@ public class NotificationConsumer {
         String body=str(event,"message");
         if(!email.send(str(event,"email"),"AviQR account security alert","<p>"+org.springframework.web.util.HtmlUtils.htmlEscape(body)+"</p><p><a href=\"https://aviqr.com/account-security\">Review account security</a></p>"))
             throw new IllegalStateException("Security alert delivery failed");
+        String kind=str(event,"kind");
+        if(isOperationalSecurityAlert(kind,str(event,"status"))) {
+            String safeBody=org.springframework.web.util.HtmlUtils.htmlEscape(
+                "Security event: "+kind+". Account: "+str(event,"email")+". Source IP: "+str(event,"ip")+". "+Objects.toString(body,""));
+            List<String> recipients=Arrays.stream(securityAlertRecipients.split(","))
+                .map(String::trim).filter(value->!value.isBlank()).distinct().toList();
+            if(recipients.isEmpty()) log.error("Operational security alert recipient is not configured; event kind={}",kind);
+            for(String recipient:recipients) {
+                if(!email.send(recipient,"AviQR security incident: "+kind,"<p>"+safeBody+"</p><p>Review the security event in the admin audit log and follow the security incident runbook.</p>"))
+                    throw new IllegalStateException("Operational security alert delivery failed");
+            }
+        }
         repo.save(Notification.builder().id(id).userId(str(event,"userId")).title("Account security alert").body(body).type("SECURITY").createdAt(LocalDateTime.now()).build());
+    }
+
+    private boolean isOperationalSecurityAlert(String kind,String status) {
+        return Set.of("ACCOUNT_LOCK", "PASSKEY_REGISTERED", "PASSKEY_REVOKED", "OTP_EXEMPTION",
+            "SUPPORT_TERMINATED", "SUPPORT_APPROVED", "SUPPORT_CREATED").contains(kind) ||
+            ("PASSWORD_RESET".equals(kind) && "COMPLETED".equals(status));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -143,7 +143,7 @@ public class AuthService {
             });
             rabbit.convertAndSend("aviqr.users", "otp.requested", payload);
         } catch (Exception e) { log.warn("Failed to publish otp.requested event: {}", e.getMessage()); }
-        log.info("OTP requested for {}", email);
+        log.info("OTP requested");
         return "OTP sent to " + maskEmail(email);
     }
 
@@ -179,7 +179,7 @@ public class AuthService {
                 if (user.getName() != null && !user.getName().isBlank()) payload.put("name", user.getName());
                 rabbit.convertAndSend("aviqr.users", "otp.requested", payload);
             } catch (Exception e) { log.warn("Failed to publish otp.requested event for password reset: {}", e.getMessage()); }
-            log.info("Password reset requested for {}", normalized);
+            log.info("Password reset requested");
         });
         return "If an account exists for " + email + ", we've sent a password reset code to it.";
     }

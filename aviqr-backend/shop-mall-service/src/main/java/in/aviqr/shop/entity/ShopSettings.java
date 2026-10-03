@@ -14,9 +14,11 @@ public class ShopSettings {
     private String razorpayKeyId;
     @Convert(converter = in.aviqr.shop.security.RazorpaySecretConverter.class)
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(columnDefinition = "text")
     private String razorpayKeySecret;
     @Convert(converter = in.aviqr.shop.security.RazorpaySecretConverter.class)
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(columnDefinition = "text")
     private String razorpayWebhookSecret;
     private String phonePeMerchantId;
     private Boolean cashEnabled;
@@ -26,10 +28,22 @@ public class ShopSettings {
     // Notifications
     private String smtpHost;
     private String smtpUser;
+    @Convert(converter = in.aviqr.shop.security.RazorpaySecretConverter.class)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(columnDefinition = "text")
     private String smtpPassword;
     private String twilioSid;
+    @Convert(converter = in.aviqr.shop.security.RazorpaySecretConverter.class)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(columnDefinition = "text")
     private String twilioToken;
+    @Convert(converter = in.aviqr.shop.security.RazorpaySecretConverter.class)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(columnDefinition = "text")
     private String whatsappApiKey;
+    @Convert(converter = in.aviqr.shop.security.RazorpaySecretConverter.class)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @Column(columnDefinition = "text")
     private String fcmServerKey;
 
     // Loyalty

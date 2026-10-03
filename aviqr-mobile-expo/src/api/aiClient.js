@@ -1,5 +1,11 @@
+async function encryptedFetch(url, options) {
+  const target = assertSecureApiUrl(url);
+  const body = await encryptPayload(JSON.parse(options.body), options.method || 'POST', target, BASE_URL);
+  return fetch(target, { ...options, body: JSON.stringify(body) });
+}
+import { encryptPayload } from './payloadEncryption.js';
 import * as SecureStore from 'expo-secure-store';
-import { BASE_URL } from './index.js';
+import { BASE_URL, assertSecureApiUrl } from './index.js';
 
 // Mobile port of aviqr-ui-web's aiClient.js — calls the SAME real gateway
 // route (/api/v1/ai/messages, routes[20] in api-gateway, proxied straight to
@@ -24,7 +30,7 @@ async function authHeaders() {
 }
 
 async function callOpenAI(systemPrompt, userMessage, maxTokens) {
-  const res = await fetch(OPENAI_API_URL, {
+  const res = await encryptedFetch(OPENAI_API_URL, {
     method: 'POST',
     headers: await authHeaders(),
     body: JSON.stringify({
@@ -43,7 +49,7 @@ async function callOpenAI(systemPrompt, userMessage, maxTokens) {
 
 export async function callAI(systemPrompt, userMessage, maxTokens = 1000) {
   try {
-    const res = await fetch(API_URL, {
+    const res = await encryptedFetch(API_URL, {
       method: 'POST',
       headers: await authHeaders(),
       body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] }),
