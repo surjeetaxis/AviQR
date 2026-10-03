@@ -1,4 +1,7 @@
+import { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import RouteLoading from './components/shared/RouteLoading.jsx';
+import RouteErrorBoundary from './components/shared/RouteErrorBoundary.jsx';
 import { useAuth, ROLE_PERMISSIONS, ROLE_DEFAULT_ROUTE } from './context/AuthContext.jsx';
 import usePageViews from './hooks/useAnalytics.js';
 
@@ -67,7 +70,7 @@ import KOT              from './pages/KOT.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <RouteLoading />
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
@@ -86,7 +89,7 @@ function RoleRoute({ path, children }) {
 // Only platform ADMIN role may enter the admin panel
 function AdminRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <RouteLoading />
   if (!user) return <Navigate to="/login" replace />;
   if ((user?.role || '').toUpperCase() !== 'ADMIN') {
     return <Navigate to={ROLE_DEFAULT_ROUTE[(user?.role || '').toUpperCase()] || '/dashboard'} replace />;
@@ -97,7 +100,7 @@ function AdminRoute({ children }) {
 // ADMIN or SUPPORT only — the support console (tickets, subscriptions, etc.)
 function SupportRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <RouteLoading />
   if (!user) return <Navigate to="/login" replace />;
   const role = (user?.role || '').toUpperCase();
   if (role !== 'SUPPORT' && role !== 'ADMIN') {
@@ -110,6 +113,8 @@ export default function App() {
   usePageViews();
 
   return (
+    <RouteErrorBoundary>
+    <Suspense fallback={<RouteLoading message="Loading page…" />}>
     <Routes>
       <Route path="/captcha" element={<CaptchaPortal />} />
       {/* Public */}
@@ -223,5 +228,7 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
+    </RouteErrorBoundary>
   );
 }

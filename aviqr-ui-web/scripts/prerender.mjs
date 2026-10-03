@@ -51,7 +51,8 @@ function startStaticServer() {
       let path;
       try { path = decodeURIComponent(req.url.split('?')[0]); } catch { res.writeHead(400); res.end(); return; }
       const filePath = resolvePath(DIST, '.' + path);
-      if (!filePath.startsWith(resolvePath(DIST) + sep)) { res.writeHead(403); res.end(); return; }
+      const distRoot = resolvePath(DIST);
+      if (filePath !== distRoot && !filePath.startsWith(distRoot + sep)) { res.writeHead(403); res.end(); return; }
       try {
         const stat = await readFile(filePath).catch(() => null);
         if (stat === null) throw new Error('not found');
@@ -79,7 +80,12 @@ async function main() {
   const page = await browser.newPage();
 
   for (const route of ROUTES) {
-    await page.goto(`http://localhost:${PORT}${route}`, { waitUntil: 'networkidle' });
+    const response = await page.goto(`http://localhost:${PORT}${route}`, { waitUntil: 'networkidle' });
+    if (!response?.ok()) throw new Error(`Prerender route ${route} returned HTTP ${response?.status() ?? 'no response'}`);
+    // A route that silently renders an empty document must fail the build;
+    // otherwise / can be published as a successful but completely blank page.
+    const renderedRoot = await page.locator('#root').innerHTML();
+    if (!renderedRoot.trim()) throw new Error(`Prerender route ${route} produced an empty React root`);
     // Let react-helmet-async's effect (runs after paint) commit the
     // per-route title/meta/JSON-LD tags before we snapshot the document.
     await page.waitForTimeout(300);

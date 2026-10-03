@@ -1,10 +1,11 @@
+import { RoleGate } from '../../src/components/common/RoleGate.js';
 import { Colors } from '../../src/theme/index.js';
 import { Tabs } from 'expo-router';
 import { OwnerTabBar } from '../../src/components/common/OwnerTabBar.js';
 
 export default function OwnerLayout() {
   return (
-    <Tabs
+    <RoleGate allowed={["OWNER", "MANAGER", "CASHIER", "KITCHEN", "MENU_EDITOR", "ORDER_VIEWER"]}><Tabs
       screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: Colors.background } }}
       tabBar={props => <OwnerTabBar {...props} />}
     >
@@ -13,6 +14,6 @@ export default function OwnerLayout() {
       <Tabs.Screen name="menu"      options={{ title: 'Menu' }} />
       <Tabs.Screen name="reports"   options={{ title: 'Reports' }} />
       <Tabs.Screen name="settings"  options={{ title: 'Settings' }} />
-    </Tabs>
+    </Tabs></RoleGate>
   );
 }

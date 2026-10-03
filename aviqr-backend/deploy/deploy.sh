@@ -176,6 +176,14 @@ deploy_at() {
   # reused for both).
   npx playwright install chromium || { log "playwright install chromium failed"; return 1; }
   VITE_API_URL="$VITE_API_URL" npm run build:prerender --silent || { log "frontend build failed"; return 1; }
+  # A prerender route can return HTTP 200 with an empty document if the
+  # prerender server rejects its root path. Never publish that as the SPA
+  # fallback: nginx uses dist/index.html for / and every non-prerendered app
+  # route, so a tiny index would blank the whole production site.
+  if [ ! -s "$WEB_DIR/dist/index.html" ] || ! grep -q 'id="root"' "$WEB_DIR/dist/index.html" || ! grep -q '<script[^>]*type="module"' "$WEB_DIR/dist/index.html"; then
+    log "frontend build produced an invalid root index.html"
+    return 1
+  fi
   cd "$REPO_DIR" || { log "cd $REPO_DIR failed"; return 1; }
 }
 

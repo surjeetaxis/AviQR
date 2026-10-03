@@ -192,3 +192,12 @@ input::placeholder, textarea::placeholder { color: var(--gray-400); opacity: 1; 
 .workspace-footer nav { display:flex; gap:20px; }
 .workspace-footer a { color:var(--gray-600); text-decoration:none; }
 @media(max-width:768px) { .workspace-footer { padding:16px 20px 100px; } }
+
+.route-loading,.route-load-error { min-height:100svh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:24px; text-align:center; background:var(--gray-50); color:var(--gray-900); }
+.route-loading { font-size:14px; }
+.route-loading-mark { width:34px; height:34px; border:3px solid var(--gray-200); border-top-color:var(--green); border-radius:50%; animation:route-loading-spin .8s linear infinite; }
+.route-loading-hint,.route-load-error p { color:var(--gray-600); font-size:13px; }
+.route-load-error h1 { margin:0; font-size:22px; }
+.route-load-error button { min-height:44px; padding:0 18px; border:0; border-radius:12px; background:var(--green); color:white; font-weight:600; cursor:pointer; }
+@keyframes route-loading-spin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .route-loading-mark { animation-duration:2.5s; } }
