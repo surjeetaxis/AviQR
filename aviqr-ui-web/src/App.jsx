@@ -1,72 +1,72 @@
-import { Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth, ROLE_PERMISSIONS, ROLE_DEFAULT_ROUTE } from './context/AuthContext.jsx';
 import RouteLoading from './components/shared/RouteLoading.jsx';
 import RouteErrorBoundary from './components/shared/RouteErrorBoundary.jsx';
-import { useAuth, ROLE_PERMISSIONS, ROLE_DEFAULT_ROUTE } from './context/AuthContext.jsx';
 import usePageViews from './hooks/useAnalytics.js';
 
-import CaptchaPortal from './pages/CaptchaPortal.jsx';
-import AccountSecurity from './pages/AccountSecurity.jsx';
-import DashboardLayout   from './layouts/DashboardLayout.jsx';
-import Landing           from './pages/landing/Landing.jsx';
-import Login             from './pages/auth/Login.jsx';
-import Register          from './pages/auth/Register.jsx';
-import ForgotPassword    from './pages/auth/ForgotPassword.jsx';
-import Dashboard         from './pages/Dashboard.jsx';
-import Orders            from './pages/Orders.jsx';
-import Menu              from './pages/Menu.jsx';
-import MenuOcrScan       from './pages/MenuOcrScan.jsx';
-import QRCodes           from './pages/QRCodes.jsx';
-import Staff             from './pages/Staff.jsx';
-import Reports           from './pages/Reports.jsx';
-import Settings          from './pages/Settings.jsx';
-import Inventory         from './pages/Inventory.jsx';
-import Loyalty           from './pages/Loyalty.jsx';
-import Campaigns         from './pages/Campaigns.jsx';
-import Billing           from './pages/Billing.jsx';
-import RawMaterials      from './pages/RawMaterials.jsx';
-import MenuVariations    from './pages/MenuVariations.jsx';
-import Shortcodes        from './pages/Shortcodes.jsx';
-import DiningAreas       from './pages/DiningAreas.jsx';
-import OrderHistory    from './pages/OrderHistory.jsx';
-import Analytics         from './pages/Analytics.jsx';
-import AdminDashboard    from './pages/admin/AdminDashboard.jsx';
-import SupportDashboard  from './pages/support/SupportDashboard.jsx';
-import SupplierDashboard from './pages/supplier/SupplierDashboard.jsx';
-import HotelDashboard    from './pages/hotel/HotelDashboard.jsx';
-import ContactlessCheckin from './pages/pms/ContactlessCheckin.jsx';
-import BookingEngine from './pages/pms/BookingEngine.jsx';
-import StayReview from './pages/pms/StayReview.jsx';
-import MallDashboard     from './pages/mall/MallDashboard.jsx';
-import VendorQrCodes     from './pages/mall/VendorQrCodes.jsx';
-import CustomerMenu      from './pages/customer/CustomerMenu.jsx';
-import GuestServices     from './pages/customer/GuestServices.jsx';
-import FoodCourtHome     from './pages/customer/FoodCourtHome.jsx';
-import BrandHome         from './pages/customer/BrandHome.jsx';
-import CustomerPortalShell from './layouts/CustomerPortalShell.jsx';
-import PortalHome        from './pages/customer/PortalHome.jsx';
-import QrScan            from './pages/customer/QrScan.jsx';
-import PortalOrders      from './pages/customer/PortalOrders.jsx';
-import PortalOrderDetail from './pages/customer/PortalOrderDetail.jsx';
-import PortalProfile     from './pages/customer/PortalProfile.jsx';
-import PortalAddresses   from './pages/customer/PortalAddresses.jsx';
-import TrackOrder        from './pages/customer/TrackOrder.jsx';
-import Onboarding        from './components/shared/Onboarding.jsx';
-import TermsPage         from './pages/legal/TermsPage.jsx';
-import PrivacyPage       from './pages/legal/PrivacyPage.jsx';
-import RefundPage        from './pages/legal/RefundPage.jsx';
-import AboutPage         from './pages/company/AboutPage.jsx';
-import FeaturesPage      from './pages/company/FeaturesPage.jsx';
-import ContactPage       from './pages/company/ContactPage.jsx';
-import FAQPage           from './pages/company/FAQPage.jsx';
-import PartnersPage      from './pages/company/PartnersPage.jsx';
-import QrMenuGeneratorPage from './pages/tools/QrMenuGeneratorPage.jsx';
-import QrMenuGuidePage   from './pages/guides/QrMenuGuidePage.jsx';
-import GuidesIndexPage   from './pages/guides/GuidesIndexPage.jsx';
-import QrOrderingGuidePage from './pages/guides/QrOrderingGuidePage.jsx';
-import QrMenuChecklistPage from './pages/guides/QrMenuChecklistPage.jsx';
-import AIHub             from './pages/ai/AIHub.jsx';
-import KOT              from './pages/KOT.jsx';
+const CaptchaPortal = lazy(() => import('./pages/CaptchaPortal.jsx'));
+const AccountSecurity = lazy(() => import('./pages/AccountSecurity.jsx'));
+const DashboardLayout = lazy(() => import('./layouts/DashboardLayout.jsx'));
+const Landing = lazy(() => import('./pages/landing/Landing.jsx'));
+const Login = lazy(() => import('./pages/auth/Login.jsx'));
+const Register = lazy(() => import('./pages/auth/Register.jsx'));
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword.jsx'));
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const Orders = lazy(() => import('./pages/Orders.jsx'));
+const Menu = lazy(() => import('./pages/Menu.jsx'));
+const MenuOcrScan = lazy(() => import('./pages/MenuOcrScan.jsx'));
+const QRCodes = lazy(() => import('./pages/QRCodes.jsx'));
+const Staff = lazy(() => import('./pages/Staff.jsx'));
+const Reports = lazy(() => import('./pages/Reports.jsx'));
+const Settings = lazy(() => import('./pages/Settings.jsx'));
+const Inventory = lazy(() => import('./pages/Inventory.jsx'));
+const Loyalty = lazy(() => import('./pages/Loyalty.jsx'));
+const Campaigns = lazy(() => import('./pages/Campaigns.jsx'));
+const Billing = lazy(() => import('./pages/Billing.jsx'));
+const RawMaterials = lazy(() => import('./pages/RawMaterials.jsx'));
+const MenuVariations = lazy(() => import('./pages/MenuVariations.jsx'));
+const Shortcodes = lazy(() => import('./pages/Shortcodes.jsx'));
+const DiningAreas = lazy(() => import('./pages/DiningAreas.jsx'));
+const OrderHistory = lazy(() => import('./pages/OrderHistory.jsx'));
+const Analytics = lazy(() => import('./pages/Analytics.jsx'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard.jsx'));
+const SupportDashboard = lazy(() => import('./pages/support/SupportDashboard.jsx'));
+const SupplierDashboard = lazy(() => import('./pages/supplier/SupplierDashboard.jsx'));
+const HotelDashboard = lazy(() => import('./pages/hotel/HotelDashboard.jsx'));
+const ContactlessCheckin = lazy(() => import('./pages/pms/ContactlessCheckin.jsx'));
+const BookingEngine = lazy(() => import('./pages/pms/BookingEngine.jsx'));
+const StayReview = lazy(() => import('./pages/pms/StayReview.jsx'));
+const MallDashboard = lazy(() => import('./pages/mall/MallDashboard.jsx'));
+const VendorQrCodes = lazy(() => import('./pages/mall/VendorQrCodes.jsx'));
+const CustomerMenu = lazy(() => import('./pages/customer/CustomerMenu.jsx'));
+const GuestServices = lazy(() => import('./pages/customer/GuestServices.jsx'));
+const FoodCourtHome = lazy(() => import('./pages/customer/FoodCourtHome.jsx'));
+const BrandHome = lazy(() => import('./pages/customer/BrandHome.jsx'));
+const CustomerPortalShell = lazy(() => import('./layouts/CustomerPortalShell.jsx'));
+const PortalHome = lazy(() => import('./pages/customer/PortalHome.jsx'));
+const QrScan = lazy(() => import('./pages/customer/QrScan.jsx'));
+const PortalOrders = lazy(() => import('./pages/customer/PortalOrders.jsx'));
+const PortalOrderDetail = lazy(() => import('./pages/customer/PortalOrderDetail.jsx'));
+const PortalProfile = lazy(() => import('./pages/customer/PortalProfile.jsx'));
+const PortalAddresses = lazy(() => import('./pages/customer/PortalAddresses.jsx'));
+const TrackOrder = lazy(() => import('./pages/customer/TrackOrder.jsx'));
+const Onboarding = lazy(() => import('./components/shared/Onboarding.jsx'));
+const TermsPage = lazy(() => import('./pages/legal/TermsPage.jsx'));
+const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage.jsx'));
+const RefundPage = lazy(() => import('./pages/legal/RefundPage.jsx'));
+const AboutPage = lazy(() => import('./pages/company/AboutPage.jsx'));
+const FeaturesPage = lazy(() => import('./pages/company/FeaturesPage.jsx'));
+const ContactPage = lazy(() => import('./pages/company/ContactPage.jsx'));
+const FAQPage = lazy(() => import('./pages/company/FAQPage.jsx'));
+const PartnersPage = lazy(() => import('./pages/company/PartnersPage.jsx'));
+const QrMenuGeneratorPage = lazy(() => import('./pages/tools/QrMenuGeneratorPage.jsx'));
+const QrMenuGuidePage = lazy(() => import('./pages/guides/QrMenuGuidePage.jsx'));
+const GuidesIndexPage = lazy(() => import('./pages/guides/GuidesIndexPage.jsx'));
+const QrOrderingGuidePage = lazy(() => import('./pages/guides/QrOrderingGuidePage.jsx'));
+const QrMenuChecklistPage = lazy(() => import('./pages/guides/QrMenuChecklistPage.jsx'));
+const AIHub = lazy(() => import('./pages/ai/AIHub.jsx'));
+const KOT = lazy(() => import('./pages/KOT.jsx'));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -115,7 +115,7 @@ export default function App() {
   return (
     <RouteErrorBoundary>
     <Suspense fallback={<RouteLoading message="Loading page…" />}>
-    <Routes>
+      <Routes>
       <Route path="/captcha" element={<CaptchaPortal />} />
       {/* Public */}
       <Route path="/"                element={<Landing />} />
@@ -227,7 +227,7 @@ export default function App() {
       <Route path="/mall"     element={<ProtectedRoute><MallDashboard /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
     </Suspense>
     </RouteErrorBoundary>
   );

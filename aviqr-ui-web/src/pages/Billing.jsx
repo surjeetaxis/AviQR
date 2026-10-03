@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useActiveShopId } from '../hooks/useActiveShopId.js';
 import { menuApi, posApi, paymentApi, addonApi, variantApi, invoiceApi, shopApi, shortcodeApi, diningAreaApi } from '../api/index.js';
 import ConfirmCodeModal from '../components/shared/ConfirmCodeModal.jsx';
+import QRCode from 'qrcode';
 
 const PAY_METHODS = [
   { key:'CASH',   label:'Cash',    icon:Banknote,    color:"#146c50" },
@@ -126,10 +127,8 @@ export default function Billing() {
   useEffect(() => {
     if (payMethod !== 'UPI' || !upiId || total <= 0) { setUpiQrUrl(''); return; }
     const upiStr = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(shopName||'Shop')}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Order')}`;
-    import('qrcode').then(mod => {
-      const QRCode = mod.default || mod;
-      return QRCode.toDataURL(upiStr, { width:200, margin:1, color:{ dark:'#0F172A', light:'#FFFFFF' } });
-    }).then(setUpiQrUrl).catch(() => setUpiQrUrl(''));
+    QRCode.toDataURL(upiStr, { width:200, margin:1, color:{ dark:'#0F172A', light:'#FFFFFF' } })
+      .then(setUpiQrUrl).catch(() => setUpiQrUrl(''));
   }, [payMethod, upiId, total, shopName]);
 
   const loadVariants = async (itemId) => {
