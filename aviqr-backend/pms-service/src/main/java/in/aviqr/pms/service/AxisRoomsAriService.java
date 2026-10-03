@@ -383,6 +383,7 @@ public class AxisRoomsAriService {
 
     private void send(Job job, SyncType type, Set<UUID> roomTypeIds, String path, String summary, Map<String, Object> body) {
         String json = toJson(body);
+        String logJson = redactedRequestJson(body);
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -398,13 +399,19 @@ public class AxisRoomsAriService {
                 case FAILED -> "Rejected " + summary + (message.isBlank() ? "" : " — " + message);
             };
             ChannelSyncLog row = logRow(job, type, roomTypeIds, status, text)
-                .requestBody(json)
+                .requestBody(logJson)
                 .responseBody("HTTP " + resp.getStatusCode().value() + (resp.getBody() != null ? "\n" + resp.getBody() : ""))
                 .build();
             job.out().add(syncLogRepo.save(row));
         } catch (Exception e) {
-            logFailure(job, type, roomTypeIds, "Push of " + summary + " to " + path + " failed: " + e.getMessage(), json, e);
+            logFailure(job, type, roomTypeIds, "Push of " + summary + " to " + path + " failed: " + e.getMessage(), logJson, e);
         }
+    }
+
+    private String redactedRequestJson(Map<String, Object> body) {
+        Map<String, Object> safe = new LinkedHashMap<>(body);
+        if (safe.containsKey("accessKey")) safe.put("accessKey", "[REDACTED]");
+        return toJson(safe);
     }
 
     /** AxisRooms answers "no ota connected" when the hotel has no OTA that could take

@@ -42,6 +42,27 @@ public class HotelController {
             hotelRepo.findAll(PageRequest.of(page, size, Sort.by("createdAt").descending()))));
     }
 
+    /** Public OTA directory. Returns only active properties and an explicit, safe DTO. */
+    @GetMapping("/api/v1/hotels/public/booking-search")
+    public ResponseEntity<ApiResponse<Page<in.aviqr.hotel.dto.PublicHotelListing>>> publicBookingSearch(
+            @RequestParam(defaultValue="") String q,
+            @RequestParam(defaultValue="") String city,
+            @RequestParam(defaultValue="0") int page,
+            @RequestParam(defaultValue="24") int size) {
+        int safePage=Math.max(page,0), safeSize=Math.max(1,Math.min(size,100));
+        var result=hotelRepo.searchPublicProperties(q.trim(),city.trim(),PageRequest.of(safePage,safeSize,Sort.by("name").ascending()))
+            .map(in.aviqr.hotel.dto.PublicHotelListing::from);
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    /** Public detail lookup also verifies that a property remains active before booking. */
+    @GetMapping("/api/v1/hotels/public/booking-search/{id}")
+    public ResponseEntity<ApiResponse<in.aviqr.hotel.dto.PublicHotelListing>> publicBookingProperty(@PathVariable UUID id) {
+        return hotelRepo.findById(id).filter(h -> Boolean.TRUE.equals(h.getActive()))
+            .map(h -> ResponseEntity.ok(ApiResponse.ok(in.aviqr.hotel.dto.PublicHotelListing.from(h))))
+            .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     // ── Hotel CRUD ───────────────────────────────────────────────────────────
     @PostMapping("/api/v1/hotels")
     public ResponseEntity<ApiResponse<Hotel>> createHotel(@RequestBody Hotel hotel,
@@ -166,6 +187,34 @@ public class HotelController {
         if (!accessService.hasAccess(room.getHotelId(), uid, role))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         return ResponseEntity.ok(ApiResponse.ok("Created", roomRepo.save(room)));
+    }
+
+    /** Owner-managed, safe room-map and virtual-tour metadata for the public OTA flow. */
+    @PutMapping("/api/v1/rooms/{id}/booking-display")
+    public ResponseEntity<ApiResponse<Room>> updateRoomBookingDisplay(@PathVariable UUID id,
+            @RequestBody in.aviqr.hotel.dto.RoomBookingDisplayUpdate request,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        Room room=roomRepo.findById(id).orElse(null);
+        if (room==null) return ResponseEntity.notFound().build();
+        if (!accessService.hasAccess(room.getHotelId(),uid,role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (!validMapCoordinate(request.mapX()) || !validMapCoordinate(request.mapY()))
+            return ResponseEntity.badRequest().body(ApiResponse.error("Map coordinates must be between 0 and 100"));
+        room.setFloor(blankToNull(request.floor())); room.setRoomSide(blankToNull(request.roomSide()));
+        room.setViewType(blankToNull(request.viewType())); room.setMapX(request.mapX()); room.setMapY(request.mapY());
+        room.setPanoramaUrl(validMediaUrl(request.panoramaUrl())); room.setModel3dUrl(validMediaUrl(request.model3dUrl()));
+        room.setTourVideoUrl(validMediaUrl(request.tourVideoUrl()));
+        return ResponseEntity.ok(ApiResponse.ok("Room booking display updated",roomRepo.save(room)));
+    }
+    private boolean validMapCoordinate(Integer value) { return value==null || (value>=0 && value<=100); }
+    private String validMediaUrl(String value) {
+        if (value==null || value.isBlank()) return null;
+        try {
+            java.net.URI uri=java.net.URI.create(value.trim());
+            return "https".equalsIgnoreCase(uri.getScheme()) && uri.getHost()!=null && uri.getRawUserInfo()==null
+                && value.length()<=1000 ? uri.toString() : null;
+        } catch (IllegalArgumentException e) { return null; }
     }
 
     @PutMapping("/api/v1/rooms/{id}/status")

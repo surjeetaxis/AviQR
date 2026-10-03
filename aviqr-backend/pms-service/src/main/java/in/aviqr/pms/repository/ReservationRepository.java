@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ReservationRepository extends JpaRepository<Reservation, UUID> {
+    java.util.Optional<Reservation> findByBookingRequestId(String bookingRequestId);
     List<Reservation> findByHotelIdOrderByCreatedAtDesc(UUID hotelId);
     List<Reservation> findByHotelIdAndStatusOrderByCheckInDate(UUID hotelId, ReservationStatus status);
     List<Reservation> findByHotelIdAndCheckInDateAndStatus(UUID hotelId, LocalDate checkInDate, ReservationStatus status);

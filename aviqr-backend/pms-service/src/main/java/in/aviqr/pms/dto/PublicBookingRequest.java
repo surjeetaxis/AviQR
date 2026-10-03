@@ -17,4 +17,6 @@ public class PublicBookingRequest {
     private Integer children;
     private UUID roomTypeId;
     private UUID ratePlanId;
+    private UUID roomId;
+    private UUID bookingRequestId;
 }

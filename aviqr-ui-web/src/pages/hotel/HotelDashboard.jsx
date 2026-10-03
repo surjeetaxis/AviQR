@@ -71,7 +71,7 @@ const NAV = [
   {key:'laundry',      group:'Guest Services', labelKey:'laundry',          icon:Shirt},
   {key:'spa',          group:'Guest Services', labelKey:'spa',              icon:Flower2},
   {key:'maintenance',  group:'Guest Services', labelKey:'maintenance',      icon:Wrench},
-  {key:'messages',     group:'Guest Services', label:'Messages',            icon:MessageSquare},
+  {key:'messages',     group:'Guest Services', label:'Guest Inbox',         icon:MessageSquare},
 
   // ── Inventory & Rates ─────────────────────────────────────────────────────
   {key:'rooms',        group:'Inventory & Rates', labelKey:'rooms',           icon:BedDouble},
@@ -1227,71 +1227,111 @@ export function MaintenancePage({requests,rooms,hotelId}) {
 
 export function MessagesPage({hotelId}) {
   const [inbox,setInbox] = useState([]);
+  const [filter,setFilter] = useState('ALL');
   const [openRoom,setOpenRoom] = useState(null);
   const [thread,setThread] = useState([]);
   const [reply,setReply] = useState('');
   const [sending,setSending] = useState(false);
+  const [loading,setLoading] = useState(true);
+  const [error,setError] = useState('');
 
-  const loadInbox = () => { if (hotelId) hotelOpsApi.messageInbox(hotelId).then(res=>setInbox(res.data.data||[])).catch(()=>{}); };
-  useEffect(loadInbox, [hotelId]);
-
-  const openThread = (room) => {
-    setOpenRoom(room);
-    hotelOpsApi.messageThread(hotelId, room).then(res=>{ setThread(res.data.data||[]); loadInbox(); }).catch(()=>{});
+  const loadInbox = async () => {
+    if (!hotelId) return;
+    try {
+      const [messagesRes, requestsRes] = await Promise.all([
+        hotelOpsApi.messageInbox(hotelId), hotelOpsApi.listRequests(hotelId),
+      ]);
+      const messages = (messagesRes.data.data || []).map(item => ({ ...item, kind:'MESSAGE' }));
+      const requests = (requestsRes.data.data || []).map(item => ({ ...item, kind:'REQUEST' }));
+      setInbox([...messages, ...requests].sort((a,b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)));
+      setError('');
+    } catch { setError('Could not load guest conversations and requests.'); }
+    finally { setLoading(false); }
   };
+  useEffect(() => {
+    loadInbox();
+    const timer = window.setInterval(loadInbox, 30000);
+    return () => window.clearInterval(timer);
+  }, [hotelId]);
 
-  const sendReply = async (e) => {
+  const visible = inbox.filter(item => filter === 'ALL' || item.kind === filter);
+  const messageCount = inbox.filter(item => item.kind === 'MESSAGE' && item.sender === 'GUEST' && !item.readByStaff).length;
+  const requestCount = inbox.filter(item => item.kind === 'REQUEST' && !['DONE','CANCELLED'].includes(item.status)).length;
+  const openThread = async room => {
+    setOpenRoom(room);
+    try { const res = await hotelOpsApi.messageThread(hotelId, room); setThread(res.data.data || []); loadInbox(); }
+    catch { setError('Could not load this guest conversation.'); }
+  };
+  const advanceRequest = async item => {
+    const next = item.status === 'NEW' ? 'ACCEPTED' : 'DONE';
+    try { await hotelOpsApi.updateRequest(item.id, next); await loadInbox(); }
+    catch { setError('Could not update this guest request.'); }
+  };
+  const sendReply = async e => {
     e.preventDefault();
-    if (!reply.trim()) return;
+    if (!reply.trim() || !openRoom) return;
     setSending(true);
     try {
-      await hotelOpsApi.replyToRoom(hotelId, openRoom, { message: reply });
+      await hotelOpsApi.replyToRoom(hotelId, openRoom, { message:reply.trim() });
       setReply('');
-      openThread(openRoom);
-    } catch { alert('Could not send reply'); }
+      const res = await hotelOpsApi.messageThread(hotelId, openRoom);
+      setThread(res.data.data || []);
+      loadInbox();
+    } catch { setError('Could not send the reply.'); }
     finally { setSending(false); }
   };
 
+  const tabStyle = active => ({ border:0, borderRadius:8, padding:'8px 12px', cursor:'pointer',
+    background:active ? 'var(--green)' : 'var(--gray-100)', color:active ? '#fff' : 'var(--gray-700)', fontWeight:600 });
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Messages</h1><p className="page-subtitle">Two-way messages with guests, by room.</p></div>
-      <div className="admin-table-card">
+      <div className="page-header"><h1 className="page-title">Guest Inbox</h1><p className="page-subtitle">Guest messages and QR service requests in one live queue.</p></div>
+      {error && <div role="alert" style={{padding:10,marginBottom:12,borderRadius:8,background:'var(--red-bg)',color:'var(--red)'}}>{error}</div>}
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+        {[['ALL','All activity'],['MESSAGE',`Messages${messageCount ? ` · ${messageCount} unread` : ''}`],['REQUEST',`Requests${requestCount ? ` · ${requestCount} open` : ''}`]].map(([key,label])=>(
+          <button key={key} type="button" style={tabStyle(filter===key)} onClick={()=>setFilter(key)}>{label}</button>
+        ))}
+      </div>
+      <div className="admin-table-card" style={{overflowX:'auto'}}>
         <table className="admin-table">
-          <thead><tr><th>Room</th><th>From</th><th>Last message</th><th>When</th><th></th></tr></thead>
+          <thead><tr><th>Type</th><th>Room / guest</th><th>Latest activity</th><th>Status</th><th>When</th><th>Action</th></tr></thead>
           <tbody>
-            {inbox.map(m=>(
-              <tr key={m.id}>
-                <td className="admin-td-shop">{m.roomNumber}</td>
-                <td>{m.sender==='GUEST' ? (m.guestName||'Guest') : 'Front Desk'}</td>
-                <td>{m.message}</td>
-                <td style={{fontSize:12}}>{new Date(m.createdAt).toLocaleString()}</td>
-                <td><button className="btn-room-action" onClick={()=>openThread(m.roomNumber)}>Open</button></td>
+            {visible.map(item => item.kind === 'MESSAGE' ? (
+              <tr key={`message-${item.id}`}>
+                <td><span className="plan-pill">Message</span></td>
+                <td className="admin-td-shop">{item.roomNumber}<div style={{fontSize:12,color:'var(--gray-500)'}}>{item.guestName || 'Guest'}</div></td>
+                <td style={{maxWidth:420}}>{item.message}</td>
+                <td>{item.sender === 'GUEST' && !item.readByStaff ? <span className="status-pill st-suspended">Unread</span> : <span className="plan-pill">Conversation</span>}</td>
+                <td style={{fontSize:12,whiteSpace:'nowrap'}}>{item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}</td>
+                <td><button type="button" className="btn-room-action" onClick={()=>openThread(item.roomNumber)}>Reply</button></td>
+              </tr>
+            ) : (
+              <tr key={`request-${item.id}`}>
+                <td><span className="plan-pill">{String(item.type || 'Service').replaceAll('_',' ')}</span></td>
+                <td className="admin-td-shop">{item.roomNumber}<div style={{fontSize:12,color:'var(--gray-500)'}}>{item.guestName || 'Guest'}</div></td>
+                <td style={{maxWidth:420}}>{item.details || 'Guest service request'}{item.priority === 'HIGH' && <strong style={{color:'var(--red)',marginLeft:8}}>High priority</strong>}</td>
+                <td><span className={item.status === 'DONE' ? 'status-pill st-active' : 'status-pill st-suspended'}>{item.status}</span></td>
+                <td style={{fontSize:12,whiteSpace:'nowrap'}}>{item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}</td>
+                <td>{!['DONE','CANCELLED'].includes(item.status) && <button type="button" className="btn-room-action" onClick={()=>advanceRequest(item)}>{item.status === 'NEW' ? 'Accept' : 'Complete'}</button>}</td>
               </tr>
             ))}
-            {inbox.length===0 && <tr><td colSpan={5} style={{textAlign:'center',color:'var(--gray-500)',padding:20}}>No messages yet</td></tr>}
+            {!loading && visible.length === 0 && <tr><td colSpan={6} style={{textAlign:'center',color:'var(--gray-500)',padding:24}}>No guest activity in this view.</td></tr>}
+            {loading && <tr><td colSpan={6} style={{textAlign:'center',color:'var(--gray-500)',padding:24}}>Loading guest activity…</td></tr>}
           </tbody>
         </table>
       </div>
-
       {openRoom && (
         <div className="admin-table-card" style={{padding:16,marginTop:16}}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
-            <strong>Room {openRoom}</strong>
-            <button className="btn-room-action" onClick={()=>setOpenRoom(null)}>Close</button>
-          </div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}><strong>Conversation · Room {openRoom}</strong><button className="btn-room-action" onClick={()=>setOpenRoom(null)}>Close</button></div>
           <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:300,overflowY:'auto',marginBottom:12}}>
-            {thread.map(m=>(
-              <div key={m.id} style={{alignSelf: m.sender==='STAFF' ? 'flex-end' : 'flex-start', maxWidth:'70%'}}>
-                <div style={{background: m.sender==='STAFF' ? 'var(--green-darker)' : 'var(--gray-100)', color: m.sender==='STAFF' ? '#fff' : '#111', padding:'8px 12px', borderRadius:10, fontSize:13}}>
-                  {m.message}
-                </div>
-                <div style={{fontSize:10,color:'var(--gray-400)',marginTop:2,textAlign: m.sender==='STAFF' ? 'right' : 'left'}}>{new Date(m.createdAt).toLocaleString()}</div>
-              </div>
-            ))}
-            {thread.length===0 && <div style={{textAlign:'center',color:'var(--gray-400)',fontSize:13,padding:12}}>No messages in this thread yet</div>}
+            {thread.map(m=><div key={m.id} style={{alignSelf:m.sender==='STAFF'?'flex-end':'flex-start',maxWidth:'80%'}}>
+              <div style={{background:m.sender==='STAFF'?'var(--green-darker)':'var(--gray-100)',color:m.sender==='STAFF'?'#fff':'#111',padding:'8px 12px',borderRadius:10,fontSize:13}}>{m.message}</div>
+              <div style={{fontSize:10,color:'var(--gray-400)',marginTop:2,textAlign:m.sender==='STAFF'?'right':'left'}}>{new Date(m.createdAt).toLocaleString()}</div>
+            </div>)}
+            {thread.length===0 && <div style={{textAlign:'center',color:'var(--gray-400)',fontSize:13,padding:12}}>No messages in this thread yet.</div>}
           </div>
           <form onSubmit={sendReply} style={{display:'flex',gap:8}}>
-            <input placeholder="Type a reply…" value={reply} onChange={e=>setReply(e.target.value)} style={{height:34,padding:'0 10px',borderRadius:8,border:'1px solid var(--gray-200)',flex:1}}/>
+            <input aria-label="Reply to guest" placeholder="Type a reply…" value={reply} onChange={e=>setReply(e.target.value)} style={{height:36,padding:'0 10px',borderRadius:8,border:'1px solid var(--gray-200)',flex:1,minWidth:0}}/>
             <button type="submit" className="btn-room-action" style={{background:'var(--blue)',color:'#fff',border:'none'}} disabled={sending}>{sending?'Sending…':'Send'}</button>
           </form>
         </div>
@@ -1299,7 +1339,6 @@ export function MessagesPage({hotelId}) {
     </div>
   );
 }
-
 function MaintenanceBoard({hotelId,rooms}) {
   const [tasks,setTasks] = useState([]);
   const [showForm,setShowForm] = useState(false);

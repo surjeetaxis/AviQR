@@ -4,6 +4,7 @@ import in.aviqr.pms.client.HotelServiceClient;
 import in.aviqr.pms.dto.AcceptBookingRequest;
 import in.aviqr.pms.dto.ApiResponse;
 import in.aviqr.pms.dto.ChannelWebhookRequest;
+import in.aviqr.pms.dto.ChannelMappingResponse;
 import in.aviqr.pms.entity.ChannelMapping;
 import in.aviqr.pms.entity.ChannelSyncLog;
 import in.aviqr.pms.entity.Reservation;
@@ -27,27 +28,30 @@ public class ChannelController {
     private final HotelServiceClient hotelServiceClient;
 
     @PostMapping("/api/v1/pms/channels/mappings")
-    public ResponseEntity<ApiResponse<ChannelMapping>> createMapping(
+    public ResponseEntity<ApiResponse<ChannelMappingResponse>> createMapping(
             @RequestBody ChannelMapping req,
             @RequestHeader("X-User-Id") String uid,
             @RequestHeader(value="X-User-Role", defaultValue="") String role) {
         if (!hotelServiceClient.hasAccess(req.getHotelId(), uid, role))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
-        return ResponseEntity.ok(ApiResponse.ok("Mapping created — share the webhookSecret with the channel manager", channelService.createMapping(req)));
+        ChannelMapping created = channelService.createMapping(req);
+        return ResponseEntity.ok(ApiResponse.ok("Mapping created — share the webhookSecret with the channel manager",
+            ChannelMappingResponse.from(created, true)));
     }
 
     @GetMapping("/api/v1/pms/channels/mappings/hotel/{hotelId}")
-    public ResponseEntity<ApiResponse<List<ChannelMapping>>> listMappings(
+    public ResponseEntity<ApiResponse<List<ChannelMappingResponse>>> listMappings(
             @PathVariable UUID hotelId,
             @RequestHeader("X-User-Id") String uid,
             @RequestHeader(value="X-User-Role", defaultValue="") String role) {
         if (!hotelServiceClient.hasAccess(hotelId, uid, role))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
-        return ResponseEntity.ok(ApiResponse.ok(channelService.listForHotel(hotelId)));
+        return ResponseEntity.ok(ApiResponse.ok(channelService.listForHotel(hotelId).stream()
+            .map(m -> ChannelMappingResponse.from(m, false)).toList()));
     }
 
     @PutMapping("/api/v1/pms/channels/mappings/{id}")
-    public ResponseEntity<ApiResponse<ChannelMapping>> updateMapping(
+    public ResponseEntity<ApiResponse<ChannelMappingResponse>> updateMapping(
             @PathVariable UUID id, @RequestBody ChannelMapping req,
             @RequestHeader("X-User-Id") String uid,
             @RequestHeader(value="X-User-Role", defaultValue="") String role) {
@@ -55,7 +59,7 @@ public class ChannelController {
         if (existing == null) return ResponseEntity.notFound().build();
         if (!hotelServiceClient.hasAccess(existing.getHotelId(), uid, role))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
-        return ResponseEntity.ok(ApiResponse.ok("Updated", channelService.updateMapping(id, req)));
+        return ResponseEntity.ok(ApiResponse.ok("Updated", ChannelMappingResponse.from(channelService.updateMapping(id, req), false)));
     }
 
     @PostMapping("/api/v1/pms/channels/{hotelId}/push")

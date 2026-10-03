@@ -24,11 +24,14 @@ public class CreateReservationRequest {
     private Integer children;
     private ReservationSource source;
     private String notes;
+    /** Optional physical room chosen from the live public room map. */
+    private UUID bookingRequestId;
     private List<RoomBooking> rooms;
 
     @Data
     public static class RoomBooking {
         private UUID roomTypeId;
         private UUID ratePlanId;
+        private UUID roomId;
     }
 }

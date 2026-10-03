@@ -4,6 +4,11 @@ import in.aviqr.pms.dto.ApiResponse;
 import in.aviqr.pms.dto.CreateReservationRequest;
 import in.aviqr.pms.dto.PublicBookingRequest;
 import in.aviqr.pms.dto.PublicRoomTypeDto;
+import in.aviqr.pms.dto.PublicRateQuote;
+import in.aviqr.pms.dto.PublicAvailableRoomDto;
+import in.aviqr.pms.dto.PublicBookingConfirmation;
+import in.aviqr.pms.service.RatePlanService;
+import java.time.temporal.ChronoUnit;
 import in.aviqr.pms.entity.Reservation;
 import in.aviqr.pms.entity.ReservationSource;
 import in.aviqr.pms.entity.RoomType;
@@ -31,6 +36,7 @@ public class BookingEngineController {
     private final RatePlanRepository ratePlanRepo;
     private final AvailabilityService availabilityService;
     private final ReservationService reservationService;
+    private final RatePlanService ratePlanService;
 
     @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/room-types")
     public ResponseEntity<ApiResponse<List<PublicRoomTypeDto>>> roomTypes(@PathVariable UUID hotelId) {
@@ -53,8 +59,31 @@ public class BookingEngineController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("availableRooms", count)));
     }
 
+    @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/room-map")
+    public ResponseEntity<ApiResponse<List<PublicAvailableRoomDto>>> availableRoomOptions(
+            @PathVariable UUID hotelId, @RequestParam UUID roomTypeId,
+            @RequestParam LocalDate checkIn, @RequestParam LocalDate checkOut) {
+        return ResponseEntity.ok(ApiResponse.ok(availabilityService.publicRoomMap(hotelId, roomTypeId, checkIn, checkOut)));
+    }
+
+    @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/quote")
+    public ResponseEntity<ApiResponse<PublicRateQuote>> quote(
+            @PathVariable UUID hotelId, @RequestParam UUID roomTypeId, @RequestParam UUID ratePlanId,
+            @RequestParam LocalDate checkIn, @RequestParam LocalDate checkOut) {
+        var room=roomTypeRepo.findById(roomTypeId).orElse(null);
+        var plan=ratePlanRepo.findById(ratePlanId).orElse(null);
+        if (room==null || plan==null || !hotelId.equals(room.getHotelId()) || !hotelId.equals(plan.getHotelId())
+                || !roomTypeId.equals(plan.getRoomTypeId()) || !Boolean.TRUE.equals(room.getActive())
+                || !Boolean.TRUE.equals(plan.getActive()) || checkOut==null || !checkOut.isAfter(checkIn))
+            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid property, room, rate plan or stay"));
+        ratePlanService.validateStay(ratePlanId,checkIn,checkOut);
+        long nights=ChronoUnit.DAYS.between(checkIn,checkOut);
+        return ResponseEntity.ok(ApiResponse.ok(new PublicRateQuote(roomTypeId,ratePlanId,nights,
+            ratePlanService.totalForStay(ratePlanId,checkIn,checkOut),"INR")));
+    }
+
     @PostMapping("/api/v1/pms/public/booking-engine/{hotelId}/book")
-    public ResponseEntity<ApiResponse<Reservation>> book(@PathVariable UUID hotelId, @RequestBody PublicBookingRequest req) {
+    public ResponseEntity<ApiResponse<PublicBookingConfirmation>> book(@PathVariable UUID hotelId, @RequestBody PublicBookingRequest req) {
         if (req.getGuestName() == null || req.getGuestName().isBlank()
                 || req.getGuestPhone() == null || req.getGuestPhone().isBlank())
             return ResponseEntity.badRequest().body(ApiResponse.error("Name and phone are required"));
@@ -71,12 +100,14 @@ public class BookingEngineController {
         cr.setAdults(req.getAdults());
         cr.setChildren(req.getChildren());
         cr.setSource(ReservationSource.DIRECT);
+        cr.setBookingRequestId(req.getBookingRequestId());
         CreateReservationRequest.RoomBooking rb = new CreateReservationRequest.RoomBooking();
         rb.setRoomTypeId(req.getRoomTypeId());
         rb.setRatePlanId(req.getRatePlanId());
+        rb.setRoomId(req.getRoomId());
         cr.setRooms(List.of(rb));
 
         Reservation reservation = reservationService.create(cr, "web-booking-engine");
-        return ResponseEntity.ok(ApiResponse.ok("Booking confirmed", reservation));
+        return ResponseEntity.ok(ApiResponse.ok("Booking confirmed", PublicBookingConfirmation.from(reservation)));
     }
 }
