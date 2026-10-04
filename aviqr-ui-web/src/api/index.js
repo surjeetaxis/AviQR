@@ -231,10 +231,11 @@ export const orderQrApi = {
 
 // ── Media (file upload — menu item photos/videos/3D models, shop logos) ───────
 export const mediaApi = {
-  upload: (file, folder = 'misc', kind = 'image') => {
+  upload: (file, folder = 'misc', kind = 'image', config = {}) => {
     const fd = new FormData();
     fd.append('file', file);
     return api.post('/api/v1/media/upload', fd, {
+      ...config,
       params: { folder, kind },
       headers: { 'Content-Type': 'multipart/form-data' },
     });
@@ -361,6 +362,7 @@ export const hotelApi = {
   assignChain:    (hotelId, chainId) => api.put(`/api/v1/hotels/${hotelId}/chain`, null, { params: { chainId } }),
   getRooms:       (hotelId)  => api.get(`/api/v1/rooms/hotel/${hotelId}`),
   updateRoom:     (id, d)    => api.put(`/api/v1/rooms/${id}`, d),
+  updateRoomBookingDisplay: (id, d) => api.put(`/api/v1/rooms/${id}/booking-display`, d),
   createRoom:     (d)        => api.post('/api/v1/rooms', d),
   toggleRoomQr:   (id, active) => api.put(`/api/v1/rooms/${id}/qr?active=${active}`),
   createRoomQr:   (id)         => api.post(`/api/v1/rooms/${id}/qr-code`),
