@@ -101,6 +101,22 @@ class BookingVoucherServiceTest {
         assertThat(v.specialRequests()).isEqualTo("Late arrival <script>");
         assertThat(v.emailHint()).isEqualTo("a***@example.com");
         assertThat(v.toString()).doesNotContain("98765").doesNotContain("101");
+        assertThat(v.preCheckedIn()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Booked stays link to online pre-check-in until the guest has done it")
+    void preCheckinLink() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "webUrl", "https://aviqr.com/");
+        reservation.setStatus(ReservationStatus.BOOKED);
+        String token = tokens.tokenFor(reservation.getId());
+        assertThat(service.voucher(hotel, reservation.getId(), token).orElseThrow().preCheckinUrl())
+            .isEqualTo("https://aviqr.com/pms/contactless-checkin/" + reservation.getId());
+        reservation.setPreCheckedIn(true);
+        assertThat(service.voucher(hotel, reservation.getId(), token).orElseThrow().preCheckinUrl()).isNull();
+        reservation.setPreCheckedIn(false);
+        reservation.setStatus(ReservationStatus.CHECKED_IN);
+        assertThat(service.voucher(hotel, reservation.getId(), token).orElseThrow().preCheckinUrl()).isNull();
     }
 
     @Test

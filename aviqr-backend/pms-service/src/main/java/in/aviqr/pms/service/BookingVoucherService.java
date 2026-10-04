@@ -42,6 +42,10 @@ public class BookingVoucherService {
     @Value("${booking.engine.public-url:https://bm.aviqr.com}")
     private String publicStorefrontUrl;
 
+    /** The AviQR web app, which hosts the guest's online pre-check-in page. */
+    @Value("${aviqr.web-url:https://aviqr.com}")
+    private String webUrl;
+
     public static String reference(UUID reservationId) {
         return reservationId.toString().substring(0, 8).toUpperCase(Locale.ROOT);
     }
@@ -118,7 +122,9 @@ public class BookingVoucherService {
         return new PublicVoucher(r.getId(), reference(r.getId()), r.getHotelId(), r.getStatus().name(), r.getGuestName(),
             r.getCheckInDate(), r.getCheckOutDate(), r.getAdults(), r.getChildren(), specialRequests(r.getNotes()), rooms, extras,
             roomTotal, extrasTotal, taxes, estimated, grand, paid, grand.subtract(paid).max(BigDecimal.ZERO), "INR",
-            r.getCreatedAt(), tokens.tokenFor(r.getId()), maskEmail(guestEmail(r)));
+            r.getCreatedAt(), tokens.tokenFor(r.getId()), maskEmail(guestEmail(r)), Boolean.TRUE.equals(r.getPreCheckedIn()),
+            r.getStatus() == ReservationStatus.BOOKED && !Boolean.TRUE.equals(r.getPreCheckedIn()) && webUrl != null
+                ? webUrl.replaceAll("/+$", "") + "/pms/contactless-checkin/" + r.getId() : null);
     }
 
     private String guestEmail(Reservation r) {
@@ -192,6 +198,7 @@ public class BookingVoucherService {
             + (v.specialRequests() != null ? "<p><b>Your request:</b> " + esc(v.specialRequests()) + "</p>" : "")
             + "<p style=\"margin:22px 0\"><a href=\"" + esc(link) + "\" style=\"background:#1f7257;color:#fff;padding:12px 20px;border-radius:999px;"
             + "text-decoration:none;font-weight:bold\">View or download your voucher</a></p>"
+            + (v.preCheckinUrl() != null ? "<p>Save time at the desk: <a href=\"" + esc(v.preCheckinUrl()) + "\">check in online</a> with your ID details before you arrive.</p>" : "")
             + "<p style=\"font-size:12px;color:#66736c\">The voucher has a QR code the front desk can scan at check-in.</p></div>";
     }
 

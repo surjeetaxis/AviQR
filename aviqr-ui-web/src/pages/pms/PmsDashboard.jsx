@@ -369,7 +369,8 @@ function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
 // ── Reservations (availability + booking + list) ───────────────────────────────
 export function ReservationsTab({ hotelId, roomTypes, reservations, groups, agents, onCreated, onOpenFolio }) {
   const [avail, setAvail] = useState({ roomTypeId: '', checkIn: today(), checkOut: today(), count: null });
-  const [form, setForm] = useState({ guestName: '', guestPhone: '', checkInDate: today(), checkOutDate: today(), adults: 1, children: 0, rooms: [], groupId: '', agentId: '' });
+  const [form, setForm] = useState({ guestName: '', guestPhone: '', guestEmail: '', checkInDate: today(), checkOutDate: today(), adults: 1, children: 0, rooms: [], groupId: '', agentId: '' });
+  const [panelId, setPanelId] = useState(null);
   const [ratePlansByType, setRatePlansByType] = useState({});
   const [saving, setSaving] = useState(false);
   const [waitlistForm, setWaitlistForm] = useState({ guestName: '', guestPhone: '' });
@@ -409,8 +410,8 @@ export function ReservationsTab({ hotelId, roomTypes, reservations, groups, agen
     if (!form.guestName.trim() || form.rooms.length === 0) { alert('Add guest name and at least one room'); return; }
     setSaving(true);
     try {
-      await pmsApi.createReservation({ hotelId, ...form, groupId: form.groupId || null, agentId: form.agentId || null, adults: Number(form.adults), children: Number(form.children) });
-      setForm({ guestName: '', guestPhone: '', checkInDate: today(), checkOutDate: today(), adults: 1, children: 0, rooms: [], groupId: '', agentId: '' });
+      await pmsApi.createReservation({ hotelId, ...form, guestEmail: form.guestEmail.trim() || null, groupId: form.groupId || null, agentId: form.agentId || null, adults: Number(form.adults), children: Number(form.children) });
+      setForm({ guestName: '', guestPhone: '', guestEmail: '', checkInDate: today(), checkOutDate: today(), adults: 1, children: 0, rooms: [], groupId: '', agentId: '' });
       onCreated();
     } catch (err) { alert(err?.response?.data?.message || 'Could not create reservation'); }
     finally { setSaving(false); }
@@ -447,6 +448,7 @@ export function ReservationsTab({ hotelId, roomTypes, reservations, groups, agen
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input placeholder="Guest name" value={form.guestName} onChange={e => setForm({ ...form, guestName: e.target.value })} style={inputStyle} />
           <input placeholder="Phone" value={form.guestPhone} onChange={e => setForm({ ...form, guestPhone: e.target.value })} style={inputStyle} />
+          <input type="email" placeholder="Email (sends the voucher)" value={form.guestEmail} onChange={e => setForm({ ...form, guestEmail: e.target.value })} style={inputStyle} />
           <input type="date" value={form.checkInDate} onChange={e => setForm({ ...form, checkInDate: e.target.value })} style={inputStyle} />
           <input type="date" value={form.checkOutDate} onChange={e => setForm({ ...form, checkOutDate: e.target.value })} style={inputStyle} />
           <input type="number" min="1" placeholder="Adults" value={form.adults} onChange={e => setForm({ ...form, adults: e.target.value })} style={{ ...inputStyle, width: 90 }} />
@@ -480,7 +482,10 @@ export function ReservationsTab({ hotelId, roomTypes, reservations, groups, agen
         </div>
       </form>
 
-      <ReservationsTable reservations={reservations} onOpenFolio={onOpenFolio} />
+      <ReservationsTable reservations={reservations} onOpenFolio={onOpenFolio} actions={(r) => (
+        <button className="admin-row-btn" title="Voucher, QR, rooms and ID scans" onClick={() => setPanelId(r.id)}><FileText size={14} /></button>
+      )} />
+      {panelId && <ReservationPanel id={panelId} onClose={() => setPanelId(null)} onChanged={onCreated} />}
     </div>
   );
 }
@@ -656,7 +661,9 @@ export function FrontDeskTab({ hotelId, reservations, onChanged, onOpenFolio }) 
 
   // A voucher QR holds the voucher URL: .../#/voucher/<hotelId>/<reservationId>/<token>
   const openFromScan = (text) => {
-    const m = String(text).match(/voucher\/[0-9a-f-]{36}\/([0-9a-f-]{36})/i);
+    const m = String(text).match(/voucher\/[0-9a-f-]{36}\/([0-9a-f-]{36})/i)
+      || String(text).match(/contactless-checkin\/([0-9a-f-]{36})/i)
+      || String(text).trim().match(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
     if (m) { setPanelId(m[1]); return; }
     setQuery(String(text).trim());
     search(String(text).trim());
