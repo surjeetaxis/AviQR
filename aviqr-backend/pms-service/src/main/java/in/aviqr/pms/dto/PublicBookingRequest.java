@@ -25,6 +25,7 @@ public class PublicBookingRequest {
     private List<RoomLine> rooms;
     private List<AddOnLine> addOns;
     private String promoCode;
+    private String giftVoucherCode;
     private UUID bookingRequestId;
     private String storefrontHost;
     private String storefrontSlug;

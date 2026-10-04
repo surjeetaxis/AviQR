@@ -12,7 +12,8 @@ import java.util.UUID;
 public record PublicBookingConfirmation(UUID reservationId, UUID hotelId, LocalDate checkInDate,
         LocalDate checkOutDate, String status, Integer rooms, Totals totals, String reference, String voucherToken) {
     public record Totals(BigDecimal roomTotal, BigDecimal addOnTotal, BigDecimal discount,
-                         BigDecimal estimatedTaxes, BigDecimal grandTotal, String currency) { }
+                         BigDecimal estimatedTaxes, BigDecimal grandTotal, String currency,
+                         BigDecimal voucherApplied, BigDecimal balanceDue) { }
 
     public static PublicBookingConfirmation from(Reservation r) {
         return new PublicBookingConfirmation(r.getId(),r.getHotelId(),r.getCheckInDate(),r.getCheckOutDate(),r.getStatus().name(),null,null,null,null);

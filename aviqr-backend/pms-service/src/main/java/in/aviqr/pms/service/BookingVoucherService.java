@@ -32,6 +32,7 @@ public class BookingVoucherService {
     private final RatePlanRepository ratePlanRepo;
     private final FolioChargeRepository chargeRepo;
     private final GuestRepository guestRepo;
+    private final FolioPaymentRepository paymentRepo;
     private final HotelServiceClient hotelServiceClient;
     private final NotificationClient notificationClient;
     private final PublicBookingService publicBookingService;
@@ -111,9 +112,12 @@ public class BookingVoucherService {
         boolean estimated = postedTaxes.signum() == 0;
         BigDecimal taxes = estimated
             ? publicBookingService.estimatedTaxes(r.getHotelId(), roomTotal.subtract(discount).max(BigDecimal.ZERO), nights) : postedTaxes;
+        BigDecimal grand = roomTotal.add(extrasTotal).add(taxes).max(BigDecimal.ZERO);
+        BigDecimal paid = paymentRepo.findByReservationIdOrderByCreatedAtAsc(r.getId()).stream()
+            .map(FolioPayment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         return new PublicVoucher(r.getId(), reference(r.getId()), r.getHotelId(), r.getStatus().name(), r.getGuestName(),
             r.getCheckInDate(), r.getCheckOutDate(), r.getAdults(), r.getChildren(), specialRequests(r.getNotes()), rooms, extras,
-            roomTotal, extrasTotal, taxes, estimated, roomTotal.add(extrasTotal).add(taxes).max(BigDecimal.ZERO), "INR",
+            roomTotal, extrasTotal, taxes, estimated, grand, paid, grand.subtract(paid).max(BigDecimal.ZERO), "INR",
             r.getCreatedAt(), tokens.tokenFor(r.getId()), maskEmail(guestEmail(r)));
     }
 
@@ -182,8 +186,9 @@ public class BookingVoucherService {
             + "<br><b>Guests:</b> " + v.adults() + " adults" + (v.children() != null && v.children() > 0 ? ", " + v.children() + " children" : "") + "</p>"
             + "<table style=\"width:100%;border-collapse:collapse\">" + rooms + "</table>"
             + "<table style=\"width:100%;border-collapse:collapse;margin-top:10px;background:#eef3ee\">" + money
+            + (v.paid().signum() > 0 ? row("Paid (gift voucher / advance)", v.paid().negate()) : "")
             + "<tr><td style=\"padding:8px 10px;font-weight:bold\">Pay at the hotel</td><td style=\"padding:8px 10px;text-align:right;font-weight:bold\">₹"
-            + v.grandTotal().toPlainString() + "</td></tr></table>"
+            + v.balanceDue().toPlainString() + "</td></tr></table>"
             + (v.specialRequests() != null ? "<p><b>Your request:</b> " + esc(v.specialRequests()) + "</p>" : "")
             + "<p style=\"margin:22px 0\"><a href=\"" + esc(link) + "\" style=\"background:#1f7257;color:#fff;padding:12px 20px;border-radius:999px;"
             + "text-decoration:none;font-weight:bold\">View or download your voucher</a></p>"

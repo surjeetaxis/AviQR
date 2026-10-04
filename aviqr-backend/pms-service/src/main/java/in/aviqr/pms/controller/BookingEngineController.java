@@ -155,6 +155,27 @@ public class BookingEngineController {
             : ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(ApiResponse.error("The voucher couldn't be emailed. Check there's an email on the booking, or try again later."));
     }
 
+    private final java.util.Map<String, java.util.Deque<java.time.Instant>> giftChecks = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Gift voucher balance for checkout. Limited to 10 checks per caller per 10 minutes so codes can't be enumerated. */
+    @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/gift-voucher")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> giftVoucher(@PathVariable UUID hotelId, @RequestParam String code,
+            @RequestParam(defaultValue="") String storefrontHost, @RequestParam(defaultValue="") String storefrontSlug,
+            @RequestHeader(value="X-Forwarded-For", defaultValue="") String forwardedFor) {
+        requireBookingEngineAccess(hotelId,storefrontHost,storefrontSlug);
+        String caller=forwardedFor.split(",")[0].trim();
+        java.util.Deque<java.time.Instant> recent=giftChecks.computeIfAbsent(hotelId+"|"+caller,k->new java.util.ArrayDeque<>());
+        synchronized (recent) {
+            java.time.Instant cutoff=java.time.Instant.now().minusSeconds(600);
+            while (!recent.isEmpty() && recent.peekFirst().isBefore(cutoff)) recent.pollFirst();
+            if (recent.size()>=10) return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(ApiResponse.error("Too many tries. Please wait a few minutes."));
+            recent.addLast(java.time.Instant.now());
+        }
+        return publicBookingService.giftVoucher(hotelId, code)
+            .map(v -> ResponseEntity.ok(ApiResponse.ok(Map.<String,Object>of("code", v.getCode(), "balance", v.getBalance()))))
+            .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("That gift voucher isn't valid or has no balance left")));
+    }
+
     /** Find a booking by its reference (first 8 characters) and the phone it was made with. */
     @GetMapping("/api/v1/pms/public/booking-engine/reservations/find")
     public ResponseEntity<ApiResponse<Map<String,Object>>> findBooking(@RequestParam String reference, @RequestParam String phone) {

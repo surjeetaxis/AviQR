@@ -1399,6 +1399,8 @@ export function ExtrasTab({ hotelId }) {
   const [aForm, setAForm] = useState({ name: '', description: '', price: '' });
   const [vouchers, setVouchers] = useState([]);
   const [vForm, setVForm] = useState({ code: '', initialValue: '' });
+  const [promos, setPromos] = useState([]);
+  const [pForm, setPForm] = useState({ code: '', discountPackageId: '', validFrom: '', validTo: '' });
   const [loyalty, setLoyalty] = useState(null);
   const [savingLoyalty, setSavingLoyalty] = useState(false);
 
@@ -1407,6 +1409,7 @@ export function ExtrasTab({ hotelId }) {
     pmsApi.listDiscounts(hotelId).then(res => setDiscounts(res.data.data || [])).catch(() => {});
     pmsApi.listAddOns(hotelId).then(res => setAddOns(res.data.data || [])).catch(() => {});
     pmsApi.listVouchers(hotelId).then(res => setVouchers(res.data.data || [])).catch(() => {});
+    pmsApi.listPromoCodes(hotelId).then(res => setPromos(res.data.data || [])).catch(() => {});
     pmsApi.getLoyaltyConfig(hotelId).then(res => setLoyalty(res.data.data)).catch(() => {});
   }, [hotelId]);
   useEffect(() => { load(); }, [load]);
@@ -1449,6 +1452,17 @@ export function ExtrasTab({ hotelId }) {
     try { await pmsApi.issueVoucher({ hotelId, code: vForm.code.toUpperCase(), initialValue: Number(vForm.initialValue) }); setVForm({ code: '', initialValue: '' }); load(); }
     catch (err) { alert(err?.response?.data?.message || 'Could not issue voucher'); }
   };
+
+  const addPromo = async (e) => {
+    e.preventDefault();
+    if (!pForm.code || !pForm.discountPackageId) return;
+    try {
+      await pmsApi.createPromoCode({ hotelId, code: pForm.code.toUpperCase(), discountPackageId: pForm.discountPackageId,
+        validFrom: pForm.validFrom || null, validTo: pForm.validTo || null });
+      setPForm({ code: '', discountPackageId: '', validFrom: '', validTo: '' }); load();
+    } catch (err) { alert(err?.response?.data?.message || 'Could not create promo code'); }
+  };
+  const togglePromo = (p) => pmsApi.setPromoCodeActive(p.id, !p.active).then(load).catch(err => alert(err?.response?.data?.message || 'Could not update promo code'));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -1503,6 +1517,38 @@ export function ExtrasTab({ hotelId }) {
           </select>
           <input type="number" placeholder="Value" value={dForm.value} onChange={e => setDForm({ ...dForm, value: e.target.value })} style={{ ...inputStyle, width: 110 }} />
           <button type="submit" className="admin-row-btn" style={btnPrimary}><Plus size={14} /> Add discount</button>
+        </form>
+      </div>
+
+      <div className="admin-table-card" style={{ padding: 16 }}>
+        <strong>Booking-engine promo codes</strong> <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>(guests enter these at online checkout; each applies a discount package)</span>
+        <table className="admin-table" style={{ marginTop: 10 }}>
+          <thead><tr><th>Code</th><th>Discount</th><th>Valid</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            {promos.map(p => {
+              const d = discounts.find(x => x.id === p.discountPackageId);
+              return (
+                <tr key={p.id}>
+                  <td className="admin-td-shop" style={{ fontFamily: 'monospace' }}>{p.code}</td>
+                  <td>{d ? `${d.name} (${d.valueType === 'FIXED' ? `₹${d.value}` : `${d.value}%`})` : '—'}</td>
+                  <td>{p.validFrom || p.validTo ? `${p.validFrom || '…'} → ${p.validTo || '…'}` : 'Always'}</td>
+                  <td><span className={p.active ? 'status-pill st-active' : 'status-pill st-suspended'}>{p.active ? 'Active' : 'Paused'}</span></td>
+                  <td><button className="admin-row-btn" style={btnSecondary} onClick={() => togglePromo(p)}>{p.active ? 'Pause' : 'Resume'}</button></td>
+                </tr>
+              );
+            })}
+            {promos.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 16 }}>No promo codes yet</td></tr>}
+          </tbody>
+        </table>
+        <form onSubmit={addPromo} style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input placeholder="Code (e.g. EARLY10)" value={pForm.code} maxLength={32} onChange={e => setPForm({ ...pForm, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '') })} style={inputStyle} />
+          <select value={pForm.discountPackageId} onChange={e => setPForm({ ...pForm, discountPackageId: e.target.value })} style={inputStyle} aria-label="Discount package">
+            <option value="">Discount package…</option>
+            {discounts.filter(d => d.active).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+          <label style={{ fontSize: 12, color: 'var(--gray-500)' }}>From <input type="date" value={pForm.validFrom} onChange={e => setPForm({ ...pForm, validFrom: e.target.value })} style={inputStyle} /></label>
+          <label style={{ fontSize: 12, color: 'var(--gray-500)' }}>To <input type="date" value={pForm.validTo} min={pForm.validFrom || undefined} onChange={e => setPForm({ ...pForm, validTo: e.target.value })} style={inputStyle} /></label>
+          <button type="submit" className="admin-row-btn" style={btnPrimary}><Plus size={14} /> Add promo code</button>
         </form>
       </div>
 

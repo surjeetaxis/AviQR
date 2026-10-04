@@ -35,6 +35,9 @@ class PublicBookingServiceTest {
     @Mock DiscountPackageRepository discountRepo;
     @Mock PromoCodeRepository promoRepo;
     @Mock FolioService folioService;
+    @Mock VoucherRepository voucherRepo;
+    @Mock VoucherService voucherService;
+    @Mock FolioPaymentRepository paymentRepo;
     @InjectMocks PublicBookingService service;
 
     final UUID hotel = UUID.randomUUID();
@@ -159,6 +162,63 @@ class PublicBookingServiceTest {
         req.setAdults(2);
         req.getRooms().getFirst().setRatePlanId(other.getId());
         assertThatThrownBy(() -> service.book(hotel, req)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("A gift voucher pays what it can now; the rest is due at the hotel")
+    void giftVoucherPartlyPays() {
+        Voucher gift = Voucher.builder().id(UUID.randomUUID()).hotelId(hotel).code("GIFT2000").initialValue(new BigDecimal("2000"))
+            .balance(new BigDecimal("2000")).active(true).build();
+        when(voucherRepo.findByHotelIdAndCode(hotel, "gift2000")).thenReturn(Optional.empty());
+        when(voucherRepo.findByHotelIdAndCode(hotel, "GIFT2000")).thenReturn(Optional.of(gift));
+        PublicBookingRequest req = request(1);
+        req.setAdults(2);
+        req.setGiftVoucherCode("gift2000");
+
+        PublicBookingConfirmation c = service.book(hotel, req);
+
+        // 8000 rooms + 200 city tax + 12% GST (960) = 9160
+        assertThat(c.totals().grandTotal()).isEqualByComparingTo("9160");
+        assertThat(c.totals().voucherApplied()).isEqualByComparingTo("2000");
+        assertThat(c.totals().balanceDue()).isEqualByComparingTo("7160");
+        verify(voucherService).redeem(hotel, "GIFT2000", new BigDecimal("2000"));
+        verify(folioService).addPayment(saved.getId(), PaymentMethod.VOUCHER, new BigDecimal("2000"), "GIFT2000", "web-booking-engine");
+    }
+
+    @Test
+    @DisplayName("A voucher worth more than the stay only redeems the total, and a retry redeems nothing")
+    void giftVoucherCoversAllAndRetryIsSafe() {
+        Voucher big = Voucher.builder().id(UUID.randomUUID()).hotelId(hotel).code("BIG").initialValue(new BigDecimal("50000"))
+            .balance(new BigDecimal("50000")).active(true).build();
+        when(voucherRepo.findByHotelIdAndCode(hotel, "BIG")).thenReturn(Optional.of(big));
+        PublicBookingRequest req = request(1);
+        req.setAdults(2);
+        req.setGiftVoucherCode("BIG");
+        PublicBookingConfirmation c = service.book(hotel, req);
+        assertThat(c.totals().voucherApplied()).isEqualByComparingTo("9160");
+        assertThat(c.totals().balanceDue()).isZero();
+        verify(voucherService).redeem(hotel, "BIG", new BigDecimal("9160.00"));
+
+        when(reservationRepo.findByBookingRequestId(req.getBookingRequestId().toString())).thenReturn(Optional.of(saved));
+        when(paymentRepo.findByReservationIdOrderByCreatedAtAsc(saved.getId())).thenReturn(List.of(
+            FolioPayment.builder().reservationId(saved.getId()).method(PaymentMethod.VOUCHER).amount(new BigDecimal("9160")).build()));
+        PublicBookingConfirmation again = service.book(hotel, req);
+        assertThat(again.totals().voucherApplied()).isEqualByComparingTo("9160");
+        verify(voucherService, times(1)).redeem(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("An unknown, inactive or empty gift voucher is refused before booking")
+    void rejectsBadGiftVoucher() {
+        when(voucherRepo.findByHotelIdAndCode(hotel, "USED")).thenReturn(Optional.of(Voucher.builder().hotelId(hotel).code("USED")
+            .initialValue(BigDecimal.TEN).balance(BigDecimal.ZERO).active(true).build()));
+        PublicBookingRequest req = request(1);
+        req.setAdults(2);
+        req.setGiftVoucherCode("USED");
+        assertThatThrownBy(() -> service.book(hotel, req)).hasMessageContaining("gift voucher");
+        req.setGiftVoucherCode("NOPE");
+        assertThatThrownBy(() -> service.book(hotel, req)).hasMessageContaining("gift voucher");
+        verify(reservationService, never()).create(any(), anyString());
     }
 
     @Test

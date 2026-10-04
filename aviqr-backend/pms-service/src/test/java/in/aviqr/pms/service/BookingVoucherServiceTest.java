@@ -32,6 +32,7 @@ class BookingVoucherServiceTest {
     @Mock RatePlanRepository ratePlanRepo;
     @Mock FolioChargeRepository chargeRepo;
     @Mock GuestRepository guestRepo;
+    @Mock FolioPaymentRepository paymentRepo;
     @Mock HotelServiceClient hotelServiceClient;
     @Mock NotificationClient notificationClient;
     @Mock PublicBookingService publicBookingService;
@@ -95,6 +96,8 @@ class BookingVoucherServiceTest {
         assertThat(v.taxes()).isEqualByComparingTo("200");
         assertThat(v.taxesEstimated()).isTrue();
         assertThat(v.grandTotal()).isEqualByComparingTo("7700");
+        assertThat(v.paid()).isZero();
+        assertThat(v.balanceDue()).isEqualByComparingTo("7700");
         assertThat(v.specialRequests()).isEqualTo("Late arrival <script>");
         assertThat(v.emailHint()).isEqualTo("a***@example.com");
         assertThat(v.toString()).doesNotContain("98765").doesNotContain("101");

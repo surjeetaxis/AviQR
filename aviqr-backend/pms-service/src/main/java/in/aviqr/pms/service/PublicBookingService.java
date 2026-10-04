@@ -36,6 +36,9 @@ public class PublicBookingService {
     private final DiscountPackageRepository discountRepo;
     private final PromoCodeRepository promoRepo;
     private final FolioService folioService;
+    private final VoucherRepository voucherRepo;
+    private final VoucherService voucherService;
+    private final FolioPaymentRepository paymentRepo;
 
     public PublicBookingExtras extras(UUID hotelId) {
         return new PublicBookingExtras(
@@ -92,6 +95,11 @@ public class PublicBookingService {
             addOns.add(addOn);
             quantities.add(qty);
         }
+        Voucher gift = null;
+        if (req.getGiftVoucherCode() != null && !req.getGiftVoucherCode().isBlank()) {
+            gift = giftVoucher(hotelId, req.getGiftVoucherCode())
+                .orElseThrow(() -> new IllegalArgumentException("That gift voucher isn't valid or has no balance left"));
+        }
         PublicPromoQuote promo = null;
         if (req.getPromoCode() != null && !req.getPromoCode().isBlank()) {
             promo = promo(hotelId, req.getPromoCode(), roomTotal, req.getCheckInDate())
@@ -138,8 +146,28 @@ public class PublicBookingService {
 
         BigDecimal taxes = estimatedTaxes(hotelId, roomTotal.subtract(discount).max(BigDecimal.ZERO), nights);
         BigDecimal grand = roomTotal.add(addOnTotal).subtract(discount).add(taxes).max(BigDecimal.ZERO);
-        return PublicBookingConfirmation.from(reservation, lines.size(),
-            new PublicBookingConfirmation.Totals(roomTotal, addOnTotal, discount, taxes, grand, "INR"));
+        // A gift voucher pays what it can of the stay now; the rest is paid at the hotel.
+        BigDecimal voucherApplied = BigDecimal.ZERO;
+        if (gift != null && !retry) {
+            voucherApplied = gift.getBalance().min(grand);
+            if (voucherApplied.signum() > 0) {
+                voucherService.redeem(hotelId, gift.getCode(), voucherApplied);
+                folioService.addPayment(reservation.getId(), PaymentMethod.VOUCHER, voucherApplied, gift.getCode(), "web-booking-engine");
+            }
+        } else if (retry) {
+            voucherApplied = paymentRepo.findByReservationIdOrderByCreatedAtAsc(reservation.getId()).stream()
+                .filter(p -> p.getMethod() == PaymentMethod.VOUCHER).map(FolioPayment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+        return PublicBookingConfirmation.from(reservation, lines.size(), new PublicBookingConfirmation.Totals(
+            roomTotal, addOnTotal, discount, taxes, grand, "INR", voucherApplied, grand.subtract(voucherApplied).max(BigDecimal.ZERO)));
+    }
+
+    /** An active gift voucher of this hotel with balance left; codes match as entered or upper-cased. */
+    public Optional<Voucher> giftVoucher(UUID hotelId, String code) {
+        if (code == null || code.isBlank() || code.trim().length() > 40) return Optional.empty();
+        String c = code.trim();
+        return voucherRepo.findByHotelIdAndCode(hotelId, c).or(() -> voucherRepo.findByHotelIdAndCode(hotelId, c.toUpperCase(Locale.ROOT)))
+            .filter(v -> Boolean.TRUE.equals(v.getActive()) && v.getBalance() != null && v.getBalance().signum() > 0);
     }
 
     /** Same formula SurchargeService applies at check-in. */

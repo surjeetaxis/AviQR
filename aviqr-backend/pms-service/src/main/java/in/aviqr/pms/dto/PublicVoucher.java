@@ -12,7 +12,8 @@ public record PublicVoucher(UUID reservationId, String reference, UUID hotelId, 
         String guestName, LocalDate checkInDate, LocalDate checkOutDate, Integer adults, Integer children,
         String specialRequests, List<Room> rooms, List<Charge> extras,
         BigDecimal roomTotal, BigDecimal extrasTotal, BigDecimal taxes, boolean taxesEstimated,
-        BigDecimal grandTotal, String currency, LocalDateTime bookedAt, String voucherToken, String emailHint) {
+        BigDecimal grandTotal, BigDecimal paid, BigDecimal balanceDue, String currency, LocalDateTime bookedAt,
+        String voucherToken, String emailHint) {
     public record Room(String roomType, String ratePlan, String mealPlan, String cancellationPolicy,
                        String floor, String side, String view, BigDecimal ratePerNight) { }
     public record Charge(String type, String description, BigDecimal amount) { }
