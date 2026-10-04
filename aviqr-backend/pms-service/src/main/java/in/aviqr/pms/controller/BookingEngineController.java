@@ -9,6 +9,10 @@ import in.aviqr.pms.dto.PublicBookingConfirmation;
 import in.aviqr.pms.dto.PublicBookingExtras;
 import in.aviqr.pms.dto.PublicPromoQuote;
 import in.aviqr.pms.service.PublicBookingService;
+import in.aviqr.pms.service.BookingVoucherService;
+import in.aviqr.pms.dto.PublicVoucher;
+import in.aviqr.pms.repository.ReservationRepository;
+import java.util.concurrent.CompletableFuture;
 import java.math.BigDecimal;
 import in.aviqr.pms.service.RatePlanService;
 import java.time.temporal.ChronoUnit;
@@ -42,6 +46,8 @@ public class BookingEngineController {
     private final RatePlanService ratePlanService;
     private final HotelServiceClient hotelServiceClient;
     private final PublicBookingService publicBookingService;
+    private final BookingVoucherService voucherService;
+    private final ReservationRepository reservationRepo;
 
     @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/room-types")
     public ResponseEntity<ApiResponse<List<PublicRoomTypeDto>>> roomTypes(@PathVariable UUID hotelId,
@@ -116,11 +122,46 @@ public class BookingEngineController {
     @PostMapping("/api/v1/pms/public/booking-engine/{hotelId}/book")
     public ResponseEntity<ApiResponse<PublicBookingConfirmation>> book(@PathVariable UUID hotelId, @RequestBody PublicBookingRequest req) {
         requireBookingEngineAccess(hotelId,req.getStorefrontHost(),req.getStorefrontSlug());
+        boolean retry=req.getBookingRequestId()!=null && reservationRepo.findByBookingRequestId(req.getBookingRequestId().toString()).isPresent();
+        PublicBookingConfirmation confirmation;
         try {
-            return ResponseEntity.ok(ApiResponse.ok("Booking confirmed", publicBookingService.book(hotelId, req)));
+            confirmation=publicBookingService.book(hotelId, req);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
+        UUID id=confirmation.reservationId();
+        // Sent after the booking has committed, off the request thread; email never fails a booking.
+        if (!retry && req.getGuestEmail()!=null && !req.getGuestEmail().isBlank())
+            CompletableFuture.runAsync(() -> voucherService.email(id, req.getStorefrontHost()));
+        return ResponseEntity.ok(ApiResponse.ok("Booking confirmed",
+            confirmation.withVoucher(BookingVoucherService.reference(id), voucherService.tokenFor(id))));
+    }
+
+    /** The guest's booking voucher; the token comes from the booking confirmation or the voucher email. */
+    @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/reservations/{reservationId}/voucher")
+    public ResponseEntity<ApiResponse<PublicVoucher>> voucher(@PathVariable UUID hotelId, @PathVariable UUID reservationId,
+            @RequestParam String token) {
+        return voucherService.voucher(hotelId, reservationId, token).map(v -> ResponseEntity.ok(ApiResponse.ok(v)))
+            .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Booking not found")));
+    }
+
+    @PostMapping("/api/v1/pms/public/booking-engine/{hotelId}/reservations/{reservationId}/voucher/email")
+    public ResponseEntity<ApiResponse<Boolean>> emailVoucher(@PathVariable UUID hotelId, @PathVariable UUID reservationId,
+            @RequestParam String token, @RequestParam(defaultValue="") String storefrontHost) {
+        if (voucherService.voucher(hotelId, reservationId, token).isEmpty())
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Booking not found"));
+        return voucherService.email(reservationId, storefrontHost)
+            ? ResponseEntity.ok(ApiResponse.ok("Voucher sent", true))
+            : ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(ApiResponse.error("The voucher couldn't be emailed. Check there's an email on the booking, or try again later."));
+    }
+
+    /** Find a booking by its reference (first 8 characters) and the phone it was made with. */
+    @GetMapping("/api/v1/pms/public/booking-engine/reservations/find")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> findBooking(@RequestParam String reference, @RequestParam String phone) {
+        return voucherService.find(reference, phone)
+            .map(r -> ResponseEntity.ok(ApiResponse.ok(Map.<String,Object>of("hotelId", r.getHotelId(), "reservationId", r.getId(),
+                "voucherToken", voucherService.tokenFor(r.getId())))))
+            .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("No booking matches that reference and phone")));
     }
 
     private void requireBookingEngineAccess(UUID hotelId,String host,String slug) {

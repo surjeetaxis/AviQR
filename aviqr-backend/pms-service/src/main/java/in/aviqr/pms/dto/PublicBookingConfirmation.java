@@ -10,14 +10,17 @@ import java.util.UUID;
  *  Totals are what the booking engine showed at booking; taxes are an estimate
  *  because surcharges post to the folio at check-in. */
 public record PublicBookingConfirmation(UUID reservationId, UUID hotelId, LocalDate checkInDate,
-        LocalDate checkOutDate, String status, Integer rooms, Totals totals) {
+        LocalDate checkOutDate, String status, Integer rooms, Totals totals, String reference, String voucherToken) {
     public record Totals(BigDecimal roomTotal, BigDecimal addOnTotal, BigDecimal discount,
                          BigDecimal estimatedTaxes, BigDecimal grandTotal, String currency) { }
 
     public static PublicBookingConfirmation from(Reservation r) {
-        return new PublicBookingConfirmation(r.getId(),r.getHotelId(),r.getCheckInDate(),r.getCheckOutDate(),r.getStatus().name(),null,null);
+        return new PublicBookingConfirmation(r.getId(),r.getHotelId(),r.getCheckInDate(),r.getCheckOutDate(),r.getStatus().name(),null,null,null,null);
     }
     public static PublicBookingConfirmation from(Reservation r, int rooms, Totals totals) {
-        return new PublicBookingConfirmation(r.getId(),r.getHotelId(),r.getCheckInDate(),r.getCheckOutDate(),r.getStatus().name(),rooms,totals);
+        return new PublicBookingConfirmation(r.getId(),r.getHotelId(),r.getCheckInDate(),r.getCheckOutDate(),r.getStatus().name(),rooms,totals,null,null);
+    }
+    public PublicBookingConfirmation withVoucher(String reference, String voucherToken) {
+        return new PublicBookingConfirmation(reservationId,hotelId,checkInDate,checkOutDate,status,rooms,totals,reference,voucherToken);
     }
 }

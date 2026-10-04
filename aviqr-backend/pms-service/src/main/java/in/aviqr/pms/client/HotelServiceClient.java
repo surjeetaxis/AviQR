@@ -54,6 +54,36 @@ public class HotelServiceClient {
         }
     }
 
+    /** The guest-facing hotel listing (name, address, check-in times) the booking engine shows. */
+    public Map<String,Object> bookingEngineProperty(UUID hotelId, String host, String slug) {
+        try {
+            Map<?, ?> response=restTemplate.getForObject(hotelServiceUrl +
+                "/api/v1/hotels/public/booking-engine/properties/{id}?host={host}&slug={slug}", Map.class,
+                hotelId, host==null?"":host, slug==null?"":slug);
+            Object data=response==null?null:response.get("data");
+            return data instanceof Map<?,?> m ? objectMapper.convertValue(m, Map.class) : Map.of();
+        } catch (Exception e) {
+            log.warn("Could not load booking-engine listing for {}: {}", hotelId, e.getMessage());
+            return Map.of();
+        }
+    }
+
+    /** The storefront URL registered for this hotel's custom booking domain, if the host is one. */
+    public java.util.Optional<String> registeredStorefront(UUID hotelId, String host) {
+        if (host==null || host.isBlank()) return java.util.Optional.empty();
+        try {
+            Map<?, ?> response=restTemplate.getForObject(hotelServiceUrl +
+                "/api/v1/hotels/public/booking-engine/config?host={host}&slug=", Map.class, host);
+            Object data=response==null?null:response.get("data");
+            if (data instanceof Map<?,?> m && "TENANT".equals(m.get("mode")) && hotelId.toString().equals(String.valueOf(m.get("propertyId")))
+                    && m.get("storefrontUrl") instanceof String url && url.startsWith("https://"))
+                return java.util.Optional.of(url);
+        } catch (Exception e) {
+            log.warn("Could not resolve storefront for {} on {}: {}", hotelId, host, e.getMessage());
+        }
+        return java.util.Optional.empty();
+    }
+
     /** Delegates the access check to hotel-service's own HotelAccessController — a 200
      *  means the caller has access to this hotel, a 403 means they don't. */
     public boolean hasAccess(UUID hotelId, String uid, String role) {

@@ -11,6 +11,9 @@ import java.util.UUID;
 
 public interface ReservationRepository extends JpaRepository<Reservation, UUID> {
     java.util.Optional<Reservation> findByBookingRequestId(String bookingRequestId);
+    /** Booking references are the first 8 hex digits of the reservation id. */
+    @org.springframework.data.jpa.repository.Query(value="select * from pms_reservations where cast(id as text) like concat(:prefix, '%') order by created_at desc limit 5", nativeQuery=true)
+    List<Reservation> findByReferencePrefix(@org.springframework.data.repository.query.Param("prefix") String prefix);
     List<Reservation> findByHotelIdOrderByCreatedAtDesc(UUID hotelId);
     List<Reservation> findByHotelIdAndStatusOrderByCheckInDate(UUID hotelId, ReservationStatus status);
     List<Reservation> findByHotelIdAndCheckInDateAndStatus(UUID hotelId, LocalDate checkInDate, ReservationStatus status);
