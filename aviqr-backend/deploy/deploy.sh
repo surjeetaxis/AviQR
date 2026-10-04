@@ -114,7 +114,8 @@ deploy_at() {
   if [ -x "$BACKEND_DIR/deploy/apply-db-migrations.sh" ]; then
     log "Applying database migrations..."
     "$BACKEND_DIR/deploy/apply-db-migrations.sh" 2>&1 | tee -a "$DEPLOY_LOG"
-    [ "${PIPESTATUS[0]}" -eq 0 ] || { log "database migrations failed"; return 1; }
+    # Exit code 2: failed before any service was restarted, so there is nothing to roll back.
+    [ "${PIPESTATUS[0]}" -eq 0 ] || { log "database migrations failed"; return 2; }
   fi
 
   # Stage every service's freshly-built jar into a release dir that's UNIQUE
@@ -236,7 +237,17 @@ cd "$REPO_DIR"
 PREVIOUS_SHA=$(git rev-parse HEAD)
 log "Starting deploy of '$TARGET_REF' (current HEAD $PREVIOUS_SHA, kept for rollback)"
 
-if deploy_at "$TARGET_REF" && wait_healthy; then
+# deploy_at runs on the left of || so set -e stays off inside it, as the note above deploy_at() requires.
+deploy_rc=0
+deploy_at "$TARGET_REF" || deploy_rc=$?
+if [ "$deploy_rc" -eq 2 ]; then
+  # Migrations failed before staging or restarting anything: the old release is still
+  # live and untouched. Put the checkout back so the next deploy's rollback target is right.
+  git -C "$REPO_DIR" checkout --quiet "$PREVIOUS_SHA" || log "WARNING: could not restore checkout to $PREVIOUS_SHA"
+  log "Deploy of '$TARGET_REF' ABORTED before any service restarted — $(git -C "$REPO_DIR" rev-parse --short HEAD) is still live. Fix the migration above and deploy again."
+  exit 1
+fi
+if [ "$deploy_rc" -eq 0 ] && wait_healthy; then
   log "Deploy successful — $(git rev-parse --short HEAD) is live, all ${#SERVICES[@]} services healthy in Eureka."
   exit 0
 fi
