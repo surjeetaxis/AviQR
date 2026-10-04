@@ -9,6 +9,7 @@ import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
 import { TentTemplate, THEMES } from '../../components/shared/QrTemplates.jsx';
 import QRCode from 'qrcode';
+import RoomTourEditor, { hasTourMedia } from './RoomTourEditor.jsx';
 import { createPortal } from 'react-dom';
 import {
   Overview as PmsOverview, ReservationsTab, GroupsTab, FrontDeskTab, FolioTab,
@@ -221,6 +222,8 @@ export default function HotelDashboard() {
     checkIn: r.checkInDate,
     checkOut: r.checkOutDate,
     qrActive: r.qrActive,
+    roomSide: r.roomSide, viewType: r.viewType, mapX: r.mapX, mapY: r.mapY,
+    panoramaUrl: r.panoramaUrl, tourVideoUrl: r.tourVideoUrl, model3dUrl: r.model3dUrl,
   });
 
   const SELECTED_HOTEL_KEY = 'aviqr_selected_hotel_id';
@@ -842,6 +845,7 @@ export function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
   };
 
   const [qrRoom, setQrRoom] = useState(null);
+  const [tourRoom, setTourRoom] = useState(null);
 
   const viewRequests = (room) => {
     onRequestsFilter?.(room.number);
@@ -894,6 +898,12 @@ export function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
                 <span className={`room-status-badge ${cfg.cls}`}>{cfg.label}</span>
               </div>
               <div className="room-type">{room.type} · {room.floor}</div>
+              {(room.roomSide || room.viewType || hasTourMedia(room)) && (
+                <div className="room-tour-meta">
+                  {[room.roomSide, room.viewType].filter(Boolean).join(' · ')}
+                  {hasTourMedia(room) && <span className="room-tour-badge">◉ {room.panoramaUrl ? '360°' : room.tourVideoUrl ? 'Video' : '3D'} tour</span>}
+                </div>
+              )}
               {room.guest&&(
                 <div className="room-guest">
                   <div className="room-guest-name">👤 {room.guest}</div>
@@ -909,6 +919,7 @@ export function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
               <div style={{display:'flex',gap:6,marginTop:8}}>
                 <button className="btn-room-action" onClick={()=>viewRequests(room)}>📋 Requests</button>
                 <button className="btn-room-action" onClick={()=>setQrRoom(room)}>📱 QR Code</button>
+                <button className="btn-room-action" onClick={()=>setTourRoom(room)}>🎥 Room tour</button>
                 {room.status==='occupied' &&
                   <button className="btn-room-action" onClick={()=>setBillRoom(room)}>💳 Bill</button>}
               </div>
@@ -918,6 +929,8 @@ export function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
       </div>
       {billRoom && <RoomBillModal room={billRoom} onClose={()=>setBillRoom(null)}/>}
       {qrRoom && <RoomQrModal room={qrRoom} onClose={()=>setQrRoom(null)}/>}
+      {tourRoom && <RoomTourEditor room={tourRoom} hotelId={hotelId} onClose={()=>setTourRoom(null)}
+        onSaved={(saved)=>setRooms(prev=>prev.map(r=>r.id===saved.id?{...r,...saved}:r))}/>}
     </div>
   );
 }
