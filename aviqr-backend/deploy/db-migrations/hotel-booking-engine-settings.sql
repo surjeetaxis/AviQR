@@ -1,3 +1,4 @@
+-- database: aviqr_hotel
 -- Owner-configurable OTA listing and white-label booking-engine storefront.
 ALTER TABLE hotels ADD COLUMN IF NOT EXISTS booking_engine_enabled BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE hotels ADD COLUMN IF NOT EXISTS booking_engine_visibility VARCHAR(16) NOT NULL DEFAULT 'PUBLIC';

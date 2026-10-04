@@ -1,3 +1,4 @@
+-- database: aviqr_hotel
 -- Safe guest-facing physical-room metadata for room maps and virtual tours.
 -- Hotel-service uses Hibernate ddl-auto=update; these statements are also provided
 -- for environments that apply controlled SQL migrations before deploying the service.

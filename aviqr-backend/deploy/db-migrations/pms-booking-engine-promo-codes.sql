@@ -1,3 +1,4 @@
+-- database: aviqr_pms
 -- Guest-enterable promo codes for the public booking engine (aviqr_pms database).
 -- Run BEFORE deploying the pms-service build that includes PromoCode: production uses ddl-auto=none.
 CREATE TABLE IF NOT EXISTS pms_promo_codes (

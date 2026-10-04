@@ -105,6 +105,18 @@ deploy_at() {
   cd "$BACKEND_DIR" || { log "cd $BACKEND_DIR failed"; return 1; }
   ./gradlew build -x test --no-daemon || { log "gradle build failed"; return 1; }
 
+  # Schema changes must land before the new jars start: production runs
+  # ddl-auto=none, so a column the code expects but the database lacks breaks
+  # every query on that table (it took bookings down more than once). Migrations
+  # are additive and idempotent, so the old instances keep working while the
+  # blue/green switch below runs, and a rollback to an older commit is safe.
+  # Older commits have no runner, so a rollback to them just skips this.
+  if [ -x "$BACKEND_DIR/deploy/apply-db-migrations.sh" ]; then
+    log "Applying database migrations..."
+    "$BACKEND_DIR/deploy/apply-db-migrations.sh" 2>&1 | tee -a "$DEPLOY_LOG"
+    [ "${PIPESTATUS[0]}" -eq 0 ] || { log "database migrations failed"; return 1; }
+  fi
+
   # Stage every service's freshly-built jar into a release dir that's UNIQUE
   # to this deploy_at() invocation (timestamp+pid+sha, not just sha) — every
   # systemd unit's ExecStart reads from the stable $CURRENT_LINK path, not
