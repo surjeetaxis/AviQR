@@ -1,5 +1,7 @@
 package in.aviqr.hotel.controller;
 import in.aviqr.hotel.dto.ApiResponse;
+import in.aviqr.hotel.dto.BookingEngineSettingsResponse;
+import in.aviqr.hotel.dto.BookingEngineSettingsUpdate;
 import in.aviqr.hotel.entity.*;
 import in.aviqr.hotel.repository.*;
 import in.aviqr.hotel.service.HotelAccessService;
@@ -13,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
+import jakarta.validation.Valid;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -29,6 +32,8 @@ public class HotelController {
 
     @Value("${qr.service.url:http://order-qr-service}")
     private String qrServiceUrl;
+    @Value("${booking.engine.public-base-url:https://book.aviqr.com}")
+    private String bookingEnginePublicBaseUrl;
 
     // ── Admin: list all hotels ────────────────────────────────────────────────
     @GetMapping("/api/v1/hotels/admin/all")
@@ -58,9 +63,79 @@ public class HotelController {
     /** Public detail lookup also verifies that a property remains active before booking. */
     @GetMapping("/api/v1/hotels/public/booking-search/{id}")
     public ResponseEntity<ApiResponse<in.aviqr.hotel.dto.PublicHotelListing>> publicBookingProperty(@PathVariable UUID id) {
-        return hotelRepo.findById(id).filter(h -> Boolean.TRUE.equals(h.getActive()))
+        return hotelRepo.findById(id).filter(h -> Boolean.TRUE.equals(h.getActive()) && Boolean.TRUE.equals(h.getBookingEngineEnabled())
+                && h.getBookingEngineVisibility()==BookingEngineVisibility.PUBLIC)
             .map(h -> ResponseEntity.ok(ApiResponse.ok(in.aviqr.hotel.dto.PublicHotelListing.from(h))))
             .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /** Safe storefront configuration resolved by a tenant slug or verified custom host. */
+    @GetMapping("/api/v1/hotels/public/booking-engine/config")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> publicBookingEngineConfig(
+            @RequestParam(defaultValue="") String host, @RequestParam(defaultValue="") String slug) {
+        Optional<Hotel> tenant = Optional.empty();
+        if (!slug.isBlank()) tenant = hotelRepo.findFirstByBookingEngineSlugIgnoreCase(slug.trim());
+        if (tenant.isEmpty() && !host.isBlank()) tenant = hotelRepo.findFirstByBookingEngineCustomDomainIgnoreCase(normalizeHost(host));
+        if (tenant.isPresent()) {
+            Hotel h=tenant.get();
+            if (!Boolean.TRUE.equals(h.getActive()) || !Boolean.TRUE.equals(h.getBookingEngineEnabled()))
+                return ResponseEntity.notFound().build();
+            return ResponseEntity.ok(ApiResponse.ok(storefrontConfig(h)));
+        }
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("mode","PUBLIC","brand","AviQR Stays",
+            "primaryColor","#1f7257","accentColor","#d5a86b","logo","","supportEmail","","propertyIds","")));
+    }
+
+    /** Used by the booking engine and Caddy to authorize a property storefront/domain. */
+    @GetMapping("/api/v1/hotels/public/booking-engine/domain-authorized")
+    public ResponseEntity<Void> bookingEngineDomainAuthorized(@RequestParam String domain) {
+        String host=normalizeHost(domain);
+        boolean allowed=hotelRepo.findFirstByBookingEngineCustomDomainIgnoreCase(host)
+            .filter(h -> Boolean.TRUE.equals(h.getActive()) && Boolean.TRUE.equals(h.getBookingEngineEnabled())).isPresent();
+        return allowed ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    }
+
+    /** Private properties resolve only when the requested slug or custom host matches. */
+    @GetMapping("/api/v1/hotels/public/booking-engine/properties/{id}")
+    public ResponseEntity<ApiResponse<in.aviqr.hotel.dto.PublicHotelListing>> publicBookingEngineProperty(
+            @PathVariable UUID id, @RequestParam(defaultValue="") String host, @RequestParam(defaultValue="") String slug) {
+        return hotelRepo.findById(id).filter(h -> Boolean.TRUE.equals(h.getActive()) && Boolean.TRUE.equals(h.getBookingEngineEnabled()))
+            .filter(h -> h.getBookingEngineVisibility()==BookingEngineVisibility.PUBLIC || tenantMatches(h,host,slug))
+            .map(h -> ResponseEntity.ok(ApiResponse.ok(in.aviqr.hotel.dto.PublicHotelListing.from(h))))
+            .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/api/v1/hotels/{id}/booking-engine-settings")
+    public ResponseEntity<ApiResponse<BookingEngineSettingsResponse>> getBookingEngineSettings(@PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid, @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!accessService.isOwner(id,uid,role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return hotelRepo.findById(id).map(h -> ResponseEntity.ok(ApiResponse.ok(settingsResponse(h))))
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/api/v1/hotels/{id}/booking-engine-settings")
+    @Transactional
+    public ResponseEntity<ApiResponse<BookingEngineSettingsResponse>> updateBookingEngineSettings(@PathVariable UUID id,
+            @Valid @RequestBody BookingEngineSettingsUpdate req,
+            @RequestHeader("X-User-Id") String uid, @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!accessService.isOwner(id,uid,role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return hotelRepo.findById(id).map(h -> {
+            String slug=req.slug()==null||req.slug().isBlank()
+                ? (h.getBookingEngineSlug()==null?slugify(h.getName())+"-"+h.getId().toString().substring(0,6):h.getBookingEngineSlug())
+                : req.slug().trim().toLowerCase(Locale.ROOT);
+            String domain=req.customDomain()==null?null:normalizeHost(req.customDomain());
+            if (slug!=null && !slug.isBlank() && hotelRepo.existsByBookingEngineSlugIgnoreCaseAndIdNot(slug,id))
+                return ResponseEntity.badRequest().<ApiResponse<BookingEngineSettingsResponse>>body(ApiResponse.error("That booking URL is already in use"));
+            if (domain!=null && !domain.isBlank() && hotelRepo.existsByBookingEngineCustomDomainIgnoreCaseAndIdNot(domain,id))
+                return ResponseEntity.badRequest().<ApiResponse<BookingEngineSettingsResponse>>body(ApiResponse.error("That custom domain is already connected"));
+            h.setBookingEngineEnabled(req.enabled()); h.setBookingEngineVisibility(req.visibility());
+            h.setBookingEngineBrandName(blankToNull(req.brandName()));
+            h.setBookingEnginePrimaryColor(blankToNull(req.primaryColor())); h.setBookingEngineAccentColor(blankToNull(req.accentColor()));
+            h.setBookingEngineLogoUrl(blankToNull(req.logoUrl())); h.setBookingEngineSlug(blankToNull(slug));
+            h.setBookingEngineCustomDomain(blankToNull(domain)); h.setBookingEngineSupportEmail(blankToNull(req.supportEmail()));
+            Hotel saved=hotelRepo.save(h);
+            return ResponseEntity.ok(ApiResponse.ok("Booking engine settings saved",settingsResponse(saved)));
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     // ── Hotel CRUD ───────────────────────────────────────────────────────────
@@ -245,6 +320,47 @@ public class HotelController {
     }
 
     private String blankToNull(String s) { return (s == null || s.isBlank()) ? null : s; }
+
+    private String normalizeHost(String value) {
+        String host=value.trim().toLowerCase(Locale.ROOT);
+        if (host.contains("://")) host=java.net.URI.create(host).getHost();
+        if (host==null) return "";
+        int colon=host.lastIndexOf(':'); if(colon>0 && host.indexOf(':')==colon) host=host.substring(0,colon);
+        return host.replaceFirst("^www\\.","");
+    }
+    private String slugify(String value) {
+        String slug=value==null?"stay":value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+","-").replaceAll("^-|-$","");
+        return slug.isBlank()?"stay":slug.substring(0,Math.min(slug.length(),50));
+    }
+    private BookingEngineSettingsResponse settingsResponse(Hotel h) {
+        String slug=h.getBookingEngineSlug()==null?slugify(h.getName())+"-"+h.getId().toString().substring(0,6):h.getBookingEngineSlug();
+        String base=bookingEnginePublicBaseUrl.replaceAll("/+$","");
+        return new BookingEngineSettingsResponse(h.getId(),Boolean.TRUE.equals(h.getBookingEngineEnabled()),
+            h.getBookingEngineVisibility()==null?BookingEngineVisibility.PUBLIC:h.getBookingEngineVisibility(),
+            h.getBookingEngineBrandName()==null?h.getName():h.getBookingEngineBrandName(),
+            h.getBookingEnginePrimaryColor()==null?"#1f7257":h.getBookingEnginePrimaryColor(),
+            h.getBookingEngineAccentColor()==null?"#d5a86b":h.getBookingEngineAccentColor(),
+            h.getBookingEngineLogoUrl()==null?h.getLogoUrl():h.getBookingEngineLogoUrl(),slug,h.getBookingEngineCustomDomain(),
+            h.getBookingEngineSupportEmail(),base+"/stay/"+slug,
+            h.getBookingEngineCustomDomain()==null?null:"https://"+h.getBookingEngineCustomDomain(),base+"/api/v1/ota");
+    }
+    private Map<String,Object> storefrontConfig(Hotel h) {
+        BookingEngineSettingsResponse settings=settingsResponse(h);
+        Map<String,Object> result=new LinkedHashMap<>();
+        result.put("mode","TENANT"); result.put("visibility",settings.visibility().name());
+        result.put("propertyId",h.getId().toString()); result.put("propertyIds",h.getId().toString());
+        result.put("brand",settings.brandName()); result.put("primary",settings.primaryColor());
+        result.put("accent",settings.accentColor()); result.put("logo",settings.logoUrl()==null?"":settings.logoUrl());
+        result.put("supportEmail",settings.supportEmail()==null?"":settings.supportEmail());
+        result.put("storefrontUrl",settings.customDomainUrl()==null?settings.hostedUrl():settings.customDomainUrl());
+        result.put("propertyName",h.getName()); result.put("city",h.getCity()==null?"":h.getCity());
+        result.put("domain",h.getBookingEngineCustomDomain()==null?"":h.getBookingEngineCustomDomain());
+        return result;
+    }
+    private boolean tenantMatches(Hotel h,String host,String slug) {
+        return (slug!=null&&!slug.isBlank()&&h.getBookingEngineSlug()!=null&&h.getBookingEngineSlug().equalsIgnoreCase(slug.trim())) ||
+            (host!=null&&!host.isBlank()&&h.getBookingEngineCustomDomain()!=null&&h.getBookingEngineCustomDomain().equalsIgnoreCase(normalizeHost(host)));
+    }
 
     // Toggling the switch here also flips the underlying order-qr-service row's
     // `active` flag (via the internal endpoint, no ADMIN/SUPPORT gate) so that

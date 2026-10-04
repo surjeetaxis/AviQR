@@ -2089,6 +2089,8 @@ const SERVICE_OPTIONS = [
 export function HotelSettings({user,lang,hotelId}) {
   const [form,setForm] = useState({hotelName:user?.hotelName||'',phone:'',email:'',address:'',checkinTime:'14:00',checkoutTime:'12:00',currency:'INR',taxPercent:'18',latitude:null,longitude:null});
   const [enabledServices,setEnabledServices] = useState([]);
+  const [bookingEngine,setBookingEngine] = useState({enabled:true,visibility:'PUBLIC',brandName:'',primaryColor:'#1f7257',accentColor:'#d5a86b',logoUrl:'',slug:'',customDomain:'',supportEmail:'',hostedUrl:'',customDomainUrl:''});
+  const [savingBookingEngine,setSavingBookingEngine] = useState(false);
   const [saving,setSaving] = useState(false);
   const [locating,setLocating] = useState(false);
   const [locErr,setLocErr] = useState('');
@@ -2101,6 +2103,10 @@ export function HotelSettings({user,lang,hotelId}) {
       if (!hotel) return;
       setForm(f=>({...f,hotelName:hotel.name||f.hotelName,phone:hotel.phone||'',email:hotel.email||'',address:hotel.address||'',checkinTime:hotel.checkInTime||f.checkinTime,checkoutTime:hotel.checkOutTime||f.checkoutTime,latitude:hotel.latitude??null,longitude:hotel.longitude??null}));
       setEnabledServices(hotel.enabledServices||[]);
+    }).catch(()=>{});
+    hotelApi.getBookingEngineSettings(hotelId).then(res=>{
+      const x=res.data?.data||res.data;
+      if(x)setBookingEngine({enabled:x.enabled!==false,visibility:x.visibility||'PUBLIC',brandName:x.brandName||'',primaryColor:x.primaryColor||'#1f7257',accentColor:x.accentColor||'#d5a86b',logoUrl:x.logoUrl||'',slug:x.slug||'',customDomain:x.customDomain||'',supportEmail:x.supportEmail||'',hostedUrl:x.hostedUrl||'',customDomainUrl:x.customDomainUrl||''});
     }).catch(()=>{});
   }, [hotelId]);
 
@@ -2131,6 +2137,18 @@ export function HotelSettings({user,lang,hotelId}) {
     finally { setSaving(false); }
   };
 
+  const saveBookingEngine = async () => {
+    if (!hotelId) return;
+    setSavingBookingEngine(true);
+    try {
+      const res=await hotelApi.updateBookingEngineSettings(hotelId,bookingEngine);
+      const x=res.data?.data||res.data;
+      if(x)setBookingEngine(v=>({...v,...x}));
+      alert('Booking engine settings saved');
+    } catch(e) { alert(e.response?.data?.message||'Could not save booking engine settings'); }
+    finally { setSavingBookingEngine(false); }
+  };
+
   return (
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
       <div className="page-header"><h1 className="page-title">{t('settings',lang)}</h1></div>
@@ -2154,6 +2172,29 @@ export function HotelSettings({user,lang,hotelId}) {
         <div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}>
           <button className="btn btn-primary" onClick={save} disabled={saving}><Save size={14}/> {saving?'Saving…':t('save',lang)}</button>
         </div>
+      </div>
+      <div className="admin-chart-card">
+        <h3 style={{marginBottom:8}}>Online booking engine</h3>
+        <p style={{fontSize:12,color:'var(--gray-500)',margin:'0 0 16px'}}>Control whether guests can book online, where your property is listed, and the design of your direct booking site. Reservations and live rates remain connected to AviQR PMS.</p>
+        <div className="workspace-grid" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div className="form-field"><label className="form-label">Booking engine</label><button type="button" className={`toggle-btn ${bookingEngine.enabled?'toggle-on':'toggle-off'}`} onClick={()=>setBookingEngine(v=>({...v,enabled:!v.enabled}))}>{bookingEngine.enabled?'Enabled':'Disabled'} {bookingEngine.enabled?<ToggleRight size={18}/>:<ToggleLeft size={18}/>}</button></div>
+          <div className="form-field"><label className="form-label">Visibility</label><select className="form-input" value={bookingEngine.visibility} onChange={e=>setBookingEngine(v=>({...v,visibility:e.target.value}))}><option value="PUBLIC">Public · AviQR collection</option><option value="PRIVATE">Private · branded storefront</option></select></div>
+          <div className="form-field"><label className="form-label">Storefront name</label><input className="form-input" maxLength="100" value={bookingEngine.brandName} onChange={e=>setBookingEngine(v=>({...v,brandName:e.target.value}))} placeholder={form.hotelName||'Property name'}/></div>
+          <div className="form-field"><label className="form-label">Logo URL (HTTPS)</label><input className="form-input" type="url" value={bookingEngine.logoUrl} onChange={e=>setBookingEngine(v=>({...v,logoUrl:e.target.value}))} placeholder="https://yourdomain.com/logo.png"/></div>
+          <div className="form-field"><label className="form-label">Primary colour</label><input className="form-input" type="color" value={bookingEngine.primaryColor} onChange={e=>setBookingEngine(v=>({...v,primaryColor:e.target.value}))}/></div>
+          <div className="form-field"><label className="form-label">Accent colour</label><input className="form-input" type="color" value={bookingEngine.accentColor} onChange={e=>setBookingEngine(v=>({...v,accentColor:e.target.value}))}/></div>
+          <div className="form-field"><label className="form-label">Booking support email</label><input className="form-input" type="email" maxLength="254" value={bookingEngine.supportEmail} onChange={e=>setBookingEngine(v=>({...v,supportEmail:e.target.value}))} placeholder="stay@yourhotel.com"/></div>
+          <div className="form-field"><label className="form-label">Private URL slug</label><input className="form-input" maxLength="63" value={bookingEngine.slug} onChange={e=>setBookingEngine(v=>({...v,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,'')}))} placeholder="your-property"/><small style={{color:'var(--gray-500)'}}>Use letters, numbers and hyphens.</small></div>
+          <div className="form-field" style={{gridColumn:'1 / -1'}}><label className="form-label">Custom domain (optional)</label><input className="form-input" value={bookingEngine.customDomain} onChange={e=>setBookingEngine(v=>({...v,customDomain:e.target.value.toLowerCase().trim()}))} placeholder="book.yourhotel.com"/><small style={{color:'var(--gray-500)'}}>Point this domain to the AviQR booking-engine server. HTTPS is issued automatically after DNS is connected.</small></div>
+        </div>
+        <div style={{marginTop:14,padding:12,background:'var(--gray-50)',borderRadius:8,fontSize:12,color:'var(--gray-600)'}}>
+          {bookingEngine.visibility==='PUBLIC' ? 'Public properties appear in AviQR Stays. Guests can also use your branded direct URL.' : 'Private properties are hidden from AviQR Stays and appear only on their branded URL.'}
+          {!bookingEngine.enabled&&' The booking engine is currently disabled.'}
+          {bookingEngine.hostedUrl&&<div style={{marginTop:8}}>Your AviQR URL: <a href={bookingEngine.hostedUrl} target="_blank" rel="noreferrer">{bookingEngine.hostedUrl}</a></div>}
+          {bookingEngine.customDomainUrl&&<div style={{marginTop:4}}>Custom domain: <a href={bookingEngine.customDomainUrl} target="_blank" rel="noreferrer">{bookingEngine.customDomainUrl}</a></div>}
+          <div style={{marginTop:8}}>PMS connection: <b style={{color:'var(--success,#16834a)'}}>Connected · live room inventory and rates</b></div>
+        </div>
+        <div style={{marginTop:14,display:'flex',justifyContent:'flex-end'}}><button className="btn btn-primary" onClick={saveBookingEngine} disabled={savingBookingEngine}>{savingBookingEngine?'Saving…':'Save booking settings'}</button></div>
       </div>
       <div className="admin-chart-card">
         <h3 style={{marginBottom:12}}>Enabled services</h3>

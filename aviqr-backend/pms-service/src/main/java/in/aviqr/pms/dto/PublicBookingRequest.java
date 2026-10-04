@@ -19,4 +19,6 @@ public class PublicBookingRequest {
     private UUID ratePlanId;
     private UUID roomId;
     private UUID bookingRequestId;
+    private String storefrontHost;
+    private String storefrontSlug;
 }

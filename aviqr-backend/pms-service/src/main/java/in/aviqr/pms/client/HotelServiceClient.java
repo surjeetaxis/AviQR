@@ -38,6 +38,22 @@ public class HotelServiceClient {
             .constructCollectionType(List.class, HotelRoomDto.class));
     }
 
+    /** Public PMS endpoints expose a property only if it is public or the request
+     *  carries that property's configured private slug/custom host. */
+    public boolean isBookingEnginePropertyAvailable(UUID hotelId, String host, String slug) {
+        try {
+            Map<?, ?> response=restTemplate.getForObject(hotelServiceUrl +
+                "/api/v1/hotels/public/booking-engine/properties/{id}?host={host}&slug={slug}", Map.class,
+                hotelId, host==null?"":host, slug==null?"":slug);
+            return response!=null && response.get("data")!=null;
+        } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+            return false;
+        } catch (Exception e) {
+            log.warn("Booking-engine property access check failed for {}: {}", hotelId, e.getMessage());
+            return false;
+        }
+    }
+
     /** Delegates the access check to hotel-service's own HotelAccessController — a 200
      *  means the caller has access to this hotel, a 403 means they don't. */
     public boolean hasAccess(UUID hotelId, String uid, String role) {
