@@ -415,6 +415,20 @@ export const pmsApi = {
   noShow:          (id)           => api.post(`/api/v1/pms/reservations/${id}/no-show`),
   extendStay:      (id, newCheckOutDate) => api.post(`/api/v1/pms/reservations/${id}/extend`, null, { params: { newCheckOutDate } }),
   getRegistrationCard: (id)              => api.get(`/api/v1/pms/reservations/${id}/registration-card`),
+  // Front desk: lookup, room changes, encrypted ID scans and the guest's booking voucher
+  frontDeskLookup: (hotelId, q)          => api.get(`/api/v1/pms/front-desk/hotel/${hotelId}/lookup`, { params: { q } }),
+  roomOptions:     (id, lineId)          => api.get(`/api/v1/pms/reservations/${id}/rooms/${lineId}/options`),
+  moveRoom:        (id, lineId, d)       => api.post(`/api/v1/pms/reservations/${id}/rooms/${lineId}/move`, d),
+  listDocuments:   (id)                  => api.get(`/api/v1/pms/reservations/${id}/documents`),
+  uploadDocument:  (id, file, docType)   => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post(`/api/v1/pms/reservations/${id}/documents`, fd, { params: { docType }, headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+  getDocument:     (docId)               => api.get(`/api/v1/pms/documents/${docId}`, { responseType: 'blob' }),
+  deleteDocument:  (docId)               => api.delete(`/api/v1/pms/documents/${docId}`),
+  voucherLink:     (id)                  => api.get(`/api/v1/pms/reservations/${id}/voucher-link`),
+  emailVoucher:    (id, storefrontHost='') => api.post(`/api/v1/pms/reservations/${id}/voucher/email`, null, { params: { storefrontHost } }),
   // Payment gateway — card pre-authorization on a reservation's folio
   createPreAuth:  (id, amount)           => api.post(`/api/v1/pms/reservations/${id}/pre-auth`, { amount }),
   verifyPreAuth:  (id, d)                => api.post(`/api/v1/pms/reservations/${id}/pre-auth/verify`, d),

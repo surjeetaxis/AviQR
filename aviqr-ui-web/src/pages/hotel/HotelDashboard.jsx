@@ -443,7 +443,7 @@ export default function HotelDashboard() {
           {tab==='bookingcalendar' && <BookingCalendarTab hotelId={hotelId}/>}
           {tab==='reservations' && <ReservationsTab hotelId={hotelId} roomTypes={roomTypes} reservations={reservations} groups={groups} agents={agents}
                                       onCreated={refreshReservations} onOpenFolio={(id)=>{setSelectedReservationId(id);setTab('folio');}}/>}
-          {tab==='frontdesk'    && <FrontDeskTab reservations={reservations} onChanged={refreshReservations}
+          {tab==='frontdesk'    && <FrontDeskTab hotelId={hotelId} reservations={reservations} onChanged={refreshReservations}
                                       onOpenFolio={(id)=>{setSelectedReservationId(id);setTab('folio');}}/>}
           {tab==='groups'       && <GroupsTab hotelId={hotelId} groups={groups} onChange={()=>loadGroups(hotelId)} onReservationsChanged={refreshReservations}/>}
           {tab==='folio'        && <FolioTab hotelId={hotelId} reservations={reservations} selectedId={selectedReservationId} onSelect={setSelectedReservationId}/>}
