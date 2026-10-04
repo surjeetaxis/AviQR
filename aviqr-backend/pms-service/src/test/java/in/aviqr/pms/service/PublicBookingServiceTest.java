@@ -1,0 +1,179 @@
+package in.aviqr.pms.service;
+
+import in.aviqr.pms.dto.CreateReservationRequest;
+import in.aviqr.pms.dto.PublicBookingConfirmation;
+import in.aviqr.pms.dto.PublicBookingRequest;
+import in.aviqr.pms.entity.*;
+import in.aviqr.pms.repository.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.*;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.*;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class PublicBookingServiceTest {
+    @Mock ReservationService reservationService;
+    @Mock ReservationRepository reservationRepo;
+    @Mock RoomTypeRepository roomTypeRepo;
+    @Mock RatePlanRepository ratePlanRepo;
+    @Mock RatePlanService ratePlanService;
+    @Mock AddOnRepository addOnRepo;
+    @Mock SurchargeRepository surchargeRepo;
+    @Mock DiscountPackageRepository discountRepo;
+    @Mock PromoCodeRepository promoRepo;
+    @Mock FolioService folioService;
+    @InjectMocks PublicBookingService service;
+
+    final UUID hotel = UUID.randomUUID();
+    final LocalDate in = LocalDate.of(2026, 11, 10), out = LocalDate.of(2026, 11, 12);
+    final RoomType deluxe = RoomType.builder().id(UUID.randomUUID()).hotelId(hotel).name("Deluxe").maxOccupancy(2).active(true).build();
+    final RatePlan flexible = RatePlan.builder().id(UUID.randomUUID()).hotelId(hotel).roomTypeId(deluxe.getId()).name("Flexible").active(true).build();
+    final AddOn pickup = AddOn.builder().id(UUID.randomUUID()).hotelId(hotel).name("Airport pickup").price(new BigDecimal("1500")).active(true).build();
+    final DiscountPackage tenPercent = DiscountPackage.builder().id(UUID.randomUUID()).hotelId(hotel).name("Early bird")
+        .valueType(ValueType.PERCENT).value(new BigDecimal("10")).active(true).build();
+    final Reservation saved = Reservation.builder().id(UUID.randomUUID()).hotelId(hotel).checkInDate(in).checkOutDate(out)
+        .status(ReservationStatus.BOOKED).build();
+
+    @BeforeEach
+    void setUp() {
+        when(roomTypeRepo.findById(deluxe.getId())).thenReturn(Optional.of(deluxe));
+        when(ratePlanRepo.findById(flexible.getId())).thenReturn(Optional.of(flexible));
+        when(ratePlanService.totalForStay(flexible.getId(), in, out)).thenReturn(new BigDecimal("8000"));
+        when(addOnRepo.findById(pickup.getId())).thenReturn(Optional.of(pickup));
+        when(surchargeRepo.findByHotelIdAndActiveTrue(hotel)).thenReturn(List.of(
+            Surcharge.builder().hotelId(hotel).name("City tax").valueType(ValueType.FIXED).value(new BigDecimal("100")).active(true).build(),
+            Surcharge.builder().hotelId(hotel).name("GST").valueType(ValueType.PERCENT).value(new BigDecimal("12")).active(true).build()));
+        when(promoRepo.findByHotelIdAndCodeIgnoreCase(hotel, "EARLY10")).thenReturn(Optional.of(
+            PromoCode.builder().hotelId(hotel).code("EARLY10").discountPackageId(tenPercent.getId()).active(true).build()));
+        when(discountRepo.findById(tenPercent.getId())).thenReturn(Optional.of(tenPercent));
+        when(reservationService.create(any(), anyString())).thenReturn(saved);
+    }
+
+    PublicBookingRequest request(int rooms) {
+        PublicBookingRequest req = new PublicBookingRequest();
+        req.setGuestName("Asha Rao");
+        req.setGuestPhone("+91 98765 43210");
+        req.setGuestEmail("asha@example.com");
+        req.setSpecialRequests("High floor please");
+        req.setCheckInDate(in);
+        req.setCheckOutDate(out);
+        req.setAdults(3);
+        req.setChildren(0);
+        req.setBookingRequestId(UUID.randomUUID());
+        List<PublicBookingRequest.RoomLine> lines = new ArrayList<>();
+        for (int i = 0; i < rooms; i++) {
+            PublicBookingRequest.RoomLine l = new PublicBookingRequest.RoomLine();
+            l.setRoomTypeId(deluxe.getId());
+            l.setRatePlanId(flexible.getId());
+            l.setRoomId(UUID.randomUUID());
+            lines.add(l);
+        }
+        req.setRooms(lines);
+        return req;
+    }
+
+    @Test
+    @DisplayName("Books several rooms as one reservation and posts add-ons and the promo discount")
+    void multiRoomWithExtras() {
+        PublicBookingRequest req = request(2);
+        PublicBookingRequest.AddOnLine addOn = new PublicBookingRequest.AddOnLine();
+        addOn.setAddOnId(pickup.getId());
+        addOn.setQuantity(2);
+        req.setAddOns(List.of(addOn));
+        req.setPromoCode("early10");
+
+        PublicBookingConfirmation c = service.book(hotel, req);
+
+        ArgumentCaptor<CreateReservationRequest> sent = ArgumentCaptor.forClass(CreateReservationRequest.class);
+        verify(reservationService).create(sent.capture(), eq("web-booking-engine"));
+        assertThat(sent.getValue().getRooms()).hasSize(2);
+        assertThat(sent.getValue().getGuestEmail()).isEqualTo("asha@example.com");
+        assertThat(sent.getValue().getSource()).isEqualTo(ReservationSource.DIRECT);
+        assertThat(sent.getValue().getNotes()).contains("Guest request: High floor please").contains("Promo: EARLY10");
+
+        verify(folioService).addCharge(saved.getId(), null, FolioChargeType.ADDON, "Airport pickup x2", new BigDecimal("3000"));
+        verify(folioService).addCharge(saved.getId(), null, FolioChargeType.DISCOUNT, "Early bird (EARLY10)", new BigDecimal("-1600.00"));
+        assertThat(c.rooms()).isEqualTo(2);
+        assertThat(c.totals().roomTotal()).isEqualByComparingTo("16000");
+        assertThat(c.totals().addOnTotal()).isEqualByComparingTo("3000");
+        assertThat(c.totals().discount()).isEqualByComparingTo("1600");
+        // City tax 100 x 2 nights + 12% GST on the discounted room total (14400)
+        assertThat(c.totals().estimatedTaxes()).isEqualByComparingTo("1928");
+        assertThat(c.totals().grandTotal()).isEqualByComparingTo("19328");
+    }
+
+    @Test
+    @DisplayName("A retried request returns the booking without charging add-ons or discounts again")
+    void retryDoesNotRepostExtras() {
+        PublicBookingRequest req = request(1);
+        req.setAdults(2);
+        PublicBookingRequest.AddOnLine addOn = new PublicBookingRequest.AddOnLine();
+        addOn.setAddOnId(pickup.getId());
+        req.setAddOns(List.of(addOn));
+        when(reservationRepo.findByBookingRequestId(req.getBookingRequestId().toString())).thenReturn(Optional.of(saved));
+
+        PublicBookingConfirmation c = service.book(hotel, req);
+
+        verify(folioService, never()).addCharge(any(), any(), any(), anyString(), any());
+        assertThat(c.reservationId()).isEqualTo(saved.getId());
+        assertThat(c.totals().addOnTotal()).isEqualByComparingTo("1500");
+    }
+
+    @Test
+    @DisplayName("Rejects more guests than the chosen rooms sleep")
+    void rejectsOverCapacity() {
+        PublicBookingRequest req = request(1);
+        req.setAdults(3);
+        assertThatThrownBy(() -> service.book(hotel, req)).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("sleep up to 2");
+        verify(reservationService, never()).create(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("Rejects an unknown promo code before creating anything")
+    void rejectsBadPromo() {
+        PublicBookingRequest req = request(2);
+        req.setPromoCode("NOPE");
+        assertThatThrownBy(() -> service.book(hotel, req)).isInstanceOf(IllegalArgumentException.class);
+        verify(reservationService, never()).create(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("Rejects a rate plan that belongs to another room type or hotel")
+    void rejectsMismatchedRatePlan() {
+        RatePlan other = RatePlan.builder().id(UUID.randomUUID()).hotelId(UUID.randomUUID()).roomTypeId(deluxe.getId()).active(true).build();
+        when(ratePlanRepo.findById(other.getId())).thenReturn(Optional.of(other));
+        PublicBookingRequest req = request(1);
+        req.setAdults(2);
+        req.getRooms().getFirst().setRatePlanId(other.getId());
+        assertThatThrownBy(() -> service.book(hotel, req)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("Promo codes outside their dates are not offered, and fixed discounts never exceed the room total")
+    void promoDatesAndCap() {
+        when(promoRepo.findByHotelIdAndCodeIgnoreCase(hotel, "SUMMER")).thenReturn(Optional.of(PromoCode.builder().hotelId(hotel)
+            .code("SUMMER").discountPackageId(tenPercent.getId()).validTo(in.minusDays(1)).active(true).build()));
+        assertThat(service.promo(hotel, "SUMMER", new BigDecimal("8000"), in)).isEmpty();
+
+        DiscountPackage flat = DiscountPackage.builder().id(UUID.randomUUID()).hotelId(hotel).name("Flat")
+            .valueType(ValueType.FIXED).value(new BigDecimal("5000")).active(true).build();
+        when(discountRepo.findById(flat.getId())).thenReturn(Optional.of(flat));
+        when(promoRepo.findByHotelIdAndCodeIgnoreCase(hotel, "FLAT")).thenReturn(Optional.of(PromoCode.builder().hotelId(hotel)
+            .code("FLAT").discountPackageId(flat.getId()).active(true).build()));
+        assertThat(service.promo(hotel, "FLAT", new BigDecimal("3000"), in)).get()
+            .satisfies(p -> assertThat(p.discount()).isEqualByComparingTo("3000"));
+    }
+}

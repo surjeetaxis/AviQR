@@ -20,6 +20,16 @@ public class GuestService {
      *  by ReservationService so every booking ends up linked to a Guest record without
      *  staff having to manage guests as a separate step. Returns null if no phone was
      *  given (nothing to match or create against). */
+    /** Like findOrCreate, and records the email the guest gave when the profile has none. */
+    public Guest findOrCreate(UUID hotelId, String name, String phone, String email) {
+        Guest g = findOrCreate(hotelId, name, phone);
+        if (g != null && email != null && !email.isBlank() && (g.getEmail() == null || g.getEmail().isBlank())) {
+            g.setEmail(email.trim());
+            guestRepo.save(g);
+        }
+        return g;
+    }
+
     public Guest findOrCreate(UUID hotelId, String name, String phone) {
         if (phone == null || phone.isBlank()) return null;
         List<Guest> existing = guestRepo.findByHotelIdAndPhone(hotelId, phone);

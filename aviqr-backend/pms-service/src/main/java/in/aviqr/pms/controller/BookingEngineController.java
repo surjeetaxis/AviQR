@@ -1,17 +1,17 @@
 package in.aviqr.pms.controller;
 
 import in.aviqr.pms.dto.ApiResponse;
-import in.aviqr.pms.dto.CreateReservationRequest;
 import in.aviqr.pms.dto.PublicBookingRequest;
 import in.aviqr.pms.dto.PublicRoomTypeDto;
 import in.aviqr.pms.dto.PublicRateQuote;
 import in.aviqr.pms.dto.PublicAvailableRoomDto;
 import in.aviqr.pms.dto.PublicBookingConfirmation;
+import in.aviqr.pms.dto.PublicBookingExtras;
+import in.aviqr.pms.dto.PublicPromoQuote;
+import in.aviqr.pms.service.PublicBookingService;
+import java.math.BigDecimal;
 import in.aviqr.pms.service.RatePlanService;
 import java.time.temporal.ChronoUnit;
-import in.aviqr.pms.entity.Reservation;
-import in.aviqr.pms.entity.ReservationSource;
-import in.aviqr.pms.entity.RoomType;
 import in.aviqr.pms.repository.RatePlanRepository;
 import in.aviqr.pms.repository.RoomTypeRepository;
 import in.aviqr.pms.service.AvailabilityService;
@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 
 /** Public direct booking engine (IBE) — a guest self-books from the hotel's own
  *  site, no staff involved. Unauthenticated like ContactlessCheckinController;
- *  always a single-room, DIRECT-source reservation. */
+ *  one DIRECT-source reservation per checkout, with up to PublicBookingService.MAX_ROOMS rooms. */
 @RestController @RequiredArgsConstructor
 public class BookingEngineController {
 
@@ -41,6 +41,7 @@ public class BookingEngineController {
     private final ReservationService reservationService;
     private final RatePlanService ratePlanService;
     private final HotelServiceClient hotelServiceClient;
+    private final PublicBookingService publicBookingService;
 
     @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/room-types")
     public ResponseEntity<ApiResponse<List<PublicRoomTypeDto>>> roomTypes(@PathVariable UUID hotelId,
@@ -94,34 +95,32 @@ public class BookingEngineController {
             ratePlanService.totalForStay(ratePlanId,checkIn,checkOut),"INR")));
     }
 
+    /** Add-ons a guest can buy and the hotel's taxes/fees, for the storefront's price breakdown. */
+    @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/extras")
+    public ResponseEntity<ApiResponse<PublicBookingExtras>> extras(@PathVariable UUID hotelId,
+            @RequestParam(defaultValue="") String storefrontHost,@RequestParam(defaultValue="") String storefrontSlug) {
+        requireBookingEngineAccess(hotelId,storefrontHost,storefrontSlug);
+        return ResponseEntity.ok(ApiResponse.ok(publicBookingService.extras(hotelId)));
+    }
+
+    @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/promo")
+    public ResponseEntity<ApiResponse<PublicPromoQuote>> promo(@PathVariable UUID hotelId, @RequestParam String code,
+            @RequestParam(defaultValue="0") BigDecimal roomTotal, @RequestParam(required=false) LocalDate checkIn,
+            @RequestParam(defaultValue="") String storefrontHost,@RequestParam(defaultValue="") String storefrontSlug) {
+        requireBookingEngineAccess(hotelId,storefrontHost,storefrontSlug);
+        return publicBookingService.promo(hotelId, code, roomTotal.max(BigDecimal.ZERO), checkIn)
+            .map(p -> ResponseEntity.ok(ApiResponse.ok(p)))
+            .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("That promo code isn't valid for this stay")));
+    }
+
     @PostMapping("/api/v1/pms/public/booking-engine/{hotelId}/book")
     public ResponseEntity<ApiResponse<PublicBookingConfirmation>> book(@PathVariable UUID hotelId, @RequestBody PublicBookingRequest req) {
         requireBookingEngineAccess(hotelId,req.getStorefrontHost(),req.getStorefrontSlug());
-        if (req.getGuestName() == null || req.getGuestName().isBlank()
-                || req.getGuestPhone() == null || req.getGuestPhone().isBlank())
-            return ResponseEntity.badRequest().body(ApiResponse.error("Name and phone are required"));
-        RoomType roomType = roomTypeRepo.findById(req.getRoomTypeId()).orElse(null);
-        if (roomType == null || !roomType.getHotelId().equals(hotelId))
-            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid room type"));
-
-        CreateReservationRequest cr = new CreateReservationRequest();
-        cr.setHotelId(hotelId);
-        cr.setGuestName(req.getGuestName());
-        cr.setGuestPhone(req.getGuestPhone());
-        cr.setCheckInDate(req.getCheckInDate());
-        cr.setCheckOutDate(req.getCheckOutDate());
-        cr.setAdults(req.getAdults());
-        cr.setChildren(req.getChildren());
-        cr.setSource(ReservationSource.DIRECT);
-        cr.setBookingRequestId(req.getBookingRequestId());
-        CreateReservationRequest.RoomBooking rb = new CreateReservationRequest.RoomBooking();
-        rb.setRoomTypeId(req.getRoomTypeId());
-        rb.setRatePlanId(req.getRatePlanId());
-        rb.setRoomId(req.getRoomId());
-        cr.setRooms(List.of(rb));
-
-        Reservation reservation = reservationService.create(cr, "web-booking-engine");
-        return ResponseEntity.ok(ApiResponse.ok("Booking confirmed", PublicBookingConfirmation.from(reservation)));
+        try {
+            return ResponseEntity.ok(ApiResponse.ok("Booking confirmed", publicBookingService.book(hotelId, req)));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+        }
     }
 
     private void requireBookingEngineAccess(UUID hotelId,String host,String slug) {

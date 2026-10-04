@@ -1,13 +1,23 @@
 package in.aviqr.pms.dto;
 
 import in.aviqr.pms.entity.Reservation;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** Guest-facing confirmation intentionally omits guest phone/name and staff notes. */
+/** Guest-facing confirmation intentionally omits guest phone/name and staff notes.
+ *  Totals are what the booking engine showed at booking; taxes are an estimate
+ *  because surcharges post to the folio at check-in. */
 public record PublicBookingConfirmation(UUID reservationId, UUID hotelId, LocalDate checkInDate,
-        LocalDate checkOutDate, String status) {
+        LocalDate checkOutDate, String status, Integer rooms, Totals totals) {
+    public record Totals(BigDecimal roomTotal, BigDecimal addOnTotal, BigDecimal discount,
+                         BigDecimal estimatedTaxes, BigDecimal grandTotal, String currency) { }
+
     public static PublicBookingConfirmation from(Reservation r) {
-        return new PublicBookingConfirmation(r.getId(),r.getHotelId(),r.getCheckInDate(),r.getCheckOutDate(),r.getStatus().name());
+        return new PublicBookingConfirmation(r.getId(),r.getHotelId(),r.getCheckInDate(),r.getCheckOutDate(),r.getStatus().name(),null,null);
+    }
+    public static PublicBookingConfirmation from(Reservation r, int rooms, Totals totals) {
+        return new PublicBookingConfirmation(r.getId(),r.getHotelId(),r.getCheckInDate(),r.getCheckOutDate(),r.getStatus().name(),rooms,totals);
     }
 }

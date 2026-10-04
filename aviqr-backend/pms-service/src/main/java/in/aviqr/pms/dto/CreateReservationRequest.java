@@ -18,6 +18,7 @@ public class CreateReservationRequest {
     private java.math.BigDecimal commissionPercentOverride;
     private String guestName;
     private String guestPhone;
+    private String guestEmail;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
     private Integer adults;
