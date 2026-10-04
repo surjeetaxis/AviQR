@@ -12,7 +12,7 @@ import {
   Download, RefreshCw, ToggleLeft, ToggleRight,
   Lock, Unlock, Star, Send, AlertTriangle, ChevronLeft, ChevronRight,
   BadgeCheck, Clock, Zap, Crown, ScanLine, ExternalLink,
-  Percent, Gift, Layers, BedDouble, UserCog, ClipboardList, UtensilsCrossed, Sparkles, Mail
+  Percent, Gift, Layers, BedDouble, UserCog, ClipboardList, UtensilsCrossed, Sparkles, Mail, Loader2
 } from 'lucide-react';
 import { authApi, reportApi, shopApi, hotelApi, mallApi, orderApi, paymentApi, qrApi, planApi, offerApi } from '../../api/index.js';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
@@ -851,7 +851,7 @@ function AdminShopsPage() {
 }
 
 // ── Admin Hotels Page ─────────────────────────────────────────────────────────
-function AdminHotelsPage() {
+export function AdminHotelsPage() {
   const { lang } = useLang();
   const [hotels, setHotels] = useState([]);
   const [loading, setLoad]  = useState(true);
@@ -860,6 +860,7 @@ function AdminHotelsPage() {
   const [viewStats, setViewStats] = useState(null);
   const [viewLoad, setViewLoad]   = useState(false);
   const [viewOwner, setViewOwner] = useState(null);
+  const [bookingEngineBusy, setBookingEngineBusy] = useState('');
 
   const load = useCallback(async () => {
     setLoad(true); setErr('');
@@ -893,6 +894,27 @@ function AdminHotelsPage() {
     } finally { setViewLoad(false); }
   };
 
+  const toggleBookingEngine = async (hotel) => {
+    const enabled = hotel.bookingEngineEnabled === false;
+    setBookingEngineBusy(hotel.id);
+    setErr('');
+    try {
+      const response = await hotelApi.getBookingEngineSettings(hotel.id);
+      const current = response.data?.data || response.data;
+      const updated = await hotelApi.updateBookingEngineSettings(hotel.id, {
+        enabled, visibility: current.visibility, brandName: current.brandName,
+        primaryColor: current.primaryColor, accentColor: current.accentColor,
+        logoUrl: current.logoUrl, slug: current.slug, customDomain: current.customDomain,
+        supportEmail: current.supportEmail,
+      });
+      const settings = updated.data?.data || updated.data;
+      setHotels(rows => rows.map(row => row.id === hotel.id ? { ...row, bookingEngineEnabled: settings.enabled } : row));
+      setView(currentView => currentView?.id === hotel.id ? { ...currentView, bookingEngineEnabled: settings.enabled } : currentView);
+    } catch (e) {
+      setErr(e.response?.data?.message || `Could not ${enabled ? 'enable' : 'disable'} bookings for ${hotel.name}.`);
+    } finally { setBookingEngineBusy(''); }
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -906,11 +928,11 @@ function AdminHotelsPage() {
         <div className="admin-table-card">
           <table className="admin-table">
             <thead>
-              <tr><th>Hotel</th><th>Location</th><th>Phone</th><th>Services</th><th>Check-in / out</th><th>Owner ID</th><th>Actions</th></tr>
+              <tr><th>Hotel</th><th>Location</th><th>Phone</th><th>Services</th><th>Booking engine</th><th>Check-in / out</th><th>Owner ID</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {hotels.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No hotels registered</td></tr>
+                <tr><td colSpan={8} style={{ textAlign:'center', padding:'32px 0', color:'var(--gray-400)' }}>No hotels registered</td></tr>
               )}
               {hotels.map(h => (
                 <tr key={h.id}>
@@ -922,6 +944,7 @@ function AdminHotelsPage() {
                       <span key={s} style={{ marginRight:4, fontSize:10, padding:'2px 6px', background:'#EDE9FE', color:'#7C3AED', borderRadius:10, fontWeight:600 }}>{s}</span>
                     ))}
                   </td>
+                  <td><button type="button" className={`booking-admin-toggle ${h.bookingEngineEnabled === false ? 'is-disabled' : 'is-enabled'}`} disabled={bookingEngineBusy===h.id} onClick={()=>toggleBookingEngine(h)} aria-label={`${h.bookingEngineEnabled === false ? 'Enable' : 'Disable'} booking engine for ${h.name}`} title="Admin and support can override the property's online booking availability">{bookingEngineBusy===h.id?<Loader2 size={15} className="booking-admin-spin"/>:h.bookingEngineEnabled===false?<ToggleLeft size={18}/>:<ToggleRight size={18}/>}<span>{h.bookingEngineEnabled===false?'Disabled':'Enabled'}</span></button></td>
                   <td style={{ fontSize:12, color:'var(--gray-500)' }}>{h.checkInTime || '—'} / {h.checkOutTime || '—'}</td>
                   <td style={{ fontSize:11, fontFamily:'monospace', color:'var(--gray-400)' }}>{h.ownerId?.slice(0,8)}…</td>
                   <td>

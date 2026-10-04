@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { supportApi, orderApi, authApi, shopApi, paymentApi, ocrApi, auditApi, planApi, offerApi } from '../../api/index.js';
-import { AdminQRCodesPage, AdminReports } from '../admin/AdminDashboard.jsx';
+import { AdminHotelsPage, AdminQRCodesPage, AdminReports } from '../admin/AdminDashboard.jsx';
 import AdminLoginSecurity from '../admin/AdminLoginSecurity.jsx';
 import AdminLeadsPage from '../admin/AdminLeadsPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import {
-  Headphones, ShoppingBag, CreditCard, Users, Store, QrCode,
+  Headphones, ShoppingBag, CreditCard, Users, Store, Hotel, QrCode,
   ScanLine, MessageCircle, FileText, UserCheck, LogOut,
   Menu as MenuIcon, Search, Bell, AlertCircle, CheckCircle2,
   XCircle, Clock, Eye, RefreshCw, Filter,
@@ -42,6 +42,7 @@ const NAV = [
   { key:'payments',    label:'Payments',       icon:CreditCard },
   { key:'users',       label:'Users',          icon:Users },
   { key:'shops',       label:'Shops',          icon:Store },
+  { key:'hotels',      label:'Hotels',         icon:Hotel },
   { key:'qrcodes',     label:'QR Codes',       icon:QrCode },
   { key:'ocr',         label:'OCR Jobs',       icon:ScanLine },
   { key:'security', label:'Login Security', icon:Shield },
@@ -168,6 +169,7 @@ export default function SupportDashboard() {
           {tab === 'payments'    && <SupportPaymentsPanel />}
           {tab === 'users'       && <UsersPanel users={users} />}
           {tab === 'shops'       && <ShopsPanel shops={shops} />}
+          {tab === 'hotels'      && <AdminHotelsPage/>}
           {tab === 'qrcodes'     && <AdminQRCodesPage/>}
           {tab === 'ocr'         && <OCRPanel jobs={ocrJobs} />}
           {tab === 'audit'       && <AuditPanel logs={auditLogs} />}

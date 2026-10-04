@@ -41,3 +41,9 @@
 .btn-primary { background:var(--gray-900); color:var(--white); }
 .btn-secondary { background:var(--white); color:var(--gray-700); border:1px solid var(--gray-200); }
 .btn-refresh { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 14px; border-radius:var(--radius-md); font-size:13px; font-weight:500; background:var(--white); color:var(--gray-700); border:1px solid var(--gray-200); }
+.booking-admin-toggle { display:inline-flex; align-items:center; gap:5px; min-height:32px; padding:5px 8px; border:1px solid var(--gray-200); border-radius:8px; background:#fff; font-size:10.5px; font-weight:700; cursor:pointer; }
+.booking-admin-toggle.is-enabled { color:#16734e; border-color:#ccebd7; background:#f4fbf6; }
+.booking-admin-toggle.is-disabled { color:#8b5c1c; border-color:#f0dfbd; background:#fff9ed; }
+.booking-admin-toggle:disabled { opacity:.65; cursor:wait; }
+.booking-admin-spin { animation:booking-admin-spin .8s linear infinite; }
+@keyframes booking-admin-spin { to { transform:rotate(360deg); } }
