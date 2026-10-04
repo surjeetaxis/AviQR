@@ -356,6 +356,7 @@ export const hotelApi = {
   update:         (id, d)    => api.put(`/api/v1/hotels/${id}`, d),
   getBookingEngineSettings: (id) => api.get(`/api/v1/hotels/${id}/booking-engine-settings`),
   updateBookingEngineSettings: (id, d) => api.put(`/api/v1/hotels/${id}/booking-engine-settings`, d),
+  setBookingEngineEnabled: (id, enabled) => api.patch(`/api/v1/hotels/${id}/booking-engine-settings/enabled`, null, { params: { enabled } }),
   create:         (d)        => api.post('/api/v1/hotels', d),
   createChain:    (d)        => api.post('/api/v1/chains', d),
   assignChain:    (hotelId, chainId) => api.put(`/api/v1/hotels/${hotelId}/chain`, null, { params: { chainId } }),

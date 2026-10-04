@@ -138,6 +138,22 @@ public class HotelController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    /** Platform Admin/Support and property owners can pause or resume bookings without
+     *  resubmitting branding/domain fields that are unrelated to this control. */
+    @PatchMapping("/api/v1/hotels/{id}/booking-engine-settings/enabled")
+    @Transactional
+    public ResponseEntity<ApiResponse<BookingEngineSettingsResponse>> setBookingEngineEnabled(@PathVariable UUID id,
+            @RequestParam boolean enabled,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        if (!accessService.isOwner(id,uid,role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        return hotelRepo.findById(id).map(h -> {
+            h.setBookingEngineEnabled(enabled);
+            return ResponseEntity.ok(ApiResponse.ok("Booking engine availability updated",settingsResponse(hotelRepo.save(h))));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
     // ── Hotel CRUD ───────────────────────────────────────────────────────────
     @PostMapping("/api/v1/hotels")
     public ResponseEntity<ApiResponse<Hotel>> createHotel(@RequestBody Hotel hotel,

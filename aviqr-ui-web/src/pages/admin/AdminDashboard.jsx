@@ -899,14 +899,7 @@ export function AdminHotelsPage() {
     setBookingEngineBusy(hotel.id);
     setErr('');
     try {
-      const response = await hotelApi.getBookingEngineSettings(hotel.id);
-      const current = response.data?.data || response.data;
-      const updated = await hotelApi.updateBookingEngineSettings(hotel.id, {
-        enabled, visibility: current.visibility, brandName: current.brandName,
-        primaryColor: current.primaryColor, accentColor: current.accentColor,
-        logoUrl: current.logoUrl, slug: current.slug, customDomain: current.customDomain,
-        supportEmail: current.supportEmail,
-      });
+      const updated = await hotelApi.setBookingEngineEnabled(hotel.id, enabled);
       const settings = updated.data?.data || updated.data;
       setHotels(rows => rows.map(row => row.id === hotel.id ? { ...row, bookingEngineEnabled: settings.enabled } : row));
       setView(currentView => currentView?.id === hotel.id ? { ...currentView, bookingEngineEnabled: settings.enabled } : currentView);
