@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface BookingEngineSettingsRepository extends JpaRepository<BookingEngineSettings, UUID> {
     Optional<BookingEngineSettings> findByHotelId(UUID hotelId);
+    Optional<BookingEngineSettings> findByWhatsappPhoneNumberId(String phoneNumberId);
 }

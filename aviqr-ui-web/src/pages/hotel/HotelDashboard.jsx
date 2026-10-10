@@ -2104,7 +2104,7 @@ export function HotelSettings({user,lang,hotelId}) {
   const [form,setForm] = useState({hotelName:user?.hotelName||'',phone:'',email:'',address:'',checkinTime:'14:00',checkoutTime:'12:00',currency:'INR',taxPercent:'18',latitude:null,longitude:null});
   const [enabledServices,setEnabledServices] = useState([]);
   const [bookingEngine,setBookingEngine] = useState({enabled:true,visibility:'PUBLIC',brandName:'',primaryColor:'#1f7257',accentColor:'#d5a86b',logoUrl:'',slug:'',customDomain:'',supportEmail:'',hostedUrl:'',customDomainUrl:''});
-  const [bookingPolicies,setBookingPolicies] = useState({hotelPolicies:'',cancellationPolicy:'',termsAndConditions:'',requireTermsAcceptance:true,paymentMode:'PAY_AT_HOTEL',depositPercent:100});
+  const [bookingPolicies,setBookingPolicies] = useState({hotelPolicies:'',cancellationPolicy:'',termsAndConditions:'',requireTermsAcceptance:true,paymentMode:'PAY_AT_HOTEL',depositPercent:100,chatEnabled:false,whatsappNumber:'',whatsappBotEnabled:false,whatsappPhoneNumberId:'',whatsappAccessToken:'',whatsappTokenSet:false});
   const [savingBookingEngine,setSavingBookingEngine] = useState(false);
   const [bookingEngineMessage,setBookingEngineMessage] = useState('');
   const [saving,setSaving] = useState(false);
@@ -2126,7 +2126,7 @@ export function HotelSettings({user,lang,hotelId}) {
     }).catch(()=>{});
     pmsApi.getBookingEngineSettings(hotelId).then(res=>{
       const x=res.data?.data;
-      if(x)setBookingPolicies({hotelPolicies:x.hotelPolicies||'',cancellationPolicy:x.cancellationPolicy||'',termsAndConditions:x.termsAndConditions||'',requireTermsAcceptance:x.requireTermsAcceptance!==false,paymentMode:x.paymentMode||'PAY_AT_HOTEL',depositPercent:x.depositPercent||100});
+      if(x)setBookingPolicies({hotelPolicies:x.hotelPolicies||'',cancellationPolicy:x.cancellationPolicy||'',termsAndConditions:x.termsAndConditions||'',requireTermsAcceptance:x.requireTermsAcceptance!==false,paymentMode:x.paymentMode||'PAY_AT_HOTEL',depositPercent:x.depositPercent||100,chatEnabled:!!x.chatEnabled,whatsappNumber:x.whatsappNumber||'',whatsappBotEnabled:!!x.whatsappBotEnabled,whatsappPhoneNumberId:x.whatsappPhoneNumberId||'',whatsappAccessToken:'',whatsappTokenSet:!!x.whatsappTokenSet});
     }).catch(()=>{});
   }, [hotelId]);
 
@@ -2163,6 +2163,7 @@ export function HotelSettings({user,lang,hotelId}) {
     setBookingEngineMessage('');
     try {
       const [res]=await Promise.all([hotelApi.updateBookingEngineSettings(hotelId,bookingEngine),pmsApi.updateBookingEngineSettings(hotelId,bookingPolicies)]);
+      setBookingPolicies(v=>({...v,whatsappAccessToken:'',whatsappTokenSet:v.whatsappTokenSet||!!v.whatsappAccessToken}));
       const x=res.data?.data||res.data;
       if(x)setBookingEngine(v=>({...v,...x}));
       setBookingEngineMessage('Your booking settings are saved and live.');
@@ -2255,6 +2256,18 @@ export function HotelSettings({user,lang,hotelId}) {
           </div>
         </div>
         <PaymentGatewaysPanel hotelId={hotelId}/>
+        <div className="booking-settings-section">
+          <div className="booking-section-title"><div><h3>Booking assistant &amp; WhatsApp</h3><p>An AI assistant answers guests with your live rooms, prices and policies, and sends them a booking link. It never books or takes payment itself.</p></div></div>
+          <div className="booking-form-grid">
+            <div className="form-field" style={{gridColumn:'1 / -1'}}><label style={{display:'flex',gap:8,alignItems:'center',fontSize:13}}><input type="checkbox" checked={bookingPolicies.chatEnabled} onChange={e=>setBookingPolicies(v=>({...v,chatEnabled:e.target.checked}))}/> Show the assistant as a chat on your booking page</label></div>
+            <div className="form-field"><label className="form-label" htmlFor="booking-wa-number">WhatsApp number for guests <span className="booking-optional">Optional</span></label><input id="booking-wa-number" className="form-input" inputMode="tel" value={bookingPolicies.whatsappNumber} onChange={e=>setBookingPolicies(v=>({...v,whatsappNumber:e.target.value}))} placeholder="919876543210"/><small>With country code. Adds a "Chat on WhatsApp" button to your booking page.</small></div>
+            <div className="form-field" style={{gridColumn:'1 / -1'}}><label style={{display:'flex',gap:8,alignItems:'center',fontSize:13}}><input type="checkbox" checked={bookingPolicies.whatsappBotEnabled} onChange={e=>setBookingPolicies(v=>({...v,whatsappBotEnabled:e.target.checked}))}/> Let the assistant answer WhatsApp messages (WhatsApp Business Cloud API)</label></div>
+            {bookingPolicies.whatsappBotEnabled&&<>
+              <div className="form-field"><label className="form-label" htmlFor="booking-wa-id">Phone number ID</label><input id="booking-wa-id" className="form-input" value={bookingPolicies.whatsappPhoneNumberId} onChange={e=>setBookingPolicies(v=>({...v,whatsappPhoneNumberId:e.target.value.replace(/\D/g,'')}))} placeholder="From Meta: WhatsApp › API setup"/></div>
+              <div className="form-field"><label className="form-label" htmlFor="booking-wa-token">Access token</label><input id="booking-wa-token" className="form-input" type="password" autoComplete="off" value={bookingPolicies.whatsappAccessToken} onChange={e=>setBookingPolicies(v=>({...v,whatsappAccessToken:e.target.value}))} placeholder={bookingPolicies.whatsappTokenSet?'•••••••• saved; paste to replace':'Permanent system-user token'}/><small>Stored encrypted. Ask AviQR support to connect your number to AviQR's WhatsApp app first.</small></div>
+            </>}
+          </div>
+        </div>
         {bookingEngineMessage&&<div className={`booking-save-message ${bookingEngineMessage.includes('saved')?'success':'error'}`} role="status">{bookingEngineMessage.includes('saved')&&<CheckCircle2 size={16}/>} {bookingEngineMessage}</div>}
         <div className="booking-settings-footer"><span>Changes take effect when you save.</span><button className="btn btn-primary" onClick={saveBookingEngine} disabled={savingBookingEngine}>{savingBookingEngine?<><Loader2 size={15} className="booking-spin"/> Saving…</>:<><Save size={15}/> Save booking settings</>}</button></div>
       </section>

@@ -22,7 +22,7 @@ public class PayloadEncryptionFilter implements WebFilter, Ordered {
     private final ObjectMapper mapper;
     private final ReactiveStringRedisTemplate redis;
     @Value("${app.payload.require-encrypted:false}") private boolean required;
-    private static final Set<String> WEBHOOKS = Set.of("/api/v1/payments/razorpay/webhook", "/api/v1/aggregator/zomato/webhook", "/api/v1/aggregator/swiggy/webhook", "/api/v1/pms/channels/webhook", "/api/v1/pms/channels/accept-booking");
+    private static final Set<String> WEBHOOKS = Set.of("/api/v1/payments/razorpay/webhook", "/api/v1/aggregator/zomato/webhook", "/api/v1/aggregator/swiggy/webhook", "/api/v1/pms/channels/webhook", "/api/v1/pms/channels/accept-booking", "/api/v1/pms/public/whatsapp/webhook");
     public PayloadEncryptionFilter(PayloadEncryption encryption, ObjectMapper mapper, ReactiveStringRedisTemplate redis) { this.encryption=encryption; this.mapper=mapper; this.redis=redis; }
     @Override public int getOrder() { return -190; }
     @Override public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
