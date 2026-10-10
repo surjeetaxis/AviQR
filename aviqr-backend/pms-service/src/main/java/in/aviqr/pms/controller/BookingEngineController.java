@@ -7,6 +7,7 @@ import in.aviqr.pms.dto.PublicRateQuote;
 import in.aviqr.pms.dto.PublicAvailableRoomDto;
 import in.aviqr.pms.dto.PublicBookingConfirmation;
 import in.aviqr.pms.dto.PublicBookingExtras;
+import in.aviqr.pms.dto.PublicBookingPolicies;
 import in.aviqr.pms.dto.PublicPromoQuote;
 import in.aviqr.pms.service.PublicBookingService;
 import in.aviqr.pms.service.BookingVoucherService;
@@ -107,6 +108,14 @@ public class BookingEngineController {
             @RequestParam(defaultValue="") String storefrontHost,@RequestParam(defaultValue="") String storefrontSlug) {
         requireBookingEngineAccess(hotelId,storefrontHost,storefrontSlug);
         return ResponseEntity.ok(ApiResponse.ok(publicBookingService.extras(hotelId)));
+    }
+
+    /** Hotel policies, the default cancellation policy and the terms a guest must accept to book. */
+    @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/policies")
+    public ResponseEntity<ApiResponse<PublicBookingPolicies>> policies(@PathVariable UUID hotelId,
+            @RequestParam(defaultValue="") String storefrontHost,@RequestParam(defaultValue="") String storefrontSlug) {
+        requireBookingEngineAccess(hotelId,storefrontHost,storefrontSlug);
+        return ResponseEntity.ok(ApiResponse.ok(publicBookingService.policies(hotelId)));
     }
 
     @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/promo")

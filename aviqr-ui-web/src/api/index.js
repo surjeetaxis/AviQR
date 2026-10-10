@@ -491,6 +491,9 @@ export const pmsApi = {
   createDiscount:  (d)            => api.post('/api/v1/pms/discounts', d),
   updateDiscount:  (id, d)        => api.put(`/api/v1/pms/discounts/${id}`, d),
   applyDiscount:   (reservationId, discountId) => api.post(`/api/v1/pms/reservations/${reservationId}/discounts/${discountId}`),
+  // Booking-engine hotel policies, default cancellation policy and terms guests accept
+  getBookingEngineSettings:    (hotelId)    => api.get(`/api/v1/pms/booking-engine-settings/hotel/${hotelId}`),
+  updateBookingEngineSettings: (hotelId, d) => api.put(`/api/v1/pms/booking-engine-settings/hotel/${hotelId}`, d),
   // Booking-engine promo codes: guest-entered codes that apply a discount package
   listPromoCodes:  (hotelId)      => api.get(`/api/v1/pms/promo-codes/hotel/${hotelId}`),
   createPromoCode: (d)            => api.post('/api/v1/pms/promo-codes', d),

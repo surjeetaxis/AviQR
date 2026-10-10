@@ -2103,6 +2103,7 @@ export function HotelSettings({user,lang,hotelId}) {
   const [form,setForm] = useState({hotelName:user?.hotelName||'',phone:'',email:'',address:'',checkinTime:'14:00',checkoutTime:'12:00',currency:'INR',taxPercent:'18',latitude:null,longitude:null});
   const [enabledServices,setEnabledServices] = useState([]);
   const [bookingEngine,setBookingEngine] = useState({enabled:true,visibility:'PUBLIC',brandName:'',primaryColor:'#1f7257',accentColor:'#d5a86b',logoUrl:'',slug:'',customDomain:'',supportEmail:'',hostedUrl:'',customDomainUrl:''});
+  const [bookingPolicies,setBookingPolicies] = useState({hotelPolicies:'',cancellationPolicy:'',termsAndConditions:'',requireTermsAcceptance:true});
   const [savingBookingEngine,setSavingBookingEngine] = useState(false);
   const [bookingEngineMessage,setBookingEngineMessage] = useState('');
   const [saving,setSaving] = useState(false);
@@ -2121,6 +2122,10 @@ export function HotelSettings({user,lang,hotelId}) {
     hotelApi.getBookingEngineSettings(hotelId).then(res=>{
       const x=res.data?.data||res.data;
       if(x)setBookingEngine({enabled:x.enabled!==false,visibility:x.visibility||'PUBLIC',brandName:x.brandName||'',primaryColor:x.primaryColor||'#1f7257',accentColor:x.accentColor||'#d5a86b',logoUrl:x.logoUrl||'',slug:x.slug||'',customDomain:x.customDomain||'',supportEmail:x.supportEmail||'',hostedUrl:x.hostedUrl||'',customDomainUrl:x.customDomainUrl||''});
+    }).catch(()=>{});
+    pmsApi.getBookingEngineSettings(hotelId).then(res=>{
+      const x=res.data?.data;
+      if(x)setBookingPolicies({hotelPolicies:x.hotelPolicies||'',cancellationPolicy:x.cancellationPolicy||'',termsAndConditions:x.termsAndConditions||'',requireTermsAcceptance:x.requireTermsAcceptance!==false});
     }).catch(()=>{});
   }, [hotelId]);
 
@@ -2156,7 +2161,7 @@ export function HotelSettings({user,lang,hotelId}) {
     setSavingBookingEngine(true);
     setBookingEngineMessage('');
     try {
-      const res=await hotelApi.updateBookingEngineSettings(hotelId,bookingEngine);
+      const [res]=await Promise.all([hotelApi.updateBookingEngineSettings(hotelId,bookingEngine),pmsApi.updateBookingEngineSettings(hotelId,bookingPolicies)]);
       const x=res.data?.data||res.data;
       if(x)setBookingEngine(v=>({...v,...x}));
       setBookingEngineMessage('Your booking settings are saved and live.');
@@ -2223,6 +2228,15 @@ export function HotelSettings({user,lang,hotelId}) {
             <div className="form-field"><label className="form-label" htmlFor="booking-domain">Custom domain <span className="booking-optional">Optional</span></label><div className="booking-domain-input"><Globe size={16}/><input id="booking-domain" value={bookingEngine.customDomain} onChange={e=>setBookingEngine(v=>({...v,customDomain:e.target.value.toLowerCase().trim()}))} placeholder="book.yourhotel.com"/></div><small>Point its DNS to the AviQR booking engine. HTTPS activates after DNS is connected.</small></div>
           </div>
           <div className="booking-public-link"><span className="booking-public-link-icon"><Globe size={16}/></span><div><b>{bookingEngine.visibility==='PRIVATE'?'Private booking page':'Direct booking page'}</b><span>{bookingEngine.visibility==='PRIVATE'?'Only guests with your link can find this property.':'Guests can book directly and find you in AviQR Stays.'}</span></div>{bookingEngine.hostedUrl&&<a href={bookingEngine.hostedUrl} target="_blank" rel="noreferrer">Open page <Link2 size={14}/></a>}</div>
+        </div>
+        <div className="booking-settings-section">
+          <div className="booking-section-title"><div><h3>Policies &amp; terms</h3><p>Shown on your booking page and at checkout. A rate plan's own cancellation policy wins over the default here.</p></div></div>
+          <div className="booking-form-grid">
+            <div className="form-field"><label className="form-label" htmlFor="booking-hotel-policies">Hotel policies</label><textarea id="booking-hotel-policies" className="form-input" rows={5} maxLength={10000} value={bookingPolicies.hotelPolicies} onChange={e=>setBookingPolicies(v=>({...v,hotelPolicies:e.target.value}))} placeholder={'Check-in from 2 PM, check-out by 11 AM\nGovernment photo ID required for every guest\nNo pets'}/><small>One policy per line.</small></div>
+            <div className="form-field"><label className="form-label" htmlFor="booking-cancellation">Default cancellation policy</label><textarea id="booking-cancellation" className="form-input" rows={5} maxLength={10000} value={bookingPolicies.cancellationPolicy} onChange={e=>setBookingPolicies(v=>({...v,cancellationPolicy:e.target.value}))} placeholder="Free cancellation up to 48 hours before check-in. Later cancellations or no-shows are charged one night."/><small>Used for rate plans without their own policy.</small></div>
+            <div className="form-field" style={{gridColumn:'1 / -1'}}><label className="form-label" htmlFor="booking-terms">Terms &amp; conditions</label><textarea id="booking-terms" className="form-input" rows={6} maxLength={10000} value={bookingPolicies.termsAndConditions} onChange={e=>setBookingPolicies(v=>({...v,termsAndConditions:e.target.value}))} placeholder="The terms guests agree to when they book."/>
+              <label style={{display:'flex',gap:8,alignItems:'center',fontSize:12.5,marginTop:4}}><input type="checkbox" checked={bookingPolicies.requireTermsAcceptance} onChange={e=>setBookingPolicies(v=>({...v,requireTermsAcceptance:e.target.checked}))}/> Guests must tick "I agree" before booking</label></div>
+          </div>
         </div>
         {bookingEngineMessage&&<div className={`booking-save-message ${bookingEngineMessage.includes('saved')?'success':'error'}`} role="status">{bookingEngineMessage.includes('saved')&&<CheckCircle2 size={16}/>} {bookingEngineMessage}</div>}
         <div className="booking-settings-footer"><span>Changes take effect when you save.</span><button className="btn btn-primary" onClick={saveBookingEngine} disabled={savingBookingEngine}>{savingBookingEngine?<><Loader2 size={15} className="booking-spin"/> Saving…</>:<><Save size={15}/> Save booking settings</>}</button></div>

@@ -4,6 +4,7 @@ import in.aviqr.pms.dto.CreateReservationRequest;
 import in.aviqr.pms.dto.PublicBookingConfirmation;
 import in.aviqr.pms.dto.PublicBookingExtras;
 import in.aviqr.pms.dto.PublicBookingRequest;
+import in.aviqr.pms.dto.PublicBookingPolicies;
 import in.aviqr.pms.dto.PublicPromoQuote;
 import in.aviqr.pms.entity.*;
 import in.aviqr.pms.repository.*;
@@ -39,6 +40,13 @@ public class PublicBookingService {
     private final VoucherRepository voucherRepo;
     private final VoucherService voucherService;
     private final FolioPaymentRepository paymentRepo;
+    private final BookingEngineSettingsRepository settingsRepo;
+
+    public PublicBookingPolicies policies(UUID hotelId) {
+        return settingsRepo.findByHotelId(hotelId)
+            .map(s -> new PublicBookingPolicies(s.getHotelPolicies(), s.getCancellationPolicy(), s.getTermsAndConditions(), s.termsRequired()))
+            .orElse(PublicBookingPolicies.NONE);
+    }
 
     public PublicBookingExtras extras(UUID hotelId) {
         return new PublicBookingExtras(
@@ -68,6 +76,8 @@ public class PublicBookingService {
             throw new IllegalArgumentException("Check-out must be after check-in");
         if (lines.isEmpty() || lines.size() > MAX_ROOMS)
             throw new IllegalArgumentException("Choose between 1 and " + MAX_ROOMS + " rooms");
+        if (!Boolean.TRUE.equals(req.getTermsAccepted()) && policies(hotelId).termsRequired())
+            throw new IllegalArgumentException("Please accept the hotel's terms and conditions");
 
         long nights = ChronoUnit.DAYS.between(req.getCheckInDate(), req.getCheckOutDate());
         BigDecimal roomTotal = BigDecimal.ZERO;
@@ -193,6 +203,8 @@ public class PublicBookingService {
             parts.add("Guest request: " + req.getSpecialRequests().trim());
         if (req.getGuestEmail() != null && !req.getGuestEmail().isBlank())
             parts.add("Email: " + req.getGuestEmail().trim());
+        if (Boolean.TRUE.equals(req.getTermsAccepted()))
+            parts.add("Accepted booking terms");
         if (req.getPromoCode() != null && !req.getPromoCode().isBlank())
             parts.add("Promo: " + req.getPromoCode().trim().toUpperCase(Locale.ROOT));
         String text = String.join("\n", parts);

@@ -38,6 +38,7 @@ class PublicBookingServiceTest {
     @Mock VoucherRepository voucherRepo;
     @Mock VoucherService voucherService;
     @Mock FolioPaymentRepository paymentRepo;
+    @Mock BookingEngineSettingsRepository settingsRepo;
     @InjectMocks PublicBookingService service;
 
     final UUID hotel = UUID.randomUUID();
@@ -235,5 +236,33 @@ class PublicBookingServiceTest {
             .code("FLAT").discountPackageId(flat.getId()).active(true).build()));
         assertThat(service.promo(hotel, "FLAT", new BigDecimal("3000"), in)).get()
             .satisfies(p -> assertThat(p.discount()).isEqualByComparingTo("3000"));
+    }
+
+    @Test
+    @DisplayName("Terms the hotel requires must be accepted, and acceptance is noted on the booking")
+    void termsMustBeAccepted() {
+        when(settingsRepo.findByHotelId(hotel)).thenReturn(Optional.of(BookingEngineSettings.builder().hotelId(hotel)
+            .termsAndConditions("No smoking in rooms.").requireTermsAcceptance(true).build()));
+        PublicBookingRequest req = request(2);
+
+        assertThatThrownBy(() -> service.book(hotel, req)).isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("terms and conditions");
+        verify(reservationService, never()).create(any(), anyString());
+
+        req.setTermsAccepted(true);
+        service.book(hotel, req);
+        ArgumentCaptor<CreateReservationRequest> sent = ArgumentCaptor.forClass(CreateReservationRequest.class);
+        verify(reservationService).create(sent.capture(), anyString());
+        assertThat(sent.getValue().getNotes()).contains("Accepted booking terms");
+    }
+
+    @Test
+    @DisplayName("No acceptance is needed when the hotel has no terms or doesn't require it")
+    void termsOptional() {
+        assertThat(service.policies(hotel).termsRequired()).isFalse();
+        when(settingsRepo.findByHotelId(hotel)).thenReturn(Optional.of(BookingEngineSettings.builder().hotelId(hotel)
+            .termsAndConditions("No smoking in rooms.").requireTermsAcceptance(false).build()));
+        assertThat(service.policies(hotel).termsRequired()).isFalse();
+        assertThatCode(() -> service.book(hotel, request(2))).doesNotThrowAnyException();
     }
 }

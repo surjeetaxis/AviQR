@@ -26,6 +26,8 @@ public class PublicBookingRequest {
     private List<AddOnLine> addOns;
     private String promoCode;
     private String giftVoucherCode;
+    /** The guest ticked "I agree" to the hotel's terms; required when the hotel asks for it. */
+    private Boolean termsAccepted;
     private UUID bookingRequestId;
     private String storefrontHost;
     private String storefrontSlug;
