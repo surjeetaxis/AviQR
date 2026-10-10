@@ -51,6 +51,7 @@ public class BookingEngineController {
     private final BookingVoucherService voucherService;
     private final ReservationRepository reservationRepo;
     private final in.aviqr.pms.service.OnlineBookingPaymentService onlinePayments;
+    private final in.aviqr.pms.service.DealService dealService;
 
     @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/room-types")
     public ResponseEntity<ApiResponse<List<PublicRoomTypeDto>>> roomTypes(@PathVariable UUID hotelId,
@@ -139,6 +140,23 @@ public class BookingEngineController {
                 "currency", Objects.toString(p.getCurrency(), "INR"), "kind", Objects.toString(p.getKind(), "DEPOSIT"),
                 "required", Boolean.TRUE.equals(p.getRequired())))))
             .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("No online payment for this booking")));
+    }
+
+    /** Deals guests can still get, for the property page. */
+    @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/deals")
+    public ResponseEntity<ApiResponse<List<in.aviqr.pms.dto.PublicDeal>>> deals(@PathVariable UUID hotelId,
+            @RequestParam(defaultValue="") String storefrontHost,@RequestParam(defaultValue="") String storefrontSlug) {
+        requireBookingEngineAccess(hotelId,storefrontHost,storefrontSlug);
+        return ResponseEntity.ok(ApiResponse.ok(dealService.live(hotelId)));
+    }
+
+    /** The deal that saves this stay the most, if any; null data when none applies. */
+    @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/deal")
+    public ResponseEntity<ApiResponse<in.aviqr.pms.dto.PublicDeal>> bestDeal(@PathVariable UUID hotelId,
+            @RequestParam(defaultValue="0") BigDecimal roomTotal, @RequestParam LocalDate checkIn, @RequestParam LocalDate checkOut,
+            @RequestParam(defaultValue="") String storefrontHost,@RequestParam(defaultValue="") String storefrontSlug) {
+        requireBookingEngineAccess(hotelId,storefrontHost,storefrontSlug);
+        return ResponseEntity.ok(ApiResponse.ok(dealService.best(hotelId, roomTotal.max(BigDecimal.ZERO), checkIn, checkOut).orElse(null)));
     }
 
     @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/promo")

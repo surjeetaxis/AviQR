@@ -1408,6 +1408,9 @@ export function ExtrasTab({ hotelId }) {
   const [vouchers, setVouchers] = useState([]);
   const [vForm, setVForm] = useState({ code: '', initialValue: '' });
   const [promos, setPromos] = useState([]);
+  const EMPTY_DEAL = { id: null, name: '', description: '', valueType: 'PERCENT', value: '', stayFrom: '', stayTo: '', bookFrom: '', bookTo: '', minNights: '', minDaysAhead: '', maxDaysAhead: '', active: true };
+  const [deals, setDeals] = useState([]);
+  const [dlForm, setDlForm] = useState(EMPTY_DEAL);
   const EMPTY_PROMO = { id: null, code: '', discountPackageId: '', validFrom: '', validTo: '', maxUses: '', minNights: '', minAmount: '' };
   const [pForm, setPForm] = useState(EMPTY_PROMO);
   const [loyalty, setLoyalty] = useState(null);
@@ -1419,6 +1422,7 @@ export function ExtrasTab({ hotelId }) {
     pmsApi.listAddOns(hotelId).then(res => setAddOns(res.data.data || [])).catch(() => {});
     pmsApi.listVouchers(hotelId).then(res => setVouchers(res.data.data || [])).catch(() => {});
     pmsApi.listPromoCodes(hotelId).then(res => setPromos(res.data.data || [])).catch(() => {});
+    pmsApi.listDeals(hotelId).then(res => setDeals(res.data.data || [])).catch(() => {});
     pmsApi.getLoyaltyConfig(hotelId).then(res => setLoyalty(res.data.data)).catch(() => {});
   }, [hotelId]);
   useEffect(() => { load(); }, [load]);
@@ -1477,6 +1481,28 @@ export function ExtrasTab({ hotelId }) {
   const editPromo = (p) => setPForm({ id: p.id, code: p.code, discountPackageId: p.discountPackageId, validFrom: p.validFrom || '', validTo: p.validTo || '',
     maxUses: p.maxUses ?? '', minNights: p.minNights ?? '', minAmount: p.minAmount ?? '' });
   const deletePromo = (p) => window.confirm(`Delete promo code ${p.code}?`) && pmsApi.deletePromoCode(p.id).then(load).catch(err => alert(err?.response?.data?.message || 'Could not delete promo code'));
+  const num = (v) => (v === '' || v == null ? null : Number(v));
+  const saveDeal = async (e) => {
+    e.preventDefault();
+    const body = { hotelId, name: dlForm.name, description: dlForm.description, valueType: dlForm.valueType, value: num(dlForm.value),
+      stayFrom: dlForm.stayFrom || null, stayTo: dlForm.stayTo || null, bookFrom: dlForm.bookFrom || null, bookTo: dlForm.bookTo || null,
+      minNights: num(dlForm.minNights), minDaysAhead: num(dlForm.minDaysAhead), maxDaysAhead: num(dlForm.maxDaysAhead), active: dlForm.active };
+    try {
+      if (dlForm.id) await pmsApi.updateDeal(dlForm.id, body); else await pmsApi.createDeal(body);
+      setDlForm(EMPTY_DEAL); load();
+    } catch (err) { alert(err?.response?.data?.message || 'Could not save deal'); }
+  };
+  const editDeal = (d) => setDlForm(Object.fromEntries(Object.entries({ ...EMPTY_DEAL, ...d }).map(([k, v]) => [k, v ?? ''])));
+  const toggleDeal = (d) => pmsApi.updateDeal(d.id, { ...d, active: !d.active }).then(load).catch(err => alert(err?.response?.data?.message || 'Could not update deal'));
+  const deleteDeal = (d) => window.confirm(`Delete the deal "${d.name}"?`) && pmsApi.deleteDeal(d.id).then(load).catch(() => alert('Could not delete deal'));
+  const DEAL_PRESETS = [
+    { label: 'Early bird', name: 'Early bird', description: 'Book 30 days ahead and save', value: 15, minDaysAhead: 30 },
+    { label: 'Last minute', name: 'Last-minute deal', description: 'Arriving within 3 days', value: 10, maxDaysAhead: 3 },
+    { label: 'Stay longer', name: 'Stay 3, save more', description: 'Stay 3 nights or more', value: 12, minNights: 3 },
+  ];
+  const dealRule = (d) => [d.minDaysAhead != null && `${d.minDaysAhead}+ days ahead`, d.maxDaysAhead != null && `within ${d.maxDaysAhead} days`,
+    d.minNights && `${d.minNights}+ nights`, (d.stayFrom || d.stayTo) && `stays ${d.stayFrom || '…'} → ${d.stayTo || '…'}`,
+    (d.bookFrom || d.bookTo) && `booked ${d.bookFrom || '…'} → ${d.bookTo || '…'}`].filter(Boolean).join(' · ') || 'Every booking';
   const togglePromo = (p) => pmsApi.setPromoCodeActive(p.id, !p.active).then(load).catch(err => alert(err?.response?.data?.message || 'Could not update promo code'));
 
   return (
@@ -1532,6 +1558,47 @@ export function ExtrasTab({ hotelId }) {
           </select>
           <input type="number" placeholder="Value" value={dForm.value} onChange={e => setDForm({ ...dForm, value: e.target.value })} style={{ ...inputStyle, width: 110 }} />
           <button type="submit" className="admin-row-btn" style={btnPrimary}><Plus size={14} /> Add discount</button>
+        </form>
+      </div>
+
+      <div className="admin-table-card" style={{ padding: 16 }}>
+        <strong>Booking-engine deals</strong> <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>(applied automatically, no code needed; a promo code is used instead only when it saves more)</span>
+        <table className="admin-table" style={{ marginTop: 10 }}>
+          <thead><tr><th>Deal</th><th>Discount</th><th>When it applies</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            {deals.map(d => (
+              <tr key={d.id}>
+                <td className="admin-td-shop">{d.name}{d.description && <div style={{ fontSize: 11.5, color: 'var(--gray-500)', fontWeight: 400 }}>{d.description}</div>}</td>
+                <td>{d.valueType === 'FIXED' ? `₹${Number(d.value).toLocaleString('en-IN')}` : `${Number(d.value)}%`}</td>
+                <td style={{ fontSize: 12.5 }}>{dealRule(d)}</td>
+                <td><span className={d.active ? 'status-pill st-active' : 'status-pill st-suspended'}>{d.active ? 'Live' : 'Paused'}</span></td>
+                <td style={{ display: 'flex', gap: 6 }}>
+                  <button className="admin-row-btn" style={btnSecondary} onClick={() => toggleDeal(d)}>{d.active ? 'Pause' : 'Resume'}</button>
+                  <button className="admin-row-btn" style={btnSecondary} onClick={() => editDeal(d)}>Edit</button>
+                  <button className="admin-row-btn" style={btnSecondary} onClick={() => deleteDeal(d)} aria-label={`Delete ${d.name}`}><Trash2 size={13} /></button>
+                </td>
+              </tr>
+            ))}
+            {deals.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 16 }}>No deals yet. Start from a preset below.</td></tr>}
+          </tbody>
+        </table>
+        {!dlForm.id && <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+          {DEAL_PRESETS.map(p => <button key={p.label} type="button" className="admin-row-btn" style={btnSecondary} onClick={() => setDlForm({ ...EMPTY_DEAL, ...p, label: undefined })}>{p.label}</button>)}
+        </div>}
+        <form onSubmit={saveDeal} style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input placeholder="Deal name" required maxLength={80} value={dlForm.name} onChange={e => setDlForm({ ...dlForm, name: e.target.value })} style={inputStyle} />
+          <input placeholder="Shown to guests (optional)" maxLength={200} value={dlForm.description} onChange={e => setDlForm({ ...dlForm, description: e.target.value })} style={{ ...inputStyle, minWidth: 220 }} />
+          <select value={dlForm.valueType} onChange={e => setDlForm({ ...dlForm, valueType: e.target.value })} style={inputStyle} aria-label="Discount type">
+            <option value="PERCENT">% off rooms</option><option value="FIXED">₹ off rooms</option>
+          </select>
+          <input type="number" min="0" step="0.01" required placeholder="Value" value={dlForm.value} onChange={e => setDlForm({ ...dlForm, value: e.target.value })} style={{ ...inputStyle, width: 90 }} />
+          <input type="number" min="0" placeholder="Min days ahead" value={dlForm.minDaysAhead} onChange={e => setDlForm({ ...dlForm, minDaysAhead: e.target.value })} style={{ ...inputStyle, width: 130 }} />
+          <input type="number" min="0" placeholder="Max days ahead" value={dlForm.maxDaysAhead} onChange={e => setDlForm({ ...dlForm, maxDaysAhead: e.target.value })} style={{ ...inputStyle, width: 130 }} />
+          <input type="number" min="1" placeholder="Min nights" value={dlForm.minNights} onChange={e => setDlForm({ ...dlForm, minNights: e.target.value })} style={{ ...inputStyle, width: 100 }} />
+          <label style={{ fontSize: 12, color: 'var(--gray-500)' }}>Stays <input type="date" value={dlForm.stayFrom} onChange={e => setDlForm({ ...dlForm, stayFrom: e.target.value })} style={inputStyle} /> to <input type="date" value={dlForm.stayTo} min={dlForm.stayFrom || undefined} onChange={e => setDlForm({ ...dlForm, stayTo: e.target.value })} style={inputStyle} /></label>
+          <label style={{ fontSize: 12, color: 'var(--gray-500)' }}>Booked <input type="date" value={dlForm.bookFrom} onChange={e => setDlForm({ ...dlForm, bookFrom: e.target.value })} style={inputStyle} /> to <input type="date" value={dlForm.bookTo} min={dlForm.bookFrom || undefined} onChange={e => setDlForm({ ...dlForm, bookTo: e.target.value })} style={inputStyle} /></label>
+          <button type="submit" className="admin-row-btn" style={btnPrimary}>{dlForm.id ? <><Save size={14} /> Save deal</> : <><Plus size={14} /> Add deal</>}</button>
+          {(dlForm.id || dlForm.name) && <button type="button" className="admin-row-btn" style={btnSecondary} onClick={() => setDlForm(EMPTY_DEAL)}>Cancel</button>}
         </form>
       </div>
 

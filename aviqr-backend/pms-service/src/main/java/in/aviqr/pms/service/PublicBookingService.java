@@ -5,6 +5,7 @@ import in.aviqr.pms.dto.PublicBookingConfirmation;
 import in.aviqr.pms.dto.PublicBookingExtras;
 import in.aviqr.pms.dto.PublicBookingRequest;
 import in.aviqr.pms.dto.PublicBookingPolicies;
+import in.aviqr.pms.dto.PublicDeal;
 import in.aviqr.pms.dto.PublicPromoQuote;
 import in.aviqr.pms.entity.*;
 import in.aviqr.pms.repository.*;
@@ -42,6 +43,7 @@ public class PublicBookingService {
     private final FolioPaymentRepository paymentRepo;
     private final BookingEngineSettingsRepository settingsRepo;
     private final OnlineBookingPaymentService onlinePayments;
+    private final DealService dealService;
 
     public PublicBookingPolicies policies(UUID hotelId) {
         return settingsRepo.findByHotelId(hotelId)
@@ -158,7 +160,11 @@ public class PublicBookingService {
                     addOns.get(i).getPrice().multiply(BigDecimal.valueOf(quantities.get(i))));
             }
         }
-        BigDecimal discount = promo == null ? BigDecimal.ZERO : promo.discount();
+        // Deals and promo codes don't stack: the one that saves the guest more applies.
+        PublicDeal deal = dealService.best(hotelId, roomTotal, req.getCheckInDate(), req.getCheckOutDate()).orElse(null);
+        if (deal != null && promo != null && promo.discount().compareTo(deal.discount()) >= 0) deal = null;
+        if (deal != null) promo = null;
+        BigDecimal discount = deal != null ? deal.discount() : promo == null ? BigDecimal.ZERO : promo.discount();
         // Counted once per booking; a code that ran out since it was quoted is refused, which rolls the booking back.
         if (promo != null && !retry) {
             UUID promoId = promoRepo.findByHotelIdAndCodeIgnoreCase(hotelId, promo.code()).map(PromoCode::getId).orElse(null);
@@ -166,6 +172,8 @@ public class PublicBookingService {
         }
         if (promo != null && !retry && discount.signum() > 0)
             folioService.addCharge(reservation.getId(), null, FolioChargeType.DISCOUNT, promo.name() + " (" + promo.code() + ")", discount.negate());
+        if (deal != null && !retry && discount.signum() > 0)
+            folioService.addCharge(reservation.getId(), null, FolioChargeType.DISCOUNT, "Deal: " + deal.name(), discount.negate());
 
         BigDecimal taxes = estimatedTaxes(hotelId, roomTotal.subtract(discount).max(BigDecimal.ZERO), nights);
         BigDecimal grand = roomTotal.add(addOnTotal).subtract(discount).add(taxes).max(BigDecimal.ZERO);

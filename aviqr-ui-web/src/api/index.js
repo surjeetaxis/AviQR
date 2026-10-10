@@ -510,6 +510,11 @@ export const pmsApi = {
   createPromoCode: (d)            => api.post('/api/v1/pms/promo-codes', d),
   setPromoCodeActive: (id, active) => api.put(`/api/v1/pms/promo-codes/${id}/active`, null, { params: { active } }),
   updatePromoCode: (id, d)        => api.put(`/api/v1/pms/promo-codes/${id}`, d),
+  // Booking-engine deals: offers applied automatically, without a code
+  listDeals:   (hotelId)          => api.get(`/api/v1/pms/deals/hotel/${hotelId}`),
+  createDeal:  (d)                => api.post('/api/v1/pms/deals', d),
+  updateDeal:  (id, d)            => api.put(`/api/v1/pms/deals/${id}`, d),
+  deleteDeal:  (id)               => api.delete(`/api/v1/pms/deals/${id}`),
   deletePromoCode: (id)           => api.delete(`/api/v1/pms/promo-codes/${id}`),
   listAddOns:      (hotelId)      => api.get(`/api/v1/pms/addons/hotel/${hotelId}`),
   createAddOn:     (d)            => api.post('/api/v1/pms/addons', d),

@@ -40,6 +40,7 @@ class PublicBookingServiceTest {
     @Mock FolioPaymentRepository paymentRepo;
     @Mock BookingEngineSettingsRepository settingsRepo;
     @Mock OnlineBookingPaymentService onlinePayments;
+    @Mock DealService dealService;
     @InjectMocks PublicBookingService service;
 
     final UUID hotel = UUID.randomUUID();
@@ -306,6 +307,20 @@ class PublicBookingServiceTest {
         req.setPromoCode("EARLY10");
         when(reservationRepo.findByBookingRequestId(req.getBookingRequestId().toString())).thenReturn(Optional.of(saved));
         service.book(hotel, req);
+        verify(promoRepo, never()).use(any());
+    }
+
+    @Test
+    @DisplayName("A deal applies by itself, and doesn't stack with a smaller promo code")
+    void dealBeatsSmallerPromo() {
+        var deal = new in.aviqr.pms.dto.PublicDeal(UUID.randomUUID(), "Early bird", null, "PERCENT", new BigDecimal("20"),
+            null, null, null, 30, null, new BigDecimal("3200.00"));
+        when(dealService.best(eq(hotel), any(), eq(in), eq(out))).thenReturn(Optional.of(deal));
+        PublicBookingRequest req = request(2);
+        req.setPromoCode("EARLY10");
+        PublicBookingConfirmation c = service.book(hotel, req);
+        assertThat(c.totals().discount()).isEqualByComparingTo("3200");
+        verify(folioService).addCharge(saved.getId(), null, FolioChargeType.DISCOUNT, "Deal: Early bird", new BigDecimal("-3200.00"));
         verify(promoRepo, never()).use(any());
     }
 }
