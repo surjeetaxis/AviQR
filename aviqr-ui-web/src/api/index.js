@@ -380,6 +380,17 @@ export const hotelApi = {
 };
 
 // ── PMS (room types/rates, reservations, front-desk, folio) ───────────────────
+// ── Hotels' own payment gateways (payment-gateway-service) ──
+export const paymentGatewayApi = {
+  gateways:     ()                     => api.get('/api/v1/payment-gateway/gateways'),
+  accounts:     (hotelId)              => api.get(`/api/v1/payment-gateway/accounts/hotel/${hotelId}`),
+  saveAccount:  (hotelId, gateway, d)  => api.put(`/api/v1/payment-gateway/accounts/hotel/${hotelId}/${gateway}`, d),
+  prefer:       (hotelId, gateway)     => api.put(`/api/v1/payment-gateway/accounts/hotel/${hotelId}/${gateway}/preferred`),
+  removeAccount:(hotelId, gateway)     => api.delete(`/api/v1/payment-gateway/accounts/hotel/${hotelId}/${gateway}`),
+  transactions: (hotelId)              => api.get(`/api/v1/payment-gateway/transactions/hotel/${hotelId}`),
+  resolve:      (id, paid)             => api.put(`/api/v1/payment-gateway/transactions/${id}/resolve`, null, { params: { paid } }),
+};
+
 export const pmsApi = {
   // Room types
   listRoomTypes:   (hotelId)      => api.get(`/api/v1/pms/room-types/hotel/${hotelId}`),

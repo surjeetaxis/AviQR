@@ -40,6 +40,13 @@ public class BookingEngineSettingsController {
         settings.setCancellationPolicy(blankToNull(req.getCancellationPolicy()));
         settings.setTermsAndConditions(blankToNull(req.getTermsAndConditions()));
         settings.setRequireTermsAcceptance(!Boolean.FALSE.equals(req.getRequireTermsAcceptance()));
+        String mode = req.getPaymentMode() == null ? BookingEngineSettings.PAY_AT_HOTEL : req.getPaymentMode();
+        if (!java.util.Set.of(BookingEngineSettings.PAY_AT_HOTEL, BookingEngineSettings.OPTIONAL, BookingEngineSettings.REQUIRED).contains(mode))
+            return ResponseEntity.badRequest().body(ApiResponse.error("Unknown payment mode"));
+        int percent = req.getDepositPercent() == null ? 100 : req.getDepositPercent();
+        if (percent < 1 || percent > 100) return ResponseEntity.badRequest().body(ApiResponse.error("Deposit must be between 1% and 100%"));
+        settings.setPaymentMode(mode);
+        settings.setDepositPercent(percent);
         return ResponseEntity.ok(ApiResponse.ok("Saved", settingsRepo.save(settings)));
     }
 

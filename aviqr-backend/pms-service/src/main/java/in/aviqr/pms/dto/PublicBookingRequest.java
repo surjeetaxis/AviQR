@@ -28,6 +28,10 @@ public class PublicBookingRequest {
     private String giftVoucherCode;
     /** The guest ticked "I agree" to the hotel's terms; required when the hotel asks for it. */
     private Boolean termsAccepted;
+    /** HOTEL (default), DEPOSIT or FULL: how much to pay online now. */
+    private String paymentOption;
+    /** Where the payment gateway sends the guest back to (the storefront). */
+    private String paymentReturnUrl;
     private UUID bookingRequestId;
     private String storefrontHost;
     private String storefrontSlug;

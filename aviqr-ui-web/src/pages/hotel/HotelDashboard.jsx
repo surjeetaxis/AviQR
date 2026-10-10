@@ -10,6 +10,7 @@ import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
 import { TentTemplate, THEMES } from '../../components/shared/QrTemplates.jsx';
 import QRCode from 'qrcode';
 import RoomTourEditor, { hasTourMedia } from './RoomTourEditor.jsx';
+import PaymentGatewaysPanel from './PaymentGatewaysPanel.jsx';
 import { createPortal } from 'react-dom';
 import {
   Overview as PmsOverview, ReservationsTab, GroupsTab, FrontDeskTab, FolioTab,
@@ -2103,7 +2104,7 @@ export function HotelSettings({user,lang,hotelId}) {
   const [form,setForm] = useState({hotelName:user?.hotelName||'',phone:'',email:'',address:'',checkinTime:'14:00',checkoutTime:'12:00',currency:'INR',taxPercent:'18',latitude:null,longitude:null});
   const [enabledServices,setEnabledServices] = useState([]);
   const [bookingEngine,setBookingEngine] = useState({enabled:true,visibility:'PUBLIC',brandName:'',primaryColor:'#1f7257',accentColor:'#d5a86b',logoUrl:'',slug:'',customDomain:'',supportEmail:'',hostedUrl:'',customDomainUrl:''});
-  const [bookingPolicies,setBookingPolicies] = useState({hotelPolicies:'',cancellationPolicy:'',termsAndConditions:'',requireTermsAcceptance:true});
+  const [bookingPolicies,setBookingPolicies] = useState({hotelPolicies:'',cancellationPolicy:'',termsAndConditions:'',requireTermsAcceptance:true,paymentMode:'PAY_AT_HOTEL',depositPercent:100});
   const [savingBookingEngine,setSavingBookingEngine] = useState(false);
   const [bookingEngineMessage,setBookingEngineMessage] = useState('');
   const [saving,setSaving] = useState(false);
@@ -2125,7 +2126,7 @@ export function HotelSettings({user,lang,hotelId}) {
     }).catch(()=>{});
     pmsApi.getBookingEngineSettings(hotelId).then(res=>{
       const x=res.data?.data;
-      if(x)setBookingPolicies({hotelPolicies:x.hotelPolicies||'',cancellationPolicy:x.cancellationPolicy||'',termsAndConditions:x.termsAndConditions||'',requireTermsAcceptance:x.requireTermsAcceptance!==false});
+      if(x)setBookingPolicies({hotelPolicies:x.hotelPolicies||'',cancellationPolicy:x.cancellationPolicy||'',termsAndConditions:x.termsAndConditions||'',requireTermsAcceptance:x.requireTermsAcceptance!==false,paymentMode:x.paymentMode||'PAY_AT_HOTEL',depositPercent:x.depositPercent||100});
     }).catch(()=>{});
   }, [hotelId]);
 
@@ -2238,6 +2239,22 @@ export function HotelSettings({user,lang,hotelId}) {
               <label style={{display:'flex',gap:8,alignItems:'center',fontSize:12.5,marginTop:4}}><input type="checkbox" checked={bookingPolicies.requireTermsAcceptance} onChange={e=>setBookingPolicies(v=>({...v,requireTermsAcceptance:e.target.checked}))}/> Guests must tick "I agree" before booking</label></div>
           </div>
         </div>
+        <div className="booking-settings-section">
+          <div className="booking-section-title"><div><h3>Payment at booking</h3><p>Take a deposit or the full amount online through your own gateway; the rest is paid at the hotel.</p></div></div>
+          <div className="booking-form-grid">
+            <div className="form-field"><label className="form-label" htmlFor="booking-pay-mode">How guests pay</label>
+              <select id="booking-pay-mode" className="form-input" value={bookingPolicies.paymentMode} onChange={e=>setBookingPolicies(v=>({...v,paymentMode:e.target.value}))}>
+                <option value="PAY_AT_HOTEL">Pay at the hotel only</option>
+                <option value="OPTIONAL">Guest chooses: pay online now or at the hotel</option>
+                <option value="REQUIRED">Online deposit required to confirm</option>
+              </select>
+              {bookingPolicies.paymentMode==='REQUIRED'&&<small>Bookings whose deposit isn't paid within 45 minutes are cancelled automatically.</small>}</div>
+            {bookingPolicies.paymentMode!=='PAY_AT_HOTEL'&&<div className="form-field"><label className="form-label" htmlFor="booking-deposit">Deposit (% of the total)</label>
+              <input id="booking-deposit" className="form-input" type="number" min="1" max="100" value={bookingPolicies.depositPercent} onChange={e=>setBookingPolicies(v=>({...v,depositPercent:Math.max(1,Math.min(100,Number(e.target.value)||1))}))}/>
+              <small>100% takes the full amount. Guests can always choose to pay in full.</small></div>}
+          </div>
+        </div>
+        <PaymentGatewaysPanel hotelId={hotelId}/>
         {bookingEngineMessage&&<div className={`booking-save-message ${bookingEngineMessage.includes('saved')?'success':'error'}`} role="status">{bookingEngineMessage.includes('saved')&&<CheckCircle2 size={16}/>} {bookingEngineMessage}</div>}
         <div className="booking-settings-footer"><span>Changes take effect when you save.</span><button className="btn btn-primary" onClick={saveBookingEngine} disabled={savingBookingEngine}>{savingBookingEngine?<><Loader2 size={15} className="booking-spin"/> Saving…</>:<><Save size={15}/> Save booking settings</>}</button></div>
       </section>

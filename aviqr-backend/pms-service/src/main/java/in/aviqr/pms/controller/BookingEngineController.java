@@ -31,6 +31,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -49,6 +50,7 @@ public class BookingEngineController {
     private final PublicBookingService publicBookingService;
     private final BookingVoucherService voucherService;
     private final ReservationRepository reservationRepo;
+    private final in.aviqr.pms.service.OnlineBookingPaymentService onlinePayments;
 
     @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/room-types")
     public ResponseEntity<ApiResponse<List<PublicRoomTypeDto>>> roomTypes(@PathVariable UUID hotelId,
@@ -116,6 +118,27 @@ public class BookingEngineController {
             @RequestParam(defaultValue="") String storefrontHost,@RequestParam(defaultValue="") String storefrontSlug) {
         requireBookingEngineAccess(hotelId,storefrontHost,storefrontSlug);
         return ResponseEntity.ok(ApiResponse.ok(publicBookingService.policies(hotelId)));
+    }
+
+    /** Whether guests can or must pay online, the deposit share, and the hotel's gateway. */
+    @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/payment-options")
+    public ResponseEntity<ApiResponse<in.aviqr.pms.dto.PublicPaymentOptions>> paymentOptions(@PathVariable UUID hotelId,
+            @RequestParam(defaultValue="") String storefrontHost,@RequestParam(defaultValue="") String storefrontSlug) {
+        requireBookingEngineAccess(hotelId,storefrontHost,storefrontSlug);
+        return ResponseEntity.ok(ApiResponse.ok(onlinePayments.options(hotelId)));
+    }
+
+    /** After the gateway sends the guest back: reads the result server-side and posts it to the folio. */
+    @PostMapping("/api/v1/pms/public/booking-engine/{hotelId}/reservations/{reservationId}/payment/sync")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> syncPayment(@PathVariable UUID hotelId, @PathVariable UUID reservationId,
+            @RequestParam String token) {
+        if (voucherService.voucher(hotelId, reservationId, token).isEmpty())
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Booking not found"));
+        return onlinePayments.sync(reservationId)
+            .map(p -> ResponseEntity.ok(ApiResponse.ok(Map.<String,Object>of("status", p.getStatus(), "amount", p.getAmount(),
+                "currency", Objects.toString(p.getCurrency(), "INR"), "kind", Objects.toString(p.getKind(), "DEPOSIT"),
+                "required", Boolean.TRUE.equals(p.getRequired())))))
+            .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("No online payment for this booking")));
     }
 
     @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/promo")

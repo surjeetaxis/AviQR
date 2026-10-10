@@ -39,6 +39,7 @@ class PublicBookingServiceTest {
     @Mock VoucherService voucherService;
     @Mock FolioPaymentRepository paymentRepo;
     @Mock BookingEngineSettingsRepository settingsRepo;
+    @Mock OnlineBookingPaymentService onlinePayments;
     @InjectMocks PublicBookingService service;
 
     final UUID hotel = UUID.randomUUID();

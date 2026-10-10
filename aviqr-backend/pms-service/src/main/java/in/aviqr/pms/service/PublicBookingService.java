@@ -41,6 +41,7 @@ public class PublicBookingService {
     private final VoucherService voucherService;
     private final FolioPaymentRepository paymentRepo;
     private final BookingEngineSettingsRepository settingsRepo;
+    private final OnlineBookingPaymentService onlinePayments;
 
     public PublicBookingPolicies policies(UUID hotelId) {
         return settingsRepo.findByHotelId(hotelId)
@@ -78,6 +79,7 @@ public class PublicBookingService {
             throw new IllegalArgumentException("Choose between 1 and " + MAX_ROOMS + " rooms");
         if (!Boolean.TRUE.equals(req.getTermsAccepted()) && policies(hotelId).termsRequired())
             throw new IllegalArgumentException("Please accept the hotel's terms and conditions");
+        String paymentOption = onlinePayments.choice(hotelId, req);
 
         long nights = ChronoUnit.DAYS.between(req.getCheckInDate(), req.getCheckOutDate());
         BigDecimal roomTotal = BigDecimal.ZERO;
@@ -168,8 +170,11 @@ public class PublicBookingService {
             voucherApplied = paymentRepo.findByReservationIdOrderByCreatedAtAsc(reservation.getId()).stream()
                 .filter(p -> p.getMethod() == PaymentMethod.VOUCHER).map(FolioPayment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         }
+        BigDecimal due = grand.subtract(voucherApplied).max(BigDecimal.ZERO);
+        // The guest pays online now (deposit or in full) on the hotel's own gateway; the rest is due at the hotel.
+        PublicBookingConfirmation.Payment payment = onlinePayments.start(reservation, paymentOption, due, "INR", req);
         return PublicBookingConfirmation.from(reservation, lines.size(), new PublicBookingConfirmation.Totals(
-            roomTotal, addOnTotal, discount, taxes, grand, "INR", voucherApplied, grand.subtract(voucherApplied).max(BigDecimal.ZERO)));
+            roomTotal, addOnTotal, discount, taxes, grand, "INR", voucherApplied, due)).withPayment(payment);
     }
 
     /** An active gift voucher of this hotel with balance left; codes match as entered or upper-cased. */
