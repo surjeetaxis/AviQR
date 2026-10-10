@@ -57,11 +57,17 @@ public class PublicBookingService {
                 .map(s -> new PublicBookingExtras.TaxLine(s.getName(), s.getValueType().name(), s.getValue())).toList());
     }
 
-    /** Empty when the code is unknown, inactive, outside its dates, or its discount package is gone. */
     public Optional<PublicPromoQuote> promo(UUID hotelId, String code, BigDecimal roomTotal, LocalDate checkIn) {
+        return promo(hotelId, code, roomTotal, checkIn, null);
+    }
+
+    /** Empty when the code is unknown, inactive, outside its dates, used up, too short a stay or too small
+     *  a total, or its discount package is gone. */
+    public Optional<PublicPromoQuote> promo(UUID hotelId, String code, BigDecimal roomTotal, LocalDate checkIn, LocalDate checkOut) {
         if (code == null || code.isBlank()) return Optional.empty();
+        Long nights = checkIn != null && checkOut != null && checkOut.isAfter(checkIn) ? ChronoUnit.DAYS.between(checkIn, checkOut) : null;
         return promoRepo.findByHotelIdAndCodeIgnoreCase(hotelId, code.trim().toUpperCase(Locale.ROOT))
-            .filter(p -> p.validOn(checkIn != null ? checkIn : LocalDate.now()))
+            .filter(p -> p.validOn(checkIn != null ? checkIn : LocalDate.now()) && !p.usedUp() && p.fits(nights, roomTotal))
             .flatMap(p -> discountRepo.findById(p.getDiscountPackageId())
                 .filter(d -> hotelId.equals(d.getHotelId()) && Boolean.TRUE.equals(d.getActive()))
                 .map(d -> new PublicPromoQuote(p.getCode(), d.getName(), d.getValueType().name(), d.getValue(),
@@ -114,7 +120,7 @@ public class PublicBookingService {
         }
         PublicPromoQuote promo = null;
         if (req.getPromoCode() != null && !req.getPromoCode().isBlank()) {
-            promo = promo(hotelId, req.getPromoCode(), roomTotal, req.getCheckInDate())
+            promo = promo(hotelId, req.getPromoCode(), roomTotal, req.getCheckInDate(), req.getCheckOutDate())
                 .orElseThrow(() -> new IllegalArgumentException("That promo code isn't valid for this stay"));
         }
 
@@ -153,6 +159,11 @@ public class PublicBookingService {
             }
         }
         BigDecimal discount = promo == null ? BigDecimal.ZERO : promo.discount();
+        // Counted once per booking; a code that ran out since it was quoted is refused, which rolls the booking back.
+        if (promo != null && !retry) {
+            UUID promoId = promoRepo.findByHotelIdAndCodeIgnoreCase(hotelId, promo.code()).map(PromoCode::getId).orElse(null);
+            if (promoId != null && promoRepo.use(promoId) == 0) throw new IllegalArgumentException("That promo code has been fully used");
+        }
         if (promo != null && !retry && discount.signum() > 0)
             folioService.addCharge(reservation.getId(), null, FolioChargeType.DISCOUNT, promo.name() + " (" + promo.code() + ")", discount.negate());
 

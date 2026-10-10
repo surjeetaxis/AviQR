@@ -8,6 +8,7 @@ import {
   Plus, LogIn, DoorOpen, Ban, UserX, Search, Wifi, RefreshCw, Copy, Users, Briefcase, IndianRupee, TrendingUp, UserCircle, Tag, CalendarClock,
   AlertCircle, Clock, CheckCircle2, Bell, PenTool, X, CreditCard, Hourglass, Building2, Upload, Send, Star, ChevronDown, ChevronRight,
   CheckSquare, ScanLine, FileText, Trash2, Mail, ExternalLink, ArrowLeftRight, Camera,
+  Save,
 } from 'lucide-react';
 import { pmsApi, reviewApi, hotelApi } from '../../api/index.js';
 import '../admin/Admin.css';
@@ -1407,7 +1408,8 @@ export function ExtrasTab({ hotelId }) {
   const [vouchers, setVouchers] = useState([]);
   const [vForm, setVForm] = useState({ code: '', initialValue: '' });
   const [promos, setPromos] = useState([]);
-  const [pForm, setPForm] = useState({ code: '', discountPackageId: '', validFrom: '', validTo: '' });
+  const EMPTY_PROMO = { id: null, code: '', discountPackageId: '', validFrom: '', validTo: '', maxUses: '', minNights: '', minAmount: '' };
+  const [pForm, setPForm] = useState(EMPTY_PROMO);
   const [loyalty, setLoyalty] = useState(null);
   const [savingLoyalty, setSavingLoyalty] = useState(false);
 
@@ -1463,12 +1465,18 @@ export function ExtrasTab({ hotelId }) {
   const addPromo = async (e) => {
     e.preventDefault();
     if (!pForm.code || !pForm.discountPackageId) return;
+    const body = { hotelId, code: pForm.code.toUpperCase(), discountPackageId: pForm.discountPackageId,
+      validFrom: pForm.validFrom || null, validTo: pForm.validTo || null,
+      maxUses: pForm.maxUses ? Number(pForm.maxUses) : null, minNights: pForm.minNights ? Number(pForm.minNights) : null,
+      minAmount: pForm.minAmount ? Number(pForm.minAmount) : null };
     try {
-      await pmsApi.createPromoCode({ hotelId, code: pForm.code.toUpperCase(), discountPackageId: pForm.discountPackageId,
-        validFrom: pForm.validFrom || null, validTo: pForm.validTo || null });
-      setPForm({ code: '', discountPackageId: '', validFrom: '', validTo: '' }); load();
-    } catch (err) { alert(err?.response?.data?.message || 'Could not create promo code'); }
+      if (pForm.id) await pmsApi.updatePromoCode(pForm.id, body); else await pmsApi.createPromoCode(body);
+      setPForm(EMPTY_PROMO); load();
+    } catch (err) { alert(err?.response?.data?.message || 'Could not save promo code'); }
   };
+  const editPromo = (p) => setPForm({ id: p.id, code: p.code, discountPackageId: p.discountPackageId, validFrom: p.validFrom || '', validTo: p.validTo || '',
+    maxUses: p.maxUses ?? '', minNights: p.minNights ?? '', minAmount: p.minAmount ?? '' });
+  const deletePromo = (p) => window.confirm(`Delete promo code ${p.code}?`) && pmsApi.deletePromoCode(p.id).then(load).catch(err => alert(err?.response?.data?.message || 'Could not delete promo code'));
   const togglePromo = (p) => pmsApi.setPromoCodeActive(p.id, !p.active).then(load).catch(err => alert(err?.response?.data?.message || 'Could not update promo code'));
 
   return (
@@ -1530,7 +1538,7 @@ export function ExtrasTab({ hotelId }) {
       <div className="admin-table-card" style={{ padding: 16 }}>
         <strong>Booking-engine promo codes</strong> <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>(guests enter these at online checkout; each applies a discount package)</span>
         <table className="admin-table" style={{ marginTop: 10 }}>
-          <thead><tr><th>Code</th><th>Discount</th><th>Valid</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Code</th><th>Discount</th><th>Valid</th><th>Conditions</th><th>Used</th><th>Status</th><th></th></tr></thead>
           <tbody>
             {promos.map(p => {
               const d = discounts.find(x => x.id === p.discountPackageId);
@@ -1539,23 +1547,33 @@ export function ExtrasTab({ hotelId }) {
                   <td className="admin-td-shop" style={{ fontFamily: 'monospace' }}>{p.code}</td>
                   <td>{d ? `${d.name} (${d.valueType === 'FIXED' ? `₹${d.value}` : `${d.value}%`})` : '—'}</td>
                   <td>{p.validFrom || p.validTo ? `${p.validFrom || '…'} → ${p.validTo || '…'}` : 'Always'}</td>
-                  <td><span className={p.active ? 'status-pill st-active' : 'status-pill st-suspended'}>{p.active ? 'Active' : 'Paused'}</span></td>
-                  <td><button className="admin-row-btn" style={btnSecondary} onClick={() => togglePromo(p)}>{p.active ? 'Pause' : 'Resume'}</button></td>
+                  <td>{[p.minNights && `${p.minNights}+ nights`, p.minAmount && `₹${Number(p.minAmount).toLocaleString('en-IN')}+`].filter(Boolean).join(', ') || 'Any stay'}</td>
+                  <td>{p.usedCount || 0}{p.maxUses ? ` / ${p.maxUses}` : ''}</td>
+                  <td><span className={p.active && !(p.maxUses && p.usedCount >= p.maxUses) ? 'status-pill st-active' : 'status-pill st-suspended'}>{p.maxUses && p.usedCount >= p.maxUses ? 'Used up' : p.active ? 'Active' : 'Paused'}</span></td>
+                  <td style={{ display: 'flex', gap: 6 }}>
+                    <button className="admin-row-btn" style={btnSecondary} onClick={() => togglePromo(p)}>{p.active ? 'Pause' : 'Resume'}</button>
+                    <button className="admin-row-btn" style={btnSecondary} onClick={() => editPromo(p)}>Edit</button>
+                    <button className="admin-row-btn" style={btnSecondary} onClick={() => deletePromo(p)} aria-label={`Delete ${p.code}`}><Trash2 size={13} /></button>
+                  </td>
                 </tr>
               );
             })}
-            {promos.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 16 }}>No promo codes yet</td></tr>}
+            {promos.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 16 }}>No promo codes yet</td></tr>}
           </tbody>
         </table>
         <form onSubmit={addPromo} style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input placeholder="Code (e.g. EARLY10)" value={pForm.code} maxLength={32} onChange={e => setPForm({ ...pForm, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '') })} style={inputStyle} />
+          <input placeholder="Code (e.g. EARLY10)" value={pForm.code} maxLength={32} disabled={!!pForm.id} onChange={e => setPForm({ ...pForm, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '') })} style={inputStyle} />
           <select value={pForm.discountPackageId} onChange={e => setPForm({ ...pForm, discountPackageId: e.target.value })} style={inputStyle} aria-label="Discount package">
             <option value="">Discount package…</option>
             {discounts.filter(d => d.active).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
           <label style={{ fontSize: 12, color: 'var(--gray-500)' }}>From <input type="date" value={pForm.validFrom} onChange={e => setPForm({ ...pForm, validFrom: e.target.value })} style={inputStyle} /></label>
           <label style={{ fontSize: 12, color: 'var(--gray-500)' }}>To <input type="date" value={pForm.validTo} min={pForm.validFrom || undefined} onChange={e => setPForm({ ...pForm, validTo: e.target.value })} style={inputStyle} /></label>
-          <button type="submit" className="admin-row-btn" style={btnPrimary}><Plus size={14} /> Add promo code</button>
+          <input type="number" min="1" placeholder="Max uses" title="Leave empty for unlimited" value={pForm.maxUses} onChange={e => setPForm({ ...pForm, maxUses: e.target.value })} style={{ ...inputStyle, width: 100 }} />
+          <input type="number" min="1" placeholder="Min nights" value={pForm.minNights} onChange={e => setPForm({ ...pForm, minNights: e.target.value })} style={{ ...inputStyle, width: 100 }} />
+          <input type="number" min="0" placeholder="Min room total ₹" value={pForm.minAmount} onChange={e => setPForm({ ...pForm, minAmount: e.target.value })} style={{ ...inputStyle, width: 140 }} />
+          <button type="submit" className="admin-row-btn" style={btnPrimary}>{pForm.id ? <><Save size={14} /> Save changes</> : <><Plus size={14} /> Add promo code</>}</button>
+          {pForm.id && <button type="button" className="admin-row-btn" style={btnSecondary} onClick={() => setPForm(EMPTY_PROMO)}>Cancel</button>}
         </form>
       </div>
 

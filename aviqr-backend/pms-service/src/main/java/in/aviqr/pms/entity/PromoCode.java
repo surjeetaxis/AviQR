@@ -21,7 +21,22 @@ public class PromoCode {
     private LocalDate validFrom;
     private LocalDate validTo;
     @Builder.Default private Boolean active = true;
+    /** Bookings this code can be used on in total; null is unlimited. */
+    private Integer maxUses;
+    @Builder.Default private Integer usedCount = 0;
+    /** Shortest stay, in nights, the code applies to; null is any. */
+    private Integer minNights;
+    /** Smallest room total the code applies to; null is any. */
+    @Column(precision=10, scale=2) private java.math.BigDecimal minAmount;
     @CreationTimestamp private LocalDateTime createdAt;
+
+    public boolean usedUp() { return maxUses != null && usedCount != null && usedCount >= maxUses; }
+
+    /** Applies to a stay of this many nights with this room total (either may be unknown). */
+    public boolean fits(Long nights, java.math.BigDecimal roomTotal) {
+        return (minNights == null || nights == null || nights >= minNights)
+            && (minAmount == null || roomTotal == null || roomTotal.compareTo(minAmount) >= 0);
+    }
 
     public boolean validOn(LocalDate day) {
         return Boolean.TRUE.equals(active) && (validFrom == null || !day.isBefore(validFrom)) && (validTo == null || !day.isAfter(validTo));

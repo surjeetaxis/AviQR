@@ -144,9 +144,10 @@ public class BookingEngineController {
     @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/promo")
     public ResponseEntity<ApiResponse<PublicPromoQuote>> promo(@PathVariable UUID hotelId, @RequestParam String code,
             @RequestParam(defaultValue="0") BigDecimal roomTotal, @RequestParam(required=false) LocalDate checkIn,
+            @RequestParam(required=false) LocalDate checkOut,
             @RequestParam(defaultValue="") String storefrontHost,@RequestParam(defaultValue="") String storefrontSlug) {
         requireBookingEngineAccess(hotelId,storefrontHost,storefrontSlug);
-        return publicBookingService.promo(hotelId, code, roomTotal.max(BigDecimal.ZERO), checkIn)
+        return publicBookingService.promo(hotelId, code, roomTotal.max(BigDecimal.ZERO), checkIn, checkOut)
             .map(p -> ResponseEntity.ok(ApiResponse.ok(p)))
             .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("That promo code isn't valid for this stay")));
     }

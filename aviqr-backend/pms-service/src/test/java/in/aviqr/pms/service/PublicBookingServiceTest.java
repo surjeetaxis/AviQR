@@ -62,8 +62,9 @@ class PublicBookingServiceTest {
             Surcharge.builder().hotelId(hotel).name("City tax").valueType(ValueType.FIXED).value(new BigDecimal("100")).active(true).build(),
             Surcharge.builder().hotelId(hotel).name("GST").valueType(ValueType.PERCENT).value(new BigDecimal("12")).active(true).build()));
         when(promoRepo.findByHotelIdAndCodeIgnoreCase(hotel, "EARLY10")).thenReturn(Optional.of(
-            PromoCode.builder().hotelId(hotel).code("EARLY10").discountPackageId(tenPercent.getId()).active(true).build()));
+            PromoCode.builder().id(UUID.randomUUID()).hotelId(hotel).code("EARLY10").discountPackageId(tenPercent.getId()).active(true).build()));
         when(discountRepo.findById(tenPercent.getId())).thenReturn(Optional.of(tenPercent));
+        when(promoRepo.use(any())).thenReturn(1);
         when(reservationService.create(any(), anyString())).thenReturn(saved);
     }
 
@@ -265,5 +266,46 @@ class PublicBookingServiceTest {
             .termsAndConditions("No smoking in rooms.").requireTermsAcceptance(false).build()));
         assertThat(service.policies(hotel).termsRequired()).isFalse();
         assertThatCode(() -> service.book(hotel, request(2))).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("Promo limits: used up, too short a stay, too small a total")
+    void promoLimits() {
+        PromoCode code = PromoCode.builder().id(UUID.randomUUID()).hotelId(hotel).code("LIMITED").discountPackageId(tenPercent.getId())
+            .active(true).maxUses(5).usedCount(5).build();
+        when(promoRepo.findByHotelIdAndCodeIgnoreCase(hotel, "LIMITED")).thenReturn(Optional.of(code));
+        assertThat(service.promo(hotel, "LIMITED", new BigDecimal("8000"), in, out)).isEmpty();
+        code.setUsedCount(4);
+        code.setMinNights(3);
+        assertThat(service.promo(hotel, "LIMITED", new BigDecimal("8000"), in, out)).isEmpty();
+        assertThat(service.promo(hotel, "LIMITED", new BigDecimal("8000"), in, out.plusDays(1))).isPresent();
+        code.setMinNights(null);
+        code.setMinAmount(new BigDecimal("9000"));
+        assertThat(service.promo(hotel, "LIMITED", new BigDecimal("8000"), in, out)).isEmpty();
+        assertThat(service.promo(hotel, "LIMITED", new BigDecimal("9000"), in, out)).isPresent();
+    }
+
+    @Test
+    @DisplayName("A booking counts one promo use; a code used up meanwhile refuses the booking")
+    void promoUseCounted() {
+        PublicBookingRequest req = request(2);
+        req.setPromoCode("EARLY10");
+        service.book(hotel, req);
+        verify(promoRepo, times(1)).use(any());
+
+        when(promoRepo.use(any())).thenReturn(0);
+        PublicBookingRequest again = request(2);
+        again.setPromoCode("EARLY10");
+        assertThatThrownBy(() -> service.book(hotel, again)).hasMessageContaining("fully used");
+    }
+
+    @Test
+    @DisplayName("A retried booking doesn't count the promo again")
+    void promoRetryNotCounted() {
+        PublicBookingRequest req = request(2);
+        req.setPromoCode("EARLY10");
+        when(reservationRepo.findByBookingRequestId(req.getBookingRequestId().toString())).thenReturn(Optional.of(saved));
+        service.book(hotel, req);
+        verify(promoRepo, never()).use(any());
     }
 }

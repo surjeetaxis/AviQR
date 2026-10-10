@@ -37,16 +37,54 @@ public class PromoCodeController {
         String code = req.getCode() == null ? "" : req.getCode().trim().toUpperCase(Locale.ROOT);
         if (!code.matches("[A-Z0-9_-]{3,32}"))
             return ResponseEntity.badRequest().body(ApiResponse.error("Codes are 3-32 letters, numbers, - or _"));
-        var discount = req.getDiscountPackageId() == null ? null : discountRepo.findById(req.getDiscountPackageId()).orElse(null);
-        if (discount == null || !req.getHotelId().equals(discount.getHotelId()))
-            return ResponseEntity.badRequest().body(ApiResponse.error("Choose one of this hotel's discount packages"));
-        if (req.getValidFrom() != null && req.getValidTo() != null && req.getValidTo().isBefore(req.getValidFrom()))
-            return ResponseEntity.badRequest().body(ApiResponse.error("Valid-to must be on or after valid-from"));
         if (promoRepo.findByHotelIdAndCodeIgnoreCase(req.getHotelId(), code).isPresent())
             return ResponseEntity.badRequest().body(ApiResponse.error("This code already exists"));
-        PromoCode saved = promoRepo.save(PromoCode.builder().hotelId(req.getHotelId()).code(code)
-            .discountPackageId(discount.getId()).validFrom(req.getValidFrom()).validTo(req.getValidTo()).active(true).build());
-        return ResponseEntity.ok(ApiResponse.ok("Created", saved));
+        PromoCode promo = PromoCode.builder().hotelId(req.getHotelId()).code(code).active(true).usedCount(0).build();
+        String problem = apply(promo, req);
+        if (problem != null) return ResponseEntity.badRequest().body(ApiResponse.error(problem));
+        return ResponseEntity.ok(ApiResponse.ok("Created", promoRepo.save(promo)));
+    }
+
+    /** Edits a code's discount, dates and limits; the code itself and its use count stay. */
+    @PutMapping("/api/v1/pms/promo-codes/{id}")
+    public ResponseEntity<ApiResponse<PromoCode>> update(@PathVariable UUID id, @RequestBody PromoCode req,
+            @RequestHeader("X-User-Id") String uid, @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        PromoCode promo = promoRepo.findById(id).orElse(null);
+        if (promo == null) return ResponseEntity.notFound().build();
+        if (!hotelServiceClient.hasAccess(promo.getHotelId(), uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        String problem = apply(promo, req);
+        if (problem != null) return ResponseEntity.badRequest().body(ApiResponse.error(problem));
+        return ResponseEntity.ok(ApiResponse.ok("Updated", promoRepo.save(promo)));
+    }
+
+    @DeleteMapping("/api/v1/pms/promo-codes/{id}")
+    public ResponseEntity<ApiResponse<Boolean>> delete(@PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid, @RequestHeader(value="X-User-Role", defaultValue="") String role) {
+        PromoCode promo = promoRepo.findById(id).orElse(null);
+        if (promo == null) return ResponseEntity.notFound().build();
+        if (!hotelServiceClient.hasAccess(promo.getHotelId(), uid, role))
+            return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        promoRepo.delete(promo);
+        return ResponseEntity.ok(ApiResponse.ok("Deleted", true));
+    }
+
+    /** Copies the editable settings onto promo; returns why they're invalid, or null. */
+    private String apply(PromoCode promo, PromoCode req) {
+        var discount = req.getDiscountPackageId() == null ? null : discountRepo.findById(req.getDiscountPackageId()).orElse(null);
+        if (discount == null || !promo.getHotelId().equals(discount.getHotelId())) return "Choose one of this hotel's discount packages";
+        if (req.getValidFrom() != null && req.getValidTo() != null && req.getValidTo().isBefore(req.getValidFrom()))
+            return "Valid-to must be on or after valid-from";
+        if (req.getMaxUses() != null && req.getMaxUses() < 1) return "Maximum uses must be at least 1, or left empty";
+        if (req.getMinNights() != null && (req.getMinNights() < 1 || req.getMinNights() > 365)) return "Minimum nights must be between 1 and 365";
+        if (req.getMinAmount() != null && req.getMinAmount().signum() < 0) return "Minimum amount can't be negative";
+        promo.setDiscountPackageId(discount.getId());
+        promo.setValidFrom(req.getValidFrom());
+        promo.setValidTo(req.getValidTo());
+        promo.setMaxUses(req.getMaxUses());
+        promo.setMinNights(req.getMinNights());
+        promo.setMinAmount(req.getMinAmount() == null || req.getMinAmount().signum() == 0 ? null : req.getMinAmount());
+        return null;
     }
 
     @PutMapping("/api/v1/pms/promo-codes/{id}/active")
