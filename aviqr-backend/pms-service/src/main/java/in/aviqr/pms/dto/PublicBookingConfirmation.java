@@ -15,7 +15,12 @@ public record PublicBookingConfirmation(UUID reservationId, UUID hotelId, LocalD
     public record Payment(UUID paymentId, String payUrl, BigDecimal amount, String currency, String kind, boolean required) { }
     public record Totals(BigDecimal roomTotal, BigDecimal addOnTotal, BigDecimal discount,
                          BigDecimal estimatedTaxes, BigDecimal grandTotal, String currency,
-                         BigDecimal voucherApplied, BigDecimal balanceDue) { }
+                         BigDecimal voucherApplied, BigDecimal balanceDue, BigDecimal pointsApplied, Integer pointsUsed) {
+        public Totals(BigDecimal roomTotal, BigDecimal addOnTotal, BigDecimal discount, BigDecimal estimatedTaxes, BigDecimal grandTotal,
+                      String currency, BigDecimal voucherApplied, BigDecimal balanceDue) {
+            this(roomTotal, addOnTotal, discount, estimatedTaxes, grandTotal, currency, voucherApplied, balanceDue, null, null);
+        }
+    }
 
     public static PublicBookingConfirmation from(Reservation r) {
         return new PublicBookingConfirmation(r.getId(),r.getHotelId(),r.getCheckInDate(),r.getCheckOutDate(),r.getStatus().name(),null,null,null,null,null);

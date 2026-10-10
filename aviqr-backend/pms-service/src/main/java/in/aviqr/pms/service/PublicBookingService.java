@@ -44,6 +44,7 @@ public class PublicBookingService {
     private final BookingEngineSettingsRepository settingsRepo;
     private final OnlineBookingPaymentService onlinePayments;
     private final DealService dealService;
+    private final BookingLoyaltyService loyalty;
 
     public PublicBookingPolicies policies(UUID hotelId) {
         return settingsRepo.findByHotelId(hotelId)
@@ -88,6 +89,15 @@ public class PublicBookingService {
         if (!Boolean.TRUE.equals(req.getTermsAccepted()) && policies(hotelId).termsRequired())
             throw new IllegalArgumentException("Please accept the hotel's terms and conditions");
         String paymentOption = onlinePayments.choice(hotelId, req);
+        // A verified loyalty member books under their own guest profile, so the stay earns them points.
+        Guest member = null;
+        int pointsWanted = req.getLoyaltyPoints() == null ? 0 : Math.max(0, req.getLoyaltyPoints());
+        if (req.getLoyaltyToken() != null && !req.getLoyaltyToken().isBlank()) {
+            member = loyalty.guestFor(hotelId, req.getLoyaltyToken())
+                .orElseThrow(() -> new IllegalArgumentException("Your loyalty sign-in has expired. Please verify your points again."));
+        } else if (pointsWanted > 0) {
+            throw new IllegalArgumentException("Verify your loyalty points before using them");
+        }
 
         long nights = ChronoUnit.DAYS.between(req.getCheckInDate(), req.getCheckOutDate());
         BigDecimal roomTotal = BigDecimal.ZERO;
@@ -142,6 +152,7 @@ public class PublicBookingService {
         cr.setSource(ReservationSource.DIRECT);
         cr.setBookingRequestId(req.getBookingRequestId());
         cr.setNotes(notes(req));
+        if (member != null) cr.setGuestId(member.getId());
         cr.setRooms(lines.stream().map(l -> {
             CreateReservationRequest.RoomBooking rb = new CreateReservationRequest.RoomBooking();
             rb.setRoomTypeId(l.getRoomTypeId());
@@ -189,11 +200,27 @@ public class PublicBookingService {
             voucherApplied = paymentRepo.findByReservationIdOrderByCreatedAtAsc(reservation.getId()).stream()
                 .filter(p -> p.getMethod() == PaymentMethod.VOUCHER).map(FolioPayment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         }
-        BigDecimal due = grand.subtract(voucherApplied).max(BigDecimal.ZERO);
+        // Loyalty points pay what they can of the rest, at the hotel's value per point.
+        BigDecimal pointsApplied = BigDecimal.ZERO;
+        int pointsUsed = 0;
+        if (retry) {
+            pointsApplied = paymentRepo.findByReservationIdOrderByCreatedAtAsc(reservation.getId()).stream()
+                .filter(p -> p.getMethod() == PaymentMethod.LOYALTY_POINTS).map(FolioPayment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        } else if (member != null && pointsWanted > 0) {
+            BigDecimal pointValue = loyalty.program(hotelId).redemptionValue();
+            BigDecimal room = grand.subtract(voucherApplied).max(BigDecimal.ZERO);
+            int affordable = pointValue.signum() > 0 ? room.divide(pointValue, 0, RoundingMode.DOWN).intValue() : 0;
+            pointsUsed = Math.min(pointsWanted, affordable);
+            if (pointsUsed > 0) {
+                pointsApplied = loyalty.redeem(hotelId, member, pointsUsed);
+                folioService.addPayment(reservation.getId(), PaymentMethod.LOYALTY_POINTS, pointsApplied, pointsUsed + " points", "web-booking-engine");
+            }
+        }
+        BigDecimal due = grand.subtract(voucherApplied).subtract(pointsApplied).max(BigDecimal.ZERO);
         // The guest pays online now (deposit or in full) on the hotel's own gateway; the rest is due at the hotel.
         PublicBookingConfirmation.Payment payment = onlinePayments.start(reservation, paymentOption, due, "INR", req);
         return PublicBookingConfirmation.from(reservation, lines.size(), new PublicBookingConfirmation.Totals(
-            roomTotal, addOnTotal, discount, taxes, grand, "INR", voucherApplied, due)).withPayment(payment);
+            roomTotal, addOnTotal, discount, taxes, grand, "INR", voucherApplied, due, pointsApplied, pointsUsed)).withPayment(payment);
     }
 
     /** An active gift voucher of this hotel with balance left; codes match as entered or upper-cased. */

@@ -32,6 +32,9 @@ public class PublicBookingRequest {
     private String paymentOption;
     /** Where the payment gateway sends the guest back to (the storefront). */
     private String paymentReturnUrl;
+    /** From the loyalty code check: lets this booking spend the guest's points. */
+    private String loyaltyToken;
+    private Integer loyaltyPoints;
     private UUID bookingRequestId;
     private String storefrontHost;
     private String storefrontSlug;

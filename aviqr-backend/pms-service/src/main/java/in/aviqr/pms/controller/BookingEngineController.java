@@ -52,6 +52,7 @@ public class BookingEngineController {
     private final ReservationRepository reservationRepo;
     private final in.aviqr.pms.service.OnlineBookingPaymentService onlinePayments;
     private final in.aviqr.pms.service.DealService dealService;
+    private final in.aviqr.pms.service.BookingLoyaltyService loyalty;
 
     @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/room-types")
     public ResponseEntity<ApiResponse<List<PublicRoomTypeDto>>> roomTypes(@PathVariable UUID hotelId,
@@ -157,6 +158,42 @@ public class BookingEngineController {
             @RequestParam(defaultValue="") String storefrontHost,@RequestParam(defaultValue="") String storefrontSlug) {
         requireBookingEngineAccess(hotelId,storefrontHost,storefrontSlug);
         return ResponseEntity.ok(ApiResponse.ok(dealService.best(hotelId, roomTotal.max(BigDecimal.ZERO), checkIn, checkOut).orElse(null)));
+    }
+
+    /** The hotel's loyalty program as guests see it, and what this room total would earn. */
+    @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/loyalty")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> loyaltyProgram(@PathVariable UUID hotelId,
+            @RequestParam(defaultValue="0") BigDecimal roomTotal,
+            @RequestParam(defaultValue="") String storefrontHost,@RequestParam(defaultValue="") String storefrontSlug) {
+        requireBookingEngineAccess(hotelId,storefrontHost,storefrontSlug);
+        var p = loyalty.program(hotelId);
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("active", p.active(), "pointValue", p.redemptionValue(),
+            "earnRatePercent", p.earnRatePercent(), "pointsToEarn", loyalty.pointsFor(hotelId, roomTotal.max(BigDecimal.ZERO)))));
+    }
+
+    /** Emails a code to spend points. The reply is the same whether or not this phone has points. */
+    @PostMapping("/api/v1/pms/public/booking-engine/{hotelId}/loyalty/code")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> loyaltyCode(@PathVariable UUID hotelId, @RequestBody Map<String,String> body) {
+        // Storefront host and slug travel in the (encrypted) body, like the booking request's.
+        requireBookingEngineAccess(hotelId,body.getOrDefault("storefrontHost",""),body.getOrDefault("storefrontSlug",""));
+        try {
+            var sent = loyalty.sendCode(hotelId, body.get("phone"));
+            Map<String,Object> data = new java.util.HashMap<>();
+            data.put("challenge", sent.map(in.aviqr.pms.service.BookingLoyaltyService.CodeSent::challenge).orElse(null));
+            data.put("emailHint", sent.map(in.aviqr.pms.service.BookingLoyaltyService.CodeSent::emailHint).orElse(null));
+            return ResponseEntity.ok(ApiResponse.ok("If this number has points with us, we've emailed a code to the address on its profile.", data));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/api/v1/pms/public/booking-engine/{hotelId}/loyalty/verify")
+    public ResponseEntity<ApiResponse<in.aviqr.pms.service.BookingLoyaltyService.Member>> loyaltyVerify(@PathVariable UUID hotelId,
+            @RequestBody Map<String,String> body) {
+        requireBookingEngineAccess(hotelId,body.getOrDefault("storefrontHost",""),body.getOrDefault("storefrontSlug",""));
+        return loyalty.verify(hotelId, body.get("phone"), body.get("challenge"), body.get("code"))
+            .map(m -> ResponseEntity.ok(ApiResponse.ok(m)))
+            .orElseGet(() -> ResponseEntity.badRequest().body(ApiResponse.error("That code isn't right or has expired")));
     }
 
     @GetMapping("/api/v1/pms/public/booking-engine/{hotelId}/promo")

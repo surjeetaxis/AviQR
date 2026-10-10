@@ -41,6 +41,7 @@ class PublicBookingServiceTest {
     @Mock BookingEngineSettingsRepository settingsRepo;
     @Mock OnlineBookingPaymentService onlinePayments;
     @Mock DealService dealService;
+    @Mock BookingLoyaltyService loyalty;
     @InjectMocks PublicBookingService service;
 
     final UUID hotel = UUID.randomUUID();
@@ -322,5 +323,37 @@ class PublicBookingServiceTest {
         assertThat(c.totals().discount()).isEqualByComparingTo("3200");
         verify(folioService).addCharge(saved.getId(), null, FolioChargeType.DISCOUNT, "Deal: Early bird", new BigDecimal("-3200.00"));
         verify(promoRepo, never()).use(any());
+    }
+
+    @Test
+    @DisplayName("A verified member books under their profile and spends points, capped at what's due")
+    void loyaltyPoints() {
+        Guest member = Guest.builder().id(UUID.randomUUID()).hotelId(hotel).loyaltyPoints(100000).build();
+        when(loyalty.guestFor(hotel, "tok")).thenReturn(Optional.of(member));
+        when(loyalty.program(hotel)).thenReturn(new BookingLoyaltyService.Program(true, new BigDecimal("5"), BigDecimal.ONE));
+        when(loyalty.redeem(eq(hotel), eq(member), anyInt())).thenAnswer(i -> new BigDecimal((Integer) i.getArgument(2)));
+        PublicBookingRequest req = request(2);
+        req.setLoyaltyToken("tok");
+        req.setLoyaltyPoints(100000);
+        PublicBookingConfirmation c = service.book(hotel, req);
+        ArgumentCaptor<CreateReservationRequest> sent = ArgumentCaptor.forClass(CreateReservationRequest.class);
+        verify(reservationService).create(sent.capture(), anyString());
+        assertThat(sent.getValue().getGuestId()).isEqualTo(member.getId());
+        // grand total 18120 (16000 rooms + 200 city tax + 1920 GST): every whole rupee of it is payable in points
+        verify(loyalty).redeem(hotel, member, 18120);
+        assertThat(c.totals().pointsUsed()).isEqualTo(18120);
+        assertThat(c.totals().balanceDue()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("Points can't be spent without a valid loyalty sign-in")
+    void loyaltyNeedsVerification() {
+        PublicBookingRequest req = request(2);
+        req.setLoyaltyPoints(100);
+        assertThatThrownBy(() -> service.book(hotel, req)).hasMessageContaining("Verify");
+        req.setLoyaltyToken("expired");
+        when(loyalty.guestFor(hotel, "expired")).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.book(hotel, req)).hasMessageContaining("expired");
+        verify(reservationService, never()).create(any(), anyString());
     }
 }

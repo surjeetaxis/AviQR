@@ -149,7 +149,7 @@ public class BookingVoucherService {
             .findFirst().orElse(null);
     }
 
-    static String maskEmail(String email) {
+    public static String maskEmail(String email) {
         if (email == null) return null;
         int at = email.indexOf('@');
         return at <= 1 ? "***" + email.substring(Math.max(at, 0)) : email.charAt(0) + "***" + email.substring(at);
