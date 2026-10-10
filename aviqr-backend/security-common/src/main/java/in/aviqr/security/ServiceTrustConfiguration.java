@@ -22,7 +22,7 @@ import java.util.Set;
 public class ServiceTrustConfiguration {
     private static final Set<String> SERVICES = Set.of("auth-service", "shop-mall-service", "menu-ocr-service",
         "order-qr-service", "payment-service", "hotel-service", "support-service",
-        "notification-report-review-service", "pms-service");
+        "notification-report-review-service", "pms-service", "payment-gateway-service");
 
     public static boolean matches(String expected, String supplied) {
         return expected != null && !expected.isBlank() && supplied != null &&
@@ -30,7 +30,7 @@ public class ServiceTrustConfiguration {
     }
 
     @Bean public in.aviqr.identity.ServiceIdentity serviceIdentity(Environment env){return identity(env);}
-    private static in.aviqr.identity.ServiceIdentity identity(Environment env){return new in.aviqr.identity.ServiceIdentity(env.getProperty("spring.application.name",""),env.getProperty("SERVICE_SIGNING_KEY_ID","v1"),env.getProperty("SERVICE_SIGNING_PRIVATE_KEY",""),env.getProperty("SERVICE_SIGNING_PUBLIC_KEYS","{}"),env.getProperty("SERVICE_ALLOWED_CALLERS","api-gateway,auth-service,shop-mall-service,menu-ocr-service,order-qr-service,payment-service,hotel-service,support-service,notification-report-review-service,pms-service"),env.getProperty("app.service-signed-auth-required",Boolean.class,env.getProperty("SERVICE_SIGNED_AUTH_REQUIRED",Boolean.class,false)));}
+    private static in.aviqr.identity.ServiceIdentity identity(Environment env){return new in.aviqr.identity.ServiceIdentity(env.getProperty("spring.application.name",""),env.getProperty("SERVICE_SIGNING_KEY_ID","v1"),env.getProperty("SERVICE_SIGNING_PRIVATE_KEY",""),env.getProperty("SERVICE_SIGNING_PUBLIC_KEYS","{}"),env.getProperty("SERVICE_ALLOWED_CALLERS","api-gateway,auth-service,shop-mall-service,menu-ocr-service,order-qr-service,payment-service,hotel-service,support-service,notification-report-review-service,pms-service,payment-gateway-service"),env.getProperty("app.service-signed-auth-required",Boolean.class,env.getProperty("SERVICE_SIGNED_AUTH_REQUIRED",Boolean.class,false)));}
     @Bean
     public FilterRegistrationBean<OncePerRequestFilter> serviceTrustFilter(Environment env,in.aviqr.identity.ServiceIdentity identity) {
         String secret = env.getProperty("internal.sync.secret", env.getProperty("INTERNAL_SYNC_SECRET", ""));

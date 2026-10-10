@@ -39,7 +39,7 @@ KEEP_RELEASES=15  # generous: blue/green means an old release's jar can still be
 SERVICES=(
   service-registry auth-service shop-mall-service menu-ocr-service
   order-qr-service payment-service hotel-service api-gateway
-  support-service notification-report-review-service pms-service
+  support-service notification-report-review-service pms-service payment-gateway-service
 )
 
 TARGET_REF="${1:?Usage: deploy.sh <git-sha-or-ref>}"

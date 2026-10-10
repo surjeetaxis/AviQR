@@ -56,7 +56,7 @@ fi
 # ── Service catalog (start order matters: registry/gateway/auth go first) ────
 SERVICES=(
   service-registry api-gateway auth-service shop-mall-service menu-ocr-service
-  order-qr-service payment-service hotel-service pms-service
+  order-qr-service payment-service hotel-service pms-service payment-gateway-service
   support-service notification-report-review-service
 )
 
@@ -70,6 +70,7 @@ desc_for() {
     order-qr-service)                     echo "Order lifecycle: create, accept, prepare, complete; QR generation + scan logging" ;;
     payment-service)                      echo "Razorpay payment orders + webhook verification" ;;
     hotel-service)                        echo "Hotel, room, and room-service request management" ;;
+    payment-gateway-service)              echo "Hotels' own payment gateways (Razorpay, PayPal, Paytm, AirPay and 16 more) for online booking payments" ;;
     pms-service)                          echo "Hotel PMS: room types/rates, reservations, front-desk check-in/out, folio, channel-manager sync" ;;
     support-service)                      echo "Support tickets, audit logs, admin impersonation logs" ;;
     notification-report-review-service)   echo "SMS/Email notifications, consumes RabbitMQ events; reports/analytics; product+shop reviews" ;;
@@ -103,7 +104,7 @@ hr()   { echo "-----------------------------------------------------------------
 cmd_help() {
   cat <<'EOF'
 ================================================================================
- AviQR Backend — 11 Spring Boot microservices behind a Eureka + Gateway stack
+ AviQR Backend — 12 Spring Boot microservices behind a Eureka + Gateway stack
 ================================================================================
 
 Description:
@@ -465,6 +466,7 @@ cmd_run() {
     start_one "payment-service"; sleep 5
     start_one "hotel-service"; sleep 5
     start_one "pms-service"; sleep 5
+    start_one "payment-gateway-service"; sleep 5
     start_one "support-service"; sleep 5
     start_one "notification-report-review-service"; sleep 5
 

@@ -12,7 +12,8 @@ include(
     'notification-report-review-service',
     'hotel-service',
     'support-service',
-    'pms-service'
+    'pms-service',
+    'payment-gateway-service'
 )
 
 include 'service-identity'
