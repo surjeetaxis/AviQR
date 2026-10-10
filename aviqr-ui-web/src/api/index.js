@@ -474,6 +474,10 @@ export const pmsApi = {
   // Group bookings
   listGroups:      (hotelId)      => api.get(`/api/v1/pms/groups/hotel/${hotelId}`),
   createGroup:     (d)            => api.post('/api/v1/pms/groups', d),
+  // Group quote requests from the booking engine
+  listGroupEnquiries:   (hotelId) => api.get(`/api/v1/pms/group-enquiries/hotel/${hotelId}`),
+  updateGroupEnquiry:   (id, d)   => api.put(`/api/v1/pms/group-enquiries/${id}`, d),
+  convertGroupEnquiry:  (id)      => api.post(`/api/v1/pms/group-enquiries/${id}/convert`),
   getGroup:        (id)           => api.get(`/api/v1/pms/groups/${id}`),
   groupCheckIn:    (id)           => api.post(`/api/v1/pms/groups/${id}/check-in`),
   groupCheckOut:   (id)           => api.post(`/api/v1/pms/groups/${id}/check-out`),

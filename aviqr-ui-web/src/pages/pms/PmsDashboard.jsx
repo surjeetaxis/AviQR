@@ -535,6 +535,16 @@ export function GroupsTab({ hotelId, groups, onChange, onReservationsChanged }) 
   const [folio, setFolio] = useState(null);
   const [payment, setPayment] = useState({ method: 'CASH', amount: '', reference: '' });
   const [acting, setActing] = useState(false);
+  const [enquiries, setEnquiries] = useState([]);
+  const loadEnquiries = useCallback(() => {
+    pmsApi.listGroupEnquiries(hotelId).then(res => setEnquiries(res.data.data || [])).catch(() => {});
+  }, [hotelId]);
+  useEffect(() => { loadEnquiries(); }, [loadEnquiries]);
+  const setEnquiryStatus = (e, status) => pmsApi.updateGroupEnquiry(e.id, { status }).then(loadEnquiries).catch(() => alert('Could not update enquiry'));
+  const convertEnquiry = async (e) => {
+    try { await pmsApi.convertGroupEnquiry(e.id); loadEnquiries(); onChange(); }
+    catch { alert('Could not create the group'); }
+  };
 
   const createGroup = async (e) => {
     e.preventDefault();
@@ -577,6 +587,35 @@ export function GroupsTab({ hotelId, groups, onChange, onReservationsChanged }) 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="page-header"><div><h1 className="page-title">Group Bookings</h1><p className="page-subtitle">Book many rooms under one group, with shared billing and bulk check-in/out.</p></div></div>
+
+      <div className="admin-table-card" style={{ padding: 16 }}>
+        <strong>Online group enquiries</strong> <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>(quote requests from your booking page; the organiser was emailed a confirmation)</span>
+        <table className="admin-table" style={{ marginTop: 10 }}>
+          <thead><tr><th>Received</th><th>Organiser</th><th>Event</th><th>Dates</th><th>Rooms</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            {enquiries.map(e => (
+              <tr key={e.id}>
+                <td>{e.createdAt ? new Date(e.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'}</td>
+                <td className="admin-td-shop">{e.organizerName}{e.company ? ` · ${e.company}` : ''}
+                  <div style={{ fontSize: 11.5, color: 'var(--gray-500)', fontWeight: 400 }}>{e.organizerPhone}{e.organizerEmail ? ` · ${e.organizerEmail}` : ''}</div>
+                  {e.message && <div style={{ fontSize: 11.5, color: 'var(--gray-600)', fontWeight: 400, maxWidth: 320 }}>“{e.message}”</div>}</td>
+                <td>{(e.eventType || 'OTHER').charAt(0) + (e.eventType || 'OTHER').slice(1).toLowerCase()}</td>
+                <td>{e.checkInDate} → {e.checkOutDate}</td>
+                <td>{e.rooms}{e.guests ? ` (${e.guests} guests)` : ''}</td>
+                <td>
+                  <select value={e.status} onChange={ev => setEnquiryStatus(e, ev.target.value)} style={inputStyle} aria-label="Enquiry status" disabled={!!e.groupId}>
+                    <option value="NEW">New</option><option value="QUOTED">Quoted</option><option value="WON">Won</option><option value="LOST">Lost</option>
+                  </select>
+                </td>
+                <td>{e.groupId
+                  ? <button className="admin-row-btn" style={btnSecondary} onClick={() => loadDetail(e.groupId)}>Open group</button>
+                  : e.status !== 'LOST' && <button className="admin-row-btn" style={btnPrimary} onClick={() => convertEnquiry(e)}><Plus size={14} /> Create group</button>}</td>
+              </tr>
+            ))}
+            {enquiries.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 16 }}>No enquiries yet. Guests send them from “Request a group quote” on your booking page.</td></tr>}
+          </tbody>
+        </table>
+      </div>
 
       <form onSubmit={createGroup} className="admin-table-card" style={{ padding: 16, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <input placeholder="Group name (e.g. Sharma-Verma Wedding)" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ ...inputStyle, minWidth: 220 }} />
