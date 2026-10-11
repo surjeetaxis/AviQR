@@ -1,11 +1,15 @@
 [Unit]
 Description=AviQR encrypted database backup
+After=postgresql.service mongod.service
 [Service]
 Type=oneshot
 User=aviqr-backup
 EnvironmentFile=/etc/aviqr/backup.env
+# The server's secrets are root-only, so this one step runs as root ("+").
+ExecStartPre=+/opt/aviqr/security/backup-config.sh
 ExecStart=/opt/aviqr/security/backup.sh
 Environment=BACKUP_OFFSITE_REQUIRED=true
+Environment=BACKUP_CONFIG_REQUIRED=true
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
