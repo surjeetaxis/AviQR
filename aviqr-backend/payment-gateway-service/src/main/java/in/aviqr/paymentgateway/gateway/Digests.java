@@ -20,7 +20,6 @@ public final class Digests {
     }
     public static String sha256Hex(String value) { return HexFormat.of().formatHex(digest("SHA-256", value)); }
     public static String sha512Hex(String value) { return HexFormat.of().formatHex(digest("SHA-512", value)); }
-    public static String md5Hex(String value) { return HexFormat.of().formatHex(digest("MD5", value)); }
 
     public static String hmacSha256Hex(byte[] key, String value) {
         try {

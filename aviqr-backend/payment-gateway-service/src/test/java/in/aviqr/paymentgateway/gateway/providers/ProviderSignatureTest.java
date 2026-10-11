@@ -93,6 +93,7 @@ class ProviderSignatureTest {
         var c = ctx(Map.of("merchantId", "M", "username", "u", "password", "p", "apiKey", "k"));
         var f = new AirPayProvider().begin(c).fields();
         assertThat(f.get("privatekey")).isEqualTo(Digests.sha256Hex("k@u:|:p"));
+        assertThat(AirPayProvider.checksum("abc")).isEqualTo("900150983cd24fb0d6963f7d28e17f72"); // MD5, as AirPay defines it
         Map<String, String> resp = new HashMap<>(Map.of("TRANSACTIONID", c.reference(), "APTRANSACTIONID", "AP1", "AMOUNT", "1500.50",
             "TRANSACTIONSTATUS", "200", "MESSAGE", "Success"));
         resp.put("ap_SecureHash", Digests.crc32(c.reference() + ":AP1:1500.50:200:Success:M:u"));

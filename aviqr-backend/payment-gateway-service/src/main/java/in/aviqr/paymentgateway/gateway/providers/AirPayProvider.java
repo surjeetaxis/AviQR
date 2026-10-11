@@ -23,7 +23,7 @@ public class AirPayProvider implements GatewayProvider {
         Credentials c = ctx.credentials();
         String amount = Money.major(ctx.amount(), ctx.currency());
         String privateKey = Digests.sha256Hex(c.require("apiKey") + "@" + c.require("username") + ":|:" + c.require("password"));
-        String checksum = Digests.md5Hex(ctx.email() + ctx.firstName() + ctx.lastName() + amount + ctx.reference() + LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")) + privateKey);
+        String checksum = checksum(ctx.email() + ctx.firstName() + ctx.lastName() + amount + ctx.reference() + LocalDate.now(java.time.ZoneId.of("Asia/Kolkata")) + privateKey);
         Map<String, String> f = new LinkedHashMap<>();
         f.put("currency", Money.numeric(ctx.currency()));
         f.put("isocurrency", ctx.currency());
@@ -54,4 +54,15 @@ public class AirPayProvider implements GatewayProvider {
     }
 
     public String referenceOf(Map<String, String> p) { return p.get("TRANSACTIONID"); }
+
+    /** AirPay's form checksum is hex MD5, as its API defines it; AirPay accepts no other algorithm.
+     *  Accepted in .github/security/sast-exceptions.json. */
+    static String checksum(String data) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("MD5")
+                .digest(data.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
 }

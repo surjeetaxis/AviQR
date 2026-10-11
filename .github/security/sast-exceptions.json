@@ -1,6 +1,13 @@
 [
   {
     "rule": "java/potentially-weak-cryptographic-algorithm",
+    "path": "aviqr-backend/payment-gateway-service/src/main/java/in/aviqr/paymentgateway/gateway/providers/AirPayProvider.java",
+    "reason": "AirPay's payment API defines the form checksum as hex MD5 of the buyer fields, amount, order id, date and private key. AirPay accepts no other algorithm; the result itself is verified with AirPay's own secure hash. Not used anywhere else.",
+    "owner": "payments",
+    "expires": "2027-04-11"
+  },
+  {
+    "rule": "java/potentially-weak-cryptographic-algorithm",
     "path": "aviqr-backend/payment-gateway-service/src/main/java/in/aviqr/paymentgateway/gateway/providers/FacMpi.java",
     "reason": "Bank of Maldives and HNB Sentry (MPI protocol) define the request and response Signature as Base64 SHA-1 of the password and fields (SignatureMethod=SHA1). The banks accept no other algorithm; a different hash breaks those payments. Not used anywhere else.",
     "owner": "payments",
