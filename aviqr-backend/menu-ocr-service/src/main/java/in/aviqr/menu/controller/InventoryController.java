@@ -57,14 +57,9 @@ public class InventoryController {
             @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId) {
         if ("CUSTOMER".equals(role))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
-        // resolve shopId from menu item if not supplied in request body
-        String shopId = req.getShopId();
-        if (shopId == null || shopId.isBlank()) {
-            shopId = menuItemRepo.findById(itemId)
-                .map(in.aviqr.menu.entity.MenuItem::getShopId)
-                .orElse(null);
-        }
-        if (shopId == null) return ResponseEntity.status(404).body(ApiResponse.error("Menu item not found"));
+        // Always use the item's real shop; request bodies cannot move stock between shops.
+        String shopId=menuItemRepo.findById(itemId).map(in.aviqr.menu.entity.MenuItem::getShopId).orElse(null);
+        if(shopId==null)return ResponseEntity.status(404).body(ApiResponse.error("Menu item not found"));
         StockItem saved = inventoryService.setStock(
             itemId, shopId, req.getStockQty(), req.getLowStockThreshold(), req.getTrackStock());
         return ResponseEntity.ok(ApiResponse.ok("Stock updated", saved));

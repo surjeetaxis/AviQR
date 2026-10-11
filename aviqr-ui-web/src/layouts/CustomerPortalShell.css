@@ -1,6 +1,6 @@
 .cps-shell {
   min-height: 100vh;
-  background: #F9FAFB;
+  background: var(--gray-50);
   display: flex;
   flex-direction: column;
 }

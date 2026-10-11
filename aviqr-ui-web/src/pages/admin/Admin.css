@@ -117,6 +117,7 @@
 .status-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: var(--radius-pill); }
 .st-active { background: var(--green-light); color: var(--green-darker); }
 .st-suspended { background: var(--red-bg); color: var(--red); }
+.st-pending { background: var(--amber-bg); color: var(--amber); }
 .admin-row-btn { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--gray-400); border: 1px solid var(--gray-200); transition: background .12s; }
 .admin-row-btn:hover { background: var(--gray-100); color: var(--gray-700); }
 .admin-row-btn-danger:hover { background: var(--red-bg); color: var(--red); border-color: #FECACA; }

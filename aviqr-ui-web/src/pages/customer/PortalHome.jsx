@@ -68,7 +68,7 @@ export default function PortalHome() {
   if (status === 'loading') {
     return (
       <div style={sx.center}>
-        <p style={{ fontSize: 13.5, color: '#6B7280' }}>Finding restaurants near you…</p>
+        <p style={{ fontSize: 13.5, color: "#65766c" }}>Finding restaurants near you…</p>
       </div>
     );
   }
@@ -100,7 +100,7 @@ export default function PortalHome() {
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setTimeout(() => setSearchFocused(false), 120)}
           />
-          {searching && <span style={{ fontSize: 12, color: '#9CA3AF' }}>Searching…</span>}
+          {searching && <span style={{ fontSize: 12, color: "#74847b" }}>Searching…</span>}
         </div>
 
         {status === 'granted' && !showingRecents && !showingResults && (
@@ -118,12 +118,12 @@ export default function PortalHome() {
         <div style={{ padding: '4px 16px 40px' }}>
           {recent.length > 0 && <div style={sx.sectionTitle}>Recent searches</div>}
           {recent.length === 0 ? (
-            <p style={{ fontSize: 13.5, color: '#6B7280', marginTop: 20 }}>No recent searches yet.</p>
+            <p style={{ fontSize: 13.5, color: "#65766c", marginTop: 20 }}>No recent searches yet.</p>
           ) : recent.map(term => (
             <button key={term} style={sx.recentRow} onMouseDown={() => runRecentSearch(term)}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Clock size={15} color="#9CA3AF" />
-                <span style={{ fontSize: 14, color: '#111827' }}>{term}</span>
+                <span style={{ fontSize: 14, color: "#18382c" }}>{term}</span>
               </span>
               <span onMouseDown={e => onDeleteRecent(term, e)} style={sx.recentRemove}><X size={14} /></span>
             </button>
@@ -132,17 +132,17 @@ export default function PortalHome() {
       ) : showingResults ? (
         <div style={{ padding: '0 16px 40px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {searchResults.length === 0 && !searching && (
-            <p style={{ fontSize: 13.5, color: '#6B7280', marginTop: 20 }}>No restaurants found for "{search.trim()}".</p>
+            <p style={{ fontSize: 13.5, color: "#65766c", marginTop: 20 }}>No restaurants found for "{search.trim()}".</p>
           )}
           {searchResults.map(s => <ShopCard key={s.id} shop={s} onClick={() => navigate(`/menu/${s.id}`)} />)}
         </div>
       ) : status === 'denied' ? (
         <div style={sx.center}>
-          <p style={{ fontSize: 13.5, color: '#6B7280' }}>We couldn't access your location — search above or scan a QR code.</p>
+          <p style={{ fontSize: 13.5, color: "#65766c" }}>We couldn't access your location — search above or scan a QR code.</p>
         </div>
       ) : shops.length === 0 ? (
         <div style={sx.center}>
-          <p style={{ fontSize: 13.5, color: '#6B7280' }}>No restaurants found within 10km. Try scanning a QR code instead.</p>
+          <p style={{ fontSize: 13.5, color: "#65766c" }}>No restaurants found within 10km. Try scanning a QR code instead.</p>
         </div>
       ) : (
         <div style={{ padding: '0 16px 40px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -159,7 +159,7 @@ function ShopCard({ shop, onClick }) {
       <div style={sx.cardEmojiWrap}>🍽</div>
       <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 14 }}>{shop.name}</div>
-        {!!shop.tagline && <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 1 }}>{shop.tagline}</div>}
+        {!!shop.tagline && <div style={{ fontSize: 12, color: "#74847b", marginTop: 1 }}>{shop.tagline}</div>}
         <div style={{ display: 'flex', gap: 10, marginTop: 4, flexWrap: 'wrap' }}>
           {shop.rating != null && (
             <span style={sx.metaChip}><Star size={11} style={{ marginRight: 3 }} />{Number(shop.rating).toFixed(1)} ({shop.ratingCount || 0})</span>
@@ -178,20 +178,20 @@ const sx = {
   page: { paddingTop: 0 },
   header: { padding: '16px 16px 12px', borderBottom: '1px solid #F0F0F0' },
   center: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', textAlign: 'center', padding: '0 30px' },
-  scanBanner: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', background: '#E1F5EE', border: 'none', borderRadius: 14, padding: 12, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 },
+  scanBanner: { display: 'flex', alignItems: 'center', gap: 12, width: '100%', background: "#edf6f0", border: 'none', borderRadius: 14, padding: 12, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 },
   scanIconWrap: { width: 44, height: 44, borderRadius: 10, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  scanTitle: { fontSize: 15, fontWeight: 800, color: '#0F6E56' },
-  scanSub: { fontSize: 11.5, color: '#4B5563', marginTop: 2 },
-  scanArrow: { fontSize: 22, color: '#0F6E56', fontWeight: 700 },
-  trackLink: { display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#4B5563', fontSize: 12.5, fontWeight: 600, padding: '0 2px 10px', cursor: 'pointer', fontFamily: 'inherit' },
-  searchBox: { display: 'flex', alignItems: 'center', gap: 8, background: '#F3F4F6', borderRadius: 99, padding: '0 14px', height: 42 },
+  scanTitle: { fontSize: 15, fontWeight: 800, color: "#105940" },
+  scanSub: { fontSize: 11.5, color: "#53645e", marginTop: 2 },
+  scanArrow: { fontSize: 22, color: "#105940", fontWeight: 700 },
+  trackLink: { display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: "#53645e", fontSize: 12.5, fontWeight: 600, padding: '0 2px 10px', cursor: 'pointer', fontFamily: 'inherit' },
+  searchBox: { display: 'flex', alignItems: 'center', gap: 8, background: "#eaf0ed", borderRadius: 99, padding: '0 14px', height: 42 },
   searchInput: { flex: 1, border: 'none', background: 'none', outline: 'none', fontSize: 14, fontFamily: 'inherit' },
-  sortChip: { padding: '0 12px', height: 32, borderRadius: 99, background: '#F3F4F6', border: '1.5px solid transparent', fontSize: 12.5, fontWeight: 600, color: '#4B5563', cursor: 'pointer', fontFamily: 'inherit' },
-  sortChipActive: { background: '#E1F5EE', borderColor: '#1D9E75', color: '#065F46' },
-  sectionTitle: { fontSize: 13, fontWeight: 700, color: '#6B7280', padding: '16px 0 4px' },
+  sortChip: { padding: '0 12px', height: 32, borderRadius: 99, background: "#eaf0ed", border: '1.5px solid transparent', fontSize: 12.5, fontWeight: 600, color: "#53645e", cursor: 'pointer', fontFamily: 'inherit' },
+  sortChipActive: { background: "#edf6f0", borderColor: "#146c50", color: '#065F46' },
+  sectionTitle: { fontSize: 13, fontWeight: 700, color: "#65766c", padding: '16px 0 4px' },
   recentRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', borderBottom: '1px solid #F0F0F0', padding: '12px 0', cursor: 'pointer', fontFamily: 'inherit' },
-  recentRemove: { display: 'flex', color: '#9CA3AF', padding: 4 },
+  recentRemove: { display: 'flex', color: "#74847b", padding: 4 },
   card: { display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: '1px solid #F0F0F0', borderRadius: 14, padding: '12px 14px', boxShadow: '0 1px 3px rgba(0,0,0,.04)', cursor: 'pointer', width: '100%', fontFamily: 'inherit', textAlign: 'left' },
-  cardEmojiWrap: { width: 52, height: 52, borderRadius: 12, background: '#E1F5EE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 },
-  metaChip: { display: 'inline-flex', alignItems: 'center', fontSize: 11.5, color: '#6B7280', fontWeight: 600 },
+  cardEmojiWrap: { width: 52, height: 52, borderRadius: 12, background: "#edf6f0", display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 },
+  metaChip: { display: 'inline-flex', alignItems: 'center', fontSize: 11.5, color: "#65766c", fontWeight: 600 },
 };

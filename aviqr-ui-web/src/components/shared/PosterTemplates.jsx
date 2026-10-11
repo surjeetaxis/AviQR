@@ -6,7 +6,7 @@ import { QrCode, Smartphone, MapPin } from 'lucide-react';
 // FurnishHub furniture-store wood-tone palette this was first ported from.
 export const PALETTES = [
   { label: 'Emerald',  color: '#0a5c3e', bg: '#F0FDF9', accent: '#1D9E75' }, // AviQR primary brand green
-  { label: 'Midnight', color: '#18181b', bg: '#FAFAFA', accent: '#fbbf24' },
+  { label: 'Midnight', color: '#18181b', bg: "#f8faf9", accent: '#fbbf24' },
   { label: 'Sunset',   color: '#7c2d12', bg: '#FFF7ED', accent: '#ea580c' },
   { label: 'Ocean',    color: '#1e3a8a', bg: '#F0F7FF', accent: '#1d4ed8' },
   { label: 'Cream',    color: '#78350f', bg: '#FEF9C3', accent: '#d97706' },

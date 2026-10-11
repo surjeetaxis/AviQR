@@ -1,40 +1,56 @@
 name: Deploy to Production
-
-# Manual deployment of any branch, tag or commit, with production approval.
+# Start from any selected workflow branch; an optional ref selects another branch/tag/commit.
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Git SHA or branch/tag to deploy'
+        description: Branch, tag or commit to deploy (empty uses the selected workflow branch)
         required: false
-        default: 'master'
-
+        default: ''
+permissions:
+  contents: read
+  actions: read
 concurrency:
   group: deploy-production
   cancel-in-progress: false
-
 jobs:
+  verify:
+    name: Verify deployment commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          path: control
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          path: target
+          ref: ${{ inputs.ref || github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve target SHA
+        id: target
+        run: echo "sha=$(git -C target rev-parse --verify 'HEAD^{commit}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/github-script@373c709c69115d41ff229c7e5df9f8788daa9553
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          CONTROL_SHA: ${{ github.sha }}
+        with:
+          script: |
+            const {gateDeployment}=await import(`${process.env.GITHUB_WORKSPACE}/control/.github/scripts/gate-deployment.mjs`);
+            await gateDeployment(github,{...context.repo,sha:process.env.TARGET_SHA,controlSha:process.env.CONTROL_SHA,warn:message=>core.warning(message)});
+            await core.summary.addRaw('CI passed for the selected commit. Security scans are advisory and do not block deployment.').write();
   deploy:
     name: Deploy (SSH + systemd)
+    needs: verify
     runs-on: ubuntu-latest
-    # Requires a "production" Environment configured in repo Settings with
-    # required reviewers — the job pauses here until someone approves it.
     environment: production
     steps:
-      - name: Checkout selected deployment ref
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ inputs.ref || 'master' }}
-
-      # Deploy the resolved immutable SHA so a moving branch cannot change
-      # the approved deployment target between checkout and the SSH step.
-      - name: Resolve deployment commit
-        id: ref
-        run: echo "value=$(git rev-parse --verify 'HEAD^{commit}')" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Deploy verified SHA over SSH
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17
         with:
           host: ${{ secrets.PRODUCTION_SSH_HOST }}
           username: ${{ secrets.PRODUCTION_SSH_USER }}
@@ -43,13 +59,12 @@ jobs:
           command_timeout: 30m
           script: |
             set -e
-            bash /var/www/aviqr/aviqr-backend/deploy/deploy.sh "${{ steps.ref.outputs.value }}"
-
+            bash /var/www/aviqr/aviqr-backend/deploy/deploy.sh "${{ needs.verify.outputs.sha }}"
       - name: Summary
         if: always()
         env:
-          DEPLOY_SHA: ${{ steps.ref.outputs.value }}
+          DEPLOY_SHA: ${{ needs.verify.outputs.sha }}
         run: |
-          echo "### Deploy target" >> "$GITHUB_STEP_SUMMARY"
-          echo "Commit: \`$DEPLOY_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: $DEPLOY_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "Result: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"

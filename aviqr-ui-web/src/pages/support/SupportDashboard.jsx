@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { supportApi, orderApi, authApi, shopApi, paymentApi, ocrApi, auditApi, planApi, offerApi } from '../../api/index.js';
-import { AdminQRCodesPage, AdminReports } from '../admin/AdminDashboard.jsx';
+import { AdminHotelsPage, AdminQRCodesPage, AdminReports } from '../admin/AdminDashboard.jsx';
+import AdminLoginSecurity from '../admin/AdminLoginSecurity.jsx';
 import AdminLeadsPage from '../admin/AdminLeadsPage.jsx';
 import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import {
-  Headphones, ShoppingBag, CreditCard, Users, Store, QrCode,
+  Headphones, ShoppingBag, CreditCard, Users, Store, Hotel, QrCode,
   ScanLine, MessageCircle, FileText, UserCheck, LogOut,
   Menu as MenuIcon, Search, Bell, AlertCircle, CheckCircle2,
   XCircle, Clock, Eye, RefreshCw, Filter,
@@ -41,8 +42,10 @@ const NAV = [
   { key:'payments',    label:'Payments',       icon:CreditCard },
   { key:'users',       label:'Users',          icon:Users },
   { key:'shops',       label:'Shops',          icon:Store },
+  { key:'hotels',      label:'Hotels',         icon:Hotel },
   { key:'qrcodes',     label:'QR Codes',       icon:QrCode },
   { key:'ocr',         label:'OCR Jobs',       icon:ScanLine },
+  { key:'security', label:'Login Security', icon:Shield },
   { key:'audit',       label:'Audit Logs',     icon:FileText },
   { key:'reports',     label:'Reports',        icon:TrendingUp },
   { key:'billing',     label:'Billing',        icon:Layers },
@@ -159,12 +162,14 @@ export default function SupportDashboard() {
         </header>
 
         <main className="admin-content">
+          {tab === 'security' && <AdminLoginSecurity supportOnly />}
           {tab === 'overview'    && <SupportOverview onNavigate={setTab} tickets={tickets} orders={orders} auditLogs={auditLogs} />}
           {tab === 'tickets'     && <TicketsPanel tickets={tickets} onUpdate={t => setTickets(ts => ts.map(x => x.id===t.id?t:x))} />}
           {tab === 'orders'      && <OrdersPanel orders={orders} />}
           {tab === 'payments'    && <SupportPaymentsPanel />}
           {tab === 'users'       && <UsersPanel users={users} />}
           {tab === 'shops'       && <ShopsPanel shops={shops} />}
+          {tab === 'hotels'      && <AdminHotelsPage/>}
           {tab === 'qrcodes'     && <AdminQRCodesPage/>}
           {tab === 'ocr'         && <OCRPanel jobs={ocrJobs} />}
           {tab === 'audit'       && <AuditPanel logs={auditLogs} />}
@@ -670,7 +675,7 @@ function SupportBillingPanel() {
     ACTIVE:        { label: 'Active',        color: '#059669', bg: '#DCFCE7' },
     TRIALING:      { label: 'Trialing',      color: '#2563EB', bg: '#DBEAFE' },
     TRIAL_EXPIRED: { label: 'Trial expired', color: '#DC2626', bg: '#FEE2E2' },
-    CANCELED:      { label: 'Canceled',      color: '#6B7280', bg: '#F3F4F6' },
+    CANCELED:      { label: 'Canceled',      color: "#65766c", bg: "#eaf0ed" },
   };
 
   const setSubscriptionStatus = async (shop, status) => {
@@ -686,7 +691,7 @@ function SupportBillingPanel() {
   return (
     <div>
       {toast && (
-        <div style={{ position:'fixed', bottom:24, right:24, background:'#1F2937', color:'white', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
+        <div style={{ position:'fixed', bottom:24, right:24, background:"#24483c", color:'white', padding:'12px 20px', borderRadius:10, zIndex:9999, fontSize:13, fontWeight:600 }}>
           ✓ {toast}
         </div>
       )}

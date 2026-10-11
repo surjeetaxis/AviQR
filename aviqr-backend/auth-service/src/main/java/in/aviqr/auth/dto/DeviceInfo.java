@@ -15,4 +15,5 @@ public class DeviceInfo {
     String appVersion;
     String ipAddress;
     String userAgent;
+    String trustedDeviceToken;
 }

@@ -14,6 +14,12 @@ import java.util.*;
 public class StaffController {
 
     private final StaffRepository staffRepo;
+    private final in.aviqr.shop.repository.ShopRepository shops;
+    private boolean canManage(UUID shopId,String uid,String role,String callerShopId) {
+        return "ADMIN".equals(role) || "SUPPORT".equals(role) ||
+            ("MANAGER".equals(role) && shopId.toString().equals(callerShopId)) ||
+            shops.findById(shopId).filter(shop -> uid.equals(shop.getOwnerId())).isPresent();
+    }
 
     @GetMapping("/shop/{shopId}")
     public ResponseEntity<ApiResponse<List<ShopStaff>>> getStaff(
@@ -30,15 +36,23 @@ public class StaffController {
     public ResponseEntity<ApiResponse<ShopStaff>> addStaff(
             @PathVariable UUID shopId,
             @RequestBody ShopStaff req,
-            @RequestHeader("X-User-Id") String uid) {
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role",defaultValue="") String role,
+            @RequestHeader(value="X-Shop-Id",defaultValue="") String callerShopId) {
+        if (!canManage(shopId,uid,role,callerShopId)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        req.setId(null);
         req.setShopId(shopId);
         if (req.getUserId() == null) req.setUserId(UUID.randomUUID().toString()); // placeholder
         return ResponseEntity.ok(ApiResponse.ok("Staff added", staffRepo.save(req)));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<ShopStaff>> updateStaff(@PathVariable UUID id, @RequestBody ShopStaff req) {
+    public ResponseEntity<ApiResponse<ShopStaff>> updateStaff(@PathVariable UUID id,@RequestBody ShopStaff req,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role",defaultValue="") String role,
+            @RequestHeader(value="X-Shop-Id",defaultValue="") String callerShopId) {
         return staffRepo.findById(id).map(s -> {
+            if (!canManage(s.getShopId(),uid,role,callerShopId)) return ResponseEntity.status(403).body(ApiResponse.<ShopStaff>error("Forbidden"));
             s.setName(req.getName()); s.setRole(req.getRole());
             if (req.getPermissions() != null) s.setPermissions(req.getPermissions());
             s.setActive(req.getActive());
@@ -48,17 +62,26 @@ public class StaffController {
 
     @PutMapping("/{id}/role")
     public ResponseEntity<ApiResponse<Void>> changeRole(
-            @PathVariable UUID id, @RequestParam String role) {
-        staffRepo.findById(id).ifPresent(s -> {
-            s.setRole(StaffRole.valueOf(role.toUpperCase()));
-            staffRepo.save(s);
-        });
+            @PathVariable UUID id,@RequestParam String role,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role",defaultValue="") String callerRole,
+            @RequestHeader(value="X-Shop-Id",defaultValue="") String callerShopId) {
+        var staff=staffRepo.findById(id).orElse(null);
+        if (staff==null) return ResponseEntity.notFound().build();
+        if (!canManage(staff.getShopId(),uid,callerRole,callerShopId)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        staff.setRole(StaffRole.valueOf(role.toUpperCase())); staffRepo.save(staff);
         return ResponseEntity.ok(ApiResponse.ok("Role updated", null));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> removeStaff(@PathVariable UUID id) {
-        staffRepo.findById(id).ifPresent(s -> { s.setActive(false); staffRepo.save(s); });
+    public ResponseEntity<ApiResponse<Void>> removeStaff(@PathVariable UUID id,
+            @RequestHeader("X-User-Id") String uid,
+            @RequestHeader(value="X-User-Role",defaultValue="") String role,
+            @RequestHeader(value="X-Shop-Id",defaultValue="") String callerShopId) {
+        var staff=staffRepo.findById(id).orElse(null);
+        if (staff==null) return ResponseEntity.notFound().build();
+        if (!canManage(staff.getShopId(),uid,role,callerShopId)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        staff.setActive(false); staffRepo.save(staff);
         return ResponseEntity.ok(ApiResponse.ok("Staff removed", null));
     }
 }

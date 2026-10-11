@@ -21,6 +21,7 @@ public class OrderService {
     private final OrderRepository repo;
     private final RabbitTemplate rabbit;
     private final RestTemplate restTemplate;
+    private final MenuPricingClient menuPricing;
 
     /** Default GST slab — used when shop-service cannot be reached */
     private static final BigDecimal DEFAULT_GST = BigDecimal.valueOf(5.0);
@@ -30,6 +31,7 @@ public class OrderService {
 
     @Transactional
     public OrderResponse create(String shopId, String customerId, CreateOrderRequest req, boolean selfService) {
+        if(selfService)menuPricing.apply(shopId,req);
         BigDecimal subtotal = req.getItems().stream()
             .map(i -> i.getUnitPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
             .reduce(BigDecimal.ZERO, BigDecimal::add);

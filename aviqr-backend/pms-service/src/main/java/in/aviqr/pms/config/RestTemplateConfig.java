@@ -25,6 +25,6 @@ public class RestTemplateConfig {
     // RestTemplate can't resolve a plain external host, so this is a separate bean.
     @Bean("externalRestTemplate")
     public RestTemplate externalRestTemplate(RestTemplateBuilder builder) {
-        return builder.setConnectTimeout(Duration.ofSeconds(5)).setReadTimeout(Duration.ofSeconds(10)).build();
+        return builder.connectTimeout(Duration.ofSeconds(5)).readTimeout(Duration.ofSeconds(10)).build();
     }
 }

@@ -125,7 +125,7 @@ const ss = StyleSheet.create({
   scope: { fontSize: FontSize.xs, color: Colors.gray400, marginTop: 2 },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full },
   badgeTxt: { fontSize: 11, fontWeight: '700' },
-  sheetTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900, marginBottom: 16 },
+  sheetTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900, marginBottom: 16 },
   roleLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray700, marginBottom: 8 },
   roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   roleChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: Radius.full, borderWidth: 1.5, borderColor: Colors.border },

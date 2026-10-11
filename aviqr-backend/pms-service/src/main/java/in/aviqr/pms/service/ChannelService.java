@@ -17,6 +17,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.LocalDateTime;
@@ -58,6 +60,15 @@ public class ChannelService {
         req.setExternalPropertyId(req.getExternalPropertyId().trim());
         req.setExternalRoomTypeId(req.getExternalRoomTypeId().trim());
         req.setExternalRatePlanId(plan);
+        if (isBlank(req.getAccessKey())) {
+            mappingRepo.findByHotelId(req.getHotelId()).stream()
+                .filter(m -> m.getChannel() == req.getChannel())
+                .filter(m -> Objects.equals(m.getExternalPropertyId(), req.getExternalPropertyId()))
+                .filter(m -> !isBlank(m.getAccessKey()))
+                .findFirst().ifPresent(m -> req.setAccessKey(m.getAccessKey()));
+        }
+        validateConnection(req);
+        normalizeConnection(req);
         req.setId(null);
         req.setWebhookSecret(UUID.randomUUID().toString().replace("-", ""));
         req.setActive(true);
@@ -71,13 +82,21 @@ public class ChannelService {
     public ChannelMapping updateMapping(UUID id, ChannelMapping req) {
         ChannelMapping existing = mappingRepo.findById(id)
             .orElseThrow(() -> new RuntimeException("Channel mapping not found: " + id));
+        ChannelMapping candidate = ChannelMapping.builder()
+            .channel(existing.getChannel())
+            .accessKey(isBlank(req.getAccessKey()) ? existing.getAccessKey() : req.getAccessKey())
+            .channelId(req.getChannelId())
+            .cmBaseUrl(req.getCmBaseUrl())
+            .build();
+        validateConnection(candidate);
         existing.setExternalPropertyId(req.getExternalPropertyId());
         existing.setExternalRoomTypeId(req.getExternalRoomTypeId());
         existing.setExternalRatePlanId(req.getExternalRatePlanId());
         existing.setInternalRatePlanId(req.getInternalRatePlanId());
-        existing.setAccessKey(req.getAccessKey());
+        if (!isBlank(req.getAccessKey())) existing.setAccessKey(req.getAccessKey().trim());
         existing.setChannelId(req.getChannelId());
         existing.setCmBaseUrl(req.getCmBaseUrl());
+        normalizeConnection(existing);
         if (req.getActive() != null) existing.setActive(req.getActive());
         return mappingRepo.save(existing);
     }
@@ -359,12 +378,15 @@ public class ChannelService {
             .toList();
         if (selected.isEmpty()) throw new IllegalArgumentException("No active mapping matches this selection");
 
-        List<ChannelMapping> live = selected.stream().filter(m -> !isBlank(m.getCmBaseUrl())).toList();
+        List<ChannelMapping> live = selected.stream().filter(ChannelService::hasConnectionDetails)
+            .filter(m -> m.getChannel() == ChannelName.AXISROOMS && isLiveConnectionReady(m)).toList();
         List<ChannelSyncLog> out = new ArrayList<>();
         if (!live.isEmpty()) {
             out.addAll(ariService.push(live, new AxisRoomsAriService.PushRequest(types, cmd.from(), cmd.to(), "MANUAL", userId)));
         }
-        selected.stream().filter(m -> isBlank(m.getCmBaseUrl())).forEach(m -> out.add(pushSimulated(m, "MANUAL")));
+        selected.stream().filter(m -> !hasConnectionDetails(m)).forEach(m -> out.add(pushSimulated(m, "MANUAL")));
+        selected.stream().filter(ChannelService::hasConnectionDetails).filter(m -> !live.contains(m))
+            .forEach(m -> out.add(pushConfigurationFailure(m, "MANUAL")));
         return out;
     }
 
@@ -394,9 +416,72 @@ public class ChannelService {
     }
 
     private void pushForMappings(List<ChannelMapping> mappings, AxisRoomsAriService.PushRequest req) {
-        List<ChannelMapping> live = mappings.stream().filter(m -> !isBlank(m.getCmBaseUrl())).toList();
+        List<ChannelMapping> live = mappings.stream().filter(ChannelService::hasConnectionDetails)
+            .filter(m -> m.getChannel() == ChannelName.AXISROOMS && isLiveConnectionReady(m)).toList();
         if (!live.isEmpty()) ariService.push(live, req);
-        mappings.stream().filter(m -> isBlank(m.getCmBaseUrl())).forEach(m -> pushSimulated(m, req.trigger()));
+        mappings.stream().filter(m -> !hasConnectionDetails(m)).forEach(m -> pushSimulated(m, req.trigger()));
+        mappings.stream().filter(ChannelService::hasConnectionDetails).filter(m -> !live.contains(m))
+            .forEach(m -> pushConfigurationFailure(m, req.trigger()));
+    }
+
+    private static boolean hasConnectionDetails(ChannelMapping mapping) {
+        return !isBlank(mapping.getCmBaseUrl()) || !isBlank(mapping.getAccessKey()) || !isBlank(mapping.getChannelId());
+    }
+
+    private static boolean isLiveConnectionReady(ChannelMapping mapping) {
+        if (isBlank(mapping.getCmBaseUrl()) || isBlank(mapping.getAccessKey()) || isBlank(mapping.getChannelId())) return false;
+        try {
+            validateConnection(mapping);
+            return true;
+        } catch (IllegalArgumentException invalid) {
+            return false;
+        }
+    }
+
+    private static void normalizeConnection(ChannelMapping mapping) {
+        if (mapping.getAccessKey() != null) mapping.setAccessKey(mapping.getAccessKey().trim());
+        if (mapping.getChannelId() != null) mapping.setChannelId(mapping.getChannelId().trim());
+        if (mapping.getCmBaseUrl() != null) mapping.setCmBaseUrl(mapping.getCmBaseUrl().trim());
+    }
+
+    /** Only the AxisRooms adapter currently speaks this outbound ARI contract. Do
+     *  not send its payloads to a different vendor just because a URL was entered. */
+    private ChannelSyncLog pushConfigurationFailure(ChannelMapping mapping, String trigger) {
+        String message = mapping.getChannel() != ChannelName.AXISROOMS
+            ? "Live sync is not available for " + mapping.getChannel() + " yet; no outbound request was sent."
+            : "AxisRooms connection is incomplete; provide the access key, PMS channel ID and API base URL. No request was sent.";
+        return syncLogRepo.save(ChannelSyncLog.builder()
+            .hotelId(mapping.getHotelId()).channel(mapping.getChannel()).direction(SyncDirection.PUSH)
+            .status(SyncStatus.FAILED).syncType(SyncType.INVENTORY)
+            .externalPropertyId(mapping.getExternalPropertyId()).roomTypeIds(mapping.getRoomTypeId().toString())
+            .triggerSource(trigger).message(message).responseBody(message).build());
+    }
+
+    private static void validateConnection(ChannelMapping mapping) {
+        boolean any = hasConnectionDetails(mapping);
+        if (!any) return; // No connection means an intentional local simulation.
+        if (mapping.getChannel() != ChannelName.AXISROOMS)
+            throw new IllegalArgumentException("Live outbound sync is currently supported only for AxisRooms");
+        if (isBlank(mapping.getAccessKey()) || isBlank(mapping.getChannelId()) || isBlank(mapping.getCmBaseUrl()))
+            throw new IllegalArgumentException("AxisRooms live sync requires an access key, PMS channel ID and API base URL");
+        try {
+            URI uri = new URI(mapping.getCmBaseUrl().trim());
+            String host = uri.getHost();
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null
+                    || !isAxisRoomsTransactionalHost(host)
+                    || uri.getUserInfo() != null || (uri.getPort() != -1 && uri.getPort() != 443)
+                    || (uri.getPath() != null && !uri.getPath().isEmpty() && !"/".equals(uri.getPath()))
+                    || uri.getQuery() != null || uri.getFragment() != null)
+                throw new IllegalArgumentException("AxisRooms API base URL must be an HTTPS AxisRooms host without a path or query");
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("AxisRooms API base URL is invalid", e);
+        }
+    }
+
+    private static boolean isAxisRoomsTransactionalHost(String host) {
+        String normalized = host.toLowerCase(Locale.ROOT);
+        return "api.axisrooms.com".equals(normalized)
+            || normalized.matches("sandbox[1-9][0-9]?\\.axisrooms\\.com");
     }
 
     private ChannelSyncLog pushSimulated(ChannelMapping mapping, String trigger) {
@@ -407,7 +492,7 @@ public class ChannelService {
             // POSTed to /api/inventory, kept here so "what would we have sent" is
             // still inspectable without a live connection.
             Map<String, Object> wouldSend = Map.of(
-                "accessKey", mapping.getAccessKey() == null ? "" : mapping.getAccessKey(),
+                "accessKey", isBlank(mapping.getAccessKey()) ? "" : "[REDACTED]",
                 "channelId", mapping.getChannelId() == null ? "" : mapping.getChannelId(),
                 "hotels", List.of(Map.of(
                     "hotelId", mapping.getExternalPropertyId(),

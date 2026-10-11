@@ -22,11 +22,11 @@ const LANGS = [
 ];
 const PLAN_INFO = {
   STARTER: {
-    name:'Starter', price:'Free', color:'#6B7280',
+    name:'Starter', price:'Free', color:"#65766c",
     features:['Up to 50 menu items','1 QR code','Basic POS','Order management'],
   },
   GROWTH: {
-    name:'Growth', price:'₹999/mo', color:'#1D9E75',
+    name:'Growth', price:'₹999/mo', color:"#146c50",
     features:['Unlimited items & orders','Dynamic pricing','Staff roles','Loyalty program','WhatsApp alerts','AI features'],
   },
   BUSINESS: {
@@ -38,7 +38,7 @@ const PLAN_INFO = {
 // ── Reusable sub-components ──────────────────────────────────────────────────
 function SectionHeader({ title, subtitle, action }) {
   return (
-    <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24, paddingBottom:16, borderBottom:'1px solid var(--gray-100)' }}>
+    <div className="settings-section-heading" style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24, paddingBottom:16, borderBottom:'1px solid var(--gray-100)' }}>
       <div>
         <h2 style={{ fontSize:16, fontWeight:700, color:'var(--gray-900)', margin:0 }}>{title}</h2>
         {subtitle && <p style={{ fontSize:13, color:'var(--gray-500)', margin:'4px 0 0' }}>{subtitle}</p>}
@@ -85,7 +85,7 @@ function Field({ label, hint, children }) {
 
 function SaveBar({ onSave, saving, saved, onCancel }) {
   return (
-    <div style={{ display:'flex', gap:10, paddingTop:20, marginTop:20, borderTop:'1px solid var(--gray-100)' }}>
+    <div className="settings-save-bar" style={{ display:'flex', gap:10, paddingTop:20, marginTop:20, borderTop:'1px solid var(--gray-100)' }}>
       <button className="btn btn-primary" onClick={onSave} disabled={saving} style={{ minWidth:120 }}>
         {saved ? <><Check size={14}/> Saved!</> : saving ? 'Saving…' : <><Save size={14}/> Save changes</>}
       </button>
@@ -136,7 +136,7 @@ export default function Settings() {
 
   // Payment method modal
   const [payModal, setPayModal]   = useState(null); // null | { type, mode:'enable'|'configure' }
-  const [payForm, setPayForm]     = useState({ razorpayKeyId:'', upiId:'', loyaltyPointsPerRupee:1, loyaltyRedemptionRate:100 });
+  const [payForm, setPayForm]     = useState({ razorpayKeyId:'', razorpayKeySecret:'', razorpayWebhookSecret:'', upiId:'', loyaltyPointsPerRupee:1, loyaltyRedemptionRate:100 });
   const [paySaving, setPaySaving] = useState(false);
   const [payError, setPayError]   = useState('');
 
@@ -306,6 +306,8 @@ export default function Settings() {
     setPayError('');
     setPayForm({
       razorpayKeyId: settings.razorpayKeyId || '',
+      razorpayKeySecret: '',
+      razorpayWebhookSecret: '',
       upiId: settings.upiId || '',
       loyaltyPointsPerRupee: settings.loyaltyPointsPerRupee || 1,
       loyaltyRedemptionRate: settings.loyaltyRedemptionRate || 100,
@@ -318,13 +320,17 @@ export default function Settings() {
     if (!shopId || !payModal) return;
     const { type } = payModal;
     setPayError('');
-    if (type === 'online' && !payForm.razorpayKeyId.trim())
-      return setPayError('Razorpay Key ID is required');
+    if (type === 'online' && (!payForm.razorpayKeyId.trim() || !payForm.razorpayKeySecret.trim() || !payForm.razorpayWebhookSecret.trim()))
+      return setPayError('Razorpay Key ID, Key Secret, and Webhook Secret are required to enable online payments');
     if (type === 'upi' && !payForm.upiId.trim())
       return setPayError('UPI ID is required');
     setPaySaving(true);
     const patch = { [`${type}Enabled`]: true };
-    if (type === 'online')  patch.razorpayKeyId = payForm.razorpayKeyId.trim();
+    if (type === 'online') {
+      patch.razorpayKeyId = payForm.razorpayKeyId.trim();
+      patch.razorpayKeySecret = payForm.razorpayKeySecret.trim();
+      patch.razorpayWebhookSecret = payForm.razorpayWebhookSecret.trim();
+    }
     if (type === 'upi')     patch.upiId = payForm.upiId.trim();
     if (type === 'loyalty') {
       patch.loyaltyPointsPerRupee = Number(payForm.loyaltyPointsPerRupee);
@@ -333,7 +339,10 @@ export default function Settings() {
     const updated = { ...settings, ...patch };
     try {
       await shopApi.saveSettings(shopId, updated);
-      setSettings(updated);
+      const safeSettings = { ...updated };
+      delete safeSettings.razorpayKeySecret;
+      delete safeSettings.razorpayWebhookSecret;
+      setSettings(safeSettings);
       setPayModal(null);
     } catch (e) { setPayError(e.response?.data?.message || 'Save failed'); }
     finally { setPaySaving(false); }
@@ -452,11 +461,11 @@ export default function Settings() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div style={{ display:'flex', gap:0, alignItems:'flex-start', minHeight:'calc(100vh - 140px)' }}>
+    <div className="settings-workspace" style={{ display:'flex', gap:0, alignItems:'flex-start', minHeight:'calc(100vh - 140px)' }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       {/* ── Left sidebar ─────────────────────────────────────────────────── */}
-      <div style={{ width:230, flexShrink:0, background:'white', borderRadius:12, border:'1px solid var(--gray-200)', overflow:'hidden', position:'sticky', top:24, marginRight:20 }}>
+      <div className="settings-workspace-nav" style={{ width:230, flexShrink:0, background:'white', borderRadius:12, border:'1px solid var(--gray-200)', overflow:'hidden', position:'sticky', top:24, marginRight:20 }}>
         <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--gray-100)' }}>
           <div style={{ fontSize:11, fontWeight:700, color:'var(--gray-400)', textTransform:'uppercase', letterSpacing:.8 }}>Settings</div>
         </div>
@@ -480,7 +489,7 @@ export default function Settings() {
         </nav>
         <div style={{ padding:'12px 16px', borderTop:'1px solid var(--gray-100)' }}>
           <div style={{ fontSize:10, color:'var(--gray-400)' }}>
-            <span style={{ display:'inline-block', width:7, height:7, borderRadius:50, background:'#1D9E75', marginRight:4 }}/>Configured
+            <span style={{ display:'inline-block', width:7, height:7, borderRadius:50, background:"#146c50", marginRight:4 }}/>Configured
             <span style={{ display:'inline-block', width:7, height:7, borderRadius:50, background:'#D97706', margin:'0 4px 0 12px' }}/>Needs attention
           </div>
         </div>
@@ -495,7 +504,7 @@ export default function Settings() {
           </div>
         )}
         {saved && (
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', borderRadius:8, background:'#E1F5EE', border:'1px solid #A7F3D0', fontSize:13, color:'#065F46' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', borderRadius:8, background:"#edf6f0", border:'1px solid #A7F3D0', fontSize:13, color:'#065F46' }}>
             <Check size={14}/> Settings saved successfully
           </div>
         )}
@@ -514,7 +523,7 @@ export default function Settings() {
             <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
               <Field label="Logo" hint="Shown on your printed receipts and invoices">
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                  <div style={{ width:56, height:56, borderRadius:10, border:'1px solid var(--gray-200)', background:'var(--gray-50, #F9FAFB)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', flexShrink:0 }}>
+                  <div style={{ width:56, height:56, borderRadius:10, border:'1px solid var(--gray-200)', background:"var(--gray-50, #f8faf9)", display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', flexShrink:0 }}>
                     {shopForm.logoUrl
                       ? <img src={shopForm.logoUrl} alt="Shop logo" style={{ width:'100%', height:'100%', objectFit:'contain' }}/>
                       : <ImageIcon size={20} color="var(--gray-300)"/>}
@@ -533,7 +542,7 @@ export default function Settings() {
                   <input ref={logoInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleLogoFile}/>
                 </div>
               </Field>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+              <div className="settings-form-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
                 <Field label="Shop name *">
                   <input className="field-input" value={shopForm.name} onChange={setS('name')} placeholder="Spice Route"/>
                 </Field>
@@ -545,7 +554,7 @@ export default function Settings() {
                 <textarea className="field-input" style={{ height:64, resize:'vertical', paddingTop:8 }}
                   value={shopForm.description} onChange={setS('description')} placeholder="Authentic South Indian cuisine since 1998"/>
               </Field>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+              <div className="settings-form-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
                 <Field label="Email">
                   <input className="field-input" type="email" value={shopForm.email} onChange={setS('email')} placeholder="owner@spiceroute.in"/>
                 </Field>
@@ -564,7 +573,7 @@ export default function Settings() {
                 </button>
                 {locErr && <span style={{ color:'#DC2626', fontSize:12 }}>{locErr}</span>}
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+              <div className="settings-form-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
                 <Field label="City">
                   <input className="field-input" value={shopForm.city} onChange={setS('city')} placeholder="Bengaluru"/>
                 </Field>
@@ -609,10 +618,10 @@ export default function Settings() {
                       <span style={{ color:'var(--gray-400)', fontSize:12 }}>to</span>
                       <input type="time" value={hours[day]?.to || '22:00'} onChange={e => setHours(h => ({ ...h, [day]:{ ...h[day], to:e.target.value } }))}
                         style={{ height:32, border:'1px solid var(--gray-200)', borderRadius:6, padding:'0 8px', fontSize:12 }}/>
-                      <span style={{ fontSize:11, fontWeight:600, color:'#1D9E75', background:'#E1F5EE', padding:'2px 8px', borderRadius:999 }}>Open</span>
+                      <span style={{ fontSize:11, fontWeight:600, color:"#146c50", background:"#edf6f0", padding:'2px 8px', borderRadius:999 }}>Open</span>
                     </div>
                   ) : (
-                    <span style={{ fontSize:12, fontWeight:600, color:'#9CA3AF', background:'#F3F4F6', padding:'2px 10px', borderRadius:999 }}>Closed</span>
+                    <span style={{ fontSize:12, fontWeight:600, color:"#74847b", background:"#eaf0ed", padding:'2px 10px', borderRadius:999 }}>Closed</span>
                   )}
                 </div>
               ))}
@@ -631,7 +640,7 @@ export default function Settings() {
               <Toggle label="Takeaway" sub="Customers pick up food themselves" value={settings.takeawayEnabled} onChange={tog('takeawayEnabled')} status/>
               <Toggle label="Delivery" sub="You deliver food to customer's address" value={settings.deliveryEnabled} onChange={tog('deliveryEnabled')} status/>
               {settings.deliveryEnabled && (
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginTop:14, paddingTop:14, borderTop:'1px solid var(--gray-100)' }}>
+                <div className="settings-form-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginTop:14, paddingTop:14, borderTop:'1px solid var(--gray-100)' }}>
                   <Field label="Min order value (₹)">
                     <input className="field-input" type="number" min="0" value={settings.minOrderValue} onChange={e => set('minOrderValue')(Number(e.target.value))}/>
                   </Field>
@@ -724,7 +733,7 @@ export default function Settings() {
                       </div>
                       <div style={{ fontSize:12, color:'var(--gray-500)' }}>{pm.desc}</div>
                       {enabled && pm.configLabel && (
-                        <div style={{ fontSize:11, color:'#1D9E75', fontWeight:600, marginTop:3 }}>
+                        <div style={{ fontSize:11, color:"#146c50", fontWeight:600, marginTop:3 }}>
                           ✓ {pm.configLabel}
                         </div>
                       )}
@@ -754,7 +763,7 @@ export default function Settings() {
                         </>
                       ) : (
                         <button onClick={() => openPayConfig(pm.type)}
-                          style={{ padding:'6px 18px', borderRadius:8, border:'2px solid #1D9E75', background:'white', fontSize:12, fontWeight:700, cursor:'pointer', color:'#1D9E75', transition:'all .1s' }}>
+                          style={{ padding:'6px 18px', borderRadius:8, border:'2px solid #1D9E75', background:'white', fontSize:12, fontWeight:700, cursor:'pointer', color:"#146c50", transition:'all .1s' }}>
                           Enable →
                         </button>
                       )}
@@ -767,7 +776,7 @@ export default function Settings() {
             {/* GST */}
             <div style={{ background:'white', borderRadius:12, border:'1px solid var(--gray-200)', padding:24 }}>
               <SectionHeader title="GST / Tax" subtitle="Applied to all orders in your shop"/>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+              <div className="settings-form-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
                 <Field label="Tax rate (%)" hint="Standard: 5% (no ITC) or 12% (with ITC)">
                   <input className="field-input" type="number" min="0" max="28" step="0.5" value={settings.taxPercent}
                     onChange={e => set('taxPercent')(Number(e.target.value))}/>
@@ -883,12 +892,12 @@ export default function Settings() {
                     <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:2 }}>
                       <span style={{ fontSize:14, fontWeight:600, color:'var(--gray-900)' }}>{ig.label}</span>
                       {ig.isOn
-                        ? <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999, background:'#E1F5EE', color:'#1D9E75', display:'flex', alignItems:'center', gap:3 }}><Wifi size={9}/> Connected</span>
-                        : <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999, background:'#F3F4F6', color:'#9CA3AF', display:'flex', alignItems:'center', gap:3 }}><WifiOff size={9}/> Not connected</span>}
+                        ? <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999, background:"#edf6f0", color:"#146c50", display:'flex', alignItems:'center', gap:3 }}><Wifi size={9}/> Connected</span>
+                        : <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999, background:"#eaf0ed", color:"#74847b", display:'flex', alignItems:'center', gap:3 }}><WifiOff size={9}/> Not connected</span>}
                     </div>
                     <div style={{ fontSize:12, color:'var(--gray-500)' }}>{ig.desc}</div>
                     {ig.isOn && ig.configLabel && (
-                      <div style={{ fontSize:11, color:'#1D9E75', fontWeight:600, marginTop:3 }}>✓ {ig.configLabel}</div>
+                      <div style={{ fontSize:11, color:"#146c50", fontWeight:600, marginTop:3 }}>✓ {ig.configLabel}</div>
                     )}
                   </div>
                   {/* Actions */}
@@ -915,16 +924,16 @@ export default function Settings() {
               ))}
             </div>
 
-            {/* Razorpay — server-side note */}
+            {/* Razorpay is optional and configured independently for each business. */}
             <div style={{ background:'white', borderRadius:12, border:'1px solid var(--gray-200)', padding:24 }}>
-              <SectionHeader title="Payment Gateway" subtitle="Razorpay credentials for card and net banking payments"/>
+              <SectionHeader title="Payment Gateway" subtitle="Connect Razorpay only if your business wants to accept online payments"/>
               <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'#F8FAFC', borderRadius:10, border:'1px solid var(--gray-200)' }}>
                 <div style={{ width:40, height:40, borderRadius:10, background:'#EEF2FF', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>💳</div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:14, fontWeight:600 }}>Razorpay</div>
-                  <div style={{ fontSize:12, color:'var(--gray-500)' }}>Configure via server environment: RAZORPAY_KEY_ID + RAZORPAY_KEY_SECRET</div>
+                  <div style={{ fontSize:12, color:'var(--gray-500)' }}>Optional. Each shop, hotel, or resort uses its own Razorpay account. Cash and direct UPI can be used without it.</div>
                 </div>
-                <span style={{ fontSize:11, fontWeight:700, color:'#6B7280', background:'#F3F4F6', padding:'3px 10px', borderRadius:999 }}>Server-side config</span>
+                <span style={{ fontSize:11, fontWeight:700, color:settings.onlineEnabled ? '#047857' : '#65766c', background:settings.onlineEnabled ? '#D1FAE5' : '#eaf0ed', padding:'3px 10px', borderRadius:999 }}>{settings.onlineEnabled ? 'Connected' : 'Optional'}</span>
               </div>
             </div>
           </div>
@@ -975,7 +984,7 @@ export default function Settings() {
             {/* Account info */}
             <div style={{ background:'white', borderRadius:12, border:'1px solid var(--gray-200)', padding:24 }}>
               <SectionHeader title="Account" subtitle="Your login credentials and account details"/>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:16 }}>
+              <div className="settings-form-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:16 }}>
                 <div style={{ padding:'14px 16px', background:'var(--gray-50)', borderRadius:10, border:'1px solid var(--gray-100)' }}>
                   <div style={{ fontSize:11, fontWeight:600, color:'var(--gray-500)', textTransform:'uppercase', marginBottom:4 }}>Account Email</div>
                   <div style={{ fontSize:14, fontWeight:600, color:'var(--gray-900)' }}>{user?.email || '—'}</div>
@@ -996,7 +1005,7 @@ export default function Settings() {
                 </div>
               )}
               {pwSaved && (
-                <div style={{ display:'flex', gap:8, alignItems:'center', padding:'9px 12px', background:'#E1F5EE', border:'1px solid #A7F3D0', borderRadius:8, fontSize:13, color:'#065F46', marginBottom:16 }}>
+                <div style={{ display:'flex', gap:8, alignItems:'center', padding:'9px 12px', background:"#edf6f0", border:'1px solid #A7F3D0', borderRadius:8, fontSize:13, color:'#065F46', marginBottom:16 }}>
                   <Check size={13}/> Password updated successfully
                 </div>
               )}
@@ -1010,7 +1019,7 @@ export default function Settings() {
                     </button>
                   </div>
                 </Field>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+                <div className="settings-form-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
                   <Field label="New password">
                     <input className="field-input" type={showPw ? 'text' : 'password'} value={pwForm.next}
                       onChange={e => setPwForm(f => ({ ...f, next:e.target.value }))} placeholder="At least 8 characters"/>
@@ -1091,10 +1100,10 @@ export default function Settings() {
                 <div style={{ fontSize:48 }}>{shopPlan === 'BUSINESS' ? '🏢' : shopPlan === 'GROWTH' ? '📈' : '🌱'}</div>
               </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:20 }}>
+              <div className="settings-form-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:20 }}>
                 {plan.features.map((f, i) => (
                   <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'var(--gray-50)', borderRadius:8, fontSize:13 }}>
-                    <Check size={13} style={{ color:'#1D9E75', flexShrink:0 }}/> {f}
+                    <Check size={13} style={{ color:"#146c50", flexShrink:0 }}/> {f}
                   </div>
                 ))}
               </div>
@@ -1112,7 +1121,7 @@ export default function Settings() {
 
             {/* Upgrade cards — live plans + any active discount offer */}
             {upgradeOptions.length > 0 && (
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+              <div className="settings-form-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
                 {upgradeOptions.map((p, i) => {
                   const color = upgradeColors[i % upgradeColors.length];
                   const offer = offerFor(p.planKey);
@@ -1158,7 +1167,7 @@ export default function Settings() {
             <SectionHeader title="Refer & Earn" subtitle="Know another shop, hotel, or mall that could use AviQR? Share your code — when they sign up with it, you both get a free trial extension."/>
 
             <div style={{ background:'linear-gradient(135deg, #1D9E7514, #1D9E7506)', border:'1.5px solid #1D9E7544', borderRadius:12, padding:24, marginBottom:20, textAlign:'center' }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'#1D9E75', textTransform:'uppercase', letterSpacing:.8, marginBottom:8 }}>Your referral code</div>
+              <div style={{ fontSize:11, fontWeight:700, color:"#146c50", textTransform:'uppercase', letterSpacing:.8, marginBottom:8 }}>Your referral code</div>
               <div style={{ fontSize:32, fontWeight:800, color:'var(--gray-900)', letterSpacing:4, marginBottom:16 }}>{referralCode || '…'}</div>
               <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
                 <button className="btn btn-secondary" style={{ display:'flex', alignItems:'center', gap:6 }} onClick={copyReferralLink} disabled={!referralCode}>
@@ -1203,7 +1212,7 @@ export default function Settings() {
             <div style={{ background:'white', borderRadius:16, padding:28, width:'100%', maxWidth:440, boxShadow:'0 24px 64px rgba(0,0,0,.25)' }}>
               {/* Header */}
               <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
-                <div style={{ width:44, height:44, borderRadius:12, background:'#E1F5EE', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>{icons[type]}</div>
+                <div style={{ width:44, height:44, borderRadius:12, background:"#edf6f0", display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>{icons[type]}</div>
                 <div style={{ flex:1 }}>
                   <h2 style={{ fontSize:17, fontWeight:700, margin:0 }}>{isEnable ? 'Enable' : 'Configure'} {titles[type]}</h2>
                   <p style={{ fontSize:12, color:'var(--gray-500)', margin:'3px 0 0' }}>
@@ -1238,7 +1247,7 @@ export default function Settings() {
                         value={payForm.upiId}
                         onChange={e => setPayForm(f => ({ ...f, upiId:e.target.value }))}/>
                     </Field>
-                    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'18px 16px', background:'#F9FAFB', borderRadius:12, border:'1px solid var(--gray-200)' }}>
+                    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'18px 16px', background:"#f8faf9", borderRadius:12, border:'1px solid var(--gray-200)' }}>
                       {upiQrPreview ? (
                         <>
                           <img src={upiQrPreview} alt="UPI QR" style={{ width:150, height:150, borderRadius:8, border:'4px solid white', boxShadow:'0 4px 16px rgba(124,58,237,.15)' }}/>
@@ -1260,16 +1269,26 @@ export default function Settings() {
                   </>
                 )}
 
-                {/* ONLINE — Razorpay Key ID */}
+                {/* ONLINE — client-owned Razorpay account */}
                 {type === 'online' && (
                   <>
                     <div style={{ padding:'10px 14px', background:'#EFF6FF', borderRadius:8, border:'1px solid #BFDBFE', fontSize:12, color:'#1D4ED8' }}>
-                      <strong>Where to find your Key ID:</strong> Log in to <em>dashboard.razorpay.com</em> → Settings → API Keys → Generate Key. Copy the <strong>Key ID</strong> (starts with <code>rzp_</code>).
+                      <strong>Optional setup:</strong> Use this business’s Razorpay account. Find API keys at <em>dashboard.razorpay.com</em> → Settings → API Keys. The webhook signing secret is set when configuring a webhook in Razorpay. Leave Razorpay disconnected to accept cash or direct UPI only.
                     </div>
-                    <Field label="Razorpay Key ID *" hint="Public key — safe to store here (starts with rzp_live_ or rzp_test_)">
+                    <Field label="Razorpay Key ID *" hint="Starts with rzp_live_ or rzp_test_">
                       <input className="field-input" placeholder="rzp_live_XXXXXXXXXXXX"
                         value={payForm.razorpayKeyId}
                         onChange={e => setPayForm(f => ({ ...f, razorpayKeyId:e.target.value }))}/>
+                    </Field>
+                    <Field label="Razorpay Key Secret *" hint="Stored for this business and never returned by the settings API">
+                      <input className="field-input" type="password" autoComplete="new-password" placeholder="Enter the business's Razorpay Key Secret"
+                        value={payForm.razorpayKeySecret}
+                        onChange={e => setPayForm(f => ({ ...f, razorpayKeySecret:e.target.value }))}/>
+                    </Field>
+                    <Field label="Razorpay Webhook Secret *" hint="At least 32 characters; use the signing secret configured for this business's Razorpay webhook">
+                      <input className="field-input" type="password" autoComplete="new-password" placeholder="Enter this business's webhook signing secret"
+                        value={payForm.razorpayWebhookSecret}
+                        onChange={e => setPayForm(f => ({ ...f, razorpayWebhookSecret:e.target.value }))}/>
                     </Field>
                   </>
                 )}
@@ -1398,7 +1417,7 @@ export default function Settings() {
               <Field label="Rule name *">
                 <input className="field-input" value={ruleForm.name} onChange={e => setRuleForm(f => ({ ...f, name:e.target.value }))} placeholder="Happy hour"/>
               </Field>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div className="settings-form-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <Field label="Adjustment type">
                   <select className="field-input" value={ruleForm.adjustmentType} onChange={e => setRuleForm(f => ({ ...f, adjustmentType:e.target.value }))}>
                     <option value="PERCENTAGE">Percentage (%)</option>
@@ -1409,7 +1428,7 @@ export default function Settings() {
                   <input className="field-input" type="number" step="0.01" value={ruleForm.adjustmentValue} onChange={e => setRuleForm(f => ({ ...f, adjustmentValue:e.target.value }))} placeholder="-15 or +10"/>
                 </Field>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div className="settings-form-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <Field label="From time">
                   <input className="field-input" type="time" value={ruleForm.fromTime} onChange={e => setRuleForm(f => ({ ...f, fromTime:e.target.value }))}/>
                 </Field>

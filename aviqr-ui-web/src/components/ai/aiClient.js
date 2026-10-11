@@ -1,3 +1,12 @@
+async function encryptedFetch(url, options) {
+  const target = assertSecureApiUrl(url);
+  const body = await encryptPayload(JSON.parse(options.body), options.method || 'POST', target, API_BASE_URL);
+  return fetch(target, { ...options, body: JSON.stringify(body) });
+}
+import { encryptPayload } from '../../api/payloadEncryption.js';
+import { API_BASE_URL } from '../../api/transportSecurity.js';
+import { assertSecureApiUrl } from '../../api/transportSecurity.js';
+import { getAccessToken } from '../../api/sessionStore.js';
 const MODEL = 'claude-sonnet-4-6';
 const API_URL = '/api/v1/ai/messages';
 
@@ -11,13 +20,13 @@ const OPENAI_MODEL = 'gpt-4o-mini';
 const OPENAI_API_URL = '/api/v1/ai-openai/chat/completions';
 
 function authHeaders() {
-  const token = localStorage.getItem('aviqr_token');
+  const token = getAccessToken();
   return token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
                : { 'Content-Type': 'application/json' };
 }
 
 async function callOpenAI(systemPrompt, userMessage, maxTokens) {
-  const res = await fetch(OPENAI_API_URL, {
+  const res = await encryptedFetch(OPENAI_API_URL, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({
@@ -36,7 +45,7 @@ async function callOpenAI(systemPrompt, userMessage, maxTokens) {
 
 export async function callAI(systemPrompt, userMessage, maxTokens = 1000) {
   try {
-    const res = await fetch(API_URL, {
+    const res = await encryptedFetch(API_URL, {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
@@ -68,7 +77,7 @@ export async function callAIJson(systemPrompt, userMessage, maxTokens = 1000) {
 }
 
 async function streamFrom(url, body, onChunk) {
-  const res = await fetch(url, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+  const res = await encryptedFetch(url, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`AI stream error: ${res.status}`);
   const reader = res.body.getReader();
   const decoder = new TextDecoder();

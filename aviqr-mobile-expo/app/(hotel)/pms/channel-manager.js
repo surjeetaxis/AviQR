@@ -153,14 +153,14 @@ export default function ChannelManagerScreen() {
 
 const ss = StyleSheet.create({
   sub: { fontSize: FontSize.sm, color: Colors.gray500, marginBottom: 14 },
-  cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 10, marginTop: 6 },
+  cardTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 10, marginTop: 6 },
   fieldLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500, marginBottom: 6 },
   liveConnNote: { fontSize: 11, color: Colors.gray500, marginTop: 4, marginBottom: 8, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10 },
   chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: Radius.full, backgroundColor: Colors.gray100 },
   chipActive: { backgroundColor: Colors.primaryLight },
   chipTxt: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },
   chipTxtActive: { color: Colors.primary },
-  mapTitle: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray900 },
+  mapTitle: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900 },
   mapMeta: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 2 },
   secretTxt: { fontSize: FontSize.xs, color: Colors.gray600, marginTop: 4, fontFamily: 'monospace' },
   statusChip: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: Radius.full },

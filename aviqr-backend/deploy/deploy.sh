@@ -39,7 +39,7 @@ KEEP_RELEASES=15  # generous: blue/green means an old release's jar can still be
 SERVICES=(
   service-registry auth-service shop-mall-service menu-ocr-service
   order-qr-service payment-service hotel-service api-gateway
-  support-service notification-report-review-service pms-service
+  support-service notification-report-review-service pms-service payment-gateway-service
 )
 
 TARGET_REF="${1:?Usage: deploy.sh <git-sha-or-ref>}"
@@ -104,6 +104,19 @@ deploy_at() {
   log "Building backend at $(git rev-parse --short HEAD)..."
   cd "$BACKEND_DIR" || { log "cd $BACKEND_DIR failed"; return 1; }
   ./gradlew build -x test --no-daemon || { log "gradle build failed"; return 1; }
+
+  # Schema changes must land before the new jars start: production runs
+  # ddl-auto=none, so a column the code expects but the database lacks breaks
+  # every query on that table (it took bookings down more than once). Migrations
+  # are additive and idempotent, so the old instances keep working while the
+  # blue/green switch below runs, and a rollback to an older commit is safe.
+  # Older commits have no runner, so a rollback to them just skips this.
+  if [ -x "$BACKEND_DIR/deploy/apply-db-migrations.sh" ]; then
+    log "Applying database migrations..."
+    "$BACKEND_DIR/deploy/apply-db-migrations.sh" 2>&1 | tee -a "$DEPLOY_LOG"
+    # Exit code 2: failed before any service was restarted, so there is nothing to roll back.
+    [ "${PIPESTATUS[0]}" -eq 0 ] || { log "database migrations failed"; return 2; }
+  fi
 
   # Stage every service's freshly-built jar into a release dir that's UNIQUE
   # to this deploy_at() invocation (timestamp+pid+sha, not just sha) — every
@@ -176,6 +189,14 @@ deploy_at() {
   # reused for both).
   npx playwright install chromium || { log "playwright install chromium failed"; return 1; }
   VITE_API_URL="$VITE_API_URL" npm run build:prerender --silent || { log "frontend build failed"; return 1; }
+  # A prerender route can return HTTP 200 with an empty document if the
+  # prerender server rejects its root path. Never publish that as the SPA
+  # fallback: nginx uses dist/index.html for / and every non-prerendered app
+  # route, so a tiny index would blank the whole production site.
+  if [ ! -s "$WEB_DIR/dist/index.html" ] || ! grep -q 'id="root"' "$WEB_DIR/dist/index.html" || ! grep -q '<script[^>]*type="module"' "$WEB_DIR/dist/index.html"; then
+    log "frontend build produced an invalid root index.html"
+    return 1
+  fi
   cd "$REPO_DIR" || { log "cd $REPO_DIR failed"; return 1; }
 }
 
@@ -216,7 +237,17 @@ cd "$REPO_DIR"
 PREVIOUS_SHA=$(git rev-parse HEAD)
 log "Starting deploy of '$TARGET_REF' (current HEAD $PREVIOUS_SHA, kept for rollback)"
 
-if deploy_at "$TARGET_REF" && wait_healthy; then
+# deploy_at runs on the left of || so set -e stays off inside it, as the note above deploy_at() requires.
+deploy_rc=0
+deploy_at "$TARGET_REF" || deploy_rc=$?
+if [ "$deploy_rc" -eq 2 ]; then
+  # Migrations failed before staging or restarting anything: the old release is still
+  # live and untouched. Put the checkout back so the next deploy's rollback target is right.
+  git -C "$REPO_DIR" checkout --quiet "$PREVIOUS_SHA" || log "WARNING: could not restore checkout to $PREVIOUS_SHA"
+  log "Deploy of '$TARGET_REF' ABORTED before any service restarted — $(git -C "$REPO_DIR" rev-parse --short HEAD) is still live. Fix the migration above and deploy again."
+  exit 1
+fi
+if [ "$deploy_rc" -eq 0 ] && wait_healthy; then
   log "Deploy successful — $(git rev-parse --short HEAD) is live, all ${#SERVICES[@]} services healthy in Eureka."
   exit 0
 fi

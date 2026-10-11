@@ -183,7 +183,7 @@ function ChipRow({ options, value, onChange }) {
 }
 
 const ss = StyleSheet.create({
-  cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 4 },
+  cardTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 4 },
   hint: { fontSize: FontSize.xs, color: Colors.gray400, marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderTopWidth: 1, borderTopColor: Colors.border },
   rowLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray900 },

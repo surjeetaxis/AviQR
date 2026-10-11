@@ -311,7 +311,7 @@ const ss = StyleSheet.create({
   dateManagerToggle: { paddingVertical: 6 },
   dateManagerToggleTxt: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500 },
   dateManagerBox: { marginTop: 4, marginBottom: 8, padding: 12, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
-  dateManagerTitle: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.gray900, marginBottom: 8 },
+  dateManagerTitle: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray900, marginBottom: 8 },
   suggestionBox: { backgroundColor: '#F0FDF4', borderRadius: Radius.md, padding: 10, marginBottom: 10, gap: 8 },
   suggestionTxt: { fontSize: FontSize.xs, color: Colors.gray700 },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },

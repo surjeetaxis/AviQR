@@ -106,7 +106,7 @@ export default function AIDemandForecast({ shopId }) {
           {[
             { label:'Staff recommendation', value:result.staffRecommendation, icon:Users, color:'#2563EB' },
             { label:'Promotion suggestion', value:result.promotionSuggestion, icon:Sparkles, color:'#D97706' },
-            { label:'Weather impact', value:result.weatherImpact, icon:TrendingUp, color:'#6B7280' },
+            { label:'Weather impact', value:result.weatherImpact, icon:TrendingUp, color:"#65766c" },
           ].filter(x => x.value).map(item => (
             <div key={item.label} style={{ display:'flex', gap:10, background:'var(--white)', borderRadius:10, border:'1px solid var(--gray-200)', padding:'12px 16px', marginBottom:10 }}>
               <item.icon size={16} color={item.color} style={{ flexShrink:0, marginTop:1 }}/>

@@ -345,7 +345,7 @@ const ss = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
   back: { fontSize: FontSize.base, color: Colors.primary, fontWeight: '600' },
-  title: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900 },
+  title: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900 },
   offlineBanner: { backgroundColor: '#FEF3C7', padding: 10, borderBottomWidth: 1, borderBottomColor: '#FCD34D' },
   offlineTxt: { fontSize: 11, color: '#92400E', fontWeight: '600' },
   sectionLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray700, marginBottom: 8, marginTop: 8 },

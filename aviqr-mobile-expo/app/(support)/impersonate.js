@@ -83,7 +83,7 @@ const ss = StyleSheet.create({
   warning: { flexDirection: 'row', gap: 10, backgroundColor: '#FEF3C7', borderRadius: Radius.md, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: '#FCD34D' },
   warningIcon: { fontSize: 20 },
   warningTxt: { flex: 1, fontSize: FontSize.xs, color: '#92400E', lineHeight: 18 },
-  sectionTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 10 },
+  sectionTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 10 },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.white, borderRadius: Radius.md, padding: 12, marginBottom: 8, borderWidth: 1.5, borderColor: 'transparent', ...Shadow.sm },
   userRowActive: { borderColor: Colors.primary },
   avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },

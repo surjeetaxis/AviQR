@@ -112,7 +112,7 @@ export default function PmsGuestsScreen() {
 
 const ss = StyleSheet.create({
   sub: { fontSize: FontSize.sm, color: Colors.gray500, marginBottom: 12 },
-  cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 8 },
+  cardTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 8 },
   guestCard: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   guestCardActive: { borderWidth: 1.5, borderColor: Colors.primary },
   guestName: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray900 },

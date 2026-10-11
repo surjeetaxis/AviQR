@@ -1,8 +1,9 @@
 plugins {
-    id 'org.springframework.boot' version '3.3.0'
+    id 'org.springframework.boot' version '3.5.16'
 }
 
 dependencies {
+    implementation project(':service-identity')
     implementation 'org.springframework.cloud:spring-cloud-starter-gateway'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'

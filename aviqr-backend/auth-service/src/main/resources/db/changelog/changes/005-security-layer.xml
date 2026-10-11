@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+ <changeSet id="005-security-layer" author="aviqr">
+  <sql>
+   ALTER TABLE otp_records DROP CONSTRAINT IF EXISTS otp_records_type_check;
+   ALTER TABLE otp_records ADD CONSTRAINT otp_records_type_check CHECK (type IN ('PHONE_LOGIN','EMAIL_LOGIN','EMAIL_VERIFY','PHONE_VERIFY','PASSWORD_RESET','STEP_UP'));
+   CREATE TABLE passkey_credentials (id UUID PRIMARY KEY,user_id UUID NOT NULL,credential_id VARCHAR(1400) NOT NULL UNIQUE,public_key_cose TEXT NOT NULL,signature_count BIGINT NOT NULL DEFAULT 0,name VARCHAR(255) NOT NULL,active BOOLEAN NOT NULL DEFAULT true,created_at TIMESTAMP,last_used_at TIMESTAMP);
+   CREATE INDEX idx_passkey_user_active ON passkey_credentials(user_id,active);
+   CREATE TABLE passkey_ceremonies (id UUID PRIMARY KEY,user_id UUID NOT NULL,session_id UUID NOT NULL,kind VARCHAR(255) NOT NULL,action VARCHAR(500),options_json TEXT NOT NULL,expires_at TIMESTAMP,used BOOLEAN NOT NULL DEFAULT false);
+   CREATE TABLE security_notice_outbox (id UUID PRIMARY KEY,user_id UUID,email VARCHAR(255),kind VARCHAR(255),ip_address VARCHAR(255),message VARCHAR(500),created_at TIMESTAMP,sent_at TIMESTAMP,next_attempt_at TIMESTAMP,attempts INTEGER NOT NULL DEFAULT 0);
+   CREATE INDEX idx_security_notice_pending ON security_notice_outbox(next_attempt_at) WHERE sent_at IS NULL;
+  </sql>
+  <sql splitStatements="false"><![CDATA[
+   CREATE FUNCTION protect_login_security_history() RETURNS trigger LANGUAGE plpgsql AS $$
+   BEGIN
+    IF TG_OP='DELETE' THEN RAISE EXCEPTION 'Security history is append-only'; END IF;
+    IF OLD.kind NOT IN ('TRUSTED_DEVICE','OTP_EXEMPTION','LOGIN_CHALLENGE','STEP_UP_CHALLENGE','STEP_UP_GRANT')
+       OR (to_jsonb(OLD)-'status') IS DISTINCT FROM (to_jsonb(NEW)-'status')
+       OR OLD.status <> 'ACTIVE' OR NEW.status NOT IN ('USED','REVOKED') THEN
+      RAISE EXCEPTION 'Security records cannot be altered';
+    END IF;
+    RETURN NEW;
+   END $$;
+  ]]></sql>
+  <sql>CREATE TRIGGER immutable_security_history BEFORE UPDATE OR DELETE ON login_security_records FOR EACH ROW EXECUTE FUNCTION protect_login_security_history();</sql>
+ </changeSet>
+</databaseChangeLog>

@@ -156,6 +156,12 @@ class AxisRoomsAriServiceTest {
         assertThat(mlos.get(1).get("minlos").asInt()).isEqualTo(2);
 
         verify(syncLogRepo, times(6)).save(argThat(l -> l.getStatus() == SyncStatus.SUCCESS));
+        ArgumentCaptor<ChannelSyncLog> savedLogs = ArgumentCaptor.forClass(ChannelSyncLog.class);
+        verify(syncLogRepo, atLeastOnce()).save(savedLogs.capture());
+        assertThat(savedLogs.getAllValues()).allSatisfy(row -> {
+            assertThat(row.getRequestBody()).doesNotContain("key-123");
+            assertThat(row.getRequestBody()).contains("[REDACTED]");
+        });
     }
 
     @Test

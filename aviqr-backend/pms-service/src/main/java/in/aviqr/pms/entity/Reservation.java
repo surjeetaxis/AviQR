@@ -15,6 +15,7 @@ public class Reservation {
     // Set when this reservation is one room-booking within a ReservationGroup (a
     // wedding block, corporate booking, ...) — null for an ordinary standalone booking.
     private UUID groupId;
+    @Column(unique=true, length=36) private String bookingRequestId;
     // Set when a travel agent sourced this booking — drives ReservationCommission,
     // see CommissionService.
     private UUID agentId;

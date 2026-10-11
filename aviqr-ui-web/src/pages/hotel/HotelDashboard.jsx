@@ -9,6 +9,8 @@ import ProfileMenu from '../../components/shared/ProfileMenu.jsx';
 import QrPosterStudio from '../../components/shared/QrPosterStudio.jsx';
 import { TentTemplate, THEMES } from '../../components/shared/QrTemplates.jsx';
 import QRCode from 'qrcode';
+import RoomTourEditor, { hasTourMedia } from './RoomTourEditor.jsx';
+import PaymentGatewaysPanel from './PaymentGatewaysPanel.jsx';
 import { createPortal } from 'react-dom';
 import {
   Overview as PmsOverview, ReservationsTab, GroupsTab, FrontDeskTab, FolioTab,
@@ -71,7 +73,7 @@ const NAV = [
   {key:'laundry',      group:'Guest Services', labelKey:'laundry',          icon:Shirt},
   {key:'spa',          group:'Guest Services', labelKey:'spa',              icon:Flower2},
   {key:'maintenance',  group:'Guest Services', labelKey:'maintenance',      icon:Wrench},
-  {key:'messages',     group:'Guest Services', label:'Messages',            icon:MessageSquare},
+  {key:'messages',     group:'Guest Services', label:'Guest Inbox',         icon:MessageSquare},
 
   // ── Inventory & Rates ─────────────────────────────────────────────────────
   {key:'rooms',        group:'Inventory & Rates', labelKey:'rooms',           icon:BedDouble},
@@ -221,6 +223,8 @@ export default function HotelDashboard() {
     checkIn: r.checkInDate,
     checkOut: r.checkOutDate,
     qrActive: r.qrActive,
+    roomSide: r.roomSide, viewType: r.viewType, mapX: r.mapX, mapY: r.mapY,
+    panoramaUrl: r.panoramaUrl, tourVideoUrl: r.tourVideoUrl, model3dUrl: r.model3dUrl,
   });
 
   const SELECTED_HOTEL_KEY = 'aviqr_selected_hotel_id';
@@ -440,7 +444,7 @@ export default function HotelDashboard() {
           {tab==='bookingcalendar' && <BookingCalendarTab hotelId={hotelId}/>}
           {tab==='reservations' && <ReservationsTab hotelId={hotelId} roomTypes={roomTypes} reservations={reservations} groups={groups} agents={agents}
                                       onCreated={refreshReservations} onOpenFolio={(id)=>{setSelectedReservationId(id);setTab('folio');}}/>}
-          {tab==='frontdesk'    && <FrontDeskTab reservations={reservations} onChanged={refreshReservations}
+          {tab==='frontdesk'    && <FrontDeskTab hotelId={hotelId} reservations={reservations} onChanged={refreshReservations}
                                       onOpenFolio={(id)=>{setSelectedReservationId(id);setTab('folio');}}/>}
           {tab==='groups'       && <GroupsTab hotelId={hotelId} groups={groups} onChange={()=>loadGroups(hotelId)} onReservationsChanged={refreshReservations}/>}
           {tab==='folio'        && <FolioTab hotelId={hotelId} reservations={reservations} selectedId={selectedReservationId} onSelect={setSelectedReservationId}/>}
@@ -538,9 +542,9 @@ export function BookingsView({bookings,onUpdate,compact}) {
     const map = {
       REQUESTED: {bg:'var(--amber-bg,#FEF3C7)', c:'var(--amber,#B45309)', label:'Requested'},
       CONFIRMED: {bg:'var(--green-bg,#D1FAE5)', c:'var(--green,#047857)', label:'Confirmed'},
-      COMPLETED: {bg:'var(--gray-100,#F3F4F6)', c:'var(--gray-500,#6B7280)', label:'Completed'},
+      COMPLETED: {bg:"var(--gray-100,#eaf0ed)", c:'var(--gray-500,#6B7280)', label:'Completed'},
       CANCELLED: {bg:'var(--red-bg,#FEE2E2)', c:'var(--red,#DC2626)', label:'Cancelled'},
-    }[s] || {bg:'#F3F4F6', c:'#6B7280', label:s};
+    }[s] || {bg:"#eaf0ed", c:'#6B7280', label:s};
     return <span style={{fontSize:11,fontWeight:700,color:map.c,background:map.bg,padding:'3px 10px',borderRadius:99}}>{map.label}</span>;
   };
   return (
@@ -617,7 +621,7 @@ export function OutletsPage({hotelId}) {
       </div>
 
       {showForm && (
-        <form onSubmit={create} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
+        <form onSubmit={create} className="admin-chart-card workspace-grid" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
           <div className="form-field">
             <label className="form-label">Name</label>
             <input className="form-input" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. The Garden Cafe" required/>
@@ -769,7 +773,7 @@ export function HotelStaffPage({hotelId}) {
     <div>
       <div className="page-header"><h1 className="page-title">{t('navHotelStaff', lang)}</h1><p className="page-subtitle">Hotel-wide roles — separate from an individual outlet's own staff</p></div>
 
-      <form onSubmit={grant} className="admin-chart-card" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:12,alignItems:'end'}}>
+      <form onSubmit={grant} className="admin-chart-card workspace-grid" style={{marginBottom:16,display:'grid',gridTemplateColumns:'1fr 1fr auto',gap:12,alignItems:'end'}}>
         <div className="form-field">
           <label className="form-label">User ID</label>
           <input className="form-input" value={form.userId} onChange={e=>setForm(f=>({...f,userId:e.target.value}))} placeholder="user id to grant access" required/>
@@ -842,6 +846,7 @@ export function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
   };
 
   const [qrRoom, setQrRoom] = useState(null);
+  const [tourRoom, setTourRoom] = useState(null);
 
   const viewRequests = (room) => {
     onRequestsFilter?.(room.number);
@@ -856,7 +861,7 @@ export function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
         <button className="btn-refresh" onClick={()=>setShowAdd(f=>!f)}><Plus size={13}/> Add room</button>
       </div>
       {showAdd && (
-        <form onSubmit={addRoom} className="admin-chart-card" style={{marginBottom:14,display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
+        <form onSubmit={addRoom} className="admin-chart-card workspace-grid" style={{marginBottom:14,display:'grid',gridTemplateColumns:'1fr 1fr 1fr auto',gap:12,alignItems:'end'}}>
           <div className="form-field">
             <label className="form-label">Room number</label>
             <input className="form-input" value={form.number} onChange={e=>setForm(f=>({...f,number:e.target.value}))} placeholder="e.g. 501" required/>
@@ -894,6 +899,12 @@ export function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
                 <span className={`room-status-badge ${cfg.cls}`}>{cfg.label}</span>
               </div>
               <div className="room-type">{room.type} · {room.floor}</div>
+              {(room.roomSide || room.viewType || hasTourMedia(room)) && (
+                <div className="room-tour-meta">
+                  {[room.roomSide, room.viewType].filter(Boolean).join(' · ')}
+                  {hasTourMedia(room) && <span className="room-tour-badge">◉ {room.panoramaUrl ? '360°' : room.tourVideoUrl ? 'Video' : '3D'} tour</span>}
+                </div>
+              )}
               {room.guest&&(
                 <div className="room-guest">
                   <div className="room-guest-name">👤 {room.guest}</div>
@@ -909,6 +920,7 @@ export function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
               <div style={{display:'flex',gap:6,marginTop:8}}>
                 <button className="btn-room-action" onClick={()=>viewRequests(room)}>📋 Requests</button>
                 <button className="btn-room-action" onClick={()=>setQrRoom(room)}>📱 QR Code</button>
+                <button className="btn-room-action" onClick={()=>setTourRoom(room)}>🎥 Room tour</button>
                 {room.status==='occupied' &&
                   <button className="btn-room-action" onClick={()=>setBillRoom(room)}>💳 Bill</button>}
               </div>
@@ -918,6 +930,8 @@ export function RoomsPage({rooms,setRooms,hotelId,onNav,onRequestsFilter}) {
       </div>
       {billRoom && <RoomBillModal room={billRoom} onClose={()=>setBillRoom(null)}/>}
       {qrRoom && <RoomQrModal room={qrRoom} onClose={()=>setQrRoom(null)}/>}
+      {tourRoom && <RoomTourEditor room={tourRoom} hotelId={hotelId} onClose={()=>setTourRoom(null)}
+        onSaved={(saved)=>setRooms(prev=>prev.map(r=>r.id===saved.id?{...r,...saved}:r))}/>}
     </div>
   );
 }
@@ -1052,7 +1066,7 @@ function RoomBillModal({room,onClose}) {
           <p style={{textAlign:'center',color:'var(--gray-400)',padding:'20px 0'}}>Loading bill…</p>
         ) : (
           <>
-            <div style={{background:'linear-gradient(135deg,#1D9E75,#178A65)',color:'#fff',borderRadius:12,padding:'14px 16px',marginBottom:14}}>
+            <div style={{background:"linear-gradient(135deg,#146c50,#146c50)",color:'#fff',borderRadius:12,padding:'14px 16px',marginBottom:14}}>
               <div style={{fontSize:11,opacity:0.85}}>PENDING</div>
               <div style={{fontSize:24,fontWeight:800}}>₹{Number(data?.pendingTotal||0).toLocaleString('en-IN')}</div>
             </div>
@@ -1098,7 +1112,7 @@ export function HousekeepingPage({requests,rooms,hotelId}) {
   return (
     <div>
       <div className="page-header"><h1 className="page-title">{t('housekeeping', lang)}</h1><p className="page-subtitle">{(rooms||[]).length} rooms</p></div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:12,marginBottom:20}}>
+      <div className="workspace-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:12,marginBottom:20}}>
         {Object.entries(STATUS_META).map(([key,m])=>(
           <div key={key} className="admin-kpi-card" style={{textAlign:'center'}}>
             <div style={{fontSize:28,marginBottom:8}}>{m.icon}</div>
@@ -1227,71 +1241,111 @@ export function MaintenancePage({requests,rooms,hotelId}) {
 
 export function MessagesPage({hotelId}) {
   const [inbox,setInbox] = useState([]);
+  const [filter,setFilter] = useState('ALL');
   const [openRoom,setOpenRoom] = useState(null);
   const [thread,setThread] = useState([]);
   const [reply,setReply] = useState('');
   const [sending,setSending] = useState(false);
+  const [loading,setLoading] = useState(true);
+  const [error,setError] = useState('');
 
-  const loadInbox = () => { if (hotelId) hotelOpsApi.messageInbox(hotelId).then(res=>setInbox(res.data.data||[])).catch(()=>{}); };
-  useEffect(loadInbox, [hotelId]);
-
-  const openThread = (room) => {
-    setOpenRoom(room);
-    hotelOpsApi.messageThread(hotelId, room).then(res=>{ setThread(res.data.data||[]); loadInbox(); }).catch(()=>{});
+  const loadInbox = async () => {
+    if (!hotelId) return;
+    try {
+      const [messagesRes, requestsRes] = await Promise.all([
+        hotelOpsApi.messageInbox(hotelId), hotelOpsApi.listRequests(hotelId),
+      ]);
+      const messages = (messagesRes.data.data || []).map(item => ({ ...item, kind:'MESSAGE' }));
+      const requests = (requestsRes.data.data || []).map(item => ({ ...item, kind:'REQUEST' }));
+      setInbox([...messages, ...requests].sort((a,b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)));
+      setError('');
+    } catch { setError('Could not load guest conversations and requests.'); }
+    finally { setLoading(false); }
   };
+  useEffect(() => {
+    loadInbox();
+    const timer = window.setInterval(loadInbox, 30000);
+    return () => window.clearInterval(timer);
+  }, [hotelId]);
 
-  const sendReply = async (e) => {
+  const visible = inbox.filter(item => filter === 'ALL' || item.kind === filter);
+  const messageCount = inbox.filter(item => item.kind === 'MESSAGE' && item.sender === 'GUEST' && !item.readByStaff).length;
+  const requestCount = inbox.filter(item => item.kind === 'REQUEST' && !['DONE','CANCELLED'].includes(item.status)).length;
+  const openThread = async room => {
+    setOpenRoom(room);
+    try { const res = await hotelOpsApi.messageThread(hotelId, room); setThread(res.data.data || []); loadInbox(); }
+    catch { setError('Could not load this guest conversation.'); }
+  };
+  const advanceRequest = async item => {
+    const next = item.status === 'NEW' ? 'ACCEPTED' : 'DONE';
+    try { await hotelOpsApi.updateRequest(item.id, next); await loadInbox(); }
+    catch { setError('Could not update this guest request.'); }
+  };
+  const sendReply = async e => {
     e.preventDefault();
-    if (!reply.trim()) return;
+    if (!reply.trim() || !openRoom) return;
     setSending(true);
     try {
-      await hotelOpsApi.replyToRoom(hotelId, openRoom, { message: reply });
+      await hotelOpsApi.replyToRoom(hotelId, openRoom, { message:reply.trim() });
       setReply('');
-      openThread(openRoom);
-    } catch { alert('Could not send reply'); }
+      const res = await hotelOpsApi.messageThread(hotelId, openRoom);
+      setThread(res.data.data || []);
+      loadInbox();
+    } catch { setError('Could not send the reply.'); }
     finally { setSending(false); }
   };
 
+  const tabStyle = active => ({ border:0, borderRadius:8, padding:'8px 12px', cursor:'pointer',
+    background:active ? 'var(--green)' : 'var(--gray-100)', color:active ? '#fff' : 'var(--gray-700)', fontWeight:600 });
   return (
     <div>
-      <div className="page-header"><h1 className="page-title">Messages</h1><p className="page-subtitle">Two-way messages with guests, by room.</p></div>
-      <div className="admin-table-card">
+      <div className="page-header"><h1 className="page-title">Guest Inbox</h1><p className="page-subtitle">Guest messages and QR service requests in one live queue.</p></div>
+      {error && <div role="alert" style={{padding:10,marginBottom:12,borderRadius:8,background:'var(--red-bg)',color:'var(--red)'}}>{error}</div>}
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+        {[['ALL','All activity'],['MESSAGE',`Messages${messageCount ? ` · ${messageCount} unread` : ''}`],['REQUEST',`Requests${requestCount ? ` · ${requestCount} open` : ''}`]].map(([key,label])=>(
+          <button key={key} type="button" style={tabStyle(filter===key)} onClick={()=>setFilter(key)}>{label}</button>
+        ))}
+      </div>
+      <div className="admin-table-card" style={{overflowX:'auto'}}>
         <table className="admin-table">
-          <thead><tr><th>Room</th><th>From</th><th>Last message</th><th>When</th><th></th></tr></thead>
+          <thead><tr><th>Type</th><th>Room / guest</th><th>Latest activity</th><th>Status</th><th>When</th><th>Action</th></tr></thead>
           <tbody>
-            {inbox.map(m=>(
-              <tr key={m.id}>
-                <td className="admin-td-shop">{m.roomNumber}</td>
-                <td>{m.sender==='GUEST' ? (m.guestName||'Guest') : 'Front Desk'}</td>
-                <td>{m.message}</td>
-                <td style={{fontSize:12}}>{new Date(m.createdAt).toLocaleString()}</td>
-                <td><button className="btn-room-action" onClick={()=>openThread(m.roomNumber)}>Open</button></td>
+            {visible.map(item => item.kind === 'MESSAGE' ? (
+              <tr key={`message-${item.id}`}>
+                <td><span className="plan-pill">Message</span></td>
+                <td className="admin-td-shop">{item.roomNumber}<div style={{fontSize:12,color:'var(--gray-500)'}}>{item.guestName || 'Guest'}</div></td>
+                <td style={{maxWidth:420}}>{item.message}</td>
+                <td>{item.sender === 'GUEST' && !item.readByStaff ? <span className="status-pill st-suspended">Unread</span> : <span className="plan-pill">Conversation</span>}</td>
+                <td style={{fontSize:12,whiteSpace:'nowrap'}}>{item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}</td>
+                <td><button type="button" className="btn-room-action" onClick={()=>openThread(item.roomNumber)}>Reply</button></td>
+              </tr>
+            ) : (
+              <tr key={`request-${item.id}`}>
+                <td><span className="plan-pill">{String(item.type || 'Service').replaceAll('_',' ')}</span></td>
+                <td className="admin-td-shop">{item.roomNumber}<div style={{fontSize:12,color:'var(--gray-500)'}}>{item.guestName || 'Guest'}</div></td>
+                <td style={{maxWidth:420}}>{item.details || 'Guest service request'}{item.priority === 'HIGH' && <strong style={{color:'var(--red)',marginLeft:8}}>High priority</strong>}</td>
+                <td><span className={item.status === 'DONE' ? 'status-pill st-active' : 'status-pill st-suspended'}>{item.status}</span></td>
+                <td style={{fontSize:12,whiteSpace:'nowrap'}}>{item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}</td>
+                <td>{!['DONE','CANCELLED'].includes(item.status) && <button type="button" className="btn-room-action" onClick={()=>advanceRequest(item)}>{item.status === 'NEW' ? 'Accept' : 'Complete'}</button>}</td>
               </tr>
             ))}
-            {inbox.length===0 && <tr><td colSpan={5} style={{textAlign:'center',color:'var(--gray-500)',padding:20}}>No messages yet</td></tr>}
+            {!loading && visible.length === 0 && <tr><td colSpan={6} style={{textAlign:'center',color:'var(--gray-500)',padding:24}}>No guest activity in this view.</td></tr>}
+            {loading && <tr><td colSpan={6} style={{textAlign:'center',color:'var(--gray-500)',padding:24}}>Loading guest activity…</td></tr>}
           </tbody>
         </table>
       </div>
-
       {openRoom && (
         <div className="admin-table-card" style={{padding:16,marginTop:16}}>
-          <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}>
-            <strong>Room {openRoom}</strong>
-            <button className="btn-room-action" onClick={()=>setOpenRoom(null)}>Close</button>
-          </div>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:10}}><strong>Conversation · Room {openRoom}</strong><button className="btn-room-action" onClick={()=>setOpenRoom(null)}>Close</button></div>
           <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:300,overflowY:'auto',marginBottom:12}}>
-            {thread.map(m=>(
-              <div key={m.id} style={{alignSelf: m.sender==='STAFF' ? 'flex-end' : 'flex-start', maxWidth:'70%'}}>
-                <div style={{background: m.sender==='STAFF' ? 'var(--green-darker)' : 'var(--gray-100)', color: m.sender==='STAFF' ? '#fff' : '#111', padding:'8px 12px', borderRadius:10, fontSize:13}}>
-                  {m.message}
-                </div>
-                <div style={{fontSize:10,color:'var(--gray-400)',marginTop:2,textAlign: m.sender==='STAFF' ? 'right' : 'left'}}>{new Date(m.createdAt).toLocaleString()}</div>
-              </div>
-            ))}
-            {thread.length===0 && <div style={{textAlign:'center',color:'var(--gray-400)',fontSize:13,padding:12}}>No messages in this thread yet</div>}
+            {thread.map(m=><div key={m.id} style={{alignSelf:m.sender==='STAFF'?'flex-end':'flex-start',maxWidth:'80%'}}>
+              <div style={{background:m.sender==='STAFF'?'var(--green-darker)':'var(--gray-100)',color:m.sender==='STAFF'?'#fff':'#111',padding:'8px 12px',borderRadius:10,fontSize:13}}>{m.message}</div>
+              <div style={{fontSize:10,color:'var(--gray-400)',marginTop:2,textAlign:m.sender==='STAFF'?'right':'left'}}>{new Date(m.createdAt).toLocaleString()}</div>
+            </div>)}
+            {thread.length===0 && <div style={{textAlign:'center',color:'var(--gray-400)',fontSize:13,padding:12}}>No messages in this thread yet.</div>}
           </div>
           <form onSubmit={sendReply} style={{display:'flex',gap:8}}>
-            <input placeholder="Type a reply…" value={reply} onChange={e=>setReply(e.target.value)} style={{height:34,padding:'0 10px',borderRadius:8,border:'1px solid var(--gray-200)',flex:1}}/>
+            <input aria-label="Reply to guest" placeholder="Type a reply…" value={reply} onChange={e=>setReply(e.target.value)} style={{height:36,padding:'0 10px',borderRadius:8,border:'1px solid var(--gray-200)',flex:1,minWidth:0}}/>
             <button type="submit" className="btn-room-action" style={{background:'var(--blue)',color:'#fff',border:'none'}} disabled={sending}>{sending?'Sending…':'Send'}</button>
           </form>
         </div>
@@ -1299,7 +1353,6 @@ export function MessagesPage({hotelId}) {
     </div>
   );
 }
-
 function MaintenanceBoard({hotelId,rooms}) {
   const [tasks,setTasks] = useState([]);
   const [showForm,setShowForm] = useState(false);
@@ -1542,7 +1595,7 @@ function RoomQrGrid({ rooms, outlets, hotelId, hotelName, toggleRoomQR }) {
       ) : rooms.length === 0 ? (
         <div className="admin-table-card" style={{padding:20,textAlign:'center',color:'var(--gray-400)',marginBottom:20}}>No rooms yet.</div>
       ) : (
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))',gap:12,marginBottom:20}}>
+        <div className="workspace-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))',gap:12,marginBottom:20}}>
           {rooms.map(r => {
             const qr = qrMap[r.number];
             return (
@@ -1714,7 +1767,7 @@ function QrScanAnalytics({ hotelId }) {
       {loading ? (
         <div className="admin-table-card" style={{padding:24,textAlign:'center',color:'var(--gray-400)',fontSize:13,marginBottom:20}}>Loading scan analytics…</div>
       ) : (
-        <div style={{display:'grid',gridTemplateColumns:'1.3fr 1fr',gap:16,marginBottom:16}}>
+        <div className="workspace-grid" style={{display:'grid',gridTemplateColumns:'1.3fr 1fr',gap:16,marginBottom:16}}>
           <div className="admin-chart-card">
             <div style={{fontSize:12,color:'var(--gray-500)',marginBottom:10}}>
               {totalInPeriod.toLocaleString('en-IN')} scans in the last {days} days
@@ -2050,6 +2103,10 @@ const SERVICE_OPTIONS = [
 export function HotelSettings({user,lang,hotelId}) {
   const [form,setForm] = useState({hotelName:user?.hotelName||'',phone:'',email:'',address:'',checkinTime:'14:00',checkoutTime:'12:00',currency:'INR',taxPercent:'18',latitude:null,longitude:null});
   const [enabledServices,setEnabledServices] = useState([]);
+  const [bookingEngine,setBookingEngine] = useState({enabled:true,visibility:'PUBLIC',brandName:'',primaryColor:'#1f7257',accentColor:'#d5a86b',logoUrl:'',slug:'',customDomain:'',supportEmail:'',hostedUrl:'',customDomainUrl:''});
+  const [bookingPolicies,setBookingPolicies] = useState({hotelPolicies:'',cancellationPolicy:'',termsAndConditions:'',requireTermsAcceptance:true,paymentMode:'PAY_AT_HOTEL',depositPercent:100,chatEnabled:false,whatsappNumber:'',whatsappBotEnabled:false,whatsappPhoneNumberId:'',whatsappAccessToken:'',whatsappTokenSet:false});
+  const [savingBookingEngine,setSavingBookingEngine] = useState(false);
+  const [bookingEngineMessage,setBookingEngineMessage] = useState('');
   const [saving,setSaving] = useState(false);
   const [locating,setLocating] = useState(false);
   const [locErr,setLocErr] = useState('');
@@ -2062,6 +2119,14 @@ export function HotelSettings({user,lang,hotelId}) {
       if (!hotel) return;
       setForm(f=>({...f,hotelName:hotel.name||f.hotelName,phone:hotel.phone||'',email:hotel.email||'',address:hotel.address||'',checkinTime:hotel.checkInTime||f.checkinTime,checkoutTime:hotel.checkOutTime||f.checkoutTime,latitude:hotel.latitude??null,longitude:hotel.longitude??null}));
       setEnabledServices(hotel.enabledServices||[]);
+    }).catch(()=>{});
+    hotelApi.getBookingEngineSettings(hotelId).then(res=>{
+      const x=res.data?.data||res.data;
+      if(x)setBookingEngine({enabled:x.enabled!==false,visibility:x.visibility||'PUBLIC',brandName:x.brandName||'',primaryColor:x.primaryColor||'#1f7257',accentColor:x.accentColor||'#d5a86b',logoUrl:x.logoUrl||'',slug:x.slug||'',customDomain:x.customDomain||'',supportEmail:x.supportEmail||'',hostedUrl:x.hostedUrl||'',customDomainUrl:x.customDomainUrl||''});
+    }).catch(()=>{});
+    pmsApi.getBookingEngineSettings(hotelId).then(res=>{
+      const x=res.data?.data;
+      if(x)setBookingPolicies({hotelPolicies:x.hotelPolicies||'',cancellationPolicy:x.cancellationPolicy||'',termsAndConditions:x.termsAndConditions||'',requireTermsAcceptance:x.requireTermsAcceptance!==false,paymentMode:x.paymentMode||'PAY_AT_HOTEL',depositPercent:x.depositPercent||100,chatEnabled:!!x.chatEnabled,whatsappNumber:x.whatsappNumber||'',whatsappBotEnabled:!!x.whatsappBotEnabled,whatsappPhoneNumberId:x.whatsappPhoneNumberId||'',whatsappAccessToken:'',whatsappTokenSet:!!x.whatsappTokenSet});
     }).catch(()=>{});
   }, [hotelId]);
 
@@ -2092,12 +2157,30 @@ export function HotelSettings({user,lang,hotelId}) {
     finally { setSaving(false); }
   };
 
+  const saveBookingEngine = async () => {
+    if (!hotelId) return;
+    setSavingBookingEngine(true);
+    setBookingEngineMessage('');
+    try {
+      const [res]=await Promise.all([hotelApi.updateBookingEngineSettings(hotelId,bookingEngine),pmsApi.updateBookingEngineSettings(hotelId,bookingPolicies)]);
+      setBookingPolicies(v=>({...v,whatsappAccessToken:'',whatsappTokenSet:v.whatsappTokenSet||!!v.whatsappAccessToken}));
+      const x=res.data?.data||res.data;
+      if(x)setBookingEngine(v=>({...v,...x}));
+      setBookingEngineMessage('Your booking settings are saved and live.');
+    } catch(e) { setBookingEngineMessage(e.response?.data?.message||'Could not save booking engine settings. Please try again.'); }
+    finally { setSavingBookingEngine(false); }
+  };
+
+  const bookingUrlBase = bookingEngine.hostedUrl
+    ? bookingEngine.hostedUrl.replace(/\/stay\/[^/]*$/, '/stay/')
+    : 'https://book.aviqr.com/stay/';
+
   return (
     <div style={{display:'flex',flexDirection:'column',gap:20}}>
       <div className="page-header"><h1 className="page-title">{t('settings',lang)}</h1></div>
       <div className="admin-chart-card">
         <h3 style={{marginBottom:16}}>Hotel profile</h3>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+        <div className="workspace-grid" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
           {[['hotelName','Hotel name'],['phone','Phone'],['email','Email'],['address','Address'],['checkinTime','Check-in time'],['checkoutTime','Check-out time'],['currency','Currency'],['taxPercent','Tax %']].map(([k,label])=>(
             <div key={k} className="form-field">
               <label className="form-label">{label}</label>
@@ -2116,6 +2199,78 @@ export function HotelSettings({user,lang,hotelId}) {
           <button className="btn btn-primary" onClick={save} disabled={saving}><Save size={14}/> {saving?'Saving…':t('save',lang)}</button>
         </div>
       </div>
+      <section className="admin-chart-card booking-settings">
+        <div className="booking-settings-heading">
+          <div><span className="booking-settings-eyebrow">DIRECT BOOKINGS</span><h2>Booking engine</h2><p>Manage how guests discover and book your property. Rates, availability and reservations stay in AviQR PMS.</p></div>
+          <span className={`booking-state ${bookingEngine.enabled?'is-live':'is-paused'}`}><i/>{bookingEngine.enabled?'Accepting bookings':'Bookings paused'}</span>
+        </div>
+        <div className="booking-connection"><span className="booking-connection-icon"><Link2 size={17}/></span><div><b>AviQR PMS connected</b><span>Live room inventory, prices and reservations</span></div><span className="booking-connection-check"><CheckCircle2 size={17}/> Connected</span></div>
+        <div className="booking-settings-section">
+          <div className="booking-section-title"><div><h3>Booking availability</h3><p>Turn online bookings on or pause them at any time.</p></div><button type="button" className={`toggle-btn ${bookingEngine.enabled?'toggle-on':'toggle-off'}`} aria-pressed={bookingEngine.enabled} onClick={()=>setBookingEngine(v=>({...v,enabled:!v.enabled}))}>{bookingEngine.enabled?<ToggleRight size={20}/>:<ToggleLeft size={20}/>}<span>{bookingEngine.enabled?'Enabled':'Disabled'}</span></button></div>
+          <h3 className="booking-subheading">Where should guests find you?</h3>
+          <div className="booking-visibility-options">
+            <button type="button" className={`booking-visibility-card ${bookingEngine.visibility==='PUBLIC'?'selected':''}`} aria-pressed={bookingEngine.visibility==='PUBLIC'} onClick={()=>setBookingEngine(v=>({...v,visibility:'PUBLIC'}))}><span className="booking-choice-icon"><Globe size={18}/></span><span><b>Public on AviQR Stays</b><small>Show in shared search and keep a direct booking page.</small></span><span className="booking-radio"/></button>
+            <button type="button" className={`booking-visibility-card ${bookingEngine.visibility==='PRIVATE'?'selected':''}`} aria-pressed={bookingEngine.visibility==='PRIVATE'} onClick={()=>setBookingEngine(v=>({...v,visibility:'PRIVATE'}))}><span className="booking-choice-icon"><Store size={18}/></span><span><b>Private storefront</b><small>Hide from shared search; guests use your branded link or domain.</small></span><span className="booking-radio"/></button>
+          </div>
+        </div>
+        <div className="booking-settings-section">
+          <div className="booking-section-title"><div><h3>Storefront design</h3><p>Make the booking page feel like your hotel’s own site.</p></div><span className="booking-live-preview" style={{'--preview-brand':bookingEngine.primaryColor,'--preview-accent':bookingEngine.accentColor}}><i/>{bookingEngine.brandName||form.hotelName||'Your property'}</span></div>
+          <div className="booking-form-grid">
+            <div className="form-field"><label className="form-label" htmlFor="booking-brand">Storefront name</label><input id="booking-brand" className="form-input" maxLength="100" value={bookingEngine.brandName} onChange={e=>setBookingEngine(v=>({...v,brandName:e.target.value}))} placeholder={form.hotelName||'Property name'}/></div>
+            <div className="form-field"><label className="form-label" htmlFor="booking-logo">Logo URL</label><input id="booking-logo" className="form-input" type="url" value={bookingEngine.logoUrl} onChange={e=>setBookingEngine(v=>({...v,logoUrl:e.target.value}))} placeholder="https://yourdomain.com/logo.png"/><small>Use a secure HTTPS image URL.</small></div>
+            <div className="form-field"><label className="form-label">Primary colour</label><div className="booking-color-field"><input type="color" value={bookingEngine.primaryColor} aria-label="Primary colour" onChange={e=>setBookingEngine(v=>({...v,primaryColor:e.target.value}))}/><code>{bookingEngine.primaryColor}</code></div></div>
+            <div className="form-field"><label className="form-label">Accent colour</label><div className="booking-color-field"><input type="color" value={bookingEngine.accentColor} aria-label="Accent colour" onChange={e=>setBookingEngine(v=>({...v,accentColor:e.target.value}))}/><code>{bookingEngine.accentColor}</code></div></div>
+            <div className="form-field"><label className="form-label" htmlFor="booking-email">Booking support email</label><input id="booking-email" className="form-input" type="email" maxLength="254" value={bookingEngine.supportEmail} onChange={e=>setBookingEngine(v=>({...v,supportEmail:e.target.value}))} placeholder="stay@yourhotel.com"/></div>
+          </div>
+        </div>
+        <div className="booking-settings-section">
+          <div className="booking-section-title"><div><h3>Booking link & domain</h3><p>Use the hosted AviQR URL or connect your own domain.</p></div></div>
+          <div className="booking-form-grid booking-link-grid">
+            <div className="form-field"><label className="form-label" htmlFor="booking-slug">Your AviQR booking link</label><div className="booking-url-input"><span>{bookingUrlBase}</span><input id="booking-slug" value={bookingEngine.slug} maxLength="63" onChange={e=>setBookingEngine(v=>({...v,slug:e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,'')}))} placeholder="your-property" aria-label="AviQR booking link slug"/></div><small>Use lowercase letters, numbers and hyphens.</small></div>
+            <div className="form-field"><label className="form-label" htmlFor="booking-domain">Custom domain <span className="booking-optional">Optional</span></label><div className="booking-domain-input"><Globe size={16}/><input id="booking-domain" value={bookingEngine.customDomain} onChange={e=>setBookingEngine(v=>({...v,customDomain:e.target.value.toLowerCase().trim()}))} placeholder="book.yourhotel.com"/></div><small>Point its DNS to the AviQR booking engine. HTTPS activates after DNS is connected.</small></div>
+          </div>
+          <div className="booking-public-link"><span className="booking-public-link-icon"><Globe size={16}/></span><div><b>{bookingEngine.visibility==='PRIVATE'?'Private booking page':'Direct booking page'}</b><span>{bookingEngine.visibility==='PRIVATE'?'Only guests with your link can find this property.':'Guests can book directly and find you in AviQR Stays.'}</span></div>{bookingEngine.hostedUrl&&<a href={bookingEngine.hostedUrl} target="_blank" rel="noreferrer">Open page <Link2 size={14}/></a>}</div>
+        </div>
+        <div className="booking-settings-section">
+          <div className="booking-section-title"><div><h3>Policies &amp; terms</h3><p>Shown on your booking page and at checkout. A rate plan's own cancellation policy wins over the default here.</p></div></div>
+          <div className="booking-form-grid">
+            <div className="form-field"><label className="form-label" htmlFor="booking-hotel-policies">Hotel policies</label><textarea id="booking-hotel-policies" className="form-input" rows={5} maxLength={10000} value={bookingPolicies.hotelPolicies} onChange={e=>setBookingPolicies(v=>({...v,hotelPolicies:e.target.value}))} placeholder={'Check-in from 2 PM, check-out by 11 AM\nGovernment photo ID required for every guest\nNo pets'}/><small>One policy per line.</small></div>
+            <div className="form-field"><label className="form-label" htmlFor="booking-cancellation">Default cancellation policy</label><textarea id="booking-cancellation" className="form-input" rows={5} maxLength={10000} value={bookingPolicies.cancellationPolicy} onChange={e=>setBookingPolicies(v=>({...v,cancellationPolicy:e.target.value}))} placeholder="Free cancellation up to 48 hours before check-in. Later cancellations or no-shows are charged one night."/><small>Used for rate plans without their own policy.</small></div>
+            <div className="form-field" style={{gridColumn:'1 / -1'}}><label className="form-label" htmlFor="booking-terms">Terms &amp; conditions</label><textarea id="booking-terms" className="form-input" rows={6} maxLength={10000} value={bookingPolicies.termsAndConditions} onChange={e=>setBookingPolicies(v=>({...v,termsAndConditions:e.target.value}))} placeholder="The terms guests agree to when they book."/>
+              <label style={{display:'flex',gap:8,alignItems:'center',fontSize:12.5,marginTop:4}}><input type="checkbox" checked={bookingPolicies.requireTermsAcceptance} onChange={e=>setBookingPolicies(v=>({...v,requireTermsAcceptance:e.target.checked}))}/> Guests must tick "I agree" before booking</label></div>
+          </div>
+        </div>
+        <div className="booking-settings-section">
+          <div className="booking-section-title"><div><h3>Payment at booking</h3><p>Take a deposit or the full amount online through your own gateway; the rest is paid at the hotel.</p></div></div>
+          <div className="booking-form-grid">
+            <div className="form-field"><label className="form-label" htmlFor="booking-pay-mode">How guests pay</label>
+              <select id="booking-pay-mode" className="form-input" value={bookingPolicies.paymentMode} onChange={e=>setBookingPolicies(v=>({...v,paymentMode:e.target.value}))}>
+                <option value="PAY_AT_HOTEL">Pay at the hotel only</option>
+                <option value="OPTIONAL">Guest chooses: pay online now or at the hotel</option>
+                <option value="REQUIRED">Online deposit required to confirm</option>
+              </select>
+              {bookingPolicies.paymentMode==='REQUIRED'&&<small>Bookings whose deposit isn't paid within 45 minutes are cancelled automatically.</small>}</div>
+            {bookingPolicies.paymentMode!=='PAY_AT_HOTEL'&&<div className="form-field"><label className="form-label" htmlFor="booking-deposit">Deposit (% of the total)</label>
+              <input id="booking-deposit" className="form-input" type="number" min="1" max="100" value={bookingPolicies.depositPercent} onChange={e=>setBookingPolicies(v=>({...v,depositPercent:Math.max(1,Math.min(100,Number(e.target.value)||1))}))}/>
+              <small>100% takes the full amount. Guests can always choose to pay in full.</small></div>}
+          </div>
+        </div>
+        <PaymentGatewaysPanel hotelId={hotelId}/>
+        <div className="booking-settings-section">
+          <div className="booking-section-title"><div><h3>Booking assistant &amp; WhatsApp</h3><p>An AI assistant answers guests with your live rooms, prices and policies, and sends them a booking link. It never books or takes payment itself.</p></div></div>
+          <div className="booking-form-grid">
+            <div className="form-field" style={{gridColumn:'1 / -1'}}><label style={{display:'flex',gap:8,alignItems:'center',fontSize:13}}><input type="checkbox" checked={bookingPolicies.chatEnabled} onChange={e=>setBookingPolicies(v=>({...v,chatEnabled:e.target.checked}))}/> Show the assistant as a chat on your booking page</label></div>
+            <div className="form-field"><label className="form-label" htmlFor="booking-wa-number">WhatsApp number for guests <span className="booking-optional">Optional</span></label><input id="booking-wa-number" className="form-input" inputMode="tel" value={bookingPolicies.whatsappNumber} onChange={e=>setBookingPolicies(v=>({...v,whatsappNumber:e.target.value}))} placeholder="919876543210"/><small>With country code. Adds a "Chat on WhatsApp" button to your booking page.</small></div>
+            <div className="form-field" style={{gridColumn:'1 / -1'}}><label style={{display:'flex',gap:8,alignItems:'center',fontSize:13}}><input type="checkbox" checked={bookingPolicies.whatsappBotEnabled} onChange={e=>setBookingPolicies(v=>({...v,whatsappBotEnabled:e.target.checked}))}/> Let the assistant answer WhatsApp messages (WhatsApp Business Cloud API)</label></div>
+            {bookingPolicies.whatsappBotEnabled&&<>
+              <div className="form-field"><label className="form-label" htmlFor="booking-wa-id">Phone number ID</label><input id="booking-wa-id" className="form-input" value={bookingPolicies.whatsappPhoneNumberId} onChange={e=>setBookingPolicies(v=>({...v,whatsappPhoneNumberId:e.target.value.replace(/\D/g,'')}))} placeholder="From Meta: WhatsApp › API setup"/></div>
+              <div className="form-field"><label className="form-label" htmlFor="booking-wa-token">Access token</label><input id="booking-wa-token" className="form-input" type="password" autoComplete="off" value={bookingPolicies.whatsappAccessToken} onChange={e=>setBookingPolicies(v=>({...v,whatsappAccessToken:e.target.value}))} placeholder={bookingPolicies.whatsappTokenSet?'•••••••• saved; paste to replace':'Permanent system-user token'}/><small>Stored encrypted. Ask AviQR support to connect your number to AviQR's WhatsApp app first.</small></div>
+            </>}
+          </div>
+        </div>
+        {bookingEngineMessage&&<div className={`booking-save-message ${bookingEngineMessage.includes('saved')?'success':'error'}`} role="status">{bookingEngineMessage.includes('saved')&&<CheckCircle2 size={16}/>} {bookingEngineMessage}</div>}
+        <div className="booking-settings-footer"><span>Changes take effect when you save.</span><button className="btn btn-primary" onClick={saveBookingEngine} disabled={savingBookingEngine}>{savingBookingEngine?<><Loader2 size={15} className="booking-spin"/> Saving…</>:<><Save size={15}/> Save booking settings</>}</button></div>
+      </section>
       <div className="admin-chart-card">
         <h3 style={{marginBottom:12}}>Enabled services</h3>
         <div style={{display:'flex',flexWrap:'wrap',gap:10}}>

@@ -109,6 +109,7 @@ public class ReportController {
             @RequestHeader(value = "X-Shop-Id", defaultValue = "") String callerShopId) {
         if (!canAccessShop(role, shopId, callerShopId))
             return ResponseEntity.status(403).body(new ApiResponse<>(false, "Forbidden", null));
+        if (days < 1 || days > 366) return ResponseEntity.badRequest().body(ApiResponse.error("Days must be between 1 and 366"));
         // Use generate_series to always return `days` rows, filling missing dates with 0
         String sql = ("""
             SELECT
@@ -222,6 +223,7 @@ public class ReportController {
         if (!canAccessShop(role, shopId, callerShopId))
             return ResponseEntity.status(403).body(new ApiResponse<>(false, "Forbidden", null));
 
+        if (page < 0 || page > 100000 || size < 1 || size > 100) return ResponseEntity.badRequest().body(ApiResponse.error("Invalid pagination"));
         String dateFrom = startDate != null ? startDate : LocalDate.now().minusDays(30).toString();
         String dateTo   = endDate   != null ? endDate   : LocalDate.now().toString();
 
@@ -550,6 +552,7 @@ public class ReportController {
     }
 
     private List<Map<String, Object>> fetchPlatformRevenueTrend(int days) {
+        if (days < 1 || days > 366) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Days must be between 1 and 366");
         String sql = ("""
             SELECT
               d.date::date                      AS date,

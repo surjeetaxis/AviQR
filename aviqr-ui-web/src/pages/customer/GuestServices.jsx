@@ -52,8 +52,8 @@ export default function GuestServices() {
 
   if (loading) return (
     <div style={sx.center}>
-      <Loader2 size={30} className="spin" style={{ color:'#1D9E75' }} />
-      <p style={{ color:'#6B7280', fontSize:14, marginTop:12 }}>Loading services…</p>
+      <Loader2 size={30} className="spin" style={{ color:"#146c50" }} />
+      <p style={{ color:"#65766c", fontSize:14, marginTop:12 }}>Loading services…</p>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}.spin{animation:spin 1s linear infinite}`}</style>
     </div>
   );
@@ -125,7 +125,7 @@ function HubView({ hub, room, hotelId, onBooked }) {
               }}>
               <div style={sx.outletIcon}><Icon size={22} color="#1D9E75" /></div>
               <div style={{ fontWeight:700, fontSize:14, color:'#111' }}>{o.name}</div>
-              <div style={{ fontSize:11, color:'#9CA3AF', marginTop:2 }}>{o.location || o.type}</div>
+              <div style={{ fontSize:11, color:"#74847b", marginTop:2 }}>{o.location || o.type}</div>
               {o.bookable
                 ? <div style={sx.bookTag}>Book a slot</div>
                 : o.shopId ? <div style={sx.orderTag}>Order now →</div> : null}
@@ -134,7 +134,7 @@ function HubView({ hub, room, hotelId, onBooked }) {
         })}
       </div>
       {hub.outlets.length === 0 && (
-        <p style={{ textAlign:'center', color:'#9CA3AF', fontSize:14, marginTop:40 }}>
+        <p style={{ textAlign:'center', color:"#74847b", fontSize:14, marginTop:40 }}>
           No services are available right now.
         </p>
       )}
@@ -201,7 +201,7 @@ function BookingModal({ outlet, hotelId, room, canCharge, onClose, onDone }) {
         </Field>
 
         {/* Payment choice */}
-        <div style={{ fontSize:12, fontWeight:700, color:'#6B7280', margin:'6px 0' }}>PAYMENT</div>
+        <div style={{ fontSize:12, fontWeight:700, color:"#65766c", margin:'6px 0' }}>PAYMENT</div>
         <div style={{ display:'flex', gap:8 }}>
           <PayOption active={f.paymentChoice==='CHARGE_TO_ROOM'} disabled={!canCharge}
             onClick={() => canCharge && setF({...f, paymentChoice:'CHARGE_TO_ROOM'})}
@@ -236,12 +236,12 @@ function RequestView({ hotelId, room, guestName, onDone }) {
     finally { setSaving(false); }
   };
 
-  if (!room) return <p style={{ textAlign:'center', color:'#9CA3AF', fontSize:14, marginTop:30 }}>
+  if (!room) return <p style={{ textAlign:'center', color:"#74847b", fontSize:14, marginTop:30 }}>
     Requests need a room. Please scan the QR in your room.</p>;
 
   return (
     <div>
-      <div style={{ fontSize:13, color:'#6B7280', marginBottom:12 }}>What do you need for Room {room}?</div>
+      <div style={{ fontSize:13, color:"#65766c", marginBottom:12 }}>What do you need for Room {room}?</div>
       <div style={sx.reqGrid}>
         {REQUEST_TYPES.map(r => {
           const Icon = r.icon;
@@ -250,7 +250,7 @@ function RequestView({ hotelId, room, guestName, onDone }) {
               style={{ ...sx.reqCard, ...(type===r.key ? sx.reqCardActive : {}) }}>
               <Icon size={20} color={type===r.key ? '#1D9E75' : '#6B7280'} />
               <div style={{ fontWeight:600, fontSize:13, marginTop:6 }}>{r.label}</div>
-              <div style={{ fontSize:10, color:'#9CA3AF', marginTop:2 }}>{r.hint}</div>
+              <div style={{ fontSize:10, color:"#74847b", marginTop:2 }}>{r.hint}</div>
             </button>
           );
         })}
@@ -288,7 +288,7 @@ function MessagesView({ hotelId, room, guestName }) {
     finally { setSending(false); }
   };
 
-  if (!room) return <p style={{ textAlign:'center', color:'#9CA3AF', fontSize:14, marginTop:30 }}>
+  if (!room) return <p style={{ textAlign:'center', color:"#74847b", fontSize:14, marginTop:30 }}>
     Scan your room QR to message the front desk.</p>;
 
   return (
@@ -299,12 +299,12 @@ function MessagesView({ hotelId, room, guestName }) {
             <div style={{ background: m.sender==='GUEST' ? '#1D9E75' : '#F3F4F6', color: m.sender==='GUEST' ? '#fff' : '#111', padding:'10px 14px', borderRadius:14, fontSize:14 }}>
               {m.message}
             </div>
-            <div style={{ fontSize:11, color:'#9CA3AF', marginTop:3, textAlign: m.sender==='GUEST' ? 'right' : 'left' }}>
+            <div style={{ fontSize:11, color:"#74847b", marginTop:3, textAlign: m.sender==='GUEST' ? 'right' : 'left' }}>
               {m.sender==='GUEST' ? 'You' : 'Front Desk'} · {new Date(m.createdAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}
             </div>
           </div>
         ))}
-        {thread.length===0 && <p style={{ textAlign:'center', color:'#9CA3AF', fontSize:13, marginTop:20 }}>No messages yet — say hello!</p>}
+        {thread.length===0 && <p style={{ textAlign:'center', color:"#74847b", fontSize:13, marginTop:20 }}>No messages yet — say hello!</p>}
       </div>
       <form onSubmit={send} style={{ display:'flex', gap:8, position:'sticky', bottom:0 }}>
         <input style={{ ...sx.input, flex:1 }} placeholder="Message the front desk…" value={text} onChange={e => setText(e.target.value)} />
@@ -327,13 +327,13 @@ function FolioView({ hotelId, room }) {
       .finally(() => setLoad(false));
   }, [hotelId, room]);
 
-  if (!room) return <p style={{ textAlign:'center', color:'#9CA3AF', fontSize:14, marginTop:30 }}>
+  if (!room) return <p style={{ textAlign:'center', color:"#74847b", fontSize:14, marginTop:30 }}>
     Scan your room QR to view your bill.</p>;
-  if (loading) return <p style={{ textAlign:'center', color:'#9CA3AF', marginTop:30 }}>Loading bill…</p>;
+  if (loading) return <p style={{ textAlign:'center', color:"#74847b", marginTop:30 }}>Loading bill…</p>;
   if (!folio || folio.charges.length === 0) return (
     <div style={{ textAlign:'center', marginTop:40 }}>
       <Receipt size={36} color="#D1D5DB" />
-      <p style={{ color:'#9CA3AF', fontSize:14, marginTop:12 }}>No charges yet</p>
+      <p style={{ color:"#74847b", fontSize:14, marginTop:12 }}>No charges yet</p>
     </div>
   );
 
@@ -351,7 +351,7 @@ function FolioView({ hotelId, room }) {
           <div key={c.id} style={sx.chargeRow}>
             <div style={{ flex:1 }}>
               <div style={{ fontWeight:600, fontSize:13 }}>{c.description}</div>
-              <div style={{ fontSize:11, color:'#9CA3AF' }}>
+              <div style={{ fontSize:11, color:"#74847b" }}>
                 {new Date(c.createdAt).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
                 {' · '}{c.paymentChoice === 'PAY_DIRECT' ? 'Paid' : c.status === 'SETTLED' ? 'Settled' : 'Pending'}
               </div>
@@ -363,7 +363,7 @@ function FolioView({ hotelId, room }) {
           </div>
         ))}
       </div>
-      <div style={{ fontSize:11, color:'#9CA3AF', textAlign:'center', marginTop:16, lineHeight:1.5 }}>
+      <div style={{ fontSize:11, color:"#74847b", textAlign:'center', marginTop:16, lineHeight:1.5 }}>
         Charges to your room are settled at checkout.<br/>Questions? Contact the front desk.
       </div>
     </div>
@@ -374,7 +374,7 @@ function FolioView({ hotelId, room }) {
 function Field({ label, children, flex }) {
   return (
     <div style={{ marginBottom:12, ...(flex ? { flex:1 } : {}) }}>
-      <div style={{ fontSize:12, fontWeight:600, color:'#6B7280', marginBottom:5 }}>{label}</div>
+      <div style={{ fontSize:12, fontWeight:600, color:"#65766c", marginBottom:5 }}>{label}</div>
       {children}
     </div>
   );
@@ -388,37 +388,37 @@ function PayOption({ active, disabled, onClick, icon, title, sub }) {
                opacity: disabled ? 0.5 : 1, cursor: disabled ? 'not-allowed' : 'pointer', textAlign:'left' }}>
       <div style={{ color: active ? '#1D9E75' : '#6B7280' }}>{icon}</div>
       <div style={{ fontWeight:700, fontSize:13, marginTop:4 }}>{title}</div>
-      <div style={{ fontSize:10, color:'#9CA3AF' }}>{sub}</div>
+      <div style={{ fontSize:10, color:"#74847b" }}>{sub}</div>
     </button>
   );
 }
 
 const sx = {
-  page:{ maxWidth:480, margin:'0 auto', minHeight:'100vh', background:'#F9FAFB', fontFamily:'system-ui,-apple-system,sans-serif' },
+  page:{ maxWidth:480, margin:'0 auto', minHeight:'100vh', background:"#f8faf9", fontFamily:'system-ui,-apple-system,sans-serif' },
   center:{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'100vh' },
-  header:{ background:'linear-gradient(135deg,#1D9E75,#178A65)', color:'#fff', padding:'28px 22px 20px' },
+  header:{ background:"linear-gradient(135deg,#146c50,#146c50)", color:'#fff', padding:'28px 22px 20px' },
   roomChip:{ display:'inline-flex', alignItems:'center', gap:6, marginTop:12, background:'rgba(255,255,255,0.18)', padding:'6px 12px', borderRadius:20, fontSize:12, fontWeight:600 },
   checkedIn:{ marginLeft:8, background:'rgba(255,255,255,0.25)', padding:'2px 8px', borderRadius:10, fontSize:11 },
   tabs:{ display:'flex', background:'#fff', borderBottom:'1px solid #F0F0F0', position:'sticky', top:0, zIndex:10 },
-  tab:{ flex:1, padding:'14px 0', border:'none', background:'none', fontSize:14, fontWeight:600, color:'#9CA3AF', cursor:'pointer', borderBottom:'2px solid transparent' },
-  tabActive:{ color:'#1D9E75', borderBottom:'2px solid #1D9E75' },
+  tab:{ flex:1, padding:'14px 0', border:'none', background:'none', fontSize:14, fontWeight:600, color:"#74847b", cursor:'pointer', borderBottom:'2px solid transparent' },
+  tabActive:{ color:"#146c50", borderBottom:'2px solid #1D9E75' },
   body:{ padding:'18px 16px 40px' },
-  areaBanner:{ background:'#EEF7F3', border:'1px solid #C7E9DA', borderRadius:10, padding:'10px 14px', fontSize:13, color:'#178A65', marginBottom:14 },
+  areaBanner:{ background:'#EEF7F3', border:'1px solid #C7E9DA', borderRadius:10, padding:'10px 14px', fontSize:13, color:"#146c50", marginBottom:14 },
   grid:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 },
   outletCard:{ background:'#fff', border:'1px solid #F0F0F0', borderRadius:16, padding:'16px 14px', textAlign:'left', cursor:'pointer', boxShadow:'0 1px 3px rgba(0,0,0,0.04)' },
-  outletIcon:{ width:44, height:44, borderRadius:12, background:'#E1F5EE', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 },
-  orderTag:{ fontSize:12, color:'#1D9E75', fontWeight:700, marginTop:8 },
+  outletIcon:{ width:44, height:44, borderRadius:12, background:"#edf6f0", display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 },
+  orderTag:{ fontSize:12, color:"#146c50", fontWeight:700, marginTop:8 },
   bookTag:{ fontSize:12, color:'#7C3AED', fontWeight:700, marginTop:8 },
   reqGrid:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:16 },
   reqCard:{ background:'#fff', border:'1.5px solid #E5E7EB', borderRadius:12, padding:'14px 10px', textAlign:'center', cursor:'pointer' },
-  reqCardActive:{ borderColor:'#1D9E75', background:'#E1F5EE' },
+  reqCardActive:{ borderColor:"#146c50", background:"#edf6f0" },
   input:{ width:'100%', padding:'11px 12px', border:'1px solid #E5E7EB', borderRadius:10, fontSize:14, boxSizing:'border-box', background:'#fff' },
-  primaryBtn:{ width:'100%', padding:'14px', background:'#1D9E75', color:'#fff', border:'none', borderRadius:12, fontSize:15, fontWeight:700, cursor:'pointer' },
+  primaryBtn:{ width:'100%', padding:'14px', background:"#146c50", color:'#fff', border:'none', borderRadius:12, fontSize:15, fontWeight:700, cursor:'pointer' },
   modalWrap:{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'flex-end', justifyContent:'center', zIndex:100 },
   modal:{ background:'#fff', borderRadius:'20px 20px 0 0', padding:20, width:'100%', maxWidth:480, maxHeight:'90vh', overflowY:'auto' },
   modalHead:{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 },
-  xBtn:{ background:'#F3F4F6', border:'none', borderRadius:8, padding:6, cursor:'pointer' },
-  folioTotal:{ background:'linear-gradient(135deg,#1D9E75,#178A65)', color:'#fff', borderRadius:16, padding:'18px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' },
+  xBtn:{ background:"#eaf0ed", border:'none', borderRadius:8, padding:6, cursor:'pointer' },
+  folioTotal:{ background:"linear-gradient(135deg,#146c50,#146c50)", color:'#fff', borderRadius:16, padding:'18px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' },
   chargeRow:{ display:'flex', alignItems:'center', gap:12, padding:'12px 0', borderBottom:'1px solid #F0F0F0' },
   toast:{ position:'fixed', bottom:20, left:'50%', transform:'translateX(-50%)', background:'#111', color:'#fff', padding:'12px 18px', borderRadius:12, fontSize:13, display:'flex', alignItems:'center', gap:8, zIndex:200, maxWidth:'90%' },
 };

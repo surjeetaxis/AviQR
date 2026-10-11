@@ -17,7 +17,7 @@ import { Colors, FontSize, Spacing, Radius, Shadow } from '../../src/theme/index
 // which drops on redemption) — using it here is correct, not a shortcut.
 const TIERS = [
   { key: 'bronze',   label: 'Bronze',   color: '#92400E', min: 0 },
-  { key: 'silver',   label: 'Silver',   color: '#6B7280', min: 500 },
+  { key: 'silver',   label: 'Silver',   color: Colors.gray500, min: 500 },
   { key: 'gold',     label: 'Gold',     color: '#D97706', min: 2000 },
   { key: 'platinum', label: 'Platinum', color: '#7C3AED', min: 5000 },
 ];
@@ -297,7 +297,7 @@ const ss = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
   back: { fontSize: FontSize.base, color: Colors.primary, fontWeight: '600' },
-  title: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900 },
+  title: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.gray900 },
   exportBtn: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
   enableRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.white, padding: Spacing.base, borderBottomWidth: 1, borderBottomColor: Colors.border },
   enableLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray700 },
@@ -319,7 +319,7 @@ const ss = StyleSheet.create({
   points: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900 },
   tierTxt: { fontSize: 11, fontWeight: '700', marginTop: 2 },
   sheetHeadRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  sheetTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900 },
+  sheetTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900 },
   profileLink: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
   pointsBig: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.primary },
   historyTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray700, marginBottom: 8 },

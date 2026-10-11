@@ -53,7 +53,7 @@ export default function AIHub() {
     <div className="ai-hub">
       <aside className="ai-sidebar">
         <div className="ai-sidebar-header">
-          <Sparkles size={16} style={{ color:'#1D9E75' }}/>
+          <Sparkles size={16} style={{ color:"#146c50" }}/>
           <span>AI Features</span>
           <span className="ai-badge">11 active</span>
         </div>

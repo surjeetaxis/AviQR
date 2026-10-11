@@ -2,6 +2,7 @@ package in.aviqr.pms.service;
 
 import in.aviqr.pms.client.HotelRoomDto;
 import in.aviqr.pms.client.HotelServiceClient;
+import in.aviqr.pms.dto.PublicAvailableRoomDto;
 import in.aviqr.pms.entity.RoomReservation;
 import in.aviqr.pms.entity.RoomType;
 import in.aviqr.pms.entity.RoomTypeInventory;
@@ -70,6 +71,18 @@ public class AvailabilityService {
 
     public int availableCount(UUID hotelId, UUID roomTypeId, LocalDate checkIn, LocalDate checkOut) {
         return availableRooms(hotelId, roomTypeId, checkIn, checkOut).size();
+    }
+
+    /** Room map labels blocked units generically; it never exposes room numbers, guests, or reason. */
+    public List<PublicAvailableRoomDto> publicRoomMap(UUID hotelId, UUID roomTypeId, LocalDate checkIn, LocalDate checkOut) {
+        RoomType type=roomTypeRepo.findById(roomTypeId)
+            .filter(r -> hotelId.equals(r.getHotelId()) && Boolean.TRUE.equals(r.getActive()))
+            .orElseThrow(() -> new IllegalArgumentException("Room type not found for property"));
+        Set<java.util.UUID> available=availableRooms(hotelId,roomTypeId,checkIn,checkOut).stream()
+            .map(HotelRoomDto::getId).collect(Collectors.toSet());
+        return hotelServiceClient.getRooms(hotelId).stream()
+            .filter(r -> type.getName().equalsIgnoreCase(r.getRoomType()))
+            .map(r -> PublicAvailableRoomDto.from(r,available.contains(r.getId()))).toList();
     }
 
     /** Sellable rooms of this type for each night in [from, to) — the same per-night

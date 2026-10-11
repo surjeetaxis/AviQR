@@ -268,7 +268,7 @@ const ss = StyleSheet.create({
   primaryBtn: { backgroundColor: Colors.primary },
   primaryTxt: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.white },
   emptyTxt: { fontSize: FontSize.xs, color: Colors.gray400, textAlign: 'center', paddingVertical: 40 },
-  sheetTitle: { fontSize: FontSize.lg, fontWeight: '800', marginBottom: 12 },
+  sheetTitle: { fontSize: FontSize.lg, fontWeight: '600', marginBottom: 12 },
   cardLine: { fontSize: FontSize.sm, color: Colors.gray900, marginBottom: 6, lineHeight: 20 },
   cardLabel: { fontWeight: '700', color: Colors.gray700 },
   modalClose: { alignSelf: 'flex-end', paddingHorizontal: 20, paddingBottom: 10 },

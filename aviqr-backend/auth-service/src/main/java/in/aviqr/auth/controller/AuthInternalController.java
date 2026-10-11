@@ -1,6 +1,7 @@
 package in.aviqr.auth.controller;
 
 import in.aviqr.auth.dto.ApiResponse;
+import in.aviqr.auth.dto.DeviceInfo;
 import in.aviqr.auth.dto.ImpersonationTokenResponse;
 import in.aviqr.auth.dto.NearbyCustomerResponse;
 import in.aviqr.auth.dto.UserLookupResponse;
@@ -31,8 +32,41 @@ import java.util.UUID;
 public class AuthInternalController {
 
     private final AuthService authService;
+    private final in.aviqr.auth.service.StepUpService stepUp;
     private final CustomerAddressRepository addressRepo;
     private final UserRepository userRepo;
+    private final in.aviqr.auth.repository.RefreshTokenRepository sessions;
+    private final in.aviqr.auth.security.JwtService jwtService;
+
+    @PostMapping("/consume-step-up")
+    public ResponseEntity<Map<String,Boolean>> consume(@RequestBody Map<String,String> body,
+        @RequestHeader(value="X-Internal-Secret",required=false) String secret) {
+        if(internalSyncSecret.isBlank() || !internalSyncSecret.equals(secret))return ResponseEntity.status(401).build();
+        try {return ResponseEntity.ok(Map.of("active",stepUp.consume(UUID.fromString(body.get("userId")),UUID.fromString(body.get("sessionId")),body.get("token"),body.get("method"),body.get("target"),
+            DeviceInfo.builder().ipAddress(body.get("ip")).build())));}
+        catch(Exception e){return ResponseEntity.ok(Map.of("active",false));}
+    }
+
+    @PostMapping("/validate-session")
+    public ResponseEntity<Map<String,Boolean>> validateSession(@RequestBody Map<String,String> body,
+            @RequestHeader(value="X-Internal-Secret",required=false) String secret) {
+        if (internalSyncSecret.isBlank() || !internalSyncSecret.equals(secret)) return ResponseEntity.status(401).build();
+        boolean active = false;
+        try {
+            var claims = jwtService.extractClaims(body.get("token"));
+            if ("access".equals(claims.get("tokenType",String.class)) && claims.get("sid",String.class)!=null && claims.get("role",String.class)!=null) {
+                UUID userId = UUID.fromString(claims.getSubject());
+                var user = userRepo.findById(userId).orElse(null);
+                var session = sessions.findByIdAndUserId(UUID.fromString(claims.get("sid",String.class)),userId).orElse(null);
+                active = user!=null && user.getStatus()==in.aviqr.auth.entity.UserStatus.ACTIVE && session!=null &&
+                    !Boolean.TRUE.equals(session.getRevoked()) && session.getExpiresAt().isAfter(java.time.LocalDateTime.now());
+                String agent = claims.get("impersonatedBy",String.class);
+                if (active && agent!=null) active = userRepo.findById(UUID.fromString(agent))
+                    .filter(u -> u.getStatus()==in.aviqr.auth.entity.UserStatus.ACTIVE && in.aviqr.auth.service.LoginSecurityService.privileged(u)).isPresent();
+            }
+        } catch (Exception ignored) { active = false; }
+        return ResponseEntity.ok(Map.of("active",active));
+    }
 
     @Value("${internal.sync.secret:}")
     private String internalSyncSecret;
@@ -43,7 +77,7 @@ public class AuthInternalController {
             @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole,
             @RequestHeader(value = "X-Internal-Secret", required = false) String secret) {
 
-        if (!internalSyncSecret.isBlank() && !internalSyncSecret.equals(secret))
+        if (internalSyncSecret.isBlank() || !internalSyncSecret.equals(secret))
             return ResponseEntity.status(401).body(ApiResponse.error("Invalid internal secret"));
         if (!"SUPPORT".equals(callerRole) && !"ADMIN".equals(callerRole))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
@@ -69,7 +103,7 @@ public class AuthInternalController {
             @RequestParam(defaultValue = "10") double radiusKm,
             @RequestHeader(value = "X-Internal-Secret", required = false) String secret) {
 
-        if (!internalSyncSecret.isBlank() && !internalSyncSecret.equals(secret))
+        if (internalSyncSecret.isBlank() || !internalSyncSecret.equals(secret))
             return ResponseEntity.status(401).body(ApiResponse.error("Invalid internal secret"));
 
         List<NearbyCustomerResponse> result = addressRepo.findNearby(lat, lng, radiusKm).stream()
@@ -95,7 +129,7 @@ public class AuthInternalController {
             @RequestParam String ids,
             @RequestHeader(value = "X-Internal-Secret", required = false) String secret) {
 
-        if (!internalSyncSecret.isBlank() && !internalSyncSecret.equals(secret))
+        if (internalSyncSecret.isBlank() || !internalSyncSecret.equals(secret))
             return ResponseEntity.status(401).body(ApiResponse.error("Invalid internal secret"));
 
         List<UUID> uuids = Arrays.stream(ids.split(","))

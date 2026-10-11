@@ -11,6 +11,13 @@ public class HotelRoomDto {
     private String roomNumber;
     private String roomType;
     private String floor;
+    private String roomSide;
+    private String viewType;
+    private Integer mapX;
+    private Integer mapY;
+    private String panoramaUrl;
+    private String model3dUrl;
+    private String tourVideoUrl;
     private String status;
     private String housekeepingStatus;
 }

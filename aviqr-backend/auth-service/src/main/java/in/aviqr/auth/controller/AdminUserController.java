@@ -46,7 +46,7 @@ public class AdminUserController {
             UserRole r = UserRole.valueOf(role.toUpperCase());
             users = status != null
                     ? userRepo.findByRoleAndStatus(r, UserStatus.valueOf(status.toUpperCase()), pageable)
-                    : userRepo.findByRoleAndStatus(r, UserStatus.ACTIVE, pageable);
+                    : userRepo.findByRole(r, pageable);
         } else {
             users = userRepo.findAll(pageable);
         }
@@ -77,6 +77,8 @@ public class AdminUserController {
             @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
         if (forbidden(callerRole))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (!"ADMIN".equals(callerRole) && userRepo.findById(id).filter(in.aviqr.auth.service.LoginSecurityService::privileged).isPresent())
+            return ResponseEntity.status(403).body(ApiResponse.error("Only administrators may manage privileged users"));
         return ResponseEntity.ok(ApiResponse.ok("User updated", authService.adminUpdateUser(id, req, callerId)));
     }
 
@@ -90,6 +92,8 @@ public class AdminUserController {
             @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
         if (forbidden(callerRole))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (!"ADMIN".equals(callerRole) && userRepo.findById(id).filter(in.aviqr.auth.service.LoginSecurityService::privileged).isPresent())
+            return ResponseEntity.status(403).body(ApiResponse.error("Only administrators may manage privileged users"));
         return ResponseEntity.ok(ApiResponse.ok(authService.listSessions(id, PageRequest.of(page, size))));
     }
 
@@ -103,6 +107,8 @@ public class AdminUserController {
             @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
         if (forbidden(callerRole))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (!"ADMIN".equals(callerRole) && userRepo.findById(id).filter(in.aviqr.auth.service.LoginSecurityService::privileged).isPresent())
+            return ResponseEntity.status(403).body(ApiResponse.error("Only administrators may manage privileged users"));
         authService.revokeSession(id, sessionId, callerId);
         return ResponseEntity.ok(ApiResponse.ok("Session revoked", null));
     }
@@ -115,6 +121,8 @@ public class AdminUserController {
             @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
         if (forbidden(callerRole))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (!"ADMIN".equals(callerRole) && userRepo.findById(id).filter(in.aviqr.auth.service.LoginSecurityService::privileged).isPresent())
+            return ResponseEntity.status(403).body(ApiResponse.error("Only administrators may manage privileged users"));
         authService.revokeAllSessions(id, callerId);
         return ResponseEntity.ok(ApiResponse.ok("All sessions revoked", null));
     }
@@ -129,7 +137,10 @@ public class AdminUserController {
         if (!"ADMIN".equals(callerRole))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         userRepo.findById(id).ifPresent(u -> {
+            if (u.getRole()==UserRole.SUPPORT) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Use support approval/termination actions");
+            if (id.toString().equals(adminId) && !"ACTIVE".equalsIgnoreCase(status)) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Cannot disable your own admin account");
             u.setStatus(UserStatus.valueOf(status.toUpperCase()));
+            authService.revokeAllSessions(id,adminId);
             userRepo.save(u);
             auditService.log("USER_STATUS_CHANGED", adminId, "Changed user " + id + " status to " + status);
         });
@@ -146,7 +157,10 @@ public class AdminUserController {
         if (!"ADMIN".equals(callerRole))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
         userRepo.findById(id).ifPresent(u -> {
+            if (u.getRole()==UserRole.SUPPORT || "SUPPORT".equalsIgnoreCase(role)) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Use support provisioning actions");
+            if (id.toString().equals(adminId) && !"ADMIN".equalsIgnoreCase(role)) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"Cannot remove your own administrator role");
             u.setRole(UserRole.valueOf(role.toUpperCase()));
+            authService.revokeAllSessions(id,adminId);
             userRepo.save(u);
             auditService.log("USER_ROLE_CHANGED", adminId, "Changed user " + id + " role to " + role);
         });
@@ -161,6 +175,10 @@ public class AdminUserController {
             @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole) {
         if (!"ADMIN".equals(callerRole))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (id.toString().equals(adminId)) return ResponseEntity.status(409).body(ApiResponse.error("Cannot delete your own admin account"));
+        if (userRepo.findById(id).filter(u -> u.getRole()==UserRole.SUPPORT).isPresent())
+            return ResponseEntity.status(409).body(ApiResponse.error("Terminate support accounts to preserve their history"));
+        authService.revokeAllSessions(id,adminId);
         userRepo.deleteById(id);
         auditService.log("USER_DELETED", adminId, "Deleted user: " + id);
         return ResponseEntity.ok(ApiResponse.ok("User deleted", null));

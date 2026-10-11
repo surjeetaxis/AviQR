@@ -108,7 +108,7 @@ export default function PortalProfile() {
     return (
       <div style={sx.center}>
         <LogIn size={28} color="#9CA3AF" />
-        <p style={{ fontSize:13.5, color:'#6B7280', margin:'10px 0 16px' }}>Log in to see your profile, rewards, and favorites.</p>
+        <p style={{ fontSize:13.5, color:"#65766c", margin:'10px 0 16px' }}>Log in to see your profile, rewards, and favorites.</p>
         <button style={sx.loginBtn} onClick={() => setShowLogin(true)}>Log in</button>
         {showLogin && <CustomerLoginSheet onClose={() => setShowLogin(false)} onLoggedIn={() => setShowLogin(false)} />}
       </div>
@@ -122,7 +122,7 @@ export default function PortalProfile() {
         <div style={sx.avatar}><User size={22} color="#1D9E75" /></div>
         <div style={{ flex:1 }}>
           <div style={{ fontWeight:800, fontSize:15 }}>{customer.name === 'Guest' ? 'Guest' : customer.name}</div>
-          <div style={{ fontSize:12.5, color:'#6B7280' }}>{customer.phone || customer.email}</div>
+          <div style={{ fontSize:12.5, color:"#65766c" }}>{customer.phone || customer.email}</div>
         </div>
         <button style={sx.editIconBtn} onClick={openEdit} aria-label="Edit profile"><Pencil size={15} color="#6B7280" /></button>
       </div>
@@ -154,7 +154,7 @@ export default function PortalProfile() {
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
               <Star size={16} color="#D97706" />
               <span style={{ fontWeight:800, fontSize:18 }}>{loyalty.totalPoints ?? loyalty.balance ?? 0}</span>
-              <span style={{ fontSize:12, color:'#6B7280' }}>points at this restaurant</span>
+              <span style={{ fontSize:12, color:"#65766c" }}>points at this restaurant</span>
             </div>
           </div>
         ) : (
@@ -175,7 +175,7 @@ export default function PortalProfile() {
               <div key={f.shopId} style={sx.favRow}>
                 <button style={sx.favName} onClick={() => navigate(`/menu/${f.shopId}`)}>
                   <div style={{ fontWeight:700, fontSize:13.5 }}>{f.shopName}</div>
-                  {f.city && <div style={{ fontSize:11.5, color:'#9CA3AF' }}>{f.city}</div>}
+                  {f.city && <div style={{ fontSize:11.5, color:"#74847b" }}>{f.city}</div>}
                 </button>
                 <button style={sx.unfavBtn} onClick={() => toggleFavorite(f.shopId)}>
                   <Heart size={16} fill="#DC2626" stroke="#DC2626" />
@@ -186,11 +186,12 @@ export default function PortalProfile() {
         )}
       </div>
 
+      <button style={sx.logoutBtn} onClick={()=>window.location.assign("/portal/security")}>Account Security</button>
       <button style={sx.logoutBtn} onClick={logout}><LogOut size={14} /> Sign out</button>
 
       {confirmDeactivate ? (
         <div style={sx.deactivateConfirm}>
-          <p style={{ fontSize:12.5, color:'#374151', margin:'0 0 10px' }}>Deactivate your account? You'll be signed out and this can't be undone from here.</p>
+          <p style={{ fontSize:12.5, color:"#374b42", margin:'0 0 10px' }}>Deactivate your account? You'll be signed out and this can't be undone from here.</p>
           <div style={{ display:'flex', gap:8 }}>
             <button style={sx.cancelBtn} onClick={() => setConfirmDeactivate(false)} disabled={deactivating}>Cancel</button>
             <button style={sx.confirmDeactivateBtn} onClick={confirmedDeactivate} disabled={deactivating}>
@@ -236,7 +237,7 @@ export default function PortalProfile() {
                     <input type="date" value={editForm.anniversary}
                       onChange={e => setEditForm(f => ({ ...f, anniversary: e.target.value }))} />
                   </div>
-                  <p style={{ fontSize:11, color:'#9CA3AF', margin:'-6px 0 10px' }}>Saved for this restaurant — we'll remember it for birthday offers here.</p>
+                  <p style={{ fontSize:11, color:"#74847b", margin:'-6px 0 10px' }}>Saved for this restaurant — we'll remember it for birthday offers here.</p>
                 </>
               )}
               {editError && <div style={{color:'#DC2626',fontSize:12.5,marginBottom:8}}>{editError}</div>}
@@ -253,23 +254,23 @@ export default function PortalProfile() {
 
 const sx = {
   center: { display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'60vh', textAlign:'center', padding:'0 30px' },
-  loginBtn: { background:'#1D9E75', color:'#fff', border:'none', borderRadius:12, padding:'12px 28px', fontWeight:700, fontSize:14, cursor:'pointer' },
+  loginBtn: { background:"#146c50", color:'#fff', border:'none', borderRadius:12, padding:'12px 28px', fontWeight:700, fontSize:14, cursor:'pointer' },
   identityCard: { display:'flex', alignItems:'center', gap:12, padding:'14px 16px', margin:'0 16px 8px', background:'#fff', border:'1px solid #F0F0F0', borderRadius:14 },
-  avatar: { width:44, height:44, borderRadius:12, background:'#E1F5EE', display:'flex', alignItems:'center', justifyContent:'center' },
+  avatar: { width:44, height:44, borderRadius:12, background:"#edf6f0", display:'flex', alignItems:'center', justifyContent:'center' },
   section: { padding:'14px 16px' },
-  sectionTitle: { display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:700, color:'#374151', marginBottom:8, textTransform:'uppercase', letterSpacing:.3 },
-  emptyHint: { fontSize:12.5, color:'#9CA3AF', margin:0 },
+  sectionTitle: { display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:700, color:"#374b42", marginBottom:8, textTransform:'uppercase', letterSpacing:.3 },
+  emptyHint: { fontSize:12.5, color:"#74847b", margin:0 },
   rewardCard: { background:'#fff', border:'1px solid #F0F0F0', borderRadius:14, padding:'14px 16px' },
   favRow: { display:'flex', alignItems:'center', gap:10, background:'#fff', border:'1px solid #F0F0F0', borderRadius:12, padding:'10px 12px' },
   favName: { flex:1, textAlign:'left', background:'none', border:'none', cursor:'pointer', padding:0, fontFamily:'inherit' },
   unfavBtn: { background:'none', border:'none', cursor:'pointer', padding:4 },
   logoutBtn: { display:'flex', alignItems:'center', gap:8, justifyContent:'center', width:'calc(100% - 32px)', margin:'8px 16px 8px', padding:'12px', background:'#fff', border:'1px solid #F0F0F0', borderRadius:12, color:'#DC2626', fontWeight:700, fontSize:13.5, cursor:'pointer' },
-  editIconBtn: { background:'#F9FAFB', border:'1px solid #F0F0F0', borderRadius:10, width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' },
+  editIconBtn: { background:"#f8faf9", border:'1px solid #F0F0F0', borderRadius:10, width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' },
   navRow: { display:'flex', alignItems:'center', gap:10, background:'#fff', border:'1px solid #F0F0F0', borderRadius:12, padding:'12px', cursor:'pointer', width:'100%', fontFamily:'inherit' },
-  navRowText: { flex:1, textAlign:'left', fontSize:13.5, fontWeight:600, color:'#374151' },
-  langSelect: { width:'100%', height:46, border:'1.5px solid #E5E7EB', borderRadius:12, background:'#FAFAFA', padding:'0 12px', fontSize:14, fontFamily:'inherit' },
-  deactivateLink: { display:'block', margin:'0 16px 24px', background:'none', border:'none', color:'#9CA3AF', fontSize:12.5, textDecoration:'underline', cursor:'pointer', textAlign:'center', width:'calc(100% - 32px)' },
+  navRowText: { flex:1, textAlign:'left', fontSize:13.5, fontWeight:600, color:"#374b42" },
+  langSelect: { width:'100%', height:46, border:'1.5px solid #E5E7EB', borderRadius:12, background:"#f8faf9", padding:'0 12px', fontSize:14, fontFamily:'inherit' },
+  deactivateLink: { display:'block', margin:'0 16px 24px', background:'none', border:'none', color:"#74847b", fontSize:12.5, textDecoration:'underline', cursor:'pointer', textAlign:'center', width:'calc(100% - 32px)' },
   deactivateConfirm: { margin:'0 16px 24px', padding:'14px', background:'#FEF2F2', border:'1px solid #FECACA', borderRadius:12 },
-  cancelBtn: { flex:1, padding:'10px', background:'#fff', border:'1px solid #E5E7EB', borderRadius:10, color:'#374151', fontWeight:700, fontSize:13, cursor:'pointer' },
+  cancelBtn: { flex:1, padding:'10px', background:'#fff', border:'1px solid #E5E7EB', borderRadius:10, color:"#374b42", fontWeight:700, fontSize:13, cursor:'pointer' },
   confirmDeactivateBtn: { flex:1, padding:'10px', background:'#DC2626', border:'none', borderRadius:10, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' },
 };

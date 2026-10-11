@@ -75,7 +75,7 @@ export default function HotelGuestsScreen() {
 }
 
 const ss = StyleSheet.create({
-  sectionTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 10, marginTop: 8 },
+  sectionTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 10, marginTop: 8 },
   card: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.base, gap: 12, ...Shadow.sm },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
   avatarTxt: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.primary },

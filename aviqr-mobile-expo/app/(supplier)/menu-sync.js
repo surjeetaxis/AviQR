@@ -111,7 +111,7 @@ const ss = StyleSheet.create({
   sub: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 2 },
   copyBtn: { backgroundColor: Colors.gray100, borderRadius: Radius.md, paddingHorizontal: 12, paddingVertical: 8 },
   copyBtnTxt: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray700 },
-  sheetTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900, marginBottom: 8 },
+  sheetTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900, marginBottom: 8 },
   sheetHint: { fontSize: FontSize.xs, color: Colors.gray500, marginBottom: 14, lineHeight: 18 },
   targetRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
   targetName: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900 },

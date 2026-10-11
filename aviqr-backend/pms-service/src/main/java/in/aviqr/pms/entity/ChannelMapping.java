@@ -1,6 +1,7 @@
 package in.aviqr.pms.entity;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDateTime;
@@ -27,16 +28,22 @@ public class ChannelMapping {
     // Generated on creation and given to the hotel to configure as the shared secret
     // in their channel manager's webhook settings — validated on every inbound webhook
     // of the simple generic shape (ChannelController#webhook).
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable=false) private String webhookSecret;
 
     // Credentials for a real ARI-style channel-manager connection (inventory/
     // bulkPriceUpdate push, accept-booking pull) — provided by the channel manager
     // itself, not generated here. Null/blank cmBaseUrl means "no live connection
     // configured yet", so a push falls back to a log-only simulation.
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String accessKey;
     private String channelId;
     private String cmBaseUrl;
 
     @Builder.Default private Boolean active = true;
     @CreationTimestamp private LocalDateTime createdAt;
+
+    /** Safe connection status for API clients; never serialize the credential itself. */
+    @Transient
+    public boolean isHasAccessKey() { return accessKey != null && !accessKey.isBlank(); }
 }

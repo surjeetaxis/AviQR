@@ -105,7 +105,7 @@ export default function SupplierDashboard() {
       <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="admin-sidebar-header">
           <div className="admin-brand">
-            <QrCode size={18} style={{ color: '#5DCAA5' }} />
+            <QrCode size={18} style={{ color: "#9dddc6" }} />
             <span className="admin-brand-name">Avi<em>QR</em></span>
             <span className="admin-role-tag supplier-tag">SUPPLIER</span>
           </div>
@@ -272,7 +272,7 @@ function OutletsList({ outlets, loading, onManage, onReload }) {
       </div>
 
       {showForm && (
-        <form onSubmit={create} className="admin-chart-card" style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+        <form onSubmit={create} className="admin-chart-card workspace-grid" style={{ marginBottom: 16, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
           <div className="form-field">
             <label className="form-label">Name</label>
             <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Domino's — Indiranagar" required />
@@ -687,7 +687,7 @@ function QRCodesTab({ outlets, brand, onBrandSaved }) {
           <p>Go to an outlet to generate QR codes.</p>
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 14 }}>
+      <div className="workspace-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 14 }}>
         {allCodes.map(q => (
           <div key={q.id} className="admin-chart-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>{q.label || q.tableLabel || `Table ${q.tableNumber}`}</div>
@@ -935,7 +935,7 @@ function SettingsTab({ user, brand, onBrandSaved }) {
       </div>
       <div className="admin-chart-card" style={{ maxWidth: 540 }}>
         <h3 style={{ marginBottom: 16 }}>Profile</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="workspace-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {[
             { key: 'name',      label: 'Full name' },
             { key: 'email',     label: 'Email' },
@@ -983,7 +983,7 @@ function OutletManager({ outlet, onBack, user, logout, navigate }) {
       <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="admin-sidebar-header">
           <div className="admin-brand">
-            <QrCode size={18} style={{ color: '#5DCAA5' }} />
+            <QrCode size={18} style={{ color: "#9dddc6" }} />
             <span className="admin-brand-name">Avi<em>QR</em></span>
             <span className="admin-role-tag supplier-tag">OUTLET</span>
           </div>
@@ -1236,7 +1236,7 @@ function OutletQRTab({ shopId }) {
           <p>No QR codes have been generated for this outlet yet.</p>
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14 }}>
+      <div className="workspace-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14 }}>
         {codes.map(q => (
           <div key={q.id} className="admin-chart-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>{q.label || q.tableLabel || `Table ${q.tableNumber || q.id}`}</div>
@@ -1300,7 +1300,7 @@ function OutletSettingsTab({ shopId }) {
         </div>
       </div>
       <div className="admin-chart-card" style={{ maxWidth: 540 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="workspace-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           {[
             { key: 'address',   label: 'Address' },
             { key: 'phone',     label: 'Phone' },

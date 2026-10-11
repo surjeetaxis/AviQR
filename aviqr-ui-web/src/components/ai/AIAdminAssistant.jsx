@@ -1237,7 +1237,7 @@ function RoleChat({ user, shopId, systemPrompt, starters, greeting }) {
   return (
     <div style={{ maxWidth:720, margin:'0 auto' }}>
       <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
-        <div style={{ width:40, height:40, borderRadius:10, background:'#E1F5EE', display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div style={{ width:40, height:40, borderRadius:10, background:"#edf6f0", display:'flex', alignItems:'center', justifyContent:'center' }}>
           <Bot size={20} color="#1D9E75"/>
         </div>
         <div>
@@ -1273,7 +1273,7 @@ function ChatBox({ messages, loading, input, setInput, inputRef, bottomRef, onSe
         {messages.map((msg, i) => (
           <div key={i} style={{ display:'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
             {msg.role === 'assistant' && (
-              <div style={{ width:28, height:28, borderRadius:8, background:'#E1F5EE', display:'flex', alignItems:'center', justifyContent:'center', marginRight:8, flexShrink:0, marginTop:2 }}>
+              <div style={{ width:28, height:28, borderRadius:8, background:"#edf6f0", display:'flex', alignItems:'center', justifyContent:'center', marginRight:8, flexShrink:0, marginTop:2 }}>
                 <Sparkles size={14} color="#1D9E75"/>
               </div>
             )}
@@ -1358,7 +1358,7 @@ function SuperAdminChat({ user, activePromptKey, activeTask }) {
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
       <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
-        <div style={{ width:36, height:36, borderRadius:8, background:'#E1F5EE', display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div style={{ width:36, height:36, borderRadius:8, background:"#edf6f0", display:'flex', alignItems:'center', justifyContent:'center' }}>
           <Sparkles size={16} color="#1D9E75"/>
         </div>
         <div style={{ flex:1 }}>

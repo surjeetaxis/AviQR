@@ -757,7 +757,7 @@
   .qr-print-single .tpl-qr-img { width: 5.5cm !important; height: 5.5cm !important; }
 
   /* Remove box shadows in print */
-  .tpl { box-shadow: 0 0 0 1px #e5e7eb !important; }
+  .tpl { box-shadow: 0 0 0 1px var(--gray-200) !important; }
 
   /* Without this, browsers strip all background colors/gradients when printing
      or saving as PDF, so the template's brand colors vanish and white-on-color

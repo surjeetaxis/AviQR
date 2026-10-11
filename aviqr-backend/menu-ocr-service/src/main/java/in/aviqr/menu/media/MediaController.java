@@ -7,7 +7,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-// Generic file upload — menu item photos/videos/3D models, shop logos. Any
+import java.util.List;
+
+// Generic file upload — menu item photos/videos/3D models, shop logos, room tour media. Any
 // authenticated user can upload; the resulting URL is only ever wired into a field
 // (menu item / shop) whose own update endpoint already enforces the caller owns
 // that shop. `kind` picks the size cap and content-type check — 3D models (.glb/
@@ -34,6 +36,12 @@ public class MediaController {
                 if (file.getSize() > 20L * 1024 * 1024) return ResponseEntity.badRequest().body(ApiResponse.error("Video must be under 20 MB"));
                 if (contentType == null || !contentType.startsWith("video/"))
                     return ResponseEntity.badRequest().body(ApiResponse.error("Only video files are supported"));
+            }
+            case "panorama" -> {
+                // 360° equirectangular room photos are large; the multipart limit (20 MB) is the real cap.
+                if (file.getSize() > 20L * 1024 * 1024) return ResponseEntity.badRequest().body(ApiResponse.error("360° photo must be under 20 MB"));
+                if (contentType == null || !List.of("image/jpeg", "image/png", "image/webp").contains(contentType))
+                    return ResponseEntity.badRequest().body(ApiResponse.error("360° photos must be JPEG, PNG or WebP"));
             }
             case "model" -> {
                 if (file.getSize() > 10L * 1024 * 1024) return ResponseEntity.badRequest().body(ApiResponse.error("3D model must be under 10 MB"));

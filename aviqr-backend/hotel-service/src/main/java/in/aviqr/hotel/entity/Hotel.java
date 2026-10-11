@@ -19,6 +19,19 @@ public class Hotel {
     private String subscriptionPlan;
     @Builder.Default private Boolean active = true;
 
+    // AviQR OTA and direct booking-engine storefront configuration. Existing and
+    // newly created properties default to enabled public listings.
+    @Builder.Default private Boolean bookingEngineEnabled = true;
+    @Enumerated(EnumType.STRING) @Builder.Default
+    private BookingEngineVisibility bookingEngineVisibility = BookingEngineVisibility.PUBLIC;
+    @Column(length=100) private String bookingEngineBrandName;
+    @Column(length=7) private String bookingEnginePrimaryColor;
+    @Column(length=7) private String bookingEngineAccentColor;
+    @Column(length=1000) private String bookingEngineLogoUrl;
+    @Column(length=63, unique=true) private String bookingEngineSlug;
+    @Column(length=253, unique=true) private String bookingEngineCustomDomain;
+    @Column(length=254) private String bookingEngineSupportEmail;
+
     // Proper @CollectionTable with explicit joinColumn so Hibernate knows the FK
     @ElementCollection(fetch = jakarta.persistence.FetchType.EAGER)
     @CollectionTable(name="hotel_enabled_services", joinColumns=@JoinColumn(name="hotel_id"))

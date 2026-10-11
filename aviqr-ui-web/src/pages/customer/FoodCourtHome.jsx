@@ -48,8 +48,8 @@ export default function FoodCourtHome() {
 
   if (loading) return (
     <div style={sx.center}>
-      <Loader2 size={30} className="spin" style={{ color:'#1D9E75' }} />
-      <p style={{ color:'#6B7280', fontSize:14, marginTop:12 }}>Loading food court…</p>
+      <Loader2 size={30} className="spin" style={{ color:"#146c50" }} />
+      <p style={{ color:"#65766c", fontSize:14, marginTop:12 }}>Loading food court…</p>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}.spin{animation:spin 1s linear infinite}`}</style>
     </div>
   );
@@ -82,12 +82,12 @@ export default function FoodCourtHome() {
           {search && <button style={sx.searchClear} onClick={() => setSearch('')}><X size={13} /></button>}
         </div>
 
-        <div style={{ fontSize:13, color:'#6B7280', fontWeight:600, margin:'12px 0' }}>
+        <div style={{ fontSize:13, color:"#65766c", fontWeight:600, margin:'12px 0' }}>
           {filteredVendors.length} restaurant{filteredVendors.length !== 1 ? 's' : ''} · tap one to view its menu
         </div>
 
         {filteredVendors.length === 0 ? (
-          <div style={{ textAlign:'center', padding:'40px 0', color:'#9CA3AF' }}>
+          <div style={{ textAlign:'center', padding:'40px 0', color:"#74847b" }}>
             <Store size={32} />
             <p style={{ marginTop:10, fontSize:13 }}>{search ? 'No restaurants match your search.' : 'No restaurants are open here yet.'}</p>
           </div>
@@ -101,10 +101,10 @@ export default function FoodCourtHome() {
                 onClick={() => v.shopId && navigate(`/menu/${v.shopId}`)}
               >
                 <div style={sx.vendorIcon}><UtensilsCrossed size={20} color="#1D9E75" /></div>
-                <div style={{ fontWeight:700, fontSize:14, color:'#111827' }}>{v.name}</div>
-                {v.category && <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>{v.category}</div>}
+                <div style={{ fontWeight:700, fontSize:14, color:"#18382c" }}>{v.name}</div>
+                {v.category && <div style={{ fontSize:12, color:"#65766c", marginTop:2 }}>{v.category}</div>}
                 {v.floor && <div style={sx.floorTag}><MapPin size={11} /> {v.floor}</div>}
-                {!v.shopId && <div style={{ fontSize:11, color:'#9CA3AF', marginTop:8 }}>Menu unavailable</div>}
+                {!v.shopId && <div style={{ fontSize:11, color:"#74847b", marginTop:8 }}>Menu unavailable</div>}
               </button>
             ))}
           </div>
@@ -115,15 +115,15 @@ export default function FoodCourtHome() {
 }
 
 const sx = {
-  page:{ maxWidth:480, margin:'0 auto', minHeight:'100vh', background:'#F9FAFB', fontFamily:'system-ui,-apple-system,sans-serif' },
+  page:{ maxWidth:480, margin:'0 auto', minHeight:'100vh', background:"#f8faf9", fontFamily:'system-ui,-apple-system,sans-serif' },
   center:{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'100vh' },
-  header:{ background:'linear-gradient(135deg,#1D9E75,#178A65)', color:'#fff', padding:'28px 22px 20px' },
+  header:{ background:"linear-gradient(135deg,#146c50,#146c50)", color:'#fff', padding:'28px 22px 20px' },
   body:{ padding:'18px 16px 40px' },
   grid:{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 },
   searchWrap:{ display:'flex', alignItems:'center', gap:8, background:'#fff', border:'1px solid #E5E7EB', borderRadius:12, padding:'10px 12px' },
   searchInput:{ flex:1, border:'none', outline:'none', fontSize:13.5, fontFamily:'inherit', background:'transparent' },
-  searchClear:{ background:'none', border:'none', cursor:'pointer', color:'#9CA3AF', padding:0, display:'flex' },
+  searchClear:{ background:'none', border:'none', cursor:'pointer', color:"#74847b", padding:0, display:'flex' },
   vendorCard:{ background:'#fff', border:'1px solid #F0F0F0', borderRadius:16, padding:'16px 14px', textAlign:'left', cursor:'pointer', boxShadow:'0 1px 3px rgba(0,0,0,0.04)' },
-  vendorIcon:{ width:44, height:44, borderRadius:12, background:'#E1F5EE', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 },
-  floorTag:{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, color:'#9CA3AF', marginTop:8 },
+  vendorIcon:{ width:44, height:44, borderRadius:12, background:"#edf6f0", display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 },
+  floorTag:{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, color:"#74847b", marginTop:8 },
 };

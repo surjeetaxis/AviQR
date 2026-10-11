@@ -95,11 +95,11 @@ export default function PortalAddresses() {
                     <span style={sx.labelBadge}>{a.label}</span>
                     {(a.isDefault) && <span style={sx.defaultBadge}><Star size={10} fill="#D97706" stroke="#D97706" /> Default</span>}
                   </div>
-                  <div style={{ fontSize:13.5, color:'#374151' }}>{a.line1}{a.line2 ? `, ${a.line2}` : ''}</div>
-                  <div style={{ fontSize:12.5, color:'#6B7280' }}>
+                  <div style={{ fontSize:13.5, color:"#374b42" }}>{a.line1}{a.line2 ? `, ${a.line2}` : ''}</div>
+                  <div style={{ fontSize:12.5, color:"#65766c" }}>
                     {[a.city, a.state, a.pincode].filter(Boolean).join(', ')}
                   </div>
-                  {a.phone && <div style={{ fontSize:12.5, color:'#9CA3AF', marginTop:2 }}>{a.phone}</div>}
+                  {a.phone && <div style={{ fontSize:12.5, color:"#74847b", marginTop:2 }}>{a.phone}</div>}
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                   <button style={sx.iconBtn} onClick={() => openEdit(a)} aria-label="Edit"><Pencil size={14} color="#6B7280" /></button>
@@ -159,7 +159,7 @@ export default function PortalAddresses() {
                 {locating ? 'Getting location…' : form.latitude != null ? 'Location captured ✓' : 'Use current location'}
               </button>
               {locErr && <div style={{color:'#DC2626',fontSize:12.5,marginBottom:8}}>{locErr}</div>}
-              <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:'#374151' }}>
+              <label style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:"#374b42" }}>
                 <input type="checkbox" checked={form.isDefault}
                   onChange={e => setForm(f => ({ ...f, isDefault: e.target.checked }))} />
                 Set as default address
@@ -176,14 +176,14 @@ export default function PortalAddresses() {
 
 const sx = {
   header: { display:'flex', alignItems:'center', gap:10, padding:'0 16px', marginBottom:14 },
-  backBtn: { background:'#F9FAFB', border:'1px solid #F0F0F0', borderRadius:10, width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' },
+  backBtn: { background:"#f8faf9", border:'1px solid #F0F0F0', borderRadius:10, width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' },
   title: { fontSize:17, fontWeight:800, margin:0 },
-  emptyHint: { fontSize:12.5, color:'#9CA3AF', margin:0 },
+  emptyHint: { fontSize:12.5, color:"#74847b", margin:0 },
   emptyState: { display:'flex', flexDirection:'column', alignItems:'center', gap:8, padding:'40px 0' },
   card: { display:'flex', gap:10, background:'#fff', border:'1px solid #F0F0F0', borderRadius:14, padding:'14px 16px' },
   labelBadge: { fontSize:11, fontWeight:700, color:'#065F46', background:'#E6F7F0', borderRadius:6, padding:'2px 8px' },
   defaultBadge: { display:'flex', alignItems:'center', gap:3, fontSize:11, fontWeight:700, color:'#D97706' },
-  iconBtn: { background:'#F9FAFB', border:'1px solid #F0F0F0', borderRadius:8, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' },
-  addBtn: { display:'flex', alignItems:'center', justifyContent:'center', gap:8, width:'100%', marginTop:14, marginBottom:24, padding:'12px', background:'#fff', border:'1.5px dashed #D1D5DB', borderRadius:12, color:'#1D9E75', fontWeight:700, fontSize:13.5, cursor:'pointer' },
-  locBtn: { display:'flex', alignItems:'center', justifyContent:'center', gap:6, width:'100%', marginBottom:12, padding:'10px', background:'#F9FAFB', border:'1px solid #E5E7EB', borderRadius:10, color:'#374151', fontWeight:600, fontSize:12.5, cursor:'pointer' },
+  iconBtn: { background:"#f8faf9", border:'1px solid #F0F0F0', borderRadius:8, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' },
+  addBtn: { display:'flex', alignItems:'center', justifyContent:'center', gap:8, width:'100%', marginTop:14, marginBottom:24, padding:'12px', background:'#fff', border:'1.5px dashed #D1D5DB', borderRadius:12, color:"#146c50", fontWeight:700, fontSize:13.5, cursor:'pointer' },
+  locBtn: { display:'flex', alignItems:'center', justifyContent:'center', gap:6, width:'100%', marginBottom:12, padding:'10px', background:"#f8faf9", border:'1px solid #E5E7EB', borderRadius:10, color:"#374b42", fontWeight:600, fontSize:12.5, cursor:'pointer' },
 };

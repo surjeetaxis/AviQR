@@ -302,7 +302,7 @@ export default function Onboarding({ onComplete }) {
               <div style={styles.qrBox}>
                 <QrCode size={64} color="#1D9E75" />
               </div>
-              <p style={{ fontSize: 13, color: '#6B7280', marginTop: 12 }}>
+              <p style={{ fontSize: 13, color: "#65766c", marginTop: 12 }}>
                 Your QR menu link: <strong>aviqr.com/menu/{shopId?.slice(0,8)}…</strong>
               </p>
             </div>
@@ -327,7 +327,7 @@ export default function Onboarding({ onComplete }) {
               Customers can now scan your QR code to browse your menu and place orders.
             </p>
             {isPaidPlan && (
-              <p style={{ fontSize: 13, color: '#0F6E56', background: '#E1F5EE', borderRadius: 8, padding: '8px 12px', marginBottom: 24, display: 'inline-block' }}>
+              <p style={{ fontSize: 13, color: "#105940", background: "#edf6f0", borderRadius: 8, padding: '8px 12px', marginBottom: 24, display: 'inline-block' }}>
                 🎁 Your {selectedPlanObj.label} plan's 3-month free trial has started — no payment needed until it ends.
               </p>
             )}
@@ -351,7 +351,7 @@ export default function Onboarding({ onComplete }) {
 function Field({ label, value, onChange, placeholder, type = 'text' }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <label style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>{label}</label>
+      <label style={{ fontSize: 13, fontWeight: 500, color: "#374b42" }}>{label}</label>
       <input
         type={type}
         value={value}
@@ -403,9 +403,9 @@ const styles = {
     zIndex: 1,
     transition: 'all .2s',
   },
-  stepDone:   { background: '#1D9E75', color: '#fff' },
-  stepActive: { background: '#111827', color: '#fff', boxShadow: '0 0 0 4px rgba(29,158,117,.2)' },
-  stepFuture: { background: '#F3F4F6', color: '#9CA3AF', border: '2px solid #E5E7EB' },
+  stepDone:   { background: "#146c50", color: '#fff' },
+  stepActive: { background: "#18382c", color: '#fff', boxShadow: '0 0 0 4px rgba(29,158,117,.2)' },
+  stepFuture: { background: "#eaf0ed", color: "#74847b", border: '2px solid #E5E7EB' },
   stepLabel: (active) => ({
     fontSize: 11,
     fontWeight: active ? 600 : 400,
@@ -441,12 +441,12 @@ const styles = {
   h2: {
     fontSize: 22,
     fontWeight: 700,
-    color: '#111827',
+    color: "#18382c",
     marginBottom: 6,
   },
   sub: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#65766c",
     lineHeight: 1.5,
   },
   fields: {
@@ -478,21 +478,21 @@ const styles = {
     gap: 4,
   },
   planCardActive: {
-    borderColor: '#1D9E75',
+    borderColor: "#146c50",
     boxShadow: '0 0 0 3px rgba(29,158,117,.15)',
   },
-  planName: { fontSize: 14, fontWeight: 700, color: '#111827' },
-  planPrice: { fontSize: 13, fontWeight: 600, color: '#1D9E75' },
+  planName: { fontSize: 14, fontWeight: 700, color: "#18382c" },
+  planPrice: { fontSize: 13, fontWeight: 600, color: "#146c50" },
   planTrial: { fontSize: 11, fontWeight: 600, color: '#D97706', background: '#FEF3C7', borderRadius: 999, padding: '2px 8px', width: 'fit-content', marginTop: 2 },
-  planFeatures: { fontSize: 11.5, color: '#6B7280', margin: '8px 0 0', paddingLeft: 16, lineHeight: 1.6 },
+  planFeatures: { fontSize: 11.5, color: "#65766c", margin: '8px 0 0', paddingLeft: 16, lineHeight: 1.6 },
   menuModeRow: { display: 'flex', gap: 8, marginBottom: 18 },
   modeTab: {
     flex: 1,
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-    padding: '10px 12px', background: '#F9FAFB', color: '#6B7280',
+    padding: '10px 12px', background: "#f8faf9", color: "#65766c",
     border: '1.5px solid #E5E7EB', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer',
   },
-  modeTabActive: { background: '#111827', color: '#fff', borderColor: '#111827' },
+  modeTabActive: { background: "#18382c", color: '#fff', borderColor: "#18382c" },
   input: {
     padding: '10px 12px',
     fontSize: 14,
@@ -517,7 +517,7 @@ const styles = {
     alignItems: 'center',
     gap: 8,
     padding: '12px 24px',
-    background: '#1D9E75',
+    background: "#146c50",
     color: '#fff',
     border: 'none',
     borderRadius: 10,
@@ -534,7 +534,7 @@ const styles = {
     gap: 6,
     padding: '12px 20px',
     background: 'transparent',
-    color: '#6B7280',
+    color: "#65766c",
     border: '1px solid #E5E7EB',
     borderRadius: 10,
     fontSize: 14,

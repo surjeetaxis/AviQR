@@ -34,7 +34,7 @@ public class BillController {
 
     private boolean isShopStaff(String role, String shopId, String callerShopId, String uid) {
         if ("ADMIN".equals(role) || "SUPPORT".equals(role)) return true;
-        if ("CUSTOMER".equals(role)) return false;
+        if (!Set.of("OWNER","MANAGER","CASHIER","KITCHEN","ORDER_VIEWER","SUPPLIER","HOTEL","MALL").contains(role)) return false;
         if (shopId.equals(callerShopId)) return true;
         return orderService.isShopOwnedBy(shopId, uid);
     }
@@ -126,7 +126,7 @@ public class BillController {
     public ResponseEntity<ApiResponse<String>> paymentSync(
             @PathVariable UUID id,
             @RequestHeader(value="X-Internal-Secret", required=false) String secret) {
-        if (!internalSyncSecret.isBlank() && !internalSyncSecret.equals(secret))
+        if (internalSyncSecret.isBlank() || !internalSyncSecret.equals(secret))
             return ResponseEntity.status(401).body(ApiResponse.error("Invalid secret"));
         service.syncPaymentCaptured(id);
         return ResponseEntity.ok(ApiResponse.ok("Synced"));

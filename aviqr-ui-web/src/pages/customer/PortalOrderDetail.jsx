@@ -65,7 +65,7 @@ export default function PortalOrderDetail() {
     } finally { setSubmitting(false); }
   };
 
-  if (loading) return <div style={sx.center}><p style={{fontSize:13,color:'#9CA3AF'}}>Loading order…</p></div>;
+  if (loading) return <div style={sx.center}><p style={{fontSize:13,color:"#74847b"}}>Loading order…</p></div>;
   if (error || !order) return <div style={sx.center}><p style={{fontSize:13,color:'#DC2626'}}>{error || 'Order not found.'}</p></div>;
 
   const statusColor = STATUS_COLOR[order.status] || '#6b7280';
@@ -76,7 +76,7 @@ export default function PortalOrderDetail() {
         <button style={sx.backBtn} onClick={() => navigate(-1)}><ArrowLeft size={18} /></button>
         <div>
           <h1 style={sx.title}>#{order.orderNumber || order.id?.slice(0,8)}</h1>
-          <div style={{ fontSize:12, color:'#9CA3AF' }}>
+          <div style={{ fontSize:12, color:"#74847b" }}>
             {order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : ''}
           </div>
         </div>
@@ -108,7 +108,7 @@ export default function PortalOrderDetail() {
               <div key={it.id || i} style={sx.itemRow}>
                 <div>
                   <div style={{ fontWeight:600, fontSize:13.5 }}>{it.itemName}</div>
-                  <div style={{ fontSize:12, color:'#9CA3AF' }}>Qty {it.quantity} · ₹{it.unitPrice}</div>
+                  <div style={{ fontSize:12, color:"#74847b" }}>Qty {it.quantity} · ₹{it.unitPrice}</div>
                 </div>
                 <div style={{ fontWeight:700, fontSize:13.5 }}>₹{it.totalPrice}</div>
               </div>
@@ -176,24 +176,24 @@ export default function PortalOrderDetail() {
 const sx = {
   center: { display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'60vh', textAlign:'center', padding:'0 30px' },
   header: { display:'flex', alignItems:'center', gap:10, padding:'0 16px', marginBottom:16 },
-  backBtn: { background:'#F9FAFB', border:'1px solid #F0F0F0', borderRadius:10, width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 },
-  refreshBtn: { marginLeft:'auto', background:'#F9FAFB', border:'1px solid #F0F0F0', borderRadius:10, width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, color:'#374151' },
+  backBtn: { background:"#f8faf9", border:'1px solid #F0F0F0', borderRadius:10, width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 },
+  refreshBtn: { marginLeft:'auto', background:"#f8faf9", border:'1px solid #F0F0F0', borderRadius:10, width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, color:"#374b42" },
   title: { fontSize:16, fontWeight:800, margin:0 },
   statusBadge: { fontSize:11, fontWeight:700, padding:'4px 10px', borderRadius:99, flexShrink:0 },
   section: { marginBottom:16 },
-  sectionTitle: { fontSize:13, fontWeight:700, color:'#374151', marginBottom:8, textTransform:'uppercase', letterSpacing:.3 },
+  sectionTitle: { fontSize:13, fontWeight:700, color:"#374b42", marginBottom:8, textTransform:'uppercase', letterSpacing:.3 },
   card: { background:'#fff', border:'1px solid #F0F0F0', borderRadius:14, padding:'12px 14px' },
   itemRow: { display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 0', borderBottom:'1px solid #F9FAFB' },
-  billRow: { display:'flex', justifyContent:'space-between', fontSize:13, color:'#374151', padding:'2px 0' },
-  menuLink: { display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', background:'#fff', border:'1px solid #F0F0F0', borderRadius:12, padding:'12px 14px', fontSize:13.5, fontWeight:600, color:'#374151', cursor:'pointer', marginBottom:24 },
-  rateBtn: { display:'flex', alignItems:'center', justifyContent:'center', gap:8, width:'100%', background:'#111827', border:'none', borderRadius:12, padding:'13px 14px', fontSize:13.5, fontWeight:700, color:'#fff', cursor:'pointer', marginBottom:24 },
+  billRow: { display:'flex', justifyContent:'space-between', fontSize:13, color:"#374b42", padding:'2px 0' },
+  menuLink: { display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%', background:'#fff', border:'1px solid #F0F0F0', borderRadius:12, padding:'12px 14px', fontSize:13.5, fontWeight:600, color:"#374b42", cursor:'pointer', marginBottom:24 },
+  rateBtn: { display:'flex', alignItems:'center', justifyContent:'center', gap:8, width:'100%', background:"#18382c", border:'none', borderRadius:12, padding:'13px 14px', fontSize:13.5, fontWeight:700, color:'#fff', cursor:'pointer', marginBottom:24 },
   ratedBanner: { background:'#F0FDF4', border:'1px solid #BBF7D0', borderRadius:12, padding:'12px 14px', fontSize:13, fontWeight:600, color:'#166534', textAlign:'center', marginBottom:24 },
   backdrop: { position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'flex-end', justifyContent:'center', zIndex:1000 },
   sheet: { width:'100%', maxWidth:480, background:'#fff', borderTopLeftRadius:20, borderTopRightRadius:20, padding:20, paddingBottom:28 },
   sheetTitle: { fontSize:16, fontWeight:800, textAlign:'center', marginBottom:16 },
   starRow: { display:'flex', justifyContent:'center', gap:8, marginBottom:16 },
   starBtn: { background:'none', border:'none', cursor:'pointer', padding:4, display:'flex' },
-  commentInput: { width:'100%', minHeight:80, border:'1px solid #E5E7EB', borderRadius:10, padding:12, fontSize:13, fontFamily:'inherit', color:'#111827', boxSizing:'border-box', resize:'vertical', marginBottom:12 },
+  commentInput: { width:'100%', minHeight:80, border:'1px solid #E5E7EB', borderRadius:10, padding:12, fontSize:13, fontFamily:'inherit', color:"#18382c", boxSizing:'border-box', resize:'vertical', marginBottom:12 },
   errorTxt: { fontSize:12, color:'#DC2626', marginBottom:12 },
-  submitBtn: { width:'100%', background:'#111827', border:'none', borderRadius:10, padding:'13px 14px', fontSize:13.5, fontWeight:700, color:'#fff', cursor:'pointer' },
+  submitBtn: { width:'100%', background:"#18382c", border:'none', borderRadius:10, padding:'13px 14px', fontSize:13.5, fontWeight:700, color:'#fff', cursor:'pointer' },
 };

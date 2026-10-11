@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { useAuth } from '../src/context/AuthContext.js';
-import { View, ActivityIndicator } from 'react-native';
-import { Colors } from '../src/theme/index.js';
 import { tokenStorage } from '../src/api/tokenStorage.js';
 import LandingScreen from '../src/components/landing/LandingScreen.js';
+import { LoadingScreen } from '../src/components/common/LoadingScreen.js';
 
 // `/` is the app's smart entry point. A logged-in user skips straight to
 // their role's home. A logged-out user sees the marketing Landing page only
@@ -26,11 +25,7 @@ export default function Index() {
     })();
   }, [user, loading]);
 
-  if (!showLanding) {
-    return <View style={{flex:1,alignItems:'center',justifyContent:'center',backgroundColor:Colors.background}}>
-      <ActivityIndicator size="large" color={Colors.primary}/>
-    </View>;
-  }
+  if (!showLanding) return <LoadingScreen message={loading ? "Restoring your workspace…" : "Opening AviQR…"} />;
   return <LandingScreen />;
 }
 function homeRoute(role) {

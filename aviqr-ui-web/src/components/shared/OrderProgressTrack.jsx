@@ -28,8 +28,8 @@ export default function OrderProgressTrack({ status, lang = 'en' }) {
         const dotStyle = isActive
           ? { background:'var(--green)', borderColor:'var(--green)', color:'#fff', boxShadow:'0 0 0 6px rgba(29,158,117,.15)' }
           : isDone
-          ? { background:'var(--green-light)', borderColor:'var(--green)', color:'#9CA3AF' }
-          : { background:'#F3F4F6', borderColor:'#E5E7EB', color:'#9CA3AF' };
+          ? { background:'var(--green-light)', borderColor:'var(--green)', color:"#74847b" }
+          : { background:"#eaf0ed", borderColor:"#e1e8e3", color:"#74847b" };
         return (
           <div key={s.key} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, flex:1, position:'relative' }}>
             <div style={{

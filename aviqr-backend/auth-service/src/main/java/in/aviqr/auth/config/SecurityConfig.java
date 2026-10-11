@@ -9,6 +9,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+@org.springframework.context.annotation.Import(in.aviqr.security.ServiceTrustConfiguration.class)
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -16,7 +17,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
-                .csrf(c -> c.disable())
+                .csrf(csrf -> csrf.ignoringRequestMatchers(request -> Boolean.TRUE.equals(request.getAttribute("aviqr.authenticatedService"))))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // Identity is established upstream by the gateway's AuthenticationFilter,
                 // which validates the JWT and injects X-User-Id/X-User-Role headers.

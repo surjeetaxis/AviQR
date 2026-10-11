@@ -40,15 +40,15 @@ export default function PortalOrders() {
     return (
       <div style={sx.center}>
         <LogIn size={28} color="#9CA3AF" />
-        <p style={{ fontSize:13.5, color:'#6B7280', marginTop:10 }}>Log in from your cart or checkout to see your orders here.</p>
-        <p style={{ fontSize:13.5, color:'#6B7280', marginTop:6 }}>
+        <p style={{ fontSize:13.5, color:"#65766c", marginTop:10 }}>Log in from your cart or checkout to see your orders here.</p>
+        <p style={{ fontSize:13.5, color:"#65766c", marginTop:6 }}>
           Ordered as a guest? <button style={sx.trackLinkInline} onClick={() => navigate('/track-order')}>Track your order</button>
         </p>
       </div>
     );
   }
 
-  if (loading) return <div style={sx.center}><p style={{fontSize:13,color:'#9CA3AF'}}>Loading orders…</p></div>;
+  if (loading) return <div style={sx.center}><p style={{fontSize:13,color:"#74847b"}}>Loading orders…</p></div>;
   if (error) return <div style={sx.center}><p style={{fontSize:13,color:'#DC2626'}}>{error}</p></div>;
 
   return (
@@ -63,7 +63,7 @@ export default function PortalOrders() {
       {orders.length === 0 ? (
         <div style={sx.center}>
           <Package size={28} color="#9CA3AF" />
-          <p style={{ fontSize:13.5, color:'#6B7280', marginTop:10 }}>No orders yet.</p>
+          <p style={{ fontSize:13.5, color:"#65766c", marginTop:10 }}>No orders yet.</p>
         </div>
       ) : (
         <div style={{ padding:'0 16px', display:'flex', flexDirection:'column', gap:10 }}>
@@ -71,10 +71,10 @@ export default function PortalOrders() {
             <button key={o.id} style={sx.card} onClick={() => navigate(`/portal/orders/${o.id}`)}>
               <div style={{ flex:1, textAlign:'left' }}>
                 <div style={{ fontWeight:700, fontSize:14 }}>#{o.orderNumber || o.id?.slice(0,8)}</div>
-                <div style={{ fontSize:12, color:'#6B7280', marginTop:2 }}>
+                <div style={{ fontSize:12, color:"#65766c", marginTop:2 }}>
                   {(o.items || []).length} item{(o.items||[]).length !== 1 ? 's' : ''} · ₹{o.totalAmount}
                 </div>
-                <div style={{ fontSize:11, color:'#9CA3AF', marginTop:2 }}>
+                <div style={{ fontSize:11, color:"#74847b", marginTop:2 }}>
                   {o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : ''}
                 </div>
               </div>
@@ -91,8 +91,8 @@ export default function PortalOrders() {
 const sx = {
   page: { paddingTop: 8 },
   header: { display:'flex', alignItems:'center', padding: '10px 16px 14px' },
-  refreshBtn: { marginLeft:'auto', background:'#F9FAFB', border:'1px solid #F0F0F0', borderRadius:10, width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#374151' },
+  refreshBtn: { marginLeft:'auto', background:"#f8faf9", border:'1px solid #F0F0F0', borderRadius:10, width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:"#374b42" },
   center: { display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'60vh', textAlign:'center', padding:'0 30px' },
-  trackLinkInline: { background:'none', border:'none', padding:0, color:'#1D9E75', fontWeight:700, fontSize:13.5, cursor:'pointer', fontFamily:'inherit', textDecoration:'underline' },
+  trackLinkInline: { background:'none', border:'none', padding:0, color:"#146c50", fontWeight:700, fontSize:13.5, cursor:'pointer', fontFamily:'inherit', textDecoration:'underline' },
   card: { display:'flex', alignItems:'center', gap:10, background:'#fff', border:'1px solid #F0F0F0', borderRadius:14, padding:'12px 14px', boxShadow:'0 1px 3px rgba(0,0,0,.04)', cursor:'pointer', width:'100%', fontFamily:'inherit' },
 };

@@ -2,14 +2,15 @@
 // hotel/resort dashboard shell in ../hotel/HotelDashboard.jsx — there is no
 // standalone PMS page or route any more (the login is one dashboard, and PMS
 // sections live alongside QR guest-services under the same sidebar).
-import { useState, useEffect, useCallback, Fragment } from 'react';
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import {
   BedDouble, CalendarCheck, Receipt,
   Plus, LogIn, DoorOpen, Ban, UserX, Search, Wifi, RefreshCw, Copy, Users, Briefcase, IndianRupee, TrendingUp, UserCircle, Tag, CalendarClock,
   AlertCircle, Clock, CheckCircle2, Bell, PenTool, X, CreditCard, Hourglass, Building2, Upload, Send, Star, ChevronDown, ChevronRight,
-  CheckSquare,
+  CheckSquare, ScanLine, FileText, Trash2, Mail, ExternalLink, ArrowLeftRight, Camera,
+  Save,
 } from 'lucide-react';
-import { pmsApi, reviewApi } from '../../api/index.js';
+import { pmsApi, reviewApi, hotelApi } from '../../api/index.js';
 import '../admin/Admin.css';
 
 const STATUS_CLS = {
@@ -64,7 +65,7 @@ export function Overview({ hotelName, reservations, audit, requests, onNav }) {
         <div className="support-alert-banner"><AlertCircle size={16} /><span><strong>{urgentReqs.length} urgent request{urgentReqs.length > 1 ? 's' : ''}</strong> need immediate attention.</span><button className="support-alert-action" onClick={() => onNav('requests')}>View all →</button></div>
       )}
 
-      <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
+      <div className="admin-kpi-grid workspace-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
         {kpis.map(k => (
           <div key={k.label} className="admin-kpi-card">
             <div className={`admin-kpi-icon icon-${k.color}`}><k.icon size={18} /></div>
@@ -73,7 +74,7 @@ export function Overview({ hotelName, reservations, audit, requests, onNav }) {
           </div>
         ))}
       </div>
-      <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
+      <div className="admin-kpi-grid workspace-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
         <div className="admin-kpi-card"><div className="admin-kpi-icon icon-green"><LogIn size={18} /></div><div className="admin-kpi-value">{arrivalsToday.length}</div><div className="admin-kpi-label">Arrivals today</div></div>
         <div className="admin-kpi-card"><div className="admin-kpi-icon icon-amber"><DoorOpen size={18} /></div><div className="admin-kpi-value">{departuresToday.length}</div><div className="admin-kpi-label">Departures today</div></div>
         <div className="admin-kpi-card"><div className="admin-kpi-icon icon-blue"><Users size={18} /></div><div className="admin-kpi-value">{inHouse.length}</div><div className="admin-kpi-label">Guests in-house</div></div>
@@ -369,7 +370,8 @@ function RatePlanRestrictions({ ratePlan, hotelId, roomTypeId }) {
 // ── Reservations (availability + booking + list) ───────────────────────────────
 export function ReservationsTab({ hotelId, roomTypes, reservations, groups, agents, onCreated, onOpenFolio }) {
   const [avail, setAvail] = useState({ roomTypeId: '', checkIn: today(), checkOut: today(), count: null });
-  const [form, setForm] = useState({ guestName: '', guestPhone: '', checkInDate: today(), checkOutDate: today(), adults: 1, children: 0, rooms: [], groupId: '', agentId: '' });
+  const [form, setForm] = useState({ guestName: '', guestPhone: '', guestEmail: '', checkInDate: today(), checkOutDate: today(), adults: 1, children: 0, rooms: [], groupId: '', agentId: '' });
+  const [panelId, setPanelId] = useState(null);
   const [ratePlansByType, setRatePlansByType] = useState({});
   const [saving, setSaving] = useState(false);
   const [waitlistForm, setWaitlistForm] = useState({ guestName: '', guestPhone: '' });
@@ -409,8 +411,8 @@ export function ReservationsTab({ hotelId, roomTypes, reservations, groups, agen
     if (!form.guestName.trim() || form.rooms.length === 0) { alert('Add guest name and at least one room'); return; }
     setSaving(true);
     try {
-      await pmsApi.createReservation({ hotelId, ...form, groupId: form.groupId || null, agentId: form.agentId || null, adults: Number(form.adults), children: Number(form.children) });
-      setForm({ guestName: '', guestPhone: '', checkInDate: today(), checkOutDate: today(), adults: 1, children: 0, rooms: [], groupId: '', agentId: '' });
+      await pmsApi.createReservation({ hotelId, ...form, guestEmail: form.guestEmail.trim() || null, groupId: form.groupId || null, agentId: form.agentId || null, adults: Number(form.adults), children: Number(form.children) });
+      setForm({ guestName: '', guestPhone: '', guestEmail: '', checkInDate: today(), checkOutDate: today(), adults: 1, children: 0, rooms: [], groupId: '', agentId: '' });
       onCreated();
     } catch (err) { alert(err?.response?.data?.message || 'Could not create reservation'); }
     finally { setSaving(false); }
@@ -447,6 +449,7 @@ export function ReservationsTab({ hotelId, roomTypes, reservations, groups, agen
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input placeholder="Guest name" value={form.guestName} onChange={e => setForm({ ...form, guestName: e.target.value })} style={inputStyle} />
           <input placeholder="Phone" value={form.guestPhone} onChange={e => setForm({ ...form, guestPhone: e.target.value })} style={inputStyle} />
+          <input type="email" placeholder="Email (sends the voucher)" value={form.guestEmail} onChange={e => setForm({ ...form, guestEmail: e.target.value })} style={inputStyle} />
           <input type="date" value={form.checkInDate} onChange={e => setForm({ ...form, checkInDate: e.target.value })} style={inputStyle} />
           <input type="date" value={form.checkOutDate} onChange={e => setForm({ ...form, checkOutDate: e.target.value })} style={inputStyle} />
           <input type="number" min="1" placeholder="Adults" value={form.adults} onChange={e => setForm({ ...form, adults: e.target.value })} style={{ ...inputStyle, width: 90 }} />
@@ -480,7 +483,10 @@ export function ReservationsTab({ hotelId, roomTypes, reservations, groups, agen
         </div>
       </form>
 
-      <ReservationsTable reservations={reservations} onOpenFolio={onOpenFolio} />
+      <ReservationsTable reservations={reservations} onOpenFolio={onOpenFolio} actions={(r) => (
+        <button className="admin-row-btn" title="Voucher, QR, rooms and ID scans" onClick={() => setPanelId(r.id)}><FileText size={14} /></button>
+      )} />
+      {panelId && <ReservationPanel id={panelId} onClose={() => setPanelId(null)} onChanged={onCreated} />}
     </div>
   );
 }
@@ -529,6 +535,16 @@ export function GroupsTab({ hotelId, groups, onChange, onReservationsChanged }) 
   const [folio, setFolio] = useState(null);
   const [payment, setPayment] = useState({ method: 'CASH', amount: '', reference: '' });
   const [acting, setActing] = useState(false);
+  const [enquiries, setEnquiries] = useState([]);
+  const loadEnquiries = useCallback(() => {
+    pmsApi.listGroupEnquiries(hotelId).then(res => setEnquiries(res.data.data || [])).catch(() => {});
+  }, [hotelId]);
+  useEffect(() => { loadEnquiries(); }, [loadEnquiries]);
+  const setEnquiryStatus = (e, status) => pmsApi.updateGroupEnquiry(e.id, { status }).then(loadEnquiries).catch(() => alert('Could not update enquiry'));
+  const convertEnquiry = async (e) => {
+    try { await pmsApi.convertGroupEnquiry(e.id); loadEnquiries(); onChange(); }
+    catch { alert('Could not create the group'); }
+  };
 
   const createGroup = async (e) => {
     e.preventDefault();
@@ -571,6 +587,35 @@ export function GroupsTab({ hotelId, groups, onChange, onReservationsChanged }) 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div className="page-header"><div><h1 className="page-title">Group Bookings</h1><p className="page-subtitle">Book many rooms under one group, with shared billing and bulk check-in/out.</p></div></div>
+
+      <div className="admin-table-card" style={{ padding: 16 }}>
+        <strong>Online group enquiries</strong> <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>(quote requests from your booking page; the organiser was emailed a confirmation)</span>
+        <table className="admin-table" style={{ marginTop: 10 }}>
+          <thead><tr><th>Received</th><th>Organiser</th><th>Event</th><th>Dates</th><th>Rooms</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            {enquiries.map(e => (
+              <tr key={e.id}>
+                <td>{e.createdAt ? new Date(e.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'}</td>
+                <td className="admin-td-shop">{e.organizerName}{e.company ? ` · ${e.company}` : ''}
+                  <div style={{ fontSize: 11.5, color: 'var(--gray-500)', fontWeight: 400 }}>{e.organizerPhone}{e.organizerEmail ? ` · ${e.organizerEmail}` : ''}</div>
+                  {e.message && <div style={{ fontSize: 11.5, color: 'var(--gray-600)', fontWeight: 400, maxWidth: 320 }}>“{e.message}”</div>}</td>
+                <td>{(e.eventType || 'OTHER').charAt(0) + (e.eventType || 'OTHER').slice(1).toLowerCase()}</td>
+                <td>{e.checkInDate} → {e.checkOutDate}</td>
+                <td>{e.rooms}{e.guests ? ` (${e.guests} guests)` : ''}</td>
+                <td>
+                  <select value={e.status} onChange={ev => setEnquiryStatus(e, ev.target.value)} style={inputStyle} aria-label="Enquiry status" disabled={!!e.groupId}>
+                    <option value="NEW">New</option><option value="QUOTED">Quoted</option><option value="WON">Won</option><option value="LOST">Lost</option>
+                  </select>
+                </td>
+                <td>{e.groupId
+                  ? <button className="admin-row-btn" style={btnSecondary} onClick={() => loadDetail(e.groupId)}>Open group</button>
+                  : e.status !== 'LOST' && <button className="admin-row-btn" style={btnPrimary} onClick={() => convertEnquiry(e)}><Plus size={14} /> Create group</button>}</td>
+              </tr>
+            ))}
+            {enquiries.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 16 }}>No enquiries yet. Guests send them from “Request a group quote” on your booking page.</td></tr>}
+          </tbody>
+        </table>
+      </div>
 
       <form onSubmit={createGroup} className="admin-table-card" style={{ padding: 16, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <input placeholder="Group name (e.g. Sharma-Verma Wedding)" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ ...inputStyle, minWidth: 220 }} />
@@ -622,7 +667,7 @@ export function GroupsTab({ hotelId, groups, onChange, onReservationsChanged }) 
 
           {folio && (
             <>
-              <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+              <div className="admin-kpi-grid workspace-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
                 <div className="admin-kpi-card"><div className="admin-kpi-value">₹{Number(folio.totalCharges).toLocaleString('en-IN')}</div><div className="admin-kpi-label">Total charges (all rooms)</div></div>
                 <div className="admin-kpi-card"><div className="admin-kpi-value">₹{Number(folio.totalPayments).toLocaleString('en-IN')}</div><div className="admin-kpi-label">Total payments</div></div>
                 <div className="admin-kpi-card"><div className="admin-kpi-value">₹{Number(folio.balance).toLocaleString('en-IN')}</div><div className="admin-kpi-label">Balance due</div></div>
@@ -645,9 +690,40 @@ export function GroupsTab({ hotelId, groups, onChange, onReservationsChanged }) 
 }
 
 // ── Front Desk (check-in / check-out) ───────────────────────────────────────────
-export function FrontDeskTab({ reservations, onChanged, onOpenFolio }) {
+export function FrontDeskTab({ hotelId, reservations, onChanged, onOpenFolio }) {
   const live = reservations.filter(r => r.status === 'BOOKED' || r.status === 'CHECKED_IN');
   const [extendId, setExtendId] = useState(null);
+  const [panelId, setPanelId] = useState(null);
+  const [query, setQuery] = useState('');
+  const [found, setFound] = useState(null);
+  const [scanning, setScanning] = useState(false);
+  const scannerRef = useRef(null);
+
+  // A voucher QR holds the voucher URL: .../#/voucher/<hotelId>/<reservationId>/<token>
+  const openFromScan = (text) => {
+    const m = String(text).match(/voucher\/[0-9a-f-]{36}\/([0-9a-f-]{36})/i)
+      || String(text).match(/contactless-checkin\/([0-9a-f-]{36})/i)
+      || String(text).trim().match(/^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+    if (m) { setPanelId(m[1]); return; }
+    setQuery(String(text).trim());
+    search(String(text).trim());
+  };
+  const search = async (q = query) => {
+    if (!hotelId || q.trim().length < 3) return;
+    try { const res = await pmsApi.frontDeskLookup(hotelId, q.trim()); setFound(res.data.data || []); }
+    catch (err) { alert(err?.response?.data?.message || 'Search failed'); }
+  };
+  const stopScan = async () => { try { await scannerRef.current?.stop(); } catch { /* already stopped */ } scannerRef.current = null; setScanning(false); };
+  const startScan = async () => {
+    setScanning(true);
+    try {
+      const { Html5Qrcode } = await import('html5-qrcode');
+      const scanner = new Html5Qrcode('voucher-scanner');
+      scannerRef.current = scanner;
+      await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 }, async (decoded) => { await stopScan(); openFromScan(decoded); }, () => {});
+    } catch { alert('Could not start the camera — check permissions'); setScanning(false); }
+  };
+  useEffect(() => () => { scannerRef.current?.stop().catch(() => {}); }, []);
   const [extendDate, setExtendDate] = useState('');
   const [card, setCard] = useState(null);
 
@@ -696,9 +772,20 @@ export function FrontDeskTab({ reservations, onChanged, onOpenFolio }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div className="page-header"><div><h1 className="page-title">Front Desk</h1><p className="page-subtitle">Check guests in and out.</p></div></div>
+      <div className="page-header"><div><h1 className="page-title">Front Desk</h1><p className="page-subtitle">Find a booking, check guests in and out, change rooms and keep ID scans.</p></div></div>
+      <form onSubmit={e => { e.preventDefault(); search(); }} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Booking reference, phone or guest name" style={{ ...inputStyle, flex: '1 1 260px' }} aria-label="Find a booking" />
+        <button className="admin-row-btn" style={btnPrimary} type="submit"><Search size={14} /> Find</button>
+        <button className="admin-row-btn" style={btnSecondary} type="button" onClick={scanning ? stopScan : startScan}><ScanLine size={14} /> {scanning ? 'Stop scanning' : 'Scan voucher QR'}</button>
+        {found && <button className="admin-row-btn" style={btnSecondary} type="button" onClick={() => { setFound(null); setQuery(''); }}>Clear</button>}
+      </form>
+      {scanning && <div id="voucher-scanner" style={{ width: 300, maxWidth: '100%', borderRadius: 12, overflow: 'hidden' }} />}
+      {found && (found.length
+        ? <ReservationsTable reservations={found} onOpenFolio={onOpenFolio} actions={(r) => <button className="admin-row-btn" style={btnSecondary} onClick={() => setPanelId(r.id)}>Open</button>} />
+        : <p style={{ fontSize: 13, color: 'var(--gray-500)' }}>No booking matches “{query}”.</p>)}
       <ReservationsTable reservations={live} onOpenFolio={onOpenFolio} actions={(r) => (
         <>
+          <button className="admin-row-btn" title="Manage: rooms, ID scans, voucher" onClick={() => setPanelId(r.id)}><FileText size={14} /></button>
           {r.preCheckedIn && <button className="admin-row-btn" title="View registration card" onClick={() => viewCard(r.id)}><PenTool size={14} /></button>}
           <button className="admin-row-btn" title="Hold a card (pre-authorization)" onClick={() => holdCard(r)}><CreditCard size={14} /></button>
           {r.status === 'BOOKED' && <>
@@ -722,6 +809,7 @@ export function FrontDeskTab({ reservations, onChanged, onOpenFolio }) {
           )}
         </>
       )} />
+      {panelId && <ReservationPanel id={panelId} onClose={() => setPanelId(null)} onChanged={onChanged} />}
       {card && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setCard(null)}>
           <div className="admin-table-card" style={{ padding: 20, width: 380, maxWidth: '90%' }} onClick={e => e.stopPropagation()}>
@@ -744,6 +832,150 @@ export function FrontDeskTab({ reservations, onChanged, onOpenFolio }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+const DOC_TYPES = [['AADHAAR', 'Aadhaar'], ['PASSPORT', 'Passport'], ['DRIVING_LICENCE', 'Driving licence'], ['VOTER_ID', 'Voter ID'], ['PAN', 'PAN'], ['OTHER', 'Other']];
+
+/** One reservation at the desk: check in/out, rooms (assign or change), ID scans and the guest's voucher. */
+function ReservationPanel({ id, onClose, onChanged }) {
+  const [data, setData] = useState(null);
+  const [docs, setDocs] = useState({ enabled: true, documents: [] });
+  const [moving, setMoving] = useState(null); // { lineId, options, roomId, rate }
+  const [docType, setDocType] = useState('AADHAAR');
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [voucherUrl, setVoucherUrl] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const load = useCallback(async () => {
+    try {
+      const res = await pmsApi.getReservation(id);
+      setData(res.data.data);
+      const hotelId = res.data.data.reservation.hotelId;
+      pmsApi.listDocuments(id).then(r => setDocs(r.data.data)).catch(() => setDocs({ enabled: false, documents: [] }));
+      Promise.all([pmsApi.voucherLink(id), hotelApi.getBookingEngineSettings(hotelId).catch(() => null)]).then(([link, settings]) => {
+        const s = settings?.data?.data || {};
+        const base = (s.customDomainUrl || s.hostedUrl || 'https://bm.aviqr.com');
+        setVoucherUrl(new URL(base).origin + link.data.data.path);
+      }).catch(() => setVoucherUrl(''));
+    } catch (err) { alert(err?.response?.data?.message || 'Could not load the reservation'); onClose(); }
+  }, [id, onClose]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => () => { if (preview?.url) URL.revokeObjectURL(preview.url); }, [preview]);
+
+  if (!data) return null;
+  const r = data.reservation;
+  const ref = r.id.slice(0, 8).toUpperCase();
+  const run = async (fn, ok) => {
+    setBusy(true); setMsg('');
+    try { await fn(); setMsg(ok); await load(); onChanged?.(); }
+    catch (err) { setMsg(err?.response?.data?.message || 'That didn\'t work'); }
+    finally { setBusy(false); }
+  };
+  const openMove = async (line) => {
+    try { const res = await pmsApi.roomOptions(id, line.id); setMoving({ lineId: line.id, options: res.data.data, roomId: '', rate: '' }); }
+    catch (err) { setMsg(err?.response?.data?.message || 'Could not load rooms'); }
+  };
+  const upload = (file) => file && run(() => pmsApi.uploadDocument(id, file, docType), 'ID scan saved');
+  const view = async (doc) => {
+    try {
+      const res = await pmsApi.getDocument(doc.id);
+      setPreview({ url: URL.createObjectURL(res.data), pdf: doc.contentType === 'application/pdf', label: doc.docType });
+    } catch { setMsg('Could not open that document'); }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }} onClick={() => !busy && onClose()}>
+      <div className="admin-table-card" style={{ padding: 20, width: 640, maxWidth: '100%', maxHeight: '90vh', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--gray-500)', letterSpacing: '.08em' }}>BOOKING {ref} · {r.status.replace('_', ' ')}</div>
+            <strong style={{ fontSize: 18 }}>{r.guestName}</strong>
+            <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>{r.guestPhone} · {r.checkInDate} → {r.checkOutDate} · {r.adults} adult(s){r.children ? `, ${r.children} child(ren)` : ''}</div>
+            {r.notes && <div style={{ fontSize: 12, marginTop: 6, whiteSpace: 'pre-line', color: 'var(--gray-600)' }}>{r.notes}</div>}
+          </div>
+          <button className="admin-row-btn" onClick={onClose} aria-label="Close"><X size={14} /></button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {r.status === 'BOOKED' && <button className="admin-row-btn" style={btnPrimary} disabled={busy} onClick={() => run(() => pmsApi.checkIn(id), 'Checked in')}><LogIn size={14} /> Check in</button>}
+          {r.status === 'CHECKED_IN' && <button className="admin-row-btn" style={btnPrimary} disabled={busy} onClick={() => run(() => pmsApi.checkOut(id), 'Checked out')}><DoorOpen size={14} /> Check out</button>}
+          {voucherUrl && <a className="admin-row-btn" style={{ ...btnSecondary, textDecoration: 'none' }} href={voucherUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Open voucher</a>}
+          <button className="admin-row-btn" style={btnSecondary} disabled={busy} onClick={() => run(() => pmsApi.emailVoucher(id, voucherUrl ? new URL(voucherUrl).host : ''), 'Voucher emailed to the guest')}><Mail size={14} /> Email voucher</button>
+        </div>
+        {msg && <div style={{ fontSize: 13, padding: '8px 12px', borderRadius: 8, background: 'var(--gray-50)' }}>{msg}</div>}
+
+        <section>
+          <strong style={{ fontSize: 14 }}>Rooms</strong>
+          {data.rooms.map(line => (
+            <div key={line.id} style={{ borderTop: '1px solid var(--gray-100)', padding: '10px 0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13 }}><b>{line.roomNumber ? `Room ${line.roomNumber}` : 'No room assigned'}</b> · ₹{line.ratePerNight}/night</span>
+                {(r.status === 'BOOKED' || r.status === 'CHECKED_IN') && (
+                  <button className="admin-row-btn" style={btnSecondary} onClick={() => moving?.lineId === line.id ? setMoving(null) : openMove(line)}>
+                    <ArrowLeftRight size={14} /> {line.roomNumber ? 'Change room' : 'Assign room'}
+                  </button>
+                )}
+              </div>
+              {moving?.lineId === line.id && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <select value={moving.roomId} onChange={e => setMoving({ ...moving, roomId: e.target.value })} style={{ ...inputStyle, flex: '1 1 240px' }} aria-label="New room">
+                    <option value="">Choose a room…</option>
+                    {moving.options.filter(o => !o.current).map(o => (
+                      <option key={o.roomId} value={o.roomId} disabled={!o.available}>
+                        {o.roomNumber} · {o.roomType}{o.floor ? ` · ${o.floor}` : ''}{o.view ? ` · ${o.view}` : ''}{o.available ? '' : ' (busy)'}
+                      </option>
+                    ))}
+                  </select>
+                  <input type="number" min="0" step="1" placeholder="New rate (optional)" value={moving.rate} onChange={e => setMoving({ ...moving, rate: e.target.value })} style={{ ...inputStyle, width: 170 }} />
+                  <button className="admin-row-btn" style={btnPrimary} disabled={busy || !moving.roomId}
+                    onClick={() => run(() => pmsApi.moveRoom(id, line.id, { roomId: moving.roomId, ratePerNight: moving.rate === '' ? null : Number(moving.rate) }), 'Room updated').then(() => setMoving(null))}>Move</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </section>
+
+        <section>
+          <strong style={{ fontSize: 14 }}>ID documents</strong>
+          {!docs.enabled ? (
+            <p style={{ fontSize: 13, color: 'var(--gray-500)' }}>ID scan storage isn't switched on for this server (PMS_DOCUMENT_KEY). Record the ID type and number on the registration card instead.</p>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '8px 0' }}>
+                <select value={docType} onChange={e => setDocType(e.target.value)} style={inputStyle} aria-label="Document type">
+                  {DOC_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+                <label className="admin-row-btn" style={{ ...btnPrimary, cursor: 'pointer' }}>
+                  <Camera size={14} /> Scan / upload
+                  <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" hidden disabled={busy}
+                    onChange={e => { upload(e.target.files?.[0]); e.target.value = ''; }} />
+                </label>
+                <small style={{ color: 'var(--gray-500)' }}>Encrypted · deleted 30 days after the stay</small>
+              </div>
+              {docs.documents.length === 0 ? <p style={{ fontSize: 13, color: 'var(--gray-500)' }}>No scans yet.</p> : docs.documents.map(d => (
+                <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 13, padding: '6px 0', borderTop: '1px solid var(--gray-100)' }}>
+                  <span>{(DOC_TYPES.find(([v]) => v === d.docType) || [, d.docType])[1]} · {Math.round(d.sizeBytes / 1024)} KB · {new Date(d.createdAt).toLocaleString()}</span>
+                  <span style={{ display: 'flex', gap: 6 }}>
+                    <button className="admin-row-btn" onClick={() => view(d)}>View</button>
+                    <button className="admin-row-btn" title="Delete" onClick={() => confirm('Delete this ID scan?') && run(() => pmsApi.deleteDocument(d.id), 'Deleted')}><Trash2 size={14} /></button>
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
+        </section>
+
+        {preview && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 110, padding: 16 }} onClick={() => setPreview(null)}>
+            {preview.pdf
+              ? <iframe title={preview.label} src={preview.url} style={{ width: 'min(800px, 100%)', height: '85vh', background: '#fff', border: 0, borderRadius: 8 }} />
+              : <img src={preview.url} alt={preview.label} style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: 8 }} />}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -835,7 +1067,7 @@ export function FolioTab({ hotelId, reservations, selectedId, onSelect }) {
               <CreditCard size={14} style={{ verticalAlign: 'middle', marginRight: 6 }} /><strong>Card charged</strong> — ₹{Number(preAuth.amount).toLocaleString('en-IN')} captured and posted below
             </div>
           )}
-          <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+          <div className="admin-kpi-grid workspace-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
             <div className="admin-kpi-card"><div className="admin-kpi-value">₹{Number(folio.totalCharges).toLocaleString('en-IN')}</div><div className="admin-kpi-label">Total charges</div></div>
             <div className="admin-kpi-card"><div className="admin-kpi-value">₹{Number(folio.totalPayments).toLocaleString('en-IN')}</div><div className="admin-kpi-label">Total payments</div></div>
             <div className="admin-kpi-card"><div className="admin-kpi-value">₹{Number(folio.balance).toLocaleString('en-IN')}</div><div className="admin-kpi-label">Balance due</div></div>
@@ -1100,7 +1332,7 @@ export function ReportsTab({ hotelId, chainId }) {
       </div>
 
       <h2 style={{ fontSize: 15, fontWeight: 700, margin: '4px 0 0' }}>Revenue breakdown — last 30 days (by check-in date)</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+      <div className="workspace-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
         <div>
           <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--gray-600)', marginBottom: 6 }}>By room type</div>
           <div className="admin-table-card">{revenueTable(revenue?.byRoomType, 'Room type')}</div>
@@ -1214,6 +1446,12 @@ export function ExtrasTab({ hotelId }) {
   const [aForm, setAForm] = useState({ name: '', description: '', price: '' });
   const [vouchers, setVouchers] = useState([]);
   const [vForm, setVForm] = useState({ code: '', initialValue: '' });
+  const [promos, setPromos] = useState([]);
+  const EMPTY_DEAL = { id: null, name: '', description: '', valueType: 'PERCENT', value: '', stayFrom: '', stayTo: '', bookFrom: '', bookTo: '', minNights: '', minDaysAhead: '', maxDaysAhead: '', active: true };
+  const [deals, setDeals] = useState([]);
+  const [dlForm, setDlForm] = useState(EMPTY_DEAL);
+  const EMPTY_PROMO = { id: null, code: '', discountPackageId: '', validFrom: '', validTo: '', maxUses: '', minNights: '', minAmount: '' };
+  const [pForm, setPForm] = useState(EMPTY_PROMO);
   const [loyalty, setLoyalty] = useState(null);
   const [savingLoyalty, setSavingLoyalty] = useState(false);
 
@@ -1222,6 +1460,8 @@ export function ExtrasTab({ hotelId }) {
     pmsApi.listDiscounts(hotelId).then(res => setDiscounts(res.data.data || [])).catch(() => {});
     pmsApi.listAddOns(hotelId).then(res => setAddOns(res.data.data || [])).catch(() => {});
     pmsApi.listVouchers(hotelId).then(res => setVouchers(res.data.data || [])).catch(() => {});
+    pmsApi.listPromoCodes(hotelId).then(res => setPromos(res.data.data || [])).catch(() => {});
+    pmsApi.listDeals(hotelId).then(res => setDeals(res.data.data || [])).catch(() => {});
     pmsApi.getLoyaltyConfig(hotelId).then(res => setLoyalty(res.data.data)).catch(() => {});
   }, [hotelId]);
   useEffect(() => { load(); }, [load]);
@@ -1264,6 +1504,45 @@ export function ExtrasTab({ hotelId }) {
     try { await pmsApi.issueVoucher({ hotelId, code: vForm.code.toUpperCase(), initialValue: Number(vForm.initialValue) }); setVForm({ code: '', initialValue: '' }); load(); }
     catch (err) { alert(err?.response?.data?.message || 'Could not issue voucher'); }
   };
+
+  const addPromo = async (e) => {
+    e.preventDefault();
+    if (!pForm.code || !pForm.discountPackageId) return;
+    const body = { hotelId, code: pForm.code.toUpperCase(), discountPackageId: pForm.discountPackageId,
+      validFrom: pForm.validFrom || null, validTo: pForm.validTo || null,
+      maxUses: pForm.maxUses ? Number(pForm.maxUses) : null, minNights: pForm.minNights ? Number(pForm.minNights) : null,
+      minAmount: pForm.minAmount ? Number(pForm.minAmount) : null };
+    try {
+      if (pForm.id) await pmsApi.updatePromoCode(pForm.id, body); else await pmsApi.createPromoCode(body);
+      setPForm(EMPTY_PROMO); load();
+    } catch (err) { alert(err?.response?.data?.message || 'Could not save promo code'); }
+  };
+  const editPromo = (p) => setPForm({ id: p.id, code: p.code, discountPackageId: p.discountPackageId, validFrom: p.validFrom || '', validTo: p.validTo || '',
+    maxUses: p.maxUses ?? '', minNights: p.minNights ?? '', minAmount: p.minAmount ?? '' });
+  const deletePromo = (p) => window.confirm(`Delete promo code ${p.code}?`) && pmsApi.deletePromoCode(p.id).then(load).catch(err => alert(err?.response?.data?.message || 'Could not delete promo code'));
+  const num = (v) => (v === '' || v == null ? null : Number(v));
+  const saveDeal = async (e) => {
+    e.preventDefault();
+    const body = { hotelId, name: dlForm.name, description: dlForm.description, valueType: dlForm.valueType, value: num(dlForm.value),
+      stayFrom: dlForm.stayFrom || null, stayTo: dlForm.stayTo || null, bookFrom: dlForm.bookFrom || null, bookTo: dlForm.bookTo || null,
+      minNights: num(dlForm.minNights), minDaysAhead: num(dlForm.minDaysAhead), maxDaysAhead: num(dlForm.maxDaysAhead), active: dlForm.active };
+    try {
+      if (dlForm.id) await pmsApi.updateDeal(dlForm.id, body); else await pmsApi.createDeal(body);
+      setDlForm(EMPTY_DEAL); load();
+    } catch (err) { alert(err?.response?.data?.message || 'Could not save deal'); }
+  };
+  const editDeal = (d) => setDlForm(Object.fromEntries(Object.entries({ ...EMPTY_DEAL, ...d }).map(([k, v]) => [k, v ?? ''])));
+  const toggleDeal = (d) => pmsApi.updateDeal(d.id, { ...d, active: !d.active }).then(load).catch(err => alert(err?.response?.data?.message || 'Could not update deal'));
+  const deleteDeal = (d) => window.confirm(`Delete the deal "${d.name}"?`) && pmsApi.deleteDeal(d.id).then(load).catch(() => alert('Could not delete deal'));
+  const DEAL_PRESETS = [
+    { label: 'Early bird', name: 'Early bird', description: 'Book 30 days ahead and save', value: 15, minDaysAhead: 30 },
+    { label: 'Last minute', name: 'Last-minute deal', description: 'Arriving within 3 days', value: 10, maxDaysAhead: 3 },
+    { label: 'Stay longer', name: 'Stay 3, save more', description: 'Stay 3 nights or more', value: 12, minNights: 3 },
+  ];
+  const dealRule = (d) => [d.minDaysAhead != null && `${d.minDaysAhead}+ days ahead`, d.maxDaysAhead != null && `within ${d.maxDaysAhead} days`,
+    d.minNights && `${d.minNights}+ nights`, (d.stayFrom || d.stayTo) && `stays ${d.stayFrom || '…'} → ${d.stayTo || '…'}`,
+    (d.bookFrom || d.bookTo) && `booked ${d.bookFrom || '…'} → ${d.bookTo || '…'}`].filter(Boolean).join(' · ') || 'Every booking';
+  const togglePromo = (p) => pmsApi.setPromoCodeActive(p.id, !p.active).then(load).catch(err => alert(err?.response?.data?.message || 'Could not update promo code'));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -1318,6 +1597,89 @@ export function ExtrasTab({ hotelId }) {
           </select>
           <input type="number" placeholder="Value" value={dForm.value} onChange={e => setDForm({ ...dForm, value: e.target.value })} style={{ ...inputStyle, width: 110 }} />
           <button type="submit" className="admin-row-btn" style={btnPrimary}><Plus size={14} /> Add discount</button>
+        </form>
+      </div>
+
+      <div className="admin-table-card" style={{ padding: 16 }}>
+        <strong>Booking-engine deals</strong> <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>(applied automatically, no code needed; a promo code is used instead only when it saves more)</span>
+        <table className="admin-table" style={{ marginTop: 10 }}>
+          <thead><tr><th>Deal</th><th>Discount</th><th>When it applies</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            {deals.map(d => (
+              <tr key={d.id}>
+                <td className="admin-td-shop">{d.name}{d.description && <div style={{ fontSize: 11.5, color: 'var(--gray-500)', fontWeight: 400 }}>{d.description}</div>}</td>
+                <td>{d.valueType === 'FIXED' ? `₹${Number(d.value).toLocaleString('en-IN')}` : `${Number(d.value)}%`}</td>
+                <td style={{ fontSize: 12.5 }}>{dealRule(d)}</td>
+                <td><span className={d.active ? 'status-pill st-active' : 'status-pill st-suspended'}>{d.active ? 'Live' : 'Paused'}</span></td>
+                <td style={{ display: 'flex', gap: 6 }}>
+                  <button className="admin-row-btn" style={btnSecondary} onClick={() => toggleDeal(d)}>{d.active ? 'Pause' : 'Resume'}</button>
+                  <button className="admin-row-btn" style={btnSecondary} onClick={() => editDeal(d)}>Edit</button>
+                  <button className="admin-row-btn" style={btnSecondary} onClick={() => deleteDeal(d)} aria-label={`Delete ${d.name}`}><Trash2 size={13} /></button>
+                </td>
+              </tr>
+            ))}
+            {deals.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 16 }}>No deals yet. Start from a preset below.</td></tr>}
+          </tbody>
+        </table>
+        {!dlForm.id && <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+          {DEAL_PRESETS.map(p => <button key={p.label} type="button" className="admin-row-btn" style={btnSecondary} onClick={() => setDlForm({ ...EMPTY_DEAL, ...p, label: undefined })}>{p.label}</button>)}
+        </div>}
+        <form onSubmit={saveDeal} style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input placeholder="Deal name" required maxLength={80} value={dlForm.name} onChange={e => setDlForm({ ...dlForm, name: e.target.value })} style={inputStyle} />
+          <input placeholder="Shown to guests (optional)" maxLength={200} value={dlForm.description} onChange={e => setDlForm({ ...dlForm, description: e.target.value })} style={{ ...inputStyle, minWidth: 220 }} />
+          <select value={dlForm.valueType} onChange={e => setDlForm({ ...dlForm, valueType: e.target.value })} style={inputStyle} aria-label="Discount type">
+            <option value="PERCENT">% off rooms</option><option value="FIXED">₹ off rooms</option>
+          </select>
+          <input type="number" min="0" step="0.01" required placeholder="Value" value={dlForm.value} onChange={e => setDlForm({ ...dlForm, value: e.target.value })} style={{ ...inputStyle, width: 90 }} />
+          <input type="number" min="0" placeholder="Min days ahead" value={dlForm.minDaysAhead} onChange={e => setDlForm({ ...dlForm, minDaysAhead: e.target.value })} style={{ ...inputStyle, width: 130 }} />
+          <input type="number" min="0" placeholder="Max days ahead" value={dlForm.maxDaysAhead} onChange={e => setDlForm({ ...dlForm, maxDaysAhead: e.target.value })} style={{ ...inputStyle, width: 130 }} />
+          <input type="number" min="1" placeholder="Min nights" value={dlForm.minNights} onChange={e => setDlForm({ ...dlForm, minNights: e.target.value })} style={{ ...inputStyle, width: 100 }} />
+          <label style={{ fontSize: 12, color: 'var(--gray-500)' }}>Stays <input type="date" value={dlForm.stayFrom} onChange={e => setDlForm({ ...dlForm, stayFrom: e.target.value })} style={inputStyle} /> to <input type="date" value={dlForm.stayTo} min={dlForm.stayFrom || undefined} onChange={e => setDlForm({ ...dlForm, stayTo: e.target.value })} style={inputStyle} /></label>
+          <label style={{ fontSize: 12, color: 'var(--gray-500)' }}>Booked <input type="date" value={dlForm.bookFrom} onChange={e => setDlForm({ ...dlForm, bookFrom: e.target.value })} style={inputStyle} /> to <input type="date" value={dlForm.bookTo} min={dlForm.bookFrom || undefined} onChange={e => setDlForm({ ...dlForm, bookTo: e.target.value })} style={inputStyle} /></label>
+          <button type="submit" className="admin-row-btn" style={btnPrimary}>{dlForm.id ? <><Save size={14} /> Save deal</> : <><Plus size={14} /> Add deal</>}</button>
+          {(dlForm.id || dlForm.name) && <button type="button" className="admin-row-btn" style={btnSecondary} onClick={() => setDlForm(EMPTY_DEAL)}>Cancel</button>}
+        </form>
+      </div>
+
+      <div className="admin-table-card" style={{ padding: 16 }}>
+        <strong>Booking-engine promo codes</strong> <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>(guests enter these at online checkout; each applies a discount package)</span>
+        <table className="admin-table" style={{ marginTop: 10 }}>
+          <thead><tr><th>Code</th><th>Discount</th><th>Valid</th><th>Conditions</th><th>Used</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            {promos.map(p => {
+              const d = discounts.find(x => x.id === p.discountPackageId);
+              return (
+                <tr key={p.id}>
+                  <td className="admin-td-shop" style={{ fontFamily: 'monospace' }}>{p.code}</td>
+                  <td>{d ? `${d.name} (${d.valueType === 'FIXED' ? `₹${d.value}` : `${d.value}%`})` : '—'}</td>
+                  <td>{p.validFrom || p.validTo ? `${p.validFrom || '…'} → ${p.validTo || '…'}` : 'Always'}</td>
+                  <td>{[p.minNights && `${p.minNights}+ nights`, p.minAmount && `₹${Number(p.minAmount).toLocaleString('en-IN')}+`].filter(Boolean).join(', ') || 'Any stay'}</td>
+                  <td>{p.usedCount || 0}{p.maxUses ? ` / ${p.maxUses}` : ''}</td>
+                  <td><span className={p.active && !(p.maxUses && p.usedCount >= p.maxUses) ? 'status-pill st-active' : 'status-pill st-suspended'}>{p.maxUses && p.usedCount >= p.maxUses ? 'Used up' : p.active ? 'Active' : 'Paused'}</span></td>
+                  <td style={{ display: 'flex', gap: 6 }}>
+                    <button className="admin-row-btn" style={btnSecondary} onClick={() => togglePromo(p)}>{p.active ? 'Pause' : 'Resume'}</button>
+                    <button className="admin-row-btn" style={btnSecondary} onClick={() => editPromo(p)}>Edit</button>
+                    <button className="admin-row-btn" style={btnSecondary} onClick={() => deletePromo(p)} aria-label={`Delete ${p.code}`}><Trash2 size={13} /></button>
+                  </td>
+                </tr>
+              );
+            })}
+            {promos.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: 16 }}>No promo codes yet</td></tr>}
+          </tbody>
+        </table>
+        <form onSubmit={addPromo} style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input placeholder="Code (e.g. EARLY10)" value={pForm.code} maxLength={32} disabled={!!pForm.id} onChange={e => setPForm({ ...pForm, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '') })} style={inputStyle} />
+          <select value={pForm.discountPackageId} onChange={e => setPForm({ ...pForm, discountPackageId: e.target.value })} style={inputStyle} aria-label="Discount package">
+            <option value="">Discount package…</option>
+            {discounts.filter(d => d.active).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+          <label style={{ fontSize: 12, color: 'var(--gray-500)' }}>From <input type="date" value={pForm.validFrom} onChange={e => setPForm({ ...pForm, validFrom: e.target.value })} style={inputStyle} /></label>
+          <label style={{ fontSize: 12, color: 'var(--gray-500)' }}>To <input type="date" value={pForm.validTo} min={pForm.validFrom || undefined} onChange={e => setPForm({ ...pForm, validTo: e.target.value })} style={inputStyle} /></label>
+          <input type="number" min="1" placeholder="Max uses" title="Leave empty for unlimited" value={pForm.maxUses} onChange={e => setPForm({ ...pForm, maxUses: e.target.value })} style={{ ...inputStyle, width: 100 }} />
+          <input type="number" min="1" placeholder="Min nights" value={pForm.minNights} onChange={e => setPForm({ ...pForm, minNights: e.target.value })} style={{ ...inputStyle, width: 100 }} />
+          <input type="number" min="0" placeholder="Min room total ₹" value={pForm.minAmount} onChange={e => setPForm({ ...pForm, minAmount: e.target.value })} style={{ ...inputStyle, width: 140 }} />
+          <button type="submit" className="admin-row-btn" style={btnPrimary}>{pForm.id ? <><Save size={14} /> Save changes</> : <><Plus size={14} /> Add promo code</>}</button>
+          {pForm.id && <button type="button" className="admin-row-btn" style={btnSecondary} onClick={() => setPForm(EMPTY_PROMO)}>Cancel</button>}
         </form>
       </div>
 
@@ -2434,7 +2796,7 @@ export function ChainTemplatesTab({ chainId }) {
       </div>
 
       {pushResult && (
-        <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)' }}>
+        <div className="admin-kpi-grid workspace-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)' }}>
           <div className="admin-kpi-card"><div className="admin-kpi-value">{pushResult.hotelsProcessed}</div><div className="admin-kpi-label">Properties updated</div></div>
           <div className="admin-kpi-card"><div className="admin-kpi-value">{pushResult.roomTypesCreated}</div><div className="admin-kpi-label">Room types created</div></div>
           <div className="admin-kpi-card"><div className="admin-kpi-value">{pushResult.roomTypesUpdated}</div><div className="admin-kpi-label">Room types updated</div></div>
@@ -2533,7 +2895,7 @@ export function ImportTab({ hotelId, onImported }) {
 
       {result && (
         <>
-          <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+          <div className="admin-kpi-grid workspace-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
             <div className="admin-kpi-card"><div className="admin-kpi-value">{result.totalRows}</div><div className="admin-kpi-label">Rows processed</div></div>
             <div className="admin-kpi-card"><div className="admin-kpi-value">{result.succeeded}</div><div className="admin-kpi-label">Imported</div></div>
             <div className="admin-kpi-card"><div className="admin-kpi-value">{result.failed}</div><div className="admin-kpi-label">Failed</div></div>
@@ -2553,5 +2915,5 @@ export function ImportTab({ hotelId, onImported }) {
 }
 
 const inputStyle = { height: 34, padding: '0 10px', borderRadius: 8, border: '1px solid var(--gray-200)', fontSize: 13 };
-const btnPrimary = { width: 'auto', height: 34, padding: '0 12px', background: 'var(--blue)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none' };
+const btnPrimary = { width: 'auto', height: 34, padding: '0 12px', background: 'var(--green)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none' };
 const btnSecondary = { width: 'auto', height: 34, padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: 6 };

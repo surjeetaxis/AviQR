@@ -1,21 +1,28 @@
+import { encryptPayload, encryptRequest } from './payloadEncryption.js';
+import { requestCaptcha } from './captchaBroker.js';
+import { requestStepUp } from './stepUpBroker.js';
 // AviQR Web — API Client
 // Auto-falls back to mock data when backend is unreachable
 
 import axios from 'axios';
+import { API_BASE_URL, assertSecureApiUrl } from './transportSecurity.js';
+import { getAccessToken, setSession } from './sessionStore.js';
 import { getActiveOutletId, getActiveToken } from './outletContext.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const BASE_URL = API_BASE_URL;
 const APP_VERSION = '1.0.0';
 
 export const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 8000,
+  timeout: 12000,
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
 
 // ── Attach JWT + shop context on every request ────────────────────────────────
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
+  assertSecureApiUrl(api.getUri(config));
   // While managing a hotel outlet, use the short-lived outlet-scoped token
   // (carries the outlet's real shopId) instead of the user's own login token,
   // so gateway-derived X-Shop-Id checks in shop/order/menu/report/qr/payment
@@ -25,47 +32,63 @@ api.interceptors.request.use((config) => {
   // at once, where the single module-level active-outlet token doesn't fit.
   if (!config.headers.Authorization) {
     const outletToken = getActiveOutletId() ? getActiveToken() : null;
-    const token = outletToken || localStorage.getItem('aviqr_token');
+    const token = outletToken || getAccessToken();
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
-  try {
-    const user = JSON.parse(localStorage.getItem('aviqr_user') || '{}');
-    if (user.shopId) config.headers['X-Shop-Id']   = user.shopId;
-    if (user.role)   config.headers['X-User-Role'] = user.role.toUpperCase();
-  } catch {}
+  config.headers['X-CSRF-Protection'] = '1';
   // Lets support/admin session analytics tell web logins apart from mobile —
   // see aviqr-mobile-expo's resolveDevHost()-adjacent header set for the
   // mobile-side equivalent of this.
   config.headers['X-Platform'] = 'WEB';
   config.headers['X-App-Version'] = APP_VERSION;
-  return config;
+  return encryptRequest(config, BASE_URL, api.getUri(config));
 });
 
-// ── Auto-refresh on 401 ───────────────────────────────────────────────────────
-api.interceptors.response.use(
-  (r) => r,
-  async (error) => {
-    const original = error.config;
-    if (error.response?.status === 401 && !original._retry) {
-      original._retry = true;
-      try {
-        const rt = localStorage.getItem('aviqr_refresh');
-        if (rt) {
-          const res = await axios.post(`${BASE_URL}/api/v1/auth/refresh`, { refreshToken: rt });
-          const newToken = res.data.data.accessToken;
-          localStorage.setItem('aviqr_token', newToken);
-          original.headers.Authorization = `Bearer ${newToken}`;
-          return api(original);
-        }
-      } catch {
-        localStorage.removeItem('aviqr_token');
-        localStorage.removeItem('aviqr_refresh');
-        window.location.href = '/login';
-      }
-    }
+// One refresh request per audience prevents concurrent refresh-token rotation races.
+const refreshes = {};
+export function refreshSession(audience = 'staff') {
+  if (!refreshes[audience]) {
+    refreshes[audience] = encryptPayload({}, 'POST', '/api/v1/auth/refresh', BASE_URL).then(body => axios.post(`${BASE_URL}/api/v1/auth/refresh`, body, {
+      withCredentials: true,
+      headers: { 'X-Platform': 'WEB', 'X-Auth-Audience': audience, 'X-CSRF-Protection': '1' },
+    })).then(res => { setSession(res.data.data, audience); return res.data.data; })
+      .finally(() => { delete refreshes[audience]; });
+  }
+  return refreshes[audience];
+}
+api.interceptors.response.use(r => r, async error => {
+  const original = error.config;
+  if(original && error.response?.status===403 && error.response?.data?.captchaRequired && !original._captchaRetried){
+    original._captchaRetried=true;
+    const token=await requestCaptcha({siteKey:error.response.data.siteKey});
+    original.headers['X-Captcha-Token']=token;
+    return api(original);
+  }
+
+  if(original && error.response?.status===428 && error.response?.data?.requiresStepUp && !original._stepUpRetried){
+    original._stepUpRetried=true;
+    const target=new URL(api.getUri(original),'https://aviqr.invalid');
+    const token=await requestStepUp({method:(original.method||'POST').toUpperCase(),target:target.pathname+target.search,
+      config:{headers:{Authorization:original.headers.Authorization,'X-Auth-Audience':original.headers['X-Auth-Audience']||'staff'}}});
+    original.headers['X-Step-Up-Token']=token;
+    return api(original);
+  }
+
+  if (!original || error.response?.status !== 401 || original._retry ||
+      /\/auth\/(login|register|otp|refresh|forgot-password|reset-password|security\/step-up|passkeys)/.test(original.url || '')) {
     return Promise.reject(error);
   }
-);
+  original._retry = true;
+  const audience = original.headers?.['X-Auth-Audience'] || 'staff';
+  try {
+    const data = await refreshSession(audience);
+    original.headers.Authorization = `Bearer ${data.accessToken}`;
+    return api(original);
+  } catch {
+    setSession(null, audience);
+    return Promise.reject(error);
+  }
+});
 
 // ── Backend health check ──────────────────────────────────────────────────────
 // Uses a RELATIVE URL so Vite proxy handles it — avoids CORS in dev
@@ -86,14 +109,14 @@ export async function checkBackend() {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export const authApi = {
   login:          (d)    => api.post('/api/v1/auth/login', d),
-  loginOtp:       (d)    => api.post('/api/v1/auth/otp/login', d),
+  loginOtp:       (d, config={}) => api.post('/api/v1/auth/otp/login', d, config),
   sendOtp:        (email)=> api.post('/api/v1/auth/otp/send', { email }),
   register:       (d)    => api.post('/api/v1/auth/register', d),
-  logout:         ()     => api.post('/api/v1/auth/logout'),
+  logout:         (config={}) => api.post('/api/v1/auth/logout', {}, config),
   getProfile:     (config={})    => api.get('/api/v1/auth/profile', config),
   updateProfile:  (d, config={}) => api.put('/api/v1/auth/profile', d, config),
   deactivateAccount: (config={}) => api.put('/api/v1/auth/deactivate', {}, config),
-  forgotPassword:  (e)    => api.post(`/api/v1/auth/forgot-password?email=${e}`),
+  forgotPassword:  (e)    => api.post(`/api/v1/auth/forgot-password?email=${encodeURIComponent(e)}`),
   resetPassword:   (d)    => api.post('/api/v1/auth/reset-password', d),
   changePassword:  (d)    => api.post('/api/v1/auth/change-password', d),
   linkShop:        (shopId) => api.put('/api/v1/auth/link-shop', { shopId }),
@@ -208,10 +231,11 @@ export const orderQrApi = {
 
 // ── Media (file upload — menu item photos/videos/3D models, shop logos) ───────
 export const mediaApi = {
-  upload: (file, folder = 'misc', kind = 'image') => {
+  upload: (file, folder = 'misc', kind = 'image', config = {}) => {
     const fd = new FormData();
     fd.append('file', file);
     return api.post('/api/v1/media/upload', fd, {
+      ...config,
       params: { folder, kind },
       headers: { 'Content-Type': 'multipart/form-data' },
     });
@@ -331,11 +355,15 @@ export const reportApi = {
 export const hotelApi = {
   getMyHotels:    ()         => api.get('/api/v1/hotels/my'), listAll:        (p)        => api.get('/api/v1/hotels/admin/all', { params: p }),
   update:         (id, d)    => api.put(`/api/v1/hotels/${id}`, d),
+  getBookingEngineSettings: (id) => api.get(`/api/v1/hotels/${id}/booking-engine-settings`),
+  updateBookingEngineSettings: (id, d) => api.put(`/api/v1/hotels/${id}/booking-engine-settings`, d),
+  setBookingEngineEnabled: (id, enabled) => api.patch(`/api/v1/hotels/${id}/booking-engine-settings/enabled`, null, { params: { enabled } }),
   create:         (d)        => api.post('/api/v1/hotels', d),
   createChain:    (d)        => api.post('/api/v1/chains', d),
   assignChain:    (hotelId, chainId) => api.put(`/api/v1/hotels/${hotelId}/chain`, null, { params: { chainId } }),
   getRooms:       (hotelId)  => api.get(`/api/v1/rooms/hotel/${hotelId}`),
   updateRoom:     (id, d)    => api.put(`/api/v1/rooms/${id}`, d),
+  updateRoomBookingDisplay: (id, d) => api.put(`/api/v1/rooms/${id}/booking-display`, d),
   createRoom:     (d)        => api.post('/api/v1/rooms', d),
   toggleRoomQr:   (id, active) => api.put(`/api/v1/rooms/${id}/qr?active=${active}`),
   createRoomQr:   (id)         => api.post(`/api/v1/rooms/${id}/qr-code`),
@@ -352,6 +380,17 @@ export const hotelApi = {
 };
 
 // ── PMS (room types/rates, reservations, front-desk, folio) ───────────────────
+// ── Hotels' own payment gateways (payment-gateway-service) ──
+export const paymentGatewayApi = {
+  gateways:     ()                     => api.get('/api/v1/payment-gateway/gateways'),
+  accounts:     (hotelId)              => api.get(`/api/v1/payment-gateway/accounts/hotel/${hotelId}`),
+  saveAccount:  (hotelId, gateway, d)  => api.put(`/api/v1/payment-gateway/accounts/hotel/${hotelId}/${gateway}`, d),
+  prefer:       (hotelId, gateway)     => api.put(`/api/v1/payment-gateway/accounts/hotel/${hotelId}/${gateway}/preferred`),
+  removeAccount:(hotelId, gateway)     => api.delete(`/api/v1/payment-gateway/accounts/hotel/${hotelId}/${gateway}`),
+  transactions: (hotelId)              => api.get(`/api/v1/payment-gateway/transactions/hotel/${hotelId}`),
+  resolve:      (id, paid)             => api.put(`/api/v1/payment-gateway/transactions/${id}/resolve`, null, { params: { paid } }),
+};
+
 export const pmsApi = {
   // Room types
   listRoomTypes:   (hotelId)      => api.get(`/api/v1/pms/room-types/hotel/${hotelId}`),
@@ -387,6 +426,20 @@ export const pmsApi = {
   noShow:          (id)           => api.post(`/api/v1/pms/reservations/${id}/no-show`),
   extendStay:      (id, newCheckOutDate) => api.post(`/api/v1/pms/reservations/${id}/extend`, null, { params: { newCheckOutDate } }),
   getRegistrationCard: (id)              => api.get(`/api/v1/pms/reservations/${id}/registration-card`),
+  // Front desk: lookup, room changes, encrypted ID scans and the guest's booking voucher
+  frontDeskLookup: (hotelId, q)          => api.get(`/api/v1/pms/front-desk/hotel/${hotelId}/lookup`, { params: { q } }),
+  roomOptions:     (id, lineId)          => api.get(`/api/v1/pms/reservations/${id}/rooms/${lineId}/options`),
+  moveRoom:        (id, lineId, d)       => api.post(`/api/v1/pms/reservations/${id}/rooms/${lineId}/move`, d),
+  listDocuments:   (id)                  => api.get(`/api/v1/pms/reservations/${id}/documents`),
+  uploadDocument:  (id, file, docType)   => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return api.post(`/api/v1/pms/reservations/${id}/documents`, fd, { params: { docType }, headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+  getDocument:     (docId)               => api.get(`/api/v1/pms/documents/${docId}`, { responseType: 'blob' }),
+  deleteDocument:  (docId)               => api.delete(`/api/v1/pms/documents/${docId}`),
+  voucherLink:     (id)                  => api.get(`/api/v1/pms/reservations/${id}/voucher-link`),
+  emailVoucher:    (id, storefrontHost='') => api.post(`/api/v1/pms/reservations/${id}/voucher/email`, null, { params: { storefrontHost } }),
   // Payment gateway — card pre-authorization on a reservation's folio
   createPreAuth:  (id, amount)           => api.post(`/api/v1/pms/reservations/${id}/pre-auth`, { amount }),
   verifyPreAuth:  (id, d)                => api.post(`/api/v1/pms/reservations/${id}/pre-auth/verify`, d),
@@ -421,6 +474,10 @@ export const pmsApi = {
   // Group bookings
   listGroups:      (hotelId)      => api.get(`/api/v1/pms/groups/hotel/${hotelId}`),
   createGroup:     (d)            => api.post('/api/v1/pms/groups', d),
+  // Group quote requests from the booking engine
+  listGroupEnquiries:   (hotelId) => api.get(`/api/v1/pms/group-enquiries/hotel/${hotelId}`),
+  updateGroupEnquiry:   (id, d)   => api.put(`/api/v1/pms/group-enquiries/${id}`, d),
+  convertGroupEnquiry:  (id)      => api.post(`/api/v1/pms/group-enquiries/${id}/convert`),
   getGroup:        (id)           => api.get(`/api/v1/pms/groups/${id}`),
   groupCheckIn:    (id)           => api.post(`/api/v1/pms/groups/${id}/check-in`),
   groupCheckOut:   (id)           => api.post(`/api/v1/pms/groups/${id}/check-out`),
@@ -449,6 +506,20 @@ export const pmsApi = {
   createDiscount:  (d)            => api.post('/api/v1/pms/discounts', d),
   updateDiscount:  (id, d)        => api.put(`/api/v1/pms/discounts/${id}`, d),
   applyDiscount:   (reservationId, discountId) => api.post(`/api/v1/pms/reservations/${reservationId}/discounts/${discountId}`),
+  // Booking-engine hotel policies, default cancellation policy and terms guests accept
+  getBookingEngineSettings:    (hotelId)    => api.get(`/api/v1/pms/booking-engine-settings/hotel/${hotelId}`),
+  updateBookingEngineSettings: (hotelId, d) => api.put(`/api/v1/pms/booking-engine-settings/hotel/${hotelId}`, d),
+  // Booking-engine promo codes: guest-entered codes that apply a discount package
+  listPromoCodes:  (hotelId)      => api.get(`/api/v1/pms/promo-codes/hotel/${hotelId}`),
+  createPromoCode: (d)            => api.post('/api/v1/pms/promo-codes', d),
+  setPromoCodeActive: (id, active) => api.put(`/api/v1/pms/promo-codes/${id}/active`, null, { params: { active } }),
+  updatePromoCode: (id, d)        => api.put(`/api/v1/pms/promo-codes/${id}`, d),
+  // Booking-engine deals: offers applied automatically, without a code
+  listDeals:   (hotelId)          => api.get(`/api/v1/pms/deals/hotel/${hotelId}`),
+  createDeal:  (d)                => api.post('/api/v1/pms/deals', d),
+  updateDeal:  (id, d)            => api.put(`/api/v1/pms/deals/${id}`, d),
+  deleteDeal:  (id)               => api.delete(`/api/v1/pms/deals/${id}`),
+  deletePromoCode: (id)           => api.delete(`/api/v1/pms/promo-codes/${id}`),
   listAddOns:      (hotelId)      => api.get(`/api/v1/pms/addons/hotel/${hotelId}`),
   createAddOn:     (d)            => api.post('/api/v1/pms/addons', d),
   updateAddOn:     (id, d)        => api.put(`/api/v1/pms/addons/${id}`, d),
@@ -794,4 +865,16 @@ export const diningAreaApi = {
   delete:     (id)           => api.delete(`/api/v1/dining-areas/${id}`),
   getPrices:  (areaId)       => api.get(`/api/v1/dining-areas/${areaId}/prices`),
   savePrices: (areaId, data) => api.put(`/api/v1/dining-areas/${areaId}/prices`, data),
+};
+
+export const adminSecurityApi = {
+  records: (kind, page=0) => api.get('/api/v1/auth/admin/security/records', { params: {kind,page} }),
+  exempt: data => api.post('/api/v1/auth/admin/security/otp-exemptions', data),
+  revoke: (id,reason) => api.post(`/api/v1/auth/admin/security/records/${id}/revoke`, {reason}),
+  reset: data => api.post('/api/v1/auth/admin/security/password-resets', data),
+  unblock: data => api.post('/api/v1/auth/admin/security/unblock', data),
+  support: (page=0) => api.get('/api/v1/auth/admin/security/support', { params: {page} }),
+  createSupport: data => api.post('/api/v1/auth/admin/security/support', data),
+  approve: (id,reason) => api.post(`/api/v1/auth/admin/security/support/${id}/approve`, {reason}),
+  terminate: (id,reason) => api.post(`/api/v1/auth/admin/security/support/${id}/terminate`, {reason}),
 };

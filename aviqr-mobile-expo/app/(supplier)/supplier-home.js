@@ -89,7 +89,7 @@ export default function SupplierHomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <LinearGradient colors={['#064E3B','#059669']} style={styles.header}>
+      <LinearGradient colors={[Colors.brandSurface, Colors.brandRaised]} style={styles.header}>
         <View style={styles.headerRow}>
           <View style={styles.brandRow}>
             <Logo size={30} />
@@ -200,5 +200,5 @@ const styles = StyleSheet.create({
   emptyText:  { fontSize: FontSize.base, color: Colors.gray400 },
   addOutletBtn: { alignItems: 'center', paddingVertical: 14, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.primary, borderStyle: 'dashed', marginTop: 4 },
   addOutletText: { fontWeight: '700', color: Colors.primary, fontSize: FontSize.sm },
-  sheetTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900, marginBottom: Spacing.base },
+  sheetTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900, marginBottom: Spacing.base },
 });

@@ -22,6 +22,11 @@ public class NotificationRabbitConfig {
         return BindingBuilder.bind(otpRequestedQueue()).to(usersExchange()).with("otp.requested");
     }
 
+    @Bean public Queue securityNoticeQueue(){return QueueBuilder.durable("security.notice.queue").deadLetterExchange(USERS_EXCHANGE).deadLetterRoutingKey("security.notice.failed").build();}
+    @Bean public Binding securityNoticeBinding(){return BindingBuilder.bind(securityNoticeQueue()).to(usersExchange()).with("security.notice");}
+    @Bean public Queue securityNoticeFailedQueue(){return QueueBuilder.durable("security.notice.failed.queue").build();}
+    @Bean public Binding securityNoticeFailedBinding(){return BindingBuilder.bind(securityNoticeFailedQueue()).to(usersExchange()).with("security.notice.failed");}
+
     // ── Sales lead outreach (published by support-service's LeadController,
     // only when a staff member explicitly approves+sends one drafted email) ──
     public static final String LEADS_EXCHANGE          = "aviqr.leads";

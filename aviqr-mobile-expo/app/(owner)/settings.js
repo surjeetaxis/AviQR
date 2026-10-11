@@ -18,7 +18,7 @@ const LANGUAGES = [
   {code:'gu',label:'Gujarati',native:'ગુજરાતી'},
 ];
 const PLAN_INFO = {
-  STARTER:    { label: 'Starter',    price: 0,    color: '#6B7280' },
+  STARTER:    { label: 'Starter',    price: 0,    color: Colors.gray500 },
   GROWTH:     { label: 'Growth',     price: 999,  color: '#059669' },
   BUSINESS:   { label: 'Business',   price: 2499, color: '#7C3AED' },
   ENTERPRISE: { label: 'Enterprise', price: 0,    color: '#D97706' },
@@ -410,7 +410,7 @@ export default function Settings() {
 const ss=StyleSheet.create({
   screen:{flex:1,backgroundColor:Colors.background},
   header:{paddingHorizontal:16,paddingTop:52,paddingBottom:12,backgroundColor:Colors.white,borderBottomWidth:1,borderBottomColor:Colors.border},
-  title:{fontSize:FontSize['2xl'],fontWeight:'800',color:Colors.gray900},
+  title:{fontSize:FontSize['2xl'],fontWeight:'600',color:Colors.gray900},
   section:{marginHorizontal:12,marginTop:16},
   secTitle:{fontSize:11,fontWeight:'700',color:Colors.gray400,textTransform:'uppercase',letterSpacing:0.7,marginBottom:8},
   secCard:{backgroundColor:Colors.white,borderRadius:Radius.lg,borderWidth:1,borderColor:Colors.border,overflow:'hidden'},
@@ -438,7 +438,7 @@ const ss=StyleSheet.create({
   referralCode:{fontSize:FontSize['2xl'],fontWeight:'800',color:Colors.primary,letterSpacing:2,marginTop:4},
   referralCount:{fontSize:FontSize.sm,fontWeight:'600',color:'#059669',marginTop:10,textAlign:'center'},
   trialBannerTxt:{fontSize:FontSize.xs,color:'#1E40AF',lineHeight:16},
-  sheetTitle:{fontSize:FontSize.lg,fontWeight:'800',color:Colors.gray900,marginBottom:12},
+  sheetTitle:{fontSize:FontSize.lg,fontWeight:'600',color:Colors.gray900,marginBottom:12},
   fieldLabel:{fontSize:FontSize.sm,fontWeight:'600',color:Colors.gray700,marginBottom:6,marginTop:2},
   chipRow:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:12},
   chip:{paddingHorizontal:12,paddingVertical:7,borderRadius:Radius.full,backgroundColor:Colors.gray100,borderWidth:1.5,borderColor:'transparent'},

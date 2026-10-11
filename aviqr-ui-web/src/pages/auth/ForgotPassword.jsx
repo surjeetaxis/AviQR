@@ -32,7 +32,7 @@ export default function ForgotPassword() {
 
   const handleReset = async () => {
     if (!otp || !newPw) return;
-    if (newPw.length < 8) return setError('Password must be at least 8 characters');
+    if (newPw.length < 12) return setError('Password must be at least 12 characters');
     setLoading(true);
     setError('');
     try {
@@ -82,7 +82,7 @@ export default function ForgotPassword() {
               <div className="field">
                 <label className="field-label">New password</label>
                 <div className="field-input-wrap">
-                  <input className="field-input" type={showPw ? 'text' : 'password'} placeholder="Min 8 characters"
+                  <input className="field-input" type={showPw ? 'text' : 'password'} placeholder="Min 12 characters"
                     value={newPw} onChange={e=>setNewPw(e.target.value)} autoComplete="new-password"/>
                   <button type="button" className="field-eye" onClick={() => setShowPw(s => !s)}>
                     {showPw ? <EyeOff size={16}/> : <Eye size={16}/>}

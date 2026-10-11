@@ -88,7 +88,7 @@ const ss = StyleSheet.create({
   count: { fontSize: FontSize.xs, color: Colors.gray500, fontWeight: '600', paddingHorizontal: Spacing.base, marginTop: 12 },
   emptyTxt: { textAlign: 'center', color: Colors.gray400, paddingVertical: 40, fontSize: FontSize.sm },
   card: { flex: 1, backgroundColor: Colors.white, borderRadius: Radius.lg, padding: 14, ...Shadow.sm },
-  cardIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  cardIcon: { width: 44, height: 44, borderRadius: Radius.lg, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   cardName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray900 },
   cardCat: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 2 },
   cardFloor: { fontSize: 11, color: Colors.gray400, marginTop: 8 },

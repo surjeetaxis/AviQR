@@ -133,8 +133,8 @@ function RevenueBlock({ title, rows }) {
 
 const ss = StyleSheet.create({
   sub: { fontSize: FontSize.sm, color: Colors.gray500, marginBottom: 14 },
-  cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 10 },
-  blockTitle: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray900, marginBottom: 8 },
+  cardTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 10 },
+  blockTitle: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900, marginBottom: 8 },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   kpi: { width: '31%', backgroundColor: Colors.white, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 10, alignItems: 'center' },
   kpiValue: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900 },

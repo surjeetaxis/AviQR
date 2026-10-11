@@ -35,11 +35,11 @@ export default function Topbar({ onSearchOpen }) {
         <div className="topbar-divider" aria-hidden="true" />
 
         <div className="topbar-profile-wrap">
-          <button className="topbar-profile" onClick={() => setShowDropdown(p => !p)}>
+          <button className="topbar-profile" aria-expanded={showDropdown} aria-controls="profile-dropdown" onClick={() => setShowDropdown(p => !p)}>
             <div className="topbar-avatar">
               {user?.shopLogoUrl
                 ? <img src={user.shopLogoUrl} alt="" className="topbar-avatar-logo-img" />
-                : (user?.avatar || 'SN')}
+                : (user?.avatar || user?.name?.trim().split(/\s+/).slice(0,2).map(part=>part[0]).join('').toUpperCase() || 'A')}
             </div>
             <div className="topbar-profile-text">
               <span className="topbar-profile-name">{user?.name?.split(' ')[0] || 'Owner'}</span>
@@ -49,7 +49,7 @@ export default function Topbar({ onSearchOpen }) {
           </button>
 
           {showDropdown && (
-            <div className="topbar-dropdown" onMouseLeave={() => setShowDropdown(false)}>
+            <div id="profile-dropdown" className="topbar-dropdown" onMouseLeave={() => setShowDropdown(false)}>
               <div className="topbar-dropdown-header">
                 <div className="topbar-dropdown-name">{user?.name}</div>
                 <div className="topbar-dropdown-email">{user?.email}</div>

@@ -20,7 +20,7 @@ const customerSrc = fs.readFileSync(
   path.join(__dirname, '../../../aviqr-mobile-expo/app/(customer)/hotel-services.js'), 'utf8'
 );
 const hotelSrc = fs.readFileSync(
-  path.join(__dirname, '../../../aviqr-mobile-expo/app/(hotel)/home.js'), 'utf8'
+  path.join(__dirname, '../../../aviqr-mobile-expo/app/(hotel)/hotel-home.js'), 'utf8'
 );
 
 const guestRequestKeys = extractKeys(customerSrc, 'REQUEST_TYPES', 'key');
@@ -39,7 +39,7 @@ describe('guest-raised request types are all known to the staff dashboard', () =
 });
 
 describe('mapGuestReq — normalising a GuestServiceRequest into the RequestCard shape', () => {
-  // Mirrors mapGuestReq() in app/(hotel)/home.js: renames the backend's
+  // Mirrors mapGuestReq() in app/(hotel)/hotel-home.js: renames the backend's
   // GuestServiceRequest.{type,details} to the legacy RoomRequest.{serviceType,description}
   // shape the shared RequestCard component expects.
   function mapGuestReq(g) {

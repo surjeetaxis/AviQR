@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet, useParams } from 'react-router-dom';
+import { Link, Outlet, useParams } from 'react-router-dom';
 import Sidebar from '../components/Sidebar.jsx';
 import Topbar from '../components/Topbar.jsx';
 import GlobalSearch from '../components/GlobalSearch.jsx';
@@ -60,6 +60,7 @@ export default function DashboardLayout() {
         <main className="layout-content">
           <Outlet />
         </main>
+        <footer className="workspace-footer"><span>AviQR · Your hospitality workspace</span><nav aria-label="Workspace help"><Link to="/contact">Help</Link><Link to="/privacy">Privacy</Link><Link to="/terms">Terms</Link></nav></footer>
       </div>
       <OwnerBottomNav liveOrderCount={liveOrderCount} />
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />

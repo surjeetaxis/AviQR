@@ -55,7 +55,7 @@ export function PermissionMatrixView() {
 
 const ss = StyleSheet.create({
   card: { backgroundColor: Colors.white, borderRadius: Radius.lg, padding: 14, marginBottom: 14, ...Shadow.sm },
-  cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 2 },
+  cardTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 2 },
   cardSub: { fontSize: FontSize.xs, color: Colors.gray500, marginBottom: 12, lineHeight: 16 },
   row: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.gray50 },
   cellHead: { fontSize: 10.5, fontWeight: '700', color: Colors.gray500, paddingVertical: 8, textAlign: 'center' },

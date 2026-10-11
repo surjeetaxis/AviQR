@@ -29,7 +29,7 @@ public class SmsController {
     public ResponseEntity<ApiResponse<Boolean>> send(
             @RequestBody SendRequest req,
             @RequestHeader(value = "X-Internal-Secret", required = false) String secret) {
-        if (!internalSyncSecret.isBlank() && !internalSyncSecret.equals(secret))
+        if (internalSyncSecret.isBlank() || !internalSyncSecret.equals(secret))
             return ResponseEntity.status(401).body(ApiResponse.error("Invalid secret"));
         boolean sent = smsService.send(req.getPhone(), req.getMessage());
         return ResponseEntity.ok(sent ? ApiResponse.ok("Sent", true) : ApiResponse.error("SMS send failed"));

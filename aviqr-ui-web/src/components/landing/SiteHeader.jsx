@@ -1,4 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Menu, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import LogoMark from './LogoMark.jsx';
 
 // Shared marketing-site header — used on the landing page itself and on every
@@ -6,16 +8,18 @@ import LogoMark from './LogoMark.jsx';
 // site feels like one product instead of the landing page plus bolted-on docs.
 export default function SiteHeader({ isHome = false }) {
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
   const base = isHome ? '' : '/';
 
   return (
     <nav className="land-nav">
       <div className="land-nav-inner">
-        <div className="land-logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+        <Link className="land-logo" to="/" aria-label="AviQR home">
           <LogoMark />
           <span className="land-wordmark">Avi<em>QR</em></span>
-        </div>
-        <div className="land-nav-links">
+        </Link>
+        <button className="public-menu-toggle" aria-label={open ? "Close navigation" : "Open navigation"} aria-expanded={open} aria-controls="public-navigation" onClick={()=>setOpen(!open)}>{open ? <X size={22}/> : <Menu size={22}/>}</button>
+        <div id="public-navigation" className={`land-nav-links${open ? " mobile-open" : ""}`} onClick={()=>setOpen(false)}>
           <a href={`${base}#features`}>Features</a>
           <a href={`${base}#showcase`}>See it in action</a>
           <a href={`${base}#verticals`}>Who it's for</a>

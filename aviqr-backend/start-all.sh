@@ -60,6 +60,7 @@ sleep 5
 start_svc "hotel-service"
 sleep 5
 start_svc "pms-service"
+start_svc "payment-gateway-service"
 sleep 5
 
 # ── 7. Support, Notification+Report+Review ───────────────────────────────────

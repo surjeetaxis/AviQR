@@ -1,6 +1,9 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { Platform } from 'react-native';
+import { refreshSession } from '../api/index.js';
 import { router } from 'expo-router';
 import { authApi } from '../api/index.js';
+import { clearActiveOutlet } from '../api/outletContext.js';
 import { tokenStorage as storage } from '../api/tokenStorage.js';
 
 const AuthContext = createContext(null);
@@ -20,6 +23,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     (async () => {
       try {
+        if (Platform.OS==='web') { const data = await refreshSession(); const {accessToken,refreshToken,trustedDeviceToken,...profile}=data; await storage.set('aviqr_user',JSON.stringify(profile)); setUser(profile); return; }
         const [saved, tok] = await Promise.all([
           storage.get('aviqr_user'),
           storage.get('aviqr_token'),
@@ -33,7 +37,10 @@ export function AuthProvider({ children }) {
     })();
   }, []);
 
-  const saveSession = async ({ accessToken, refreshToken, ...userData }) => {
+  const saveSession = async (data) => {
+    if (data.requiresOtp) return data;
+    const {accessToken,refreshToken,trustedDeviceToken,...userData} = data;
+    if (trustedDeviceToken) await storage.set('aviqr_trusted_device',trustedDeviceToken);
     await storage.set('aviqr_token',   accessToken);
     await storage.set('aviqr_refresh', refreshToken || '');
     await storage.set('aviqr_user',    JSON.stringify(userData));
@@ -50,8 +57,8 @@ export function AuthProvider({ children }) {
     return saveSession(res.data.data);
   };
 
-  const loginOtp = async (email, otp) => {
-    const res = await authApi.loginOtp({ email, otp });
+  const loginOtp = async (email, otp, options={}) => {
+    const res = await authApi.loginOtp({ email, otp, ...options });
     return saveSession(res.data.data);
   };
 
@@ -78,6 +85,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
+    clearActiveOutlet();
     try { await authApi.logout(); } catch {}
     try {
       await storage.del('aviqr_token');

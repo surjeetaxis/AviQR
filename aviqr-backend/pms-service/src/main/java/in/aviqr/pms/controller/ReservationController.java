@@ -22,6 +22,7 @@ public class ReservationController {
     private final ReservationService reservationService;
     private final AvailabilityService availabilityService;
     private final HotelServiceClient hotelServiceClient;
+    private final in.aviqr.pms.service.BookingVoucherService voucherService;
 
     @GetMapping("/api/v1/pms/availability")
     public ResponseEntity<ApiResponse<Map<String, Object>>> availability(
@@ -39,7 +40,11 @@ public class ReservationController {
             @RequestHeader(value="X-User-Role", defaultValue="") String role) {
         if (!hotelServiceClient.hasAccess(req.getHotelId(), uid, role))
             return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
-        return ResponseEntity.ok(ApiResponse.ok("Reservation created", reservationService.create(req, uid)));
+        Reservation created = reservationService.create(req, uid);
+        // Staff bookings get the same voucher email (with its check-in QR) as online ones.
+        if (req.getGuestEmail() != null && !req.getGuestEmail().isBlank())
+            java.util.concurrent.CompletableFuture.runAsync(() -> voucherService.email(created.getId(), ""));
+        return ResponseEntity.ok(ApiResponse.ok("Reservation created", created));
     }
 
     @GetMapping("/api/v1/pms/reservations/hotel/{hotelId}")

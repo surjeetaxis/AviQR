@@ -16,6 +16,9 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class RabbitMQConfig {
+    @Bean public org.springframework.amqp.core.TopicExchange securityUsersExchange(){return new org.springframework.amqp.core.TopicExchange("aviqr.users");}
+    @Bean public org.springframework.amqp.core.Queue securityNoticeQueue(){return org.springframework.amqp.core.QueueBuilder.durable("security.notice.queue").deadLetterExchange("aviqr.users").deadLetterRoutingKey("security.notice.failed").build();}
+    @Bean public org.springframework.amqp.core.Binding securityNoticeBinding(){return org.springframework.amqp.core.BindingBuilder.bind(securityNoticeQueue()).to(securityUsersExchange()).with("security.notice");}
     @Bean public Jackson2JsonMessageConverter converter() { return new Jackson2JsonMessageConverter(); }
 
     @Bean public RabbitTemplate rabbitTemplate(ConnectionFactory cf) {

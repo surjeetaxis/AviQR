@@ -65,9 +65,9 @@ export default function BookingEngine() {
     return (
       <div style={sx.page}>
         <div style={sx.center}>
-          <CheckCircle2 size={56} style={{ color: '#1D9E75' }} />
+          <CheckCircle2 size={56} style={{ color: "#146c50" }} />
           <h2 style={{ margin: '16px 0 6px' }}>Booking confirmed!</h2>
-          <p style={{ color: '#6B7280', fontSize: 14, textAlign: 'center', padding: '0 30px' }}>
+          <p style={{ color: "#65766c", fontSize: 14, textAlign: 'center', padding: '0 30px' }}>
             {confirmation.guestName} · {confirmation.checkInDate} → {confirmation.checkOutDate}
           </p>
           <Link to={`/pms/contactless-checkin/${confirmation.id}`} style={sx.primaryBtnLink}>
@@ -102,26 +102,26 @@ export default function BookingEngine() {
           </div>
         </div>
 
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 8 }}>Choose a room</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#374b42", marginBottom: 8 }}>Choose a room</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {roomTypes.map(rt => (
             <div key={rt.roomTypeId} style={sx.summaryCard}>
               <div style={{ fontWeight: 700 }}>{rt.name}</div>
-              {rt.description && <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{rt.description}</div>}
-              <div style={{ fontSize: 12, color: '#6B7280', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}><Users size={12} /> Up to {rt.maxOccupancy} guests</div>
+              {rt.description && <div style={{ fontSize: 12, color: "#65766c", marginTop: 2 }}>{rt.description}</div>}
+              <div style={{ fontSize: 12, color: "#65766c", display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}><Users size={12} /> Up to {rt.maxOccupancy} guests</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
                 {rt.ratePlans.map(plan => (
                   <button key={plan.ratePlanId} type="button"
                     onClick={() => pickPlan(rt, plan)}
                     style={{ ...sx.planRow, ...(selected?.ratePlanId === plan.ratePlanId ? sx.planRowActive : {}) }}>
-                    <span>{plan.name} <span style={{ color: '#9CA3AF', fontSize: 11 }}>({plan.mealPlan.replace('_', ' ')})</span></span>
+                    <span>{plan.name} <span style={{ color: "#74847b", fontSize: 11 }}>({plan.mealPlan.replace('_', ' ')})</span></span>
                     <span style={{ fontWeight: 700 }}>₹{Number(plan.baseRate).toLocaleString('en-IN')}/night</span>
                   </button>
                 ))}
               </div>
             </div>
           ))}
-          {roomTypes.length === 0 && <div style={{ textAlign: 'center', color: '#9CA3AF', fontSize: 13, padding: 20 }}>No rooms available to book online right now.</div>}
+          {roomTypes.length === 0 && <div style={{ textAlign: 'center', color: "#74847b", fontSize: 13, padding: 20 }}>No rooms available to book online right now.</div>}
         </div>
 
         {selected && (
@@ -165,17 +165,17 @@ export default function BookingEngine() {
 }
 
 const sx = {
-  page: { maxWidth: 480, margin: '0 auto', minHeight: '100vh', background: '#F9FAFB', fontFamily: 'system-ui,-apple-system,sans-serif' },
+  page: { maxWidth: 480, margin: '0 auto', minHeight: '100vh', background: "#f8faf9", fontFamily: 'system-ui,-apple-system,sans-serif' },
   center: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '0 20px' },
-  header: { background: 'linear-gradient(135deg,#1D9E75,#178A65)', color: '#fff', padding: '28px 22px 20px' },
+  header: { background: "linear-gradient(135deg,#146c50,#146c50)", color: '#fff', padding: '28px 22px 20px' },
   body: { padding: '18px 16px 40px' },
-  label: { fontSize: 12, fontWeight: 600, color: '#6B7280' },
+  label: { fontSize: 12, fontWeight: 600, color: "#65766c" },
   input: { width: '100%', padding: '11px 12px', border: '1px solid #E5E7EB', borderRadius: 10, fontSize: 14, boxSizing: 'border-box', background: '#fff' },
-  primaryBtn: { width: '100%', padding: 14, background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  primaryBtnLink: { display: 'inline-block', marginTop: 20, padding: '14px 22px', background: '#1D9E75', color: '#fff', borderRadius: 12, fontSize: 15, fontWeight: 700, textDecoration: 'none' },
-  secondaryBtn: { width: '100%', padding: 12, background: '#fff', color: '#1D9E75', border: '1.5px solid #1D9E75', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  primaryBtn: { width: '100%', padding: 14, background: "#146c50", color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  primaryBtnLink: { display: 'inline-block', marginTop: 20, padding: '14px 22px', background: "#146c50", color: '#fff', borderRadius: 12, fontSize: 15, fontWeight: 700, textDecoration: 'none' },
+  secondaryBtn: { width: '100%', padding: 12, background: '#fff', color: "#146c50", border: '1.5px solid #1D9E75', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
   summaryCard: { background: '#fff', border: '1px solid #F0F0F0', borderRadius: 14, padding: 14, fontSize: 13 },
   errorBox: { display: 'flex', alignItems: 'center', gap: 8, background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: 10, padding: '10px 12px', fontSize: 13, marginBottom: 14 },
   planRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', border: '1.5px solid #E5E7EB', borderRadius: 10, background: '#fff', fontSize: 13, cursor: 'pointer', textAlign: 'left' },
-  planRowActive: { borderColor: '#1D9E75', background: '#E1F5EE' },
+  planRowActive: { borderColor: "#146c50", background: "#edf6f0" },
 };

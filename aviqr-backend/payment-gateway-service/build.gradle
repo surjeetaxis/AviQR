@@ -1,0 +1,23 @@
+plugins { id 'org.springframework.boot' version '3.5.16' }
+dependencies {
+    implementation project(':security-common')
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    implementation 'org.postgresql:postgresql'
+    // Vendor libraries carried over from the legacy AxisRooms payment-service, for the
+    // gateways whose request encryption or signing is proprietary: Paytm checksum,
+    // ISGPay (Yes Bank), PayGate AES (SafexPay), FSS iPayPipe (Bank of Baroda),
+    // PayDollar secure hash (AsiaPay) and the Paycorp client (Sampath).
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+    implementation 'org.json:json:20240303'
+    // ISGPay and Paycorp classes reference javax.servlet / Gson at link time.
+    compileOnly 'javax.servlet:javax.servlet-api:4.0.1'
+    runtimeOnly 'javax.servlet:javax.servlet-api:4.0.1'
+    implementation 'com.google.code.gson:gson'
+    implementation 'commons-codec:commons-codec'
+    testRuntimeOnly 'com.h2database:h2'
+}

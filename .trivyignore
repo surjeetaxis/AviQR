@@ -1,0 +1,18 @@
+# Accepted dependency findings. Each entry: why it doesn't affect AviQR, and an expiry date
+# (exp:) after which the scan fails again so it gets re-checked. No fixed release exists for any of these
+# within the versions our toolchain accepts.
+
+# node-forge (aviqr-mobile-expo, direct + @expo/cli): signature forgery in RSA PKCS#1 v1.5 *verification*.
+# The app only uses node-forge to RSA-OAEP-encrypt request keys and AES-GCM-encrypt payloads
+# (src/api/payloadEncryption.js); it never verifies RSA signatures. No fixed release yet.
+CVE-2026-85393 exp:2027-01-11
+
+# braces (aviqr-mobile-expo, via jest/micromatch): DoS from deeply nested glob patterns.
+# Test tooling only; patterns come from our own config, never from users. No fixed release yet.
+CVE-2026-93687 exp:2027-01-11
+
+# image-size 1.x (aviqr-mobile-expo, via expo metro): DoS from crafted image buffers.
+# Metro measures only the app's own bundled image assets at build time. The fix is image-size 2.x,
+# which metro 0.83 can't use (it passes file paths; 2.x accepts buffers only). Drop when Expo ships a newer metro.
+CVE-2025-71329 exp:2027-01-11
+CVE-2025-71330 exp:2027-01-11

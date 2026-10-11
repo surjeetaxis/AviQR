@@ -6,4 +6,5 @@
     <include file="db/changelog/changes/001-shops-referral-columns.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/002-demo-shop.xml" relativeToChangelogFile="false"/>
     <include file="db/changelog/changes/003-campaign-email-nearby.xml" relativeToChangelogFile="false"/>
+    <include file="db/changelog/changes/004-credential-ciphertext-columns.xml" relativeToChangelogFile="false"/>
 </databaseChangeLog>

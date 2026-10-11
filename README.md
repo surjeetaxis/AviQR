@@ -40,7 +40,7 @@ own? See `./aviqr.sh help` — `aviqr-backend/aviqr.sh run <service>` and
 ### 5. Login
 - URL: http://localhost:5173
 - Register a new account OR use demo login on the login page
-- First registered user with role ADMIN becomes the super admin
+- Public signup cannot create ADMIN or SUPPORT accounts. Provision the first administrator through the one-time deployment bootstrap described in `SECURITY_IMPLEMENTATION.md`.
 
 ---
 
@@ -176,3 +176,7 @@ no `Dockerfile`/`docker-compose.yml` in the repo yet — treat it as aspirationa
 ---
 
 © 2025 AviQR Technologies · support@aviqr.com
+
+## Login security and support administration
+
+See [SECURITY_IMPLEMENTATION.md](./SECURITY_IMPLEMENTATION.md) for the database migration, OTP/trusted-device controls, admin support approval/termination, required deployment settings and security tests.

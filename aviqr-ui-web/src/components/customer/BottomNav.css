@@ -119,7 +119,7 @@
   border-bottom-left-radius: 15px;
   border-bottom-right-radius: 15px;
   background: rgba(255, 255, 255, .94);
-  color: var(--green, #1D9E75);
+  color: var(--green, var(--green));
   display: flex;
   align-items: center;
   justify-content: center;

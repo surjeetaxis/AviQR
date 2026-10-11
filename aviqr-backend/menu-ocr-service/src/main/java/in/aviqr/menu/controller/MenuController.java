@@ -164,6 +164,7 @@ public class MenuController {
             @PathVariable String shopId,
             @RequestParam(defaultValue="0") int page,
             @RequestParam(defaultValue="20") int size) {
+        if (page < 0 || page > 100000 || size < 1 || size > 100) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid pagination");
         var all = itemRepo.findByShopIdOrderBySortOrder(shopId);
         int start = Math.min(page * size, all.size());
         int end   = Math.min(start + size, all.size());

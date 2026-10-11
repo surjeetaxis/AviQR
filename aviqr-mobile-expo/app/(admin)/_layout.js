@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { RoleGate } from '../../src/components/common/RoleGate.js';
 export default function AdminLayout() {
-  return <Stack screenOptions={{headerShown:false}}/>;
+  return <RoleGate allowed={["ADMIN"]}><Stack screenOptions={{headerShown:false}}/></RoleGate>;
 }

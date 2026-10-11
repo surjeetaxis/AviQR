@@ -8,11 +8,9 @@ import reactor.core.publisher.Mono;
 @Configuration
 public class GatewayConfig {
     @Bean
-    public KeyResolver ipKeyResolver() {
+    public KeyResolver ipKeyResolver(ClientIpResolver ips) {
         return exchange -> {
-            String ip = exchange.getRequest().getRemoteAddress() != null
-                    ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()
-                    : "unknown";
+            String ip = ips.resolve(exchange);
             return Mono.just(ip);
         };
     }

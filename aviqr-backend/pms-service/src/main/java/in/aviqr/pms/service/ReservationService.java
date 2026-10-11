@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -42,6 +43,21 @@ public class ReservationService {
 
     @Transactional
     public Reservation create(CreateReservationRequest req, String createdBy) {
+        if (req.getBookingRequestId() != null) {
+            Reservation previous = reservationRepo.findByBookingRequestId(req.getBookingRequestId().toString()).orElse(null);
+            if (previous != null) {
+                boolean sameRequest = previous.getHotelId().equals(req.getHotelId())
+                    && previous.getCheckInDate().equals(req.getCheckInDate())
+                    && previous.getCheckOutDate().equals(req.getCheckOutDate())
+                    && Objects.equals(previous.getAdults(), req.getAdults() == null ? 1 : req.getAdults())
+                    && Objects.equals(previous.getChildren(), req.getChildren() == null ? 0 : req.getChildren())
+                    && Objects.equals(previous.getGuestName(), req.getGuestName())
+                    && Objects.equals(previous.getGuestPhone(), req.getGuestPhone())
+                    && sameRoomLines(roomReservationRepo.findByReservationId(previous.getId()), req.getRooms());
+                if (!sameRequest) throw new RuntimeException("Booking request id is already associated with a different booking");
+                return previous;
+            }
+        }
         if (req.getRooms() == null || req.getRooms().isEmpty())
             throw new RuntimeException("At least one room must be requested");
         if (!req.getCheckInDate().isBefore(req.getCheckOutDate()))
@@ -55,12 +71,13 @@ public class ReservationService {
         // history (GuestService.stayHistory) works without staff managing guests
         // as a separate step.
         UUID guestId = req.getGuestId() != null ? req.getGuestId()
-            : optId(guestService.findOrCreate(req.getHotelId(), req.getGuestName(), req.getGuestPhone()));
+            : optId(guestService.findOrCreate(req.getHotelId(), req.getGuestName(), req.getGuestPhone(), req.getGuestEmail()));
 
         Reservation reservation = reservationRepo.save(Reservation.builder()
             .hotelId(req.getHotelId())
             .guestId(guestId)
             .groupId(req.getGroupId())
+            .bookingRequestId(req.getBookingRequestId() != null ? req.getBookingRequestId().toString() : null)
             .agentId(req.getAgentId())
             .guestName(req.getGuestName())
             .guestPhone(req.getGuestPhone())
@@ -81,7 +98,7 @@ public class ReservationService {
             BigDecimal rate = ratePlanService.totalForStay(rb.getRatePlanId(), req.getCheckInDate(), req.getCheckOutDate());
             BigDecimal perNight = nights > 0 ? rate.divide(BigDecimal.valueOf(nights), 2, RoundingMode.HALF_UP) : rate;
             assignRoom(reservation.getId(), req.getHotelId(), rb.getRoomTypeId(), rb.getRatePlanId(),
-                req.getCheckInDate(), req.getCheckOutDate(), perNight, claimedThisRequest);
+                req.getCheckInDate(), req.getCheckOutDate(), perNight, claimedThisRequest, rb.getRoomId());
             totalRoomRevenue = totalRoomRevenue.add(perNight.multiply(BigDecimal.valueOf(nights)));
         }
 
@@ -92,6 +109,18 @@ public class ReservationService {
 
         publishInventoryChange(reservation);
         return reservation;
+    }
+
+    /** A retried booking request matches when it asked for the same rooms, in any order.
+     *  Lines without an explicit room compare by room type and rate plan only. */
+    private static boolean sameRoomLines(List<RoomReservation> booked, List<CreateReservationRequest.RoomBooking> requested) {
+        if (requested == null || booked.size() != requested.size()) return false;
+        List<String> a = booked.stream().map(l -> l.getRoomTypeId() + "/" + l.getRatePlanId()).sorted().toList();
+        List<String> b = requested.stream().map(r -> r.getRoomTypeId() + "/" + r.getRatePlanId()).sorted().toList();
+        Set<UUID> pickedRooms = requested.stream().map(CreateReservationRequest.RoomBooking::getRoomId)
+            .filter(Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+        Set<UUID> bookedRooms = booked.stream().map(RoomReservation::getRoomId).collect(java.util.stream.Collectors.toSet());
+        return a.equals(b) && bookedRooms.containsAll(pickedRooms);
     }
 
     /** OTA/channel-manager bookings arrive with their own contracted per-night rate
@@ -118,7 +147,7 @@ public class ReservationService {
         Set<UUID> claimedThisRequest = new HashSet<>();
         for (ChannelRoomLine line : lines) {
             assignRoom(reservation.getId(), hotelId, line.roomTypeId(), line.ratePlanId(),
-                checkIn, checkOut, line.ratePerNight(), claimedThisRequest);
+                checkIn, checkOut, line.ratePerNight(), claimedThisRequest, null);
         }
 
         publishInventoryChange(reservation);
@@ -165,11 +194,12 @@ public class ReservationService {
 
     private void assignRoom(UUID reservationId, UUID hotelId, UUID roomTypeId, UUID ratePlanId,
                              LocalDate checkIn, LocalDate checkOut, BigDecimal ratePerNight,
-                             Set<UUID> claimedThisRequest) {
+                             Set<UUID> claimedThisRequest, UUID selectedRoomId) {
         // Rooms already claimed by an earlier line in this same request must be excluded
         // too, or two rooms of the same type in one booking could double-book one room.
         HotelRoomDto room = availabilityService.availableRooms(hotelId, roomTypeId, checkIn, checkOut)
             .stream()
+            .filter(r -> selectedRoomId == null || selectedRoomId.equals(r.getId()))
             .filter(r -> !claimedThisRequest.contains(r.getId()))
             .findFirst()
             .orElseThrow(() -> new RuntimeException("No available room for room type " + roomTypeId));

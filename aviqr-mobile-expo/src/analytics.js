@@ -13,6 +13,7 @@
  * sent to Google.
  */
 import Constants from 'expo-constants';
+import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
 import { tokenStorage } from './api/tokenStorage.js';
 
@@ -30,7 +31,7 @@ function getClientId() {
     clientIdPromise = (async () => {
       let id = await tokenStorage.get(CLIENT_ID_KEY);
       if (!id) {
-        id = `${Date.now()}.${Math.random().toString(36).slice(2)}`;
+        id = Crypto.randomUUID();
         await tokenStorage.set(CLIENT_ID_KEY, id);
       }
       return id;

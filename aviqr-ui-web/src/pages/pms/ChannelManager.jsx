@@ -9,7 +9,7 @@ import { pmsApi } from '../../api/index.js';
 import '../admin/Admin.css';
 
 const inputStyle = { height: 34, padding: '0 10px', borderRadius: 8, border: '1px solid var(--gray-200)', fontSize: 13 };
-const btnPrimary = { width: 'auto', height: 34, padding: '0 12px', background: 'var(--blue)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none' };
+const btnPrimary = { width: 'auto', height: 34, padding: '0 12px', background: 'var(--green)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none' };
 // .admin-row-btn is styled for small grey icon buttons, so text buttons set their own colours.
 const btnSecondary = { width: 'auto', height: 34, padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', color: 'var(--gray-700)', fontWeight: 500 };
 const btnSmall = { width: 'auto', height: 28, padding: '0 8px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#fff', color: 'var(--gray-700)', fontWeight: 500 };
@@ -295,7 +295,7 @@ function MappingsView({ hotelId, roomTypes, channels, kindLabel, mappings, overv
   const connections = [...new Map(mine.map(m => [`${m.channel}|${m.externalPropertyId}|${m.cmBaseUrl || ''}`, m])).values()];
   const applyConnection = (key) => {
     const m = connections.find(c => `${c.channel}|${c.externalPropertyId}|${c.cmBaseUrl || ''}` === key);
-    if (m) setForm(f => ({ ...f, channel: m.channel, externalPropertyId: m.externalPropertyId, accessKey: m.accessKey || '', channelId: m.channelId || '', cmBaseUrl: m.cmBaseUrl || '' }));
+    if (m) setForm(f => ({ ...f, channel: m.channel, externalPropertyId: m.externalPropertyId, accessKey: '', channelId: m.channelId || '', cmBaseUrl: m.cmBaseUrl || '' }));
   };
 
   const add = async (e) => {
@@ -403,7 +403,7 @@ function MappingsView({ hotelId, roomTypes, channels, kindLabel, mappings, overv
                   <input value={editing.externalRatePlanId || ''} placeholder="rate plan" onChange={e => setEditing({ ...editing, externalRatePlanId: e.target.value })} style={{ ...inputStyle, width: 90 }} />
                 </td>
                 <td colSpan={3}>
-                  <input placeholder="Access key" value={editing.accessKey || ''} onChange={e => setEditing({ ...editing, accessKey: e.target.value })} style={{ ...inputStyle, width: 120 }} />{' '}
+                  <input placeholder={editing.hasAccessKey ? "Access key saved (blank keeps it)" : "Access key"} value={editing.accessKey || ''} onChange={e => setEditing({ ...editing, accessKey: e.target.value })} style={{ ...inputStyle, width: 120 }} />{' '}
                   <input placeholder="Channel ID" value={editing.channelId || ''} onChange={e => setEditing({ ...editing, channelId: e.target.value })} style={{ ...inputStyle, width: 80 }} />{' '}
                   <input placeholder="Base URL" value={editing.cmBaseUrl || ''} onChange={e => setEditing({ ...editing, cmBaseUrl: e.target.value })} style={{ ...inputStyle, width: 200 }} />
                 </td>
@@ -419,7 +419,7 @@ function MappingsView({ hotelId, roomTypes, channels, kindLabel, mappings, overv
                 <td className="admin-td-shop">{rtName(m.roomTypeId)}</td>
                 <td style={{ fontSize: 12.5 }}>{planName(m.roomTypeId, m.internalRatePlanId)}</td>
                 <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{m.externalRoomTypeId} / {m.externalRatePlanId || <span style={muted}>inventory only</span>}</td>
-                <td><span className={m.cmBaseUrl ? 'status-pill st-active' : 'plan-pill'}>{m.cmBaseUrl ? 'Live' : 'Simulated'}</span></td>
+                <td><span className={(m.cmBaseUrl && m.channelId && m.hasAccessKey) ? 'status-pill st-active' : 'plan-pill'}>{(m.cmBaseUrl && m.channelId && m.hasAccessKey) ? 'Live' : 'Simulated'}</span></td>
                 <td><LastSyncChips lastSync={lastSyncFor(m)} /></td>
                 <td><span className={m.active ? 'status-pill st-active' : 'status-pill st-suspended'}>{m.active ? 'Active' : 'Paused'}</span></td>
                 <td style={{ whiteSpace: 'nowrap' }}>

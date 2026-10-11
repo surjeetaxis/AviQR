@@ -117,7 +117,7 @@ const ss = StyleSheet.create({
   subheading: { fontSize: FontSize.xs, color: Colors.gray400, marginBottom: 12 },
   brandCard: { backgroundColor: Colors.white, borderRadius: Radius.lg, padding: 20, alignItems: 'center', marginBottom: 16, ...Shadow.sm },
   setupCard: { backgroundColor: Colors.white, borderRadius: Radius.lg, padding: 20, marginBottom: 16, ...Shadow.sm },
-  brandTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 8 },
+  brandTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 8 },
   setupHint: { fontSize: FontSize.xs, color: Colors.gray400, marginBottom: 12 },
   qrImage: { width: 180, height: 180, borderRadius: Radius.md, marginBottom: 10 },
   targetUrl: { fontSize: 11, color: Colors.gray400, textAlign: 'center', marginBottom: 10 },

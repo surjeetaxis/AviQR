@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useAuth } from '../../src/context/AuthContext.js';
 import { useActiveShopId } from '../../src/hooks/useActiveShopId.js';
 import { reportApi } from '../../src/api/index.js';
 import { OfflineBadge } from '../../src/components/common/OfflineBadge.js';
+import { PageHeader } from '../../src/components/common/PageHeader.js';
+import { StatCard } from '../../src/components/common/StatCard.js';
+import { BarChartIcon, ShoppingBagIcon, UserIcon } from '../../src/components/common/NavIcons.js';
 import { Card } from '../../src/components/common/Card.js';
 import { Colors, FontSize, Radius, Shadow } from '../../src/theme/index.js';
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const monthAgoISO = () => new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-const W = Dimensions.get('window').width;
+
 
 export default function Reports() {
   const { user } = useAuth();
@@ -87,22 +90,18 @@ export default function Reports() {
 
   return (
     <ScrollView style={ss.screen} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-      <View style={ss.header}><Text style={ss.title}>Reports</Text></View>
+      <PageHeader title="Reports" subtitle="Revenue, customers and tax overview" showBack={false} />
       {offline&&<OfflineBadge onRetry={load}/>}
 
       <View style={ss.kpiGrid}>
         {KPIS.map(k=>(
-          <View key={k.label} style={[ss.kpiCard,{borderLeftColor:k.color,borderLeftWidth:3}]}>
-            <Text style={ss.kpiEmoji}>{k.emoji}</Text>
-            <Text style={[ss.kpiVal,{color:k.color}]}>{k.value}</Text>
-            <Text style={ss.kpiLabel}>{k.label}</Text>
-          </View>
+          <View key={k.label} style={{width:"48%",flexGrow:1}}><StatCard label={k.label} value={k.value} color={k.color} icon={k.label==="Orders" ? <ShoppingBagIcon size={20} color={k.color}/> : k.label==="New Customers" ? <UserIcon size={20} color={k.color}/> : <BarChartIcon size={20} color={k.color}/>} /></View>
         ))}
       </View>
 
       <View style={ss.rangeRow}>
         {[7,14,30].map(d=>(
-          <TouchableOpacity key={d} style={[ss.rangeBtn,range===d&&ss.rangeActive]} onPress={()=>setRange(d)}>
+          <TouchableOpacity key={d} accessibilityRole="button" accessibilityState={{selected:range===d}} style={[ss.rangeBtn,range===d&&ss.rangeActive]} onPress={()=>setRange(d)}>
             <Text style={[ss.rangeTxt,range===d&&ss.rangeActiveTxt]}>{d}D</Text>
           </TouchableOpacity>
         ))}
@@ -111,22 +110,24 @@ export default function Reports() {
       <Card style={ss.chartCard}>
         <View style={ss.chartHeadRow}>
           <Text style={ss.chartTitle}>Revenue trend ({range} days)</Text>
-          <TouchableOpacity onPress={exportRevenueCsv} disabled={exportingCsv || !revenue.length}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Export revenue CSV" style={{minHeight:44,justifyContent:"center"}} onPress={exportRevenueCsv} disabled={exportingCsv || !revenue.length}>
             <Text style={ss.exportLink}>{exportingCsv ? '…' : '⬇ CSV'}</Text>
           </TouchableOpacity>
         </View>
-        <View style={ss.chartWrap}>
+        {!revenue.length && <Text style={ss.empty}>Revenue will appear here when orders are completed.</Text>}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}><View style={ss.chartWrap}>
           {revenue.slice(-range).map((r,i)=>(
             <View key={i} style={ss.barCol}>
               <View style={[ss.bar,{height:Math.max(4,((r.revenue||0)/maxRev)*120)}]}/>
               <Text style={ss.barLabel}>{(r.date||r.day||'').slice(-5)}</Text>
             </View>
           ))}
-        </View>
+        </View></ScrollView>
       </Card>
 
       <Card style={[ss.chartCard,{marginTop:12}]}>
         <Text style={ss.chartTitle}>Top selling items</Text>
+        {!topItems.length && <Text style={ss.empty}>Your most popular items will appear here.</Text>}
         {topItems.slice(0,5).map((item,i)=>(
           <View key={i} style={ss.topRow}>
             <Text style={ss.topRank}>#{i+1}</Text>
@@ -140,7 +141,7 @@ export default function Reports() {
       <Card style={[ss.chartCard, { marginTop: 12 }]}>
         <View style={ss.chartHeadRow}>
           <Text style={ss.chartTitle}>Tax report (GST)</Text>
-          <TouchableOpacity onPress={exportTaxReport} disabled={exportingTax || taxLoading}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Export tax CSV" style={{minHeight:44,justifyContent:"center"}} onPress={exportTaxReport} disabled={exportingTax || taxLoading}>
             <Text style={ss.exportLink}>{exportingTax ? '…' : '⬇ CSV'}</Text>
           </TouchableOpacity>
         </View>
@@ -158,22 +159,23 @@ export default function Reports() {
   );
 }
 const ss=StyleSheet.create({
+  empty:{fontSize:FontSize.sm,color:Colors.gray600,lineHeight:22,paddingVertical:16},
   screen:{flex:1,backgroundColor:Colors.background},
   header:{paddingHorizontal:16,paddingTop:52,paddingBottom:12,backgroundColor:Colors.white,borderBottomWidth:1,borderBottomColor:Colors.border},
-  title:{fontSize:FontSize['2xl'],fontWeight:'800',color:Colors.gray900},
+  title:{fontSize:FontSize['2xl'],fontWeight:'600',color:Colors.gray900},
   kpiGrid:{flexDirection:'row',flexWrap:'wrap',gap:10,padding:12},
   kpiCard:{width:'47%',backgroundColor:Colors.white,borderRadius:Radius.lg,padding:14,...Shadow.sm},
   kpiEmoji:{fontSize:22,marginBottom:6},
   kpiVal:{fontSize:FontSize['3xl'],fontWeight:'800'},
   kpiLabel:{fontSize:FontSize.xs,color:Colors.gray400,marginTop:4},
   rangeRow:{flexDirection:'row',gap:8,paddingHorizontal:12,marginBottom:4},
-  rangeBtn:{flex:1,height:34,borderRadius:Radius.md,backgroundColor:Colors.white,borderWidth:1,borderColor:Colors.border,alignItems:'center',justifyContent:'center'},
+  rangeBtn:{flex:1,height:44,borderRadius:Radius.md,backgroundColor:Colors.white,borderWidth:1,borderColor:Colors.border,alignItems:'center',justifyContent:'center'},
   rangeActive:{backgroundColor:Colors.gray900,borderColor:Colors.gray900},
   rangeTxt:{fontSize:FontSize.sm,fontWeight:'700',color:Colors.gray500},
   rangeActiveTxt:{color:Colors.white},
   chartCard:{margin:12,padding:14},
-  chartHeadRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:12},
-  chartTitle:{fontSize:FontSize.md,fontWeight:'800',color:Colors.gray900},
+  chartHeadRow:{gap:8,flexWrap:'wrap',flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:12},
+  chartTitle:{fontSize:FontSize.md,fontWeight:'600',color:Colors.gray900},
   exportLink:{fontSize:FontSize.sm,fontWeight:'700',color:Colors.primary},
   taxRange:{fontSize:FontSize.xs,color:Colors.gray400,marginTop:-8,marginBottom:12},
   taxGrid:{flexDirection:'row',flexWrap:'wrap',gap:8},
@@ -181,7 +183,7 @@ const ss=StyleSheet.create({
   taxVal:{fontSize:FontSize.lg,fontWeight:'800',color:Colors.gray900},
   taxLabel:{fontSize:FontSize.xs,color:Colors.gray500,marginTop:2},
   chartWrap:{flexDirection:'row',alignItems:'flex-end',height:140,gap:4},
-  barCol:{flex:1,alignItems:'center',justifyContent:'flex-end',gap:4},
+  barCol:{width:34,alignItems:'center',justifyContent:'flex-end',gap:4},
   bar:{width:'70%',backgroundColor:Colors.primary,borderRadius:3,minHeight:4},
   barLabel:{fontSize:9,color:Colors.gray400,textAlign:'center'},
   topRow:{flexDirection:'row',alignItems:'center',paddingVertical:10,borderBottomWidth:1,borderBottomColor:Colors.gray100},

@@ -566,7 +566,7 @@ function AddonCard({ addon, toggling, onEdit, onToggle, onDelete }) {
         <span style={{ fontSize:20, flexShrink:0 }}>{addon.veg !== false ? '🟢' : '🔴'}</span>
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontSize:14, fontWeight:700, lineHeight:1.3 }}>{addon.name}</div>
-          <div style={{ fontSize:15, fontWeight:800, color:'#1D9E75', marginTop:3 }}>
+          <div style={{ fontSize:15, fontWeight:800, color:"#146c50", marginTop:3 }}>
             +₹{parseFloat(addon.price).toFixed(0)}
           </div>
         </div>

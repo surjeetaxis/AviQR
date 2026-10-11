@@ -303,7 +303,7 @@ export default function HotelQrManagementScreen() {
 
 const ss = StyleSheet.create({
   mainCard: { alignItems: 'center', marginBottom: 20 },
-  sectionTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 10, marginTop: 4 },
+  sectionTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 10, marginTop: 4 },
   qrBox: { padding: 12, backgroundColor: Colors.white, borderRadius: Radius.md, marginVertical: 10 },
   scanCount: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray700, marginBottom: 12 },
   actionsRow: { flexDirection: 'row', gap: 8, width: '100%' },

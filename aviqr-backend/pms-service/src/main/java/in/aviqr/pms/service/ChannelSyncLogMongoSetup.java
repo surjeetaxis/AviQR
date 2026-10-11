@@ -57,11 +57,11 @@ public class ChannelSyncLogMongoSetup implements ApplicationRunner {
 
     void ensureIndexes() {
         IndexOperations ops = mongo.indexOps(ChannelSyncLog.class);
-        ops.ensureIndex(new Index().on("hotelId", Sort.Direction.ASC).on("createdAt", Sort.Direction.DESC)
+        ops.createIndex(new Index().on("hotelId", Sort.Direction.ASC).on("createdAt", Sort.Direction.DESC)
             .named("hotel_createdAt"));
-        ops.ensureIndex(new Index().on("hotelId", Sort.Direction.ASC).on("direction", Sort.Direction.ASC)
+        ops.createIndex(new Index().on("hotelId", Sort.Direction.ASC).on("direction", Sort.Direction.ASC)
             .on("createdAt", Sort.Direction.DESC).named("hotel_direction_createdAt"));
-        ops.ensureIndex(new Index().on("createdAt", Sort.Direction.ASC)
+        ops.createIndex(new Index().on("createdAt", Sort.Direction.ASC)
             .expire(Duration.ofDays(Math.max(ttlDays, 1))).named("ttl_createdAt"));
     }
 

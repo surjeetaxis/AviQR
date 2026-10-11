@@ -28,7 +28,7 @@ export default function ForgotPasswordScreen() {
 
   const submitReset = async () => {
     if (otp.length < 6) return Alert.alert('Required', 'Enter the 6-digit code');
-    if (newPw.length < 8) return Alert.alert('Required', 'Password must be at least 8 characters');
+    if (newPw.length < 12) return Alert.alert('Required', 'Password must be at least 12 characters');
     setLoading(true);
     try {
       await authApi.resetPassword({ email: email.trim(), otp, newPassword: newPw });
@@ -40,7 +40,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <ScrollView style={ss.screen} contentContainerStyle={ss.scroll} keyboardShouldPersistTaps="handled">
-      <LinearGradient colors={['#0F6E56', '#1D9E75']} style={ss.hero}>
+      <LinearGradient colors={[Colors.brandSurface, Colors.brandRaised]} style={ss.hero}>
         <Text style={ss.brand}>Avi<Text style={ss.accent}>QR</Text></Text>
         <Text style={ss.tagline}>Reset your password</Text>
       </LinearGradient>
@@ -62,7 +62,7 @@ export default function ForgotPasswordScreen() {
             <Text style={ss.title}>Check your email</Text>
             <Text style={ss.sub}>If an account exists for {email}, we've sent a 6-digit code to it. Enter it below with your new password.</Text>
             <Input label="6-digit code" placeholder="123456" value={otp} onChangeText={t => setOtp(t.replace(/\D/g, ''))} keyboardType="number-pad" />
-            <Input label="New password" placeholder="Min 8 characters" value={newPw} onChangeText={setNewPw} secureEntry />
+            <Input label="New password" placeholder="Min 12 characters" value={newPw} onChangeText={setNewPw} secureEntry />
             <Button title={loading ? 'Resetting…' : 'Reset password'} onPress={submitReset} loading={loading} style={{ marginTop: 8 }} />
             <Button title="Resend code" onPress={submitEmail} variant="ghost" style={{ marginTop: 8 }} />
           </>
@@ -86,9 +86,9 @@ const ss = StyleSheet.create({
   scroll: { flexGrow: 1 },
   hero: { paddingTop: 64, paddingBottom: 36, alignItems: 'center' },
   brand: { fontSize: FontSize['3xl'], fontWeight: '800', color: Colors.white },
-  accent: { color: '#A7F3D0' },
+  accent: { color: Colors.mint },
   tagline: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.85)', marginTop: 6 },
   body: { padding: Spacing.lg },
-  title: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900, textAlign: 'center', marginBottom: 8 },
+  title: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.gray900, textAlign: 'center', marginBottom: 8 },
   sub: { fontSize: FontSize.sm, color: Colors.gray500, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
 });

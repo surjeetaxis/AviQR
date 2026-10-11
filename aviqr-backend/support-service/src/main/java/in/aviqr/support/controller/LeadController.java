@@ -85,6 +85,7 @@ public class LeadController {
             @RequestParam(defaultValue = "14") int days,
             @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
         if (!isStaff(role)) return ResponseEntity.status(403).body(ApiResponse.error("Forbidden"));
+        if (days < 1 || days > 366) return ResponseEntity.badRequest().body(ApiResponse.error("Days must be between 1 and 366"));
         LocalDate today = LocalDate.now();
         LocalDateTime since = today.minusDays(days - 1L).atStartOfDay();
         Map<LocalDate, Long> counts = new HashMap<>();

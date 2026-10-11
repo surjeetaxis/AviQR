@@ -1,3 +1,6 @@
+import { encryptPayload, encryptRequest } from './payloadEncryption.js';
+import { requestCaptcha } from './captchaBroker.js';
+import { requestStepUp } from './stepUpBroker.js';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { tokenStorage } from './tokenStorage.js';
@@ -54,7 +57,7 @@ const DEV_URL = Platform.OS === 'web'
 // Shared staging box (bm) — same gateway the web dashboard hits, reachable
 // over the public internet so it works on physical devices too, not just
 // simulators/emulators on the dev machine's LAN.
-const STAGING_URL = 'http://65.109.133.21:8080';
+const STAGING_URL = process.env.EXPO_PUBLIC_STAGING_API_URL;
 
 const PROD_URL = 'https://api.aviqr.com';
 
@@ -68,42 +71,75 @@ export const BASE_URL =
   APP_ENV === 'production' ? PROD_URL :
   __DEV__ ? DEV_URL : PROD_URL;
 
+if (APP_ENV === 'staging' && !STAGING_URL) {
+  throw new Error('EXPO_PUBLIC_STAGING_API_URL must specify the staging HTTPS endpoint');
+}
+export function assertSecureApiUrl(value, base = BASE_URL) {
+  const resolved = new URL(value, base);
+  if ((!__DEV__ || APP_ENV === 'staging' || APP_ENV === 'production') && resolved.protocol !== 'https:') {
+    throw new Error('Secure HTTPS is required for API requests');
+  }
+  return resolved.href;
+}
+assertSecureApiUrl(BASE_URL);
+
 // ── Axios instance ──────────────────────────────────────────────────────────
-const api = axios.create({ baseURL: BASE_URL, timeout: 10000 });
+const api = axios.create({ baseURL: BASE_URL, timeout: 12000, withCredentials: Platform.OS==='web' });
 
 // ── Attach JWT ──────────────────────────────────────────────────────────────
 api.interceptors.request.use(async (config) => {
+  assertSecureApiUrl(api.getUri(config));
   try {
     const token = await tokenStorage.get('aviqr_token');
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (token && !config.headers.Authorization) config.headers.Authorization = `Bearer ${token}`;
   } catch {}
-  return config;
+  config.headers['X-Platform']=Platform.OS==='web'?'WEB':Platform.OS.toUpperCase();
+  if (Platform.OS==='web') config.headers['X-CSRF-Protection']='1';
+  const trusted=await tokenStorage.get('aviqr_trusted_device');
+  if(trusted && Platform.OS!=='web') config.headers['X-Trusted-Device']=trusted;
+  return encryptRequest(config, BASE_URL, api.getUri(config));
 });
 
-// ── Auto-refresh on 401 ─────────────────────────────────────────────────────
-api.interceptors.response.use(
-  (r) => r,
-  async (error) => {
-    const orig = error.config;
-    if (error.response?.status === 401 && !orig._retry) {
-      orig._retry = true;
-      try {
-        const rt = await tokenStorage.get('aviqr_refresh');
-        if (rt) {
-          const res = await axios.post(`${BASE_URL}/api/v1/auth/refresh`, { refreshToken: rt });
-          const tok = res.data.data.accessToken;
-          await tokenStorage.set('aviqr_token', tok);
-          orig.headers.Authorization = `Bearer ${tok}`;
-          return api(orig);
-        }
-      } catch {
-        await tokenStorage.del('aviqr_token');
-        await tokenStorage.del('aviqr_refresh');
-      }
-    }
-    return Promise.reject(error);
+let refreshing;
+export function refreshSession() {
+  if (!refreshing) refreshing=(async()=>{
+    const rt=await tokenStorage.get('aviqr_refresh');
+    const response=await axios.post(`${BASE_URL}/api/v1/auth/refresh`,await encryptPayload(Platform.OS==='web'?{}:{refreshToken:rt}, 'POST', '/api/v1/auth/refresh', BASE_URL), {
+      withCredentials:Platform.OS==='web',headers:{'X-Platform':Platform.OS==='web'?'WEB':Platform.OS.toUpperCase(),'X-CSRF-Protection':'1'},
+    });
+    const data=response.data.data;
+    await tokenStorage.set('aviqr_token',data.accessToken);
+    if(data.refreshToken) await tokenStorage.set('aviqr_refresh',data.refreshToken);
+    return data;
+  })().finally(()=>{refreshing=null;});
+  return refreshing;
+}
+api.interceptors.response.use(r=>r,async error=>{
+  const original=error.config;
+  if(original && error.response?.status===403 && error.response?.data?.captchaRequired && !original._captchaRetried){
+    original._captchaRetried=true;
+    const token=await requestCaptcha({siteKey:error.response.data.siteKey});
+    original.headers['X-Captcha-Token']=token;
+    return api(original);
   }
-);
+
+  if(original && error.response?.status===428 && error.response?.data?.requiresStepUp && !original._stepUpRetried){
+    original._stepUpRetried=true;
+    const target=new URL(api.getUri(original),'https://aviqr.invalid');
+    const token=await requestStepUp({method:(original.method||'POST').toUpperCase(),target:target.pathname+target.search,
+      config:{headers:{Authorization:original.headers.Authorization,'X-Auth-Audience':original.headers['X-Auth-Audience']||'staff'}}});
+    original.headers['X-Step-Up-Token']=token;
+    return api(original);
+  }
+
+  if(original && error.response?.status===401 && !original._retry &&
+     !/\/auth\/(login|register|otp|refresh|forgot-password|reset-password|security\/step-up|passkeys)/.test(original.url||'')) {
+    original._retry=true;
+    try {const data=await refreshSession(); original.headers.Authorization=`Bearer ${data.accessToken}`;return api(original);}
+    catch {await tokenStorage.del('aviqr_token');await tokenStorage.del('aviqr_refresh');}
+  }
+  return Promise.reject(error);
+});
 
 // ── Backend availability check ──────────────────────────────────────────────
 export async function isBackendOnline() {
@@ -689,3 +725,15 @@ export const notifApi = {
 };
 
 export default api;
+
+export const adminSecurityApi = {
+  records: (kind,page=0) => api.get('/api/v1/auth/admin/security/records',{params:{kind,page}}),
+  support: (page=0) => api.get('/api/v1/auth/admin/security/support',{params:{page}}),
+  createSupport: data => api.post('/api/v1/auth/admin/security/support',data),
+  approve: (id,reason) => api.post(`/api/v1/auth/admin/security/support/${id}/approve`,{reason}),
+  terminate: (id,reason) => api.post(`/api/v1/auth/admin/security/support/${id}/terminate`,{reason}),
+  exempt: data => api.post('/api/v1/auth/admin/security/otp-exemptions',data),
+  revoke: (id,reason) => api.post(`/api/v1/auth/admin/security/records/${id}/revoke`,{reason}),
+  reset: data => api.post('/api/v1/auth/admin/security/password-resets',data),
+  unblock: data => api.post('/api/v1/auth/admin/security/unblock',data),
+};

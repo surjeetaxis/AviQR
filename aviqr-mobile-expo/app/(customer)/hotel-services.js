@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: Colors.white, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl, padding: Spacing.base, maxHeight: '90%' },
   modalHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle:{ fontWeight: '800', fontSize: FontSize.lg },
+  modalTitle:{ fontWeight: '600', fontSize: FontSize.lg },
   modalClose:{ backgroundColor: Colors.gray100, borderRadius: Radius.md, padding: 6 },
   folioTotal:{ borderRadius: Radius.lg, padding: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   folioLabel:{ fontSize: FontSize.xs, color: 'rgba(255,255,255,0.85)' },

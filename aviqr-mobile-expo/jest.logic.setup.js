@@ -10,3 +10,6 @@ jest.mock('expo-constants', () => ({ expoConfig: { hostUri: undefined, extra: {}
 
 // React Native global flag, undefined in plain node
 global.__DEV__ = true;
+
+// Native entropy is backed by Expo in the app and Node crypto in logic tests.
+jest.mock('expo-crypto', () => ({ getRandomBytesAsync: async size => require('crypto').randomBytes(size) }), { virtual:true });

@@ -105,10 +105,10 @@ export default function MessagesScreen() {
 
 const ss = StyleSheet.create({
   sub: { fontSize: FontSize.sm, color: Colors.gray500, marginBottom: 14 },
-  cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900 },
+  cardTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900 },
   inboxCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   inboxCardActive: { borderWidth: 1.5, borderColor: Colors.primary },
-  roomLabel: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.gray900 },
+  roomLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray900 },
   fromLabel: { fontWeight: '500', color: Colors.gray500 },
   lastMsg: { fontSize: FontSize.xs, color: Colors.gray600, marginTop: 2 },
   whenTxt: { fontSize: 10, color: Colors.gray400 },

@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public interface GuestRepository extends JpaRepository<Guest, UUID> {
     List<Guest> findByHotelIdAndPhone(UUID hotelId, String phone);
+    List<Guest> findByHotelIdAndPhoneContaining(UUID hotelId, String fragment);
     List<Guest> findByHotelIdOrderByCreatedAtDesc(UUID hotelId);
 
     @Query("""

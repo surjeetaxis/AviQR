@@ -167,7 +167,7 @@ const ss = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 52, paddingBottom: 12, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
   back: { fontSize: FontSize.base, color: Colors.primary, fontWeight: '600' },
-  title: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray900 },
+  title: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.gray900 },
   tabRow: { flexDirection: 'row', backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
   tabBtn: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center' },
   tabActive: { borderBottomWidth: 2.5, borderBottomColor: Colors.primary },
@@ -185,7 +185,7 @@ const ss = StyleSheet.create({
   addonCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: Radius.lg, padding: Spacing.base, gap: 10, ...Shadow.sm },
   vegDot: { width: 10, height: 10, borderRadius: 2, borderWidth: 1.5, borderColor: Colors.white },
   addonPrice: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '700', marginTop: 2 },
-  sheetTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.gray900, marginBottom: 16 },
+  sheetTitle: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.gray900, marginBottom: 16 },
   vegRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   vegLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray700 },
 });

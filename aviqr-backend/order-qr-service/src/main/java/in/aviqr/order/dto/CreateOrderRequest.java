@@ -18,17 +18,17 @@ public class CreateOrderRequest {
     String notes;
     @DecimalMin(value = "0", message = "Discount cannot be negative") BigDecimal discount;
     @DecimalMin(value = "0", message = "Service charge cannot be negative") BigDecimal serviceCharge;
-    @NotEmpty @Valid List<OrderItemRequest> items;
+    @NotEmpty @Size(max=100) @Valid List<OrderItemRequest> items;
 
     @Data
     public static class OrderItemRequest {
         @NotNull UUID menuItemId;
         @NotBlank String itemName;
         String variantName; // e.g. "Large" — informational; unitPrice must already reflect it
-        @Min(1) int quantity;
+        @Min(1) @Max(100) int quantity;
         @NotNull @DecimalMin(value = "0.01", message = "Unit price must be positive") BigDecimal unitPrice;
         String notes;
-        @Valid List<AddonSelectionRequest> addons;
+        @Size(max=20) @Valid List<AddonSelectionRequest> addons;
     }
 
     @Data

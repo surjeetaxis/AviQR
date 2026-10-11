@@ -44,3 +44,35 @@
 .support-filter-tab.active { background:var(--gray-900); color:var(--white); border-color:var(--gray-900); }
 .support-filter-count { background:var(--gray-100); color:var(--gray-500); font-size:10px; font-weight:700; padding:1px 6px; border-radius:99px; }
 .support-filter-tab.active .support-filter-count { background:rgba(255,255,255,.15); color:var(--white); }
+
+/* Room tour (booking-site display) */
+.room-tour-meta { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:4px; font-size:11.5px; color:var(--gray-500); }
+.room-tour-badge { background:var(--green-light, #e7f5ee); color:var(--green-dark, #166534); border-radius:999px; padding:2px 8px; font-size:10.5px; font-weight:700; }
+.rte-overlay { position:fixed; inset:0; background:rgba(15,23,42,.5); display:flex; align-items:center; justify-content:center; z-index:120; padding:16px; }
+.rte-dialog { background:#fff; border-radius:16px; width:100%; max-width:620px; max-height:calc(100vh - 32px); display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(15,23,42,.25); }
+.rte-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:18px 20px 12px; border-bottom:1px solid var(--gray-100); }
+.rte-title { font-weight:800; font-size:16px; }
+.rte-sub { font-size:12px; color:var(--gray-500); margin-top:2px; }
+.rte-close { background:var(--gray-100); border:none; border-radius:8px; padding:6px; cursor:pointer; display:flex; }
+.rte-body { padding:16px 20px; overflow:auto; display:grid; gap:20px; }
+.rte-section-title { font-weight:700; font-size:13px; margin-bottom:8px; }
+.rte-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.rte-hint { margin:6px 0 0; font-size:11.5px; color:var(--gray-500); line-height:1.5; }
+.rte-map { position:relative; height:140px; border:1px dashed var(--gray-200); border-radius:10px; cursor:crosshair;
+  background:repeating-linear-gradient(0deg,transparent 0 19px,var(--gray-100) 19px 20px),repeating-linear-gradient(90deg,transparent 0 19px,var(--gray-100) 19px 20px); }
+.rte-map-label { position:absolute; left:10px; top:8px; font-size:11px; color:var(--gray-400); pointer-events:none; }
+.rte-map-pin { position:absolute; transform:translate(-50%,-50%); background:var(--green, #16a34a); color:#fff; font-size:11px; font-weight:700; border-radius:6px; padding:3px 7px; pointer-events:none; }
+.rte-link { background:none; border:none; padding:4px 0 0; color:var(--gray-500); font-size:11.5px; cursor:pointer; text-decoration:underline; }
+.rte-slot { display:grid; grid-template-columns:72px 1fr auto; gap:12px; align-items:center; padding:10px 0; border-top:1px solid var(--gray-100); }
+.rte-slot-preview { width:72px; height:48px; border-radius:8px; background:var(--gray-100); overflow:hidden; display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--gray-400); font-weight:700; }
+.rte-slot-preview img, .rte-slot-preview video { width:100%; height:100%; object-fit:cover; }
+.rte-slot-info { min-width:0; display:grid; gap:2px; }
+.rte-slot-info b { font-size:13px; }
+.rte-slot-info small { font-size:11px; color:var(--gray-500); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rte-slot-info small.rte-warn { color:#b45309; white-space:normal; }
+.rte-slot-actions { display:flex; gap:6px; }
+.rte-slot-actions label { cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
+.rte-slot-actions .is-disabled { opacity:.5; pointer-events:none; }
+.rte-error { background:#fef2f2; color:#b91c1c; border-radius:8px; padding:10px 12px; font-size:12.5px; }
+.rte-foot { display:flex; justify-content:flex-end; gap:8px; padding:12px 20px 16px; border-top:1px solid var(--gray-100); }
+@media (max-width:560px) { .rte-grid { grid-template-columns:1fr; } .rte-slot { grid-template-columns:56px 1fr; } .rte-slot-actions { grid-column:1 / -1; } }

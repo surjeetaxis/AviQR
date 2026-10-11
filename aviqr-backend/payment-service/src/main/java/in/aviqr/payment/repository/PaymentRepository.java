@@ -9,8 +9,14 @@ import java.util.*;
 
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     Optional<Payment> findByPaymentId(String paymentId);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Payment p where p.paymentId=:paymentId")
+    Optional<Payment> lockByPaymentId(@Param("paymentId") String paymentId);
     Optional<Payment> findByOrderId(String orderId);
     Optional<Payment> findByRazorpayOrderId(String razorpayOrderId);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Payment p where p.razorpayOrderId=:id")
+    Optional<Payment> lockByRazorpayOrderId(@Param("id") String id);
     Page<Payment> findByShopIdOrderByCreatedAtDesc(String shopId, Pageable pageable);
     Page<Payment> findByShopIdAndStatus(String shopId, PaymentStatus status, Pageable pageable);
     Page<Payment> findByCustomerIdOrderByCreatedAtDesc(String customerId, Pageable pageable);

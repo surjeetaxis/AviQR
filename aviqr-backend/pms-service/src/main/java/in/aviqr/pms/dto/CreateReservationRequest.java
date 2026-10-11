@@ -18,17 +18,21 @@ public class CreateReservationRequest {
     private java.math.BigDecimal commissionPercentOverride;
     private String guestName;
     private String guestPhone;
+    private String guestEmail;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
     private Integer adults;
     private Integer children;
     private ReservationSource source;
     private String notes;
+    /** Optional physical room chosen from the live public room map. */
+    private UUID bookingRequestId;
     private List<RoomBooking> rooms;
 
     @Data
     public static class RoomBooking {
         private UUID roomTypeId;
         private UUID ratePlanId;
+        private UUID roomId;
     }
 }

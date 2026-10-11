@@ -135,12 +135,12 @@ export default function Reports() {
               ? <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:220, color:'var(--gray-400)', fontSize:13 }}>No data for this period</div>
               : <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={revenue} margin={{top:4,right:4,bottom:0,left:-16}}>
-                    <defs><linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1D9E75" stopOpacity={0.15}/><stop offset="95%" stopColor="#1D9E75" stopOpacity={0}/></linearGradient></defs>
+                    <defs><linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="var(--green)" stopOpacity={0.15}/><stop offset="95%" stopColor="var(--green)" stopOpacity={0}/></linearGradient></defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
                     <XAxis dataKey="date" tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
                     <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={v=>`₹${v/1000}k`}/>
                     <Tooltip formatter={v=>[`₹${Number(v).toLocaleString('en-IN')}`, 'Revenue']} contentStyle={{borderRadius:8,fontSize:12}}/>
-                    <Area type="monotone" dataKey="revenue" stroke="#1D9E75" strokeWidth={2.5} fill="url(#gr)" dot={false}/>
+                    <Area type="monotone" dataKey="revenue" stroke="var(--green)" strokeWidth={2.5} fill="url(#gr)" dot={false}/>
                   </AreaChart>
                 </ResponsiveContainer>
             }
@@ -158,7 +158,7 @@ export default function Reports() {
                     <XAxis dataKey="hour" tick={{fontSize:10,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
                     <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
                     <Tooltip formatter={v=>[v,'Orders']} contentStyle={{borderRadius:8,fontSize:12}}/>
-                    <Bar dataKey="orders" fill="#1D9E75" radius={[4,4,0,0]}/>
+                    <Bar dataKey="orders" fill="var(--green)" radius={[4,4,0,0]}/>
                   </BarChart>
                 </ResponsiveContainer>
             }

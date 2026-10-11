@@ -41,6 +41,7 @@ class OrderControllerTest {
     @Autowired ObjectMapper mapper;
     @MockBean  OrderService orderService;
     @MockBean  QrService qrService;
+    @MockBean in.aviqr.order.service.BillService bills;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -97,7 +98,7 @@ class OrderControllerTest {
     void posPlaceOrder_validRequest_returns200() throws Exception {
         when(orderService.create(eq("shop-101"), any(), any(), anyBoolean())).thenReturn(sampleResponse());
 
-        mvc.perform(post("/api/v1/orders/shop/shop-101/pos")
+        mvc.perform(post("/api/v1/orders/shop/shop-101/pos").header("X-User-Id","uid-1").header("X-User-Role","CASHIER").header("X-Shop-Id","shop-101")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(createOrderJson()))
            .andExpect(status().isOk())
@@ -174,11 +175,12 @@ class OrderControllerTest {
                 .paymentMethod(PaymentMethod.ONLINE).paymentStatus(PaymentStatus.PENDING)
                 .subtotal(BigDecimal.valueOf(380)).tax(BigDecimal.valueOf(19))
                 .totalAmount(BigDecimal.valueOf(399)).items(List.of()).build();
+        when(orderService.getById(id)).thenReturn(Optional.of(updated));
         when(orderService.updateStatus(eq(id), eq("ACCEPTED"), any())).thenReturn(updated);
 
         mvc.perform(put("/api/v1/orders/" + id + "/status?status=ACCEPTED")
                 .header("X-User-Id", "user-001")
-                .header("X-User-Role", "OWNER"))
+                .header("X-User-Role", "OWNER").header("X-Shop-Id","shop-101"))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.data.status").value("ACCEPTED"));
     }
@@ -192,7 +194,7 @@ class OrderControllerTest {
         var resp = sampleResponse();
         when(orderService.getById(id)).thenReturn(Optional.of(resp));
 
-        mvc.perform(get("/api/v1/orders/" + id))
+        mvc.perform(get("/api/v1/orders/" + id).header("X-User-Id","uid-1").header("X-User-Role","OWNER").header("X-Shop-Id","shop-101"))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$.data.orderNumber").value("ORD-CTRL-1"));
     }
@@ -204,5 +206,18 @@ class OrderControllerTest {
 
         mvc.perform(get("/api/v1/orders/" + UUID.randomUUID()))
            .andExpect(status().isNotFound());
+    }
+
+    @Test void anotherCustomerCannotReadOrder() throws Exception {
+        var id=UUID.randomUUID();var response=sampleResponse();response.setCustomerId("customer-a");when(orderService.getById(id)).thenReturn(Optional.of(response));
+        mvc.perform(get("/api/v1/orders/"+id).header("X-User-Id","customer-b").header("X-User-Role","CUSTOMER")).andExpect(status().isForbidden());
+    }
+    @Test void owningCustomerCanReadOrder() throws Exception {
+        var id=UUID.randomUUID();var response=sampleResponse();response.setCustomerId("customer-a");when(orderService.getById(id)).thenReturn(Optional.of(response));
+        mvc.perform(get("/api/v1/orders/"+id).header("X-User-Id","customer-a").header("X-User-Role","CUSTOMER")).andExpect(status().isOk());
+    }
+    @Test void customerCannotCreatePosOrder() throws Exception {
+        mvc.perform(post("/api/v1/orders/shop/shop-101/pos").contentType(MediaType.APPLICATION_JSON).content(createOrderJson()).header("X-User-Id","customer-a").header("X-User-Role","CUSTOMER").header("X-Shop-Id","shop-101")).andExpect(status().isForbidden());
+        Mockito.verify(orderService,Mockito.never()).create(any(),any(),any(),anyBoolean());
     }
 }

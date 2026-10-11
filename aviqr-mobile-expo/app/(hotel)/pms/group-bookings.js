@@ -174,7 +174,7 @@ export default function GroupBookingsScreen() {
 
 const ss = StyleSheet.create({
   sub: { fontSize: FontSize.sm, color: Colors.gray500, marginBottom: 14 },
-  cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 10 },
+  cardTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 10 },
   fieldLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500, marginBottom: 6, marginTop: 6 },
   groupCard: { marginBottom: 8 },
   groupCardActive: { borderWidth: 1.5, borderColor: Colors.primary },

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { hotelOutletApi } from '../api/index.js';
 import { setActiveOutlet, clearActiveOutlet } from '../api/outletContext.js';
+import RouteLoading from '../components/shared/RouteLoading.jsx';
 
 const OutletContext = createContext(null);
 
@@ -41,7 +42,7 @@ export function OutletProvider({ outletId, children }) {
   // looking exactly like a real outlet that just has no activity yet
   // instead of a broken one. Block rendering here instead so the failure
   // is visible.
-  if (loading) return null;
+  if (loading) return <RouteLoading message="Opening this outlet…" />
   if (error || !outlet) {
     return (
       <div style={{padding:40,textAlign:'center',color:'var(--gray-500)'}}>

@@ -23,7 +23,7 @@ public class CrawlerMenuHtmlRenderer {
     public String render(String shopId, MenuResponse resp) {
         MenuResponse.ShopInfoDto shop = resp.getShop();
         String shopName = shop != null && shop.getName() != null ? shop.getName() : "Restaurant";
-        String canonical = "https://aviqr.com/menu/" + shopId;
+        String canonical = "https://aviqr.com/menu/" + org.springframework.web.util.UriUtils.encodePathSegment(shopId, java.nio.charset.StandardCharsets.UTF_8);
         String title = esc(shopName) + " — Menu &amp; Online Ordering | AviQR";
         String description = "Order online from " + esc(shopName)
             + (shop != null && shop.getAddress() != null ? " in " + esc(shop.getAddress()) : "")
@@ -58,7 +58,7 @@ public class CrawlerMenuHtmlRenderer {
             body.append("</ul>\n");
         }
 
-        body.append("<p><a href=\"").append(canonical).append("\">View the live interactive menu and order online</a></p>\n");
+        body.append("<p><a href=\"").append(attrEsc(canonical)).append("\">View the live interactive menu and order online</a></p>\n");
 
         String jsonLd = buildJsonLd(shopId, canonical, shop, categories);
 
@@ -66,7 +66,7 @@ public class CrawlerMenuHtmlRenderer {
             + "<meta charset=\"utf-8\">\n"
             + "<title>" + title + "</title>\n"
             + "<meta name=\"description\" content=\"" + attrEsc(description) + "\">\n"
-            + "<link rel=\"canonical\" href=\"" + canonical + "\">\n"
+            + "<link rel=\"canonical\" href=\"" + attrEsc(canonical) + "\">\n"
             + "<script type=\"application/ld+json\">" + jsonLd + "</script>\n"
             + "</head>\n<body>\n" + body + "</body>\n</html>\n";
     }

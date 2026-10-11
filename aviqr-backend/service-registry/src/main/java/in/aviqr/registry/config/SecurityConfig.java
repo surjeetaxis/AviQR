@@ -13,8 +13,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
-                // Disable CSRF — stateless dashboard
-                .csrf(csrf -> csrf.disable())
+                // Eureka clients use the private API without browser sessions.
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/eureka/**"))
 
                 // Disable form login entirely — no more redirect to /login page
                 .formLogin(form -> form.disable())

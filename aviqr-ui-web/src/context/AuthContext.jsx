@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { refreshSession } from '../api/index.js';
+import { setSession, subscribeSessions } from '../api/sessionStore.js';
 import { authApi, shopApi } from '../api/index.js';
 
 const AuthContext = createContext(null);
@@ -43,23 +45,25 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('aviqr_user');
-    const tok   = localStorage.getItem('aviqr_token');
-    let savedUser = null;
-    if (saved && tok) { savedUser = JSON.parse(saved); setUser(savedUser); setToken(tok); }
+    const apply = (audience, data) => {
+      if (audience !== 'staff') return;
+      const { accessToken, refreshToken, trustedDeviceToken, ...profile } = data || {};
+      setUser(data ? profile : null); setToken(accessToken || null);
+    };
+    const unsubscribe = subscribeSessions(apply);
     const savedLang = localStorage.getItem('aviqr_lang');
-    if (savedUser?.preferredLanguage) setLang(savedUser.preferredLanguage);
-    else if (savedLang) setLang(savedLang);
-    setLoading(false);
+    if (savedLang) setLang(savedLang);
+    let cancelled = false;
+    refreshSession().catch(() => { if (!cancelled) setSession(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; unsubscribe(); };
   }, []);
 
-  const saveSession = (data) => {
-    const { accessToken, refreshToken, ...userData } = data;
-    localStorage.setItem('aviqr_token',   accessToken);
-    localStorage.setItem('aviqr_refresh', refreshToken || '');
-    localStorage.setItem('aviqr_user',    JSON.stringify(userData));
-    setToken(accessToken);
-    setUser(userData);
+  const saveSession = data => {
+    if (data.requiresOtp) return data;
+    setSession(data);
+    const { accessToken, refreshToken, trustedDeviceToken, ...userData } = data;
+    localStorage.setItem('aviqr_user', JSON.stringify(userData));
     if (userData.preferredLanguage) {
       setLang(userData.preferredLanguage);
       localStorage.setItem('aviqr_lang', userData.preferredLanguage);
@@ -72,8 +76,8 @@ export function AuthProvider({ children }) {
     return saveSession(res.data.data);
   };
 
-  const loginWithOtp = async (email, otp) => {
-    const res = await authApi.loginOtp({ email, otp });
+  const loginWithOtp = async (email, otp, options={}) => {
+    const res = await authApi.loginOtp({ email, otp, ...options });
     return saveSession(res.data.data);
   };
 
@@ -84,8 +88,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try { await authApi.logout(); } catch {}
-    localStorage.removeItem('aviqr_token');
-    localStorage.removeItem('aviqr_refresh');
+    setSession(null);
     localStorage.removeItem('aviqr_user');
     setToken(null);
     setUser(null);

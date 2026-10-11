@@ -288,7 +288,7 @@ function ChipPicker({ options, value, onChange }) {
 }
 
 const ss = StyleSheet.create({
-  cardTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.gray900, marginBottom: 10 },
+  cardTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.gray900, marginBottom: 10 },
   fieldLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500, marginBottom: 6 },
   availResult: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary, marginTop: 8, textAlign: 'center' },
   waitlistJoinBox: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.border },

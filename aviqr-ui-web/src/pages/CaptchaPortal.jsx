@@ -1,0 +1,2 @@
+import TurnstileChallenge from '../components/shared/TurnstileChallenge.jsx';
+export default function CaptchaPortal(){const siteKey=new URLSearchParams(window.location.search).get('siteKey')||'';if(!/^[a-zA-Z0-9_-]{10,100}$/.test(siteKey))return <p>Invalid security challenge.</p>;return <main style={{padding:24}}><h1>Security check</h1><TurnstileChallenge siteKey={siteKey} onToken={token=>{window.ReactNativeWebView?.postMessage(JSON.stringify({type:'captcha',token}));}}/></main>;}

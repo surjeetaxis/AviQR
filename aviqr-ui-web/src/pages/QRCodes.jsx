@@ -93,7 +93,7 @@ function TypeChip({ type }) {
     PROMO: { bg: '#fef3c7', color: '#92400e' },
     WIFI:  { bg: '#ede9fe', color: '#5b21b6' },
   };
-  const s = map[type] || { bg: '#f3f4f6', color: '#374151' };
+  const s = map[type] || { bg: "#eaf0ed", color: "#374b42" };
   return (
     <span style={{
       fontSize: 11, fontWeight: 700, padding: '2px 8px',
@@ -253,11 +253,11 @@ export default function QRCodes() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   if (!shopId) return (
-    <div style={{ textAlign:'center', padding:'60px 24px', color:'#6B7280' }}>
+    <div style={{ textAlign:'center', padding:'60px 24px', color:"#65766c" }}>
       <div style={{ fontSize:48, marginBottom:16 }}>📱</div>
-      <h2 style={{ fontSize:20, fontWeight:700, color:'#111827', marginBottom:8 }}>No restaurant yet</h2>
+      <h2 style={{ fontSize:20, fontWeight:700, color:"#18382c", marginBottom:8 }}>No restaurant yet</h2>
       <p style={{ fontSize:14, marginBottom:24 }}>Complete the setup to generate your QR codes.</p>
-      <button onClick={() => nav('/')} style={{ padding:'10px 24px', background:'#1D9E75', color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer' }}>
+      <button onClick={() => nav('/')} style={{ padding:'10px 24px', background:"#146c50", color:'#fff', border:'none', borderRadius:8, fontSize:14, fontWeight:600, cursor:'pointer' }}>
         Complete setup →
       </button>
     </div>

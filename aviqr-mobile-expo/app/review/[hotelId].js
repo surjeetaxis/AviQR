@@ -107,10 +107,10 @@ export default function HotelStayReviewScreen() {
 const ss = StyleSheet.create({
   page: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
-  doneTitle: { fontSize: FontSize.xl, fontWeight: '800', marginTop: 16, marginBottom: 6, textAlign: 'center' },
+  doneTitle: { fontSize: FontSize.xl, fontWeight: '600', marginTop: 16, marginBottom: 6, textAlign: 'center' },
   doneSub: { fontSize: FontSize.sm, color: Colors.gray500, textAlign: 'center' },
   header: { padding: 24, paddingTop: 52 },
-  headerTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.white, marginTop: 8 },
+  headerTitle: { fontSize: FontSize.xl, fontWeight: '600', color: Colors.white, marginTop: 8 },
   headerSub: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.9)', marginTop: 4 },
   body: { padding: Spacing.base, paddingBottom: 40 },
   label: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray500, marginBottom: 6, marginTop: 10 },

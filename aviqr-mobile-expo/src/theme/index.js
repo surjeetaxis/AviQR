@@ -1,7 +1,11 @@
 export const Colors = {
-  primary:       '#1D9E75',
-  primaryDark:   '#0F6E56',
-  primaryLight:  '#E1F5EE',
+  primary:       '#146C50',
+  primaryDark:   '#105940',
+  primaryLight:  '#EDF6F0',
+  brandSurface:  '#102E28',
+  brandRaised:   '#24483C',
+  onBrand:       '#C0D3CC',
+  mint:          '#9DDDC6',
   error:         '#DC2626',
   errorLight:    '#FEE2E2',
   warning:       '#D97706',
@@ -11,29 +15,37 @@ export const Colors = {
   purple:        '#7C3AED',
   purpleLight:   '#EDE9FE',
   white:         '#FFFFFF',
-  gray50:        '#FAFAFA',
-  gray100:       '#F3F4F6',
-  gray200:       '#E5E7EB',
-  gray300:       '#D1D5DB',
-  gray400:       '#9CA3AF',
-  gray500:       '#6B7280',
-  gray600:       '#4B5563',
-  gray700:       '#374151',
-  gray800:       '#1F2937',
-  gray900:       '#111827',
-  background:    '#F8FAFB',
+  gray50:        '#F8FAF9',
+  gray100:       '#EAF0ED',
+  gray200:       '#E1E8E3',
+  gray300:       '#C3D0C8',
+  gray400:       '#74847B',
+  gray500:       '#65766C',
+  gray600:       '#53645E',
+  gray700:       '#374B42',
+  gray800:       '#24483C',
+  gray900:       '#18382C',
+  background:    '#F8FAF9',
   surface:       '#FFFFFF',
-  border:        '#E5E7EB',
+  border:        '#E1E8E3',
 };
 
 export const Spacing = { xs:4, sm:8, md:12, base:16, lg:20, xl:24, '2xl':32, '3xl':48 };
-export const Radius  = { sm:6, md:10, lg:14, xl:18, '2xl':24, full:999 };
+export const Radius  = { sm:8, md:10, lg:18, xl:20, '2xl':24, full:999 };
 export const FontSize= { xs:11, sm:12, base:14, md:15, lg:16, xl:18, '2xl':20, '3xl':24, '4xl':28 };
 
 export const Shadow = {
-  sm: { shadowColor:'#000', shadowOffset:{width:0,height:1}, shadowOpacity:0.04, shadowRadius:3, elevation:1 },
-  md: { shadowColor:'#000', shadowOffset:{width:0,height:2}, shadowOpacity:0.07, shadowRadius:8, elevation:3 },
-  lg: { shadowColor:'#000', shadowOffset:{width:0,height:4}, shadowOpacity:0.10, shadowRadius:16,elevation:6 },
+  sm: { shadowColor:Colors.gray900, shadowOffset:{width:0,height:2}, shadowOpacity:0.03, shadowRadius:6, elevation:1 },
+  md: { shadowColor:Colors.gray900, shadowOffset:{width:0,height:3}, shadowOpacity:0.05, shadowRadius:10, elevation:2 },
+  lg: { shadowColor:Colors.brandSurface, shadowOffset:{width:0,height:8}, shadowOpacity:0.10, shadowRadius:20,elevation:5 },
+};
+
+export const Typography = {
+  title: { fontSize:28, fontWeight:'600', letterSpacing:-0.8, color:Colors.gray900 },
+  section: { fontSize:16, fontWeight:'600', letterSpacing:-0.3, color:Colors.gray900 },
+  body: { fontSize:14, lineHeight:22, color:Colors.gray700 },
+  caption: { fontSize:12, lineHeight:18, color:Colors.gray500 },
+  eyebrow: { fontSize:10, fontWeight:'700', letterSpacing:1.4, color:Colors.primaryDark },
 };
 
 export const ROLE_COLOR = {
