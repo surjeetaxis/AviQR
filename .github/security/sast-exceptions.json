@@ -1,0 +1,16 @@
+[
+  {
+    "rule": "java/potentially-weak-cryptographic-algorithm",
+    "path": "aviqr-backend/payment-gateway-service/src/main/java/in/aviqr/paymentgateway/gateway/providers/FacMpi.java",
+    "reason": "Bank of Maldives and HNB Sentry (MPI protocol) define the request and response Signature as Base64 SHA-1 of the password and fields (SignatureMethod=SHA1). The banks accept no other algorithm; a different hash breaks those payments. Not used anywhere else.",
+    "owner": "payments",
+    "expires": "2027-04-11"
+  },
+  {
+    "rule": "java/weak-cryptographic-algorithm",
+    "path": "aviqr-backend/payment-gateway-service/src/main/java/in/aviqr/paymentgateway/gateway/providers/GoPesProvider.java",
+    "reason": "GoPES's init-payment API requires the merchant key and password encrypted with PBKDF2 + AES/CBC/PKCS5Padding. AviQR only encrypts and sends; it never decrypts attacker-supplied data, so there is no padding oracle.",
+    "owner": "payments",
+    "expires": "2027-04-11"
+  }
+]

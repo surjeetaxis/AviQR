@@ -28,9 +28,10 @@ public class RazorpaySecretConverter implements AttributeConverter<String, Strin
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, key(), new GCMParameterSpec(128, nonce));
             byte[] encrypted = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
-            byte[] packed = Arrays.copyOf(nonce, nonce.length + encrypted.length);
-            System.arraycopy(encrypted, 0, packed, nonce.length, encrypted.length);
-            return PREFIX + Base64.getEncoder().encodeToString(packed);
+            java.io.ByteArrayOutputStream packed = new java.io.ByteArrayOutputStream();
+            packed.write(nonce);
+            packed.write(encrypted);
+            return PREFIX + Base64.getEncoder().encodeToString(packed.toByteArray());
         } catch (Exception e) {
             throw new IllegalStateException("Could not encrypt tenant credentials", e);
         }

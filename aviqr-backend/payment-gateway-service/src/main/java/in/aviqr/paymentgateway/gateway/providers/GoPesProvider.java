@@ -14,7 +14,6 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.*;
@@ -123,6 +122,10 @@ public class GoPesProvider implements GatewayProvider {
         cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"));
         byte[] iv = cipher.getParameters().getParameterSpec(IvParameterSpec.class).getIV();
         byte[] enc = cipher.doFinal(word.getBytes(StandardCharsets.UTF_8));
-        return Base64.getEncoder().encodeToString(ByteBuffer.allocate(salt.length + iv.length + enc.length).put(salt).put(iv).put(enc).array());
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        out.write(salt);
+        out.write(iv);
+        out.write(enc);
+        return Base64.getEncoder().encodeToString(out.toByteArray());
     }
 }

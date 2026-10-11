@@ -10,7 +10,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /** Global Payments UK (Realex HPP), legacy GlobalPayUKManager. Built on the HPP form protocol
- *  directly instead of the Global Payments SDK: SHA-1 of SHA-1(fields)+"."+secret both ways. */
+ *  directly instead of the Global Payments SDK, signed with SHA-256 (SHA256HASH) rather than the
+ *  legacy SHA-1: SHA-256 of SHA-256(fields)+"."+secret, and the response is signed the same way. */
 @Component
 public class RealexProvider implements GatewayProvider {
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
@@ -39,7 +40,7 @@ public class RealexProvider implements GatewayProvider {
         f.put("HPP_LANG", "en");
         if (!ctx.email().isBlank()) f.put("HPP_CUSTOMER_EMAIL", ctx.email());
         f.put("MERCHANT_RESPONSE_URL", ctx.callbackUrl());
-        f.put("SHA1HASH", sign(c.require("sharedSecret"), ts, c.require("merchantId"), ctx.reference(), amount, ctx.currency()));
+        f.put("SHA256HASH", sign(c.require("sharedSecret"), ts, c.require("merchantId"), ctx.reference(), amount, ctx.currency()));
         return Checkout.form(ctx.testMode() ? "https://pay.sandbox.realexpayments.com/pay" : "https://hpp.realexpayments.com/pay", f);
     }
 
@@ -56,13 +57,13 @@ public class RealexProvider implements GatewayProvider {
         if (!ctx.reference().equals(p.get("ORDER_ID"))) return Outcome.failed("Unknown Global Payments order");
         String expected = sign(ctx.credentials().require("sharedSecret"), v(p, "TIMESTAMP"), v(p, "MERCHANT_ID"), v(p, "ORDER_ID"),
             v(p, "RESULT"), v(p, "MESSAGE"), v(p, "PASREF"), v(p, "AUTHCODE"));
-        boolean valid = Digests.same(expected, p.get("SHA1HASH"));
+        boolean valid = Digests.same(expected, p.get("SHA256HASH"));
         if (!"00".equals(p.get("RESULT"))) return Outcome.failed(p.get("PASREF"), v(p, "MESSAGE"));
         return Outcome.success(valid, p.get("PASREF"), p.get("AUTHCODE"), Money.fromMinor(p.get("AMOUNT"), ctx.currency()));
     }
 
     static String sign(String secret, String... parts) {
-        return Digests.sha1Hex(Digests.sha1Hex(String.join(".", parts)) + "." + secret);
+        return Digests.sha256Hex(Digests.sha256Hex(String.join(".", parts)) + "." + secret);
     }
 
     private static String v(Map<String, String> p, String k) { return Objects.toString(p.get(k), ""); }

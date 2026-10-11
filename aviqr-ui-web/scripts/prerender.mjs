@@ -51,9 +51,9 @@ function startStaticServer() {
       let path;
       try { path = decodeURIComponent(req.url.split('?')[0]); } catch { res.writeHead(400); res.end(); return; }
       const filePath = resolvePath(DIST, '.' + path);
-      const distRoot = resolvePath(DIST);
-      if (filePath !== distRoot && !filePath.startsWith(distRoot + sep)) { res.writeHead(403); res.end(); return; }
       try {
+        // Only files inside dist/ are served; anything else (including dist/ itself) gets the SPA shell below.
+        if (!filePath.startsWith(resolvePath(DIST) + sep)) throw new Error('outside dist');
         const stat = await readFile(filePath).catch(() => null);
         if (stat === null) throw new Error('not found');
         res.writeHead(200, { 'Content-Type': MIME[extname(filePath)] || 'application/octet-stream' });

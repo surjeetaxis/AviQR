@@ -11,7 +11,6 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPairGenerator;
 import java.util.*;
-import javax.crypto.Cipher;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -37,10 +36,11 @@ class ProviderSignatureTest {
     void bmlSignsAndChecksResponses() {
         var c = ctx(Map.of("merchantId", "9800000001", "acquirerId", "407387", "password", "pw"), "MVR");
         var f = new BmlProvider().begin(c).fields();
-        assertThat(f.get("Signature")).isEqualTo(Digests.sha1Base64("pw9800000001407387AQTESTREF000000001000000150050462"));
+        assertThat(f.get("Signature")).isEqualTo(FacMpi.signature("pw9800000001407387AQTESTREF000000001000000150050462"));
+        assertThat(FacMpi.signature("abc")).isEqualTo("qZk+NkcGgWq6PiVxeFDCbJzQ2J0="); // SHA-1, as the MPI spec defines it
         Map<String, String> resp = new HashMap<>(Map.of("MerID", "9800000001", "AcqID", "407387", "OrderID", c.reference(),
             "ResponseCode", "1", "ReasonCode", "1", "ReferenceNo", "R1"));
-        resp.put("Signature", Digests.sha1Base64("pw9800000001407387" + c.reference() + "11"));
+        resp.put("Signature", FacMpi.signature("pw9800000001407387" + c.reference() + "11"));
         assertThat(new BmlProvider().complete(c, resp).status()).isEqualTo(Outcome.Status.PAID);
         resp.put("Signature", "forged");
         assertThat(new BmlProvider().complete(c, resp).status()).isEqualTo(Outcome.Status.UNVERIFIED);
@@ -64,10 +64,11 @@ class ProviderSignatureTest {
     void realexHashesBothWays() {
         var c = ctx(Map.of("merchantId", "hotel", "sharedSecret", "secret"), "GBP");
         var f = new RealexProvider().begin(c).fields();
-        assertThat(f.get("SHA1HASH")).isEqualTo(RealexProvider.sign("secret", f.get("TIMESTAMP"), "hotel", c.reference(), "150050", "GBP"));
+        assertThat(f).doesNotContainKey("SHA1HASH");
+        assertThat(f.get("SHA256HASH")).isEqualTo(RealexProvider.sign("secret", f.get("TIMESTAMP"), "hotel", c.reference(), "150050", "GBP"));
         Map<String, String> resp = new HashMap<>(Map.of("TIMESTAMP", "20261010101010", "MERCHANT_ID", "hotel", "ORDER_ID", c.reference(),
             "RESULT", "00", "MESSAGE", "Authorised", "PASREF", "P1", "AUTHCODE", "A1", "AMOUNT", "150050"));
-        resp.put("SHA1HASH", RealexProvider.sign("secret", "20261010101010", "hotel", c.reference(), "00", "Authorised", "P1", "A1"));
+        resp.put("SHA256HASH", RealexProvider.sign("secret", "20261010101010", "hotel", c.reference(), "00", "Authorised", "P1", "A1"));
         assertThat(new RealexProvider().complete(c, resp).status()).isEqualTo(Outcome.Status.PAID);
         resp.put("RESULT", "101");
         assertThat(new RealexProvider().complete(c, resp).status()).isEqualTo(Outcome.Status.FAILED);
@@ -140,9 +141,11 @@ class ProviderSignatureTest {
         var c = ctx(Map.of("secretKey", "s", "publicKey", pub));
         assertThat(new WebxPayProvider().begin(c).fields().get("payment")).isNotBlank();
         String plain = c.reference() + "|WX1|2026-10-10 10:00|00|Approved|card";
-        Cipher rsa = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-        rsa.init(Cipher.ENCRYPT_MODE, pair.getPrivate());
-        String sig = Base64.getEncoder().encodeToString(rsa.doFinal(plain.getBytes(StandardCharsets.UTF_8)));
+        // What WebXPay does: openssl_private_encrypt of the payment text (a PKCS#1 v1.5 signature with no digest).
+        java.security.Signature signer = java.security.Signature.getInstance("NONEwithRSA");
+        signer.initSign(pair.getPrivate());
+        signer.update(plain.getBytes(StandardCharsets.UTF_8));
+        String sig = Base64.getEncoder().encodeToString(signer.sign());
         String payment = Base64.getEncoder().encodeToString(plain.getBytes(StandardCharsets.UTF_8));
         assertThat(new WebxPayProvider().complete(c, Map.of("payment", payment, "signature", sig)).status()).isEqualTo(Outcome.Status.PAID);
         assertThat(new WebxPayProvider().complete(c, Map.of("payment", payment, "signature", "AAAA")).status()).isEqualTo(Outcome.Status.UNVERIFIED);

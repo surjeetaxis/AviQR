@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
@@ -38,7 +37,10 @@ public class CredentialCipher {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(128, iv));
             byte[] sealed = cipher.doFinal(mapper.writeValueAsBytes(values));
-            return Base64.getEncoder().encodeToString(ByteBuffer.allocate(iv.length + sealed.length).put(iv).put(sealed).array());
+            java.io.ByteArrayOutputStream packed = new java.io.ByteArrayOutputStream();
+            packed.write(iv);
+            packed.write(sealed);
+            return Base64.getEncoder().encodeToString(packed.toByteArray());
         } catch (Exception e) {
             throw new IllegalStateException("Could not encrypt gateway settings", e);
         }

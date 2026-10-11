@@ -4,7 +4,6 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Base64;
 import java.util.HexFormat;
 import java.util.zip.CRC32;
 
@@ -19,8 +18,6 @@ public final class Digests {
             throw new IllegalStateException(e);
         }
     }
-    public static String sha1Base64(String value) { return Base64.getEncoder().encodeToString(digest("SHA-1", value)); }
-    public static String sha1Hex(String value) { return HexFormat.of().formatHex(digest("SHA-1", value)); }
     public static String sha256Hex(String value) { return HexFormat.of().formatHex(digest("SHA-256", value)); }
     public static String sha512Hex(String value) { return HexFormat.of().formatHex(digest("SHA-512", value)); }
     public static String md5Hex(String value) { return HexFormat.of().formatHex(digest("MD5", value)); }

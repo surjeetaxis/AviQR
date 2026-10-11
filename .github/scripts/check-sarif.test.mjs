@@ -1,6 +1,9 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {highSeverityFindings} from './check-sarif.mjs';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {highSeverityFindings,activeExceptions} from './check-sarif.mjs';
 const fixture=(score,level='warning')=>({runs:[{tool:{driver:{rules:[{id:'security-test',properties:{'security-severity':score}}]}},results:[{ruleId:'security-test',level}]}]});
 test('high and critical findings block even if CodeQL analysis succeeded',()=>{assert.deepEqual(highSeverityFindings(fixture('7.5')),['security-test']);assert.deepEqual(highSeverityFindings(fixture('9.8')),['security-test']);});
 test('lower severity does not block deployment',()=>assert.deepEqual(highSeverityFindings(fixture('4.3')),[]));
 test('error findings block without a numeric score',()=>assert.deepEqual(highSeverityFindings(fixture('0','error')),['security-test']));
 test('empty or failed analysis is rejected',()=>{assert.throws(()=>highSeverityFindings({runs:[]}));assert.throws(()=>highSeverityFindings({runs:[{invocations:[{executionSuccessful:false}]}]}));});
+const located=(ruleId,uri)=>({runs:[{tool:{driver:{rules:[{id:ruleId,properties:{'security-severity':'7.5'}}]}},results:[{ruleId,level:'warning',locations:[{physicalLocation:{artifactLocation:{uri},region:{startLine:3}}}]}]}]});
+test('an exception covers only its own rule and file',()=>{const ex=[{rule:'java/x',path:'a/B.java',reason:'protocol',expires:'2999-01-01'}];assert.deepEqual(highSeverityFindings(located('java/x','a/B.java'),ex),[]);assert.deepEqual(highSeverityFindings(located('java/x','a/C.java'),ex),['java/x at a/C.java:3']);assert.deepEqual(highSeverityFindings(located('java/y','a/B.java'),ex),['java/y at a/B.java:3']);});
+test('expired or incomplete exceptions do not apply',()=>{assert.deepEqual(activeExceptions([{rule:'r',path:'p',reason:'x',expires:'2020-01-01'}],'2026-10-11'),[]);assert.throws(()=>activeExceptions([{rule:'r',path:'p',expires:'2999-01-01'}]));});

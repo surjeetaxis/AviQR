@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.Security;
+import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
 
@@ -59,12 +60,15 @@ public class WebxPayProvider implements GatewayProvider {
         return Outcome.success(signed(ctx.credentials().require("publicKey"), plain, signature), pgRef, null, null);
     }
 
+    /** WebXPay signs the payment text with its private key (PKCS#1 v1.5, no digest), so the
+     *  signature is checked as exactly that: NONEwithRSA over the decoded payment text. */
     private static boolean signed(String publicKey, String plain, String signature) {
         try {
-            Cipher rsa = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-            rsa.init(Cipher.DECRYPT_MODE, key(publicKey));
-            String opened = new String(rsa.doFinal(Base64.getMimeDecoder().decode(signature)), StandardCharsets.UTF_8);
-            return !plain.isEmpty() && Digests.exact(plain, opened);
+            if (plain.isEmpty() || signature == null) return false;
+            Signature verifier = Signature.getInstance("NONEwithRSA");
+            verifier.initVerify(key(publicKey));
+            verifier.update(plain.getBytes(StandardCharsets.UTF_8));
+            return verifier.verify(Base64.getMimeDecoder().decode(signature));
         } catch (Exception e) {
             return false;
         }
