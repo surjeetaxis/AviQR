@@ -19,7 +19,7 @@ import { chromium } from '../node_modules/playwright-core/index.mjs';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'out');
@@ -213,11 +213,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const ff = args => execFileSync('ffmpeg', ['-v', 'error', '-y', ...args], { stdio: 'inherit' });
 
-const CAPTION_CSS = `#__aq_cap{position:fixed;left:16px;right:16px;bottom:96px;z-index:2147483647;pointer-events:none;
+export const CAPTION_CSS = `#__aq_cap{position:fixed;left:16px;right:16px;bottom:96px;z-index:2147483647;pointer-events:none;
   background:rgba(15,23,42,.92);color:#fff;font:700 21px/1.32 -apple-system,'Inter','Segoe UI',sans-serif;
   padding:14px 18px;border-radius:14px;text-align:center;border-left:6px solid #1D9E75;box-shadow:0 8px 30px rgba(0,0,0,.35)}`;
 
-async function capture(page, screen, caption, png) {
+export async function capture(page, screen, caption, png) {
   await page.goto(screen.url, { waitUntil: 'networkidle' }).catch(() => {});
   await page.evaluate(() => document.fonts && document.fonts.ready).catch(() => {});
   await sleep(500);
@@ -249,26 +249,33 @@ async function capture(page, screen, caption, png) {
   await page.screenshot({ path: png });
 }
 
-async function card(browser, kind, text, png) {
+// kind 'hook' shows `text`; kind 'end' shows end.title/end.sub/end.tag (English defaults). Long text shrinks to fit.
+export async function card(browser, kind, text, png, end = {}) {
   const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
+  const e = { title: 'Start free at aviqr.com', sub: 'No credit card · Live in under 10 minutes', tag: 'Follow for a new feature every day', ...end };
   const body = kind === 'hook'
     ? `<div class="logo">AviQR</div><h1>${esc(text)}</h1><div class="tag">Restaurant &amp; Hotel OS</div>`
-    : `<div class="logo">AviQR</div><h1>Start free at aviqr.com</h1><p>No credit card · Live in under 10 minutes</p><div class="tag">Follow for a new feature every day</div>`;
+    : `<div class="logo">AviQR</div><h1>${esc(e.title)}</h1><p>${esc(e.sub)}</p><div class="tag">${esc(e.tag)}</div>`;
   await page.setContent(`<!doctype html><meta charset="utf-8"><style>
     *{margin:0;box-sizing:border-box}
     body{width:1080px;height:1920px;background:radial-gradient(900px 1200px at 20% 10%,#12805f 0,${GREEN} 45%,#0a3d31 100%);
-      color:#fff;font-family:-apple-system,'Inter','Segoe UI',sans-serif;display:flex;flex-direction:column;
+      color:#fff;font-family:-apple-system,'Inter','Segoe UI','Noto Sans',sans-serif;display:flex;flex-direction:column;
       justify-content:center;align-items:center;text-align:center;padding:0 90px}
     .logo{font-size:72px;font-weight:800;letter-spacing:-1px;background:#fff;color:${GREEN};padding:10px 40px;border-radius:24px;margin-bottom:90px}
-    h1{font-size:104px;line-height:1.08;font-weight:800;letter-spacing:-2px}
+    h1{font-size:104px;line-height:1.15;font-weight:800;letter-spacing:-1px}
     p{font-size:48px;margin-top:48px;opacity:.92;line-height:1.35}
-    .tag{position:absolute;bottom:150px;font-size:36px;letter-spacing:3px;opacity:.8;text-transform:uppercase}
+    .tag{position:absolute;bottom:150px;left:60px;right:60px;font-size:36px;letter-spacing:2px;opacity:.8;text-transform:uppercase}
   </style>${body}`);
+  await page.evaluate(() => { // shrink the headline until it fits in ~900px of height
+    const h = document.querySelector('h1');
+    let size = 104;
+    while (h.scrollHeight > 900 && size > 56) { size -= 4; h.style.fontSize = size + 'px'; }
+  });
   await page.screenshot({ path: png });
   await page.close();
 }
 
-function encode(images, mp4) {
+export function encode(images, mp4) {
   // images: [{png, seconds}]. Each still gets a slow zoom; neighbours crossfade.
   const inputs = [], filters = [];
   images.forEach(({ png, seconds }, i) => {
@@ -392,10 +399,13 @@ function plan(start, time) {
   console.log(`planned ${n} Shorts from ${start} at ${time} IST -> ${dir}`);
 }
 
-const args = process.argv.slice(2);
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const args = isMain ? process.argv.slice(2) : [];
 const opt = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : dflt; };
 const tomorrow = new Date(Date.now() + 5.5 * 3600e3 + 86400e3).toISOString().slice(0, 10);
 const onlyIdx = args.indexOf('--only');
 const only = onlyIdx >= 0 ? args.slice(onlyIdx + 1).filter(a => !a.startsWith('--')) : [];
-if (!args.includes('--plan-only')) await render(only);
-plan(opt('--start', tomorrow), opt('--time', '12:00'));
+if (isMain) {
+  if (!args.includes('--plan-only')) await render(only);
+  plan(opt('--start', tomorrow), opt('--time', '12:00'));
+}
