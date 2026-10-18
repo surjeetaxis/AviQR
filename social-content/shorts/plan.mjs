@@ -63,4 +63,21 @@ order.forEach((id, n) => {
   const meta = JSON.parse(fs.readFileSync(path.join(VIDEOS, id + '.json')));
   fs.writeFileSync(path.join(folder, stem + '.json'), JSON.stringify({ date, time_ist: time, video: stem + '.mp4', cover: stem + '.png', ...meta }, null, 1));
 });
+// Full-length demos (../youtube/out/final/demo-*.mp4): one a day on YouTube, alternating tours and languages.
+const FINAL = path.join(HERE, '..', 'youtube', 'out', 'final');
+const demos = fs.existsSync(FINAL) ? fs.readdirSync(FINAL).filter(f => /^demo-.*\.mp4$/.test(f)).map(f => f.slice(0, -4))
+  .filter(id => !done.has(id) && fs.existsSync(path.join(FINAL, id + '.upload.json'))) : [];
+const demoOrder = [];
+for (const lang of LANGS) for (const id of demos) if (id.endsWith('-' + lang)) demoOrder.push(id);
+let dday = new Date(start + 'T00:00:00Z');
+for (const id of demoOrder) {
+  const date = dday.toISOString().slice(0, 10), stem = `1700-${id}`, folder = path.join(dir, date);
+  fs.mkdirSync(folder, { recursive: true });
+  fs.linkSync(path.join(FINAL, id + '.mp4'), path.join(folder, stem + '.mp4'));
+  fs.linkSync(path.join(FINAL, id + '.thumb.png'), path.join(folder, stem + '.png'));
+  const meta = JSON.parse(fs.readFileSync(path.join(FINAL, id + '.upload.json')));
+  fs.writeFileSync(path.join(folder, stem + '.json'), JSON.stringify({ date, time_ist: '17:00', video: stem + '.mp4', cover: stem + '.png', ...meta }, null, 1));
+  dday = new Date(dday.getTime() + 86400e3);
+}
+console.log(`planned ${demoOrder.length} full demos, 1/day at 17:00 IST`);
 console.log(`planned ${order.length} Shorts (${groups.size} features, ${done.size} already uploaded skipped), ${perDay}/day from ${start} to ${day.toISOString().slice(0, 10)}`);

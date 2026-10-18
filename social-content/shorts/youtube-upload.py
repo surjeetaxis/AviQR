@@ -81,7 +81,10 @@ def upload(youtube, meta_path):
               'embeddable': True}
     if when:
         status['publishAt'] = when
-    title = m['title'] if '#shorts' in m['title'].lower() else f"{m['title'][:91]} #shorts"
+    if not m.get('short', True):  # full-length demo: plain title
+        title = m['title']
+    else:
+        title = m['title'] if '#shorts' in m['title'].lower() else f"{m['title'][:91]} #shorts"
     body = {'snippet': {'title': title[:100], 'description': m['description'][:5000], 'tags': m['tags'],
                         'categoryId': '28', 'defaultLanguage': 'en', 'defaultAudioLanguage': 'en'},
             'status': status}

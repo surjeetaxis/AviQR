@@ -86,6 +86,8 @@ def due(late, ledger, start=None):
             continue
         hhmm = os.path.basename(meta)[:4]
         when = datetime.datetime.fromisoformat(f'{date}T{hhmm[:2]}:{hhmm[2:]}:00').replace(tzinfo=IST)
+        if not json.load(open(meta)).get('reel', True):  # full-length landscape demos are YouTube-only
+            continue
         todo = [p for p in PLATFORMS if p not in ledger.get(os.path.relpath(meta, SHORTS), {})]
         if now - datetime.timedelta(hours=late) <= when <= now and todo:
             out.append((meta, todo))
