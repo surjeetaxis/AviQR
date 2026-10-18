@@ -25,7 +25,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'out');
 const SHOTS = path.join(OUT, 'shots');
 const VIDEOS = path.join(OUT, 'videos');
-const SITE = 'https://aviqr.com';
+export const SITE = 'https://aviqr.com';
 const MENU = SITE + '/menu/ecdbc557-91fa-44ee-992f-03683ad8bbde?table=1'; // public demo restaurant (Spice Route)
 const PHONE = { width: 432, height: 768 };
 const SCALE = 2.5; // 432x768 -> 1080x1920
@@ -36,7 +36,7 @@ const GREEN = '#0F6E56';
 // Screen recipes. `card` scrolls a home-page feature card into view; the others are named screens.
 const home = card => ({ url: SITE + '/', heading: card });
 const features = h2 => ({ url: SITE + '/features', heading: h2, level: 2 });
-const S = {
+export const S = {
   menuTop: { url: MENU },
   menuDish: { url: MENU, locate: 'Mushroom Pepper Fry', offset: 330 },
   menuMains: { url: MENU, click: 'Main Course', offset: 0 },
@@ -53,7 +53,7 @@ const S = {
 };
 
 // The Shorts, in posting order. hook: big text on the first card. caps: one caption per screen.
-const SHORTS = [
+export const SHORTS = [
   { id: '01-no-app', hook: 'Your menu opens with any phone camera', screens: [home('No App to Install'), S.menuTop],
     caps: ['Scan with any phone camera — no app to download', 'The menu opens straight in the browser'],
     title: 'A QR menu with no app to install', tags: ['QR menu', 'no app menu', 'restaurant tech'] },

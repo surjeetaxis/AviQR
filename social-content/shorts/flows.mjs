@@ -31,7 +31,7 @@ const tab = (role, path, name, scroll = 0) => {
 const hotel = (name, scroll = 0) => tab('hotel', '/hotel', name, scroll);
 const mall = (name, scroll = 0) => tab('mall', '/mall', name, scroll);
 const sup = (name, scroll = 0) => tab('supplier', '/supplier', name, scroll);
-const f = (id, screens, en, tags) => ({ id, screens, en, tags });
+const f = (id, screens, en, tags, extra = {}) => ({ id, screens, en, tags, ...extra });
 
 export const FLOWS = [
   // ── Restaurant owner ────────────────────────────────────────────────────────────────────────────
@@ -190,3 +190,12 @@ export const FLOWS = [
   f('l-trips', [{ url: LEELA + 'trips' }, { url: LEELA + 'find' }],
     ['Guests manage their own stay', 'My trips and find booking', 'On your hotel’s site', 'Guest self-service for hotels'], ['guest experience', 'hotel booking']),
 ];
+
+// ── aviqr.com feature Shorts (set 1, render.mjs) in the 8 other languages; English already exists there ──
+import { SHORTS as WEB, SITE } from './render.mjs';
+const webScreen = sc => ({
+  url: sc.url, scroll: sc.scroll, click: sc.click,
+  locate: sc.heading || sc.locate,
+  ring: !!sc.heading && !sc.level && sc.url === SITE + '/', // highlight a home-page feature card, as set 1 does
+});
+FLOWS.push(...WEB.map(w => f(`w-${w.id}`, w.screens.map(webScreen), [w.hook, w.caps[0], w.caps[1], w.title], w.tags, { noEn: true })));

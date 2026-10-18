@@ -115,7 +115,10 @@ async function capture(browser, screen, lang, caption, png, names) {
   if (screen.click) { await page.getByRole('button', { name: screen.click, exact: false }).first().click().catch(() => {}); await sleep(900); }
   if (screen.locate) {
     const el = page.getByText(screen.locate, { exact: false }).first();
-    if (await el.count()) await el.evaluate(e => window.scrollTo({ top: e.getBoundingClientRect().top + window.scrollY - 200, behavior: 'instant' }));
+    if (await el.count()) {
+      if (screen.ring) await el.evaluate(e => { const c = e.parentElement; c.style.boxShadow = '0 0 0 3px #1D9E75, 0 12px 34px rgba(15,110,86,.28)'; c.style.background = '#fff'; });
+      await el.evaluate((e, off) => window.scrollTo({ top: e.getBoundingClientRect().top + window.scrollY - off, behavior: 'instant' }), screen.ring ? 250 : 200);
+    }
   }
   if (screen.scroll) await page.evaluate(y => window.scrollBy({ top: y, behavior: 'instant' }), screen.scroll);
   await sleep(600);
@@ -158,6 +161,7 @@ async function main() {
     const end = tr._end ? { title: tr._end[0], sub: tr._end[1], tag: tr._end[2] } : {};
     for (const flow of FLOWS) {
       if (only.length && !only.some(o => flow.id.startsWith(o))) continue;
+      if (flow.noEn && lang === 'en') continue;
       const id = `${flow.id}-${lang}`, mp4 = path.join(VIDEOS, `${id}.mp4`);
       if (skip && fs.existsSync(mp4)) continue;
       const text = tr[flow.id] || flow.en;
