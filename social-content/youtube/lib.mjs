@@ -108,7 +108,8 @@ export function helpers(page, clock) {
 }
 
 /** Record `fn(page, h)` and return the raw clip + timing metadata. */
-export async function record(slug, fn) {
+// opts.initScripts: [[fn, arg], …] added to the context (e.g. language, masking); opts.out: output folder.
+export async function record(slug, fn, opts = {}) {
   const rawDir = path.join(OUT, 'raw', slug);
   fs.rmSync(rawDir, { recursive: true, force: true });
   fs.mkdirSync(rawDir, { recursive: true });
@@ -123,6 +124,7 @@ export async function record(slug, fn) {
     recordVideo: { dir: rawDir, size: VIEWPORT },
   });
   await context.addInitScript(OVERLAY);
+  for (const [script, arg] of opts.initScripts || []) await context.addInitScript(script, arg);
   const page = await context.newPage();
   const clock = { t0: Date.now(), trim: 0, chapters: [] };
   const h = helpers(page, clock);
@@ -136,13 +138,13 @@ export async function record(slug, fn) {
   return { slug, webm, trim: clock.trim, durationSec, chapters: clock.chapters };
 }
 
-async function renderCard(kind, { title, subtitle }, outPng) {
+async function renderCard(kind, { title, subtitle, end = {} }, outPng) {
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const body = kind === 'title'
     ? `<div class="logo">AviQR</div><h1>${esc(title)}</h1><p>${esc(subtitle)}</p><div class="tag">Restaurant &amp; Hotel OS · aviqr.com</div>`
-    : `<div class="logo">AviQR</div><h1>Try it free at aviqr.com</h1><p>Start free — no credit card · Live in under 10 minutes</p><div class="tag">Subscribe for more AviQR demos</div>`;
+    : `<div class="logo">AviQR</div><h1>${esc(end.title || 'Try it free at aviqr.com')}</h1><p>${esc(end.sub || 'Start free — no credit card · Live in under 10 minutes')}</p><div class="tag">${esc(end.tag || 'Subscribe for more AviQR demos')}</div>`;
   await page.setContent(`<!doctype html><meta charset="utf-8"><style>
     *{margin:0;box-sizing:border-box}
     body{width:1920px;height:1080px;background:radial-gradient(1200px 700px at 20% 10%,#12805f 0,#0F6E56 40%,#0a3d31 100%);
