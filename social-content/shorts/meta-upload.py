@@ -64,7 +64,14 @@ def instagram(cfg, video, caption):
         time.sleep(10)
     else:
         raise RuntimeError('Instagram processing timed out')
-    return api('POST', f'{ig}/media_publish', creation_id=box, access_token=token)['id']
+    try:
+        return api('POST', f'{ig}/media_publish', creation_id=box, access_token=token)['id']
+    except RuntimeError:
+        # media_publish sometimes errors after the Reel went live; retrying then posts it twice.
+        time.sleep(20)
+        if api('GET', box, fields='status_code', access_token=token)['status_code'] == 'PUBLISHED':
+            return box
+        raise
 
 
 def facebook(cfg, video, caption):
