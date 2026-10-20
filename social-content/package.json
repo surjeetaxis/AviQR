@@ -1,0 +1,11 @@
+{
+  "name": "aviqr-social-content",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "shorts": "node shorts/render.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "1.62.1"
+  }
+}
