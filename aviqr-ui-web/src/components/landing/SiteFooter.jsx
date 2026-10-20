@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import LogoMark from './LogoMark.jsx';
+import { SOCIAL } from './social.js';
 
 export default function SiteFooter({ isHome = false }) {
   const base = isHome ? '' : '/';
@@ -37,6 +38,12 @@ export default function SiteFooter({ isHome = false }) {
             <Link to="/login">Sign in</Link>
             <Link to="/register">Register</Link>
             <Link to="/login?role=admin">Admin login</Link>
+          </div>
+          <div className="footer-col">
+            <div className="footer-col-title">Follow us</div>
+            {SOCIAL.map(s => (
+              <a key={s.name} href={s.url} target="_blank" rel="noopener noreferrer">{s.name}</a>
+            ))}
           </div>
           <div className="footer-col">
             <div className="footer-col-title">Legal</div>
