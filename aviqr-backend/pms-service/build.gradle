@@ -12,7 +12,7 @@ dependencies {
     implementation 'org.postgresql:postgresql'
     // Booking assistant (website chat and WhatsApp) on the Claude API.
     implementation 'com.anthropic:anthropic-java:2.34.0'
-    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
-    runtimeOnly  'io.jsonwebtoken:jjwt-impl:0.12.6'
-    runtimeOnly  'io.jsonwebtoken:jjwt-jackson:0.12.6'
+    implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
+    runtimeOnly  'io.jsonwebtoken:jjwt-impl:0.13.0'
+    runtimeOnly  'io.jsonwebtoken:jjwt-jackson:0.13.0'
 }
