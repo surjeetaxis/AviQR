@@ -2,6 +2,7 @@ import { useState } from 'react';
 import SEO from '../../components/shared/SEO.jsx';
 import SiteHeader from '../../components/landing/SiteHeader.jsx';
 import SiteFooter from '../../components/landing/SiteFooter.jsx';
+import { SOCIAL } from '../../components/landing/social.js';
 import { Mail, Phone, MapPin, ShieldAlert } from 'lucide-react';
 import '../landing/Landing.css';
 import './Company.css';
@@ -49,6 +50,19 @@ export default function ContactPage() {
                 ? <a className="contact-value" href={c.href}>{c.value}</a>
                 : <div className="contact-value" style={{ color: 'var(--gray-700)' }}>{c.value}</div>}
             </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="company-section" style={{ paddingTop: 0, paddingBottom: 24 }}>
+        <h2 className="social-heading">Follow us — a new feature every day</h2>
+        <div className="contact-grid social-grid">
+          {SOCIAL.map(s => (
+            <a key={s.name} className="contact-card social-card" href={s.url} target="_blank" rel="noopener noreferrer">
+              <div className="contact-icon"><s.icon size={20} /></div>
+              <div className="contact-title">{s.name}</div>
+              <div className="contact-value">{s.handle}</div>
+            </a>
           ))}
         </div>
       </section>
