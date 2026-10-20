@@ -11,6 +11,14 @@ const CHANNELS = [
   { emoji: '📍', title: 'Office', desc: 'Registered address', value: 'Bengaluru, Karnataka – 560001', href: null },
 ];
 
+// A new feature video every day; same accounts as the aviqr.com footer.
+const SOCIAL = [
+  { emoji: '▶️', title: 'YouTube', value: '@aviqros', href: 'https://www.youtube.com/@aviqros' },
+  { emoji: '📸', title: 'Instagram', value: '@aviqr_app', href: 'https://www.instagram.com/aviqr_app/' },
+  { emoji: '👍', title: 'Facebook', value: 'Aviqr', href: 'https://www.facebook.com/1306724499192298' },
+  { emoji: '💼', title: 'LinkedIn', value: 'AviQR OS', href: 'https://www.linkedin.com/in/aviqr-os-4a1719437/' },
+];
+
 export default function ContactScreen() {
   const [form, setForm] = useState({ name: '', email: '', message: '' });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -46,6 +54,18 @@ export default function ContactScreen() {
           </TouchableOpacity>
         ))}
 
+        <Text style={ss.h2}>Follow us</Text>
+        <Text style={ss.sub}>A new AviQR feature video every day.</Text>
+        <View style={ss.socialGrid}>
+          {SOCIAL.map(s => (
+            <TouchableOpacity key={s.title} style={ss.social} onPress={() => Linking.openURL(s.href)}>
+              <Text style={ss.channelEmoji}>{s.emoji}</Text>
+              <Text style={ss.channelTitle}>{s.title}</Text>
+              <Text style={[ss.channelValue, { color: Colors.primary }]}>{s.value}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <Text style={ss.h2}>Send a message</Text>
         <Input label="Name" placeholder="Your name" value={form.name} onChangeText={v => set('name', v)} />
         <Input label="Email" placeholder="you@business.com" value={form.email} onChangeText={v => set('email', v)} keyboardType="email-address" autoCapitalize="none" />
@@ -73,6 +93,8 @@ const ss = StyleSheet.create({
   sub: { fontSize: FontSize.sm, color: Colors.gray600, lineHeight: 21, marginBottom: 20 },
   channel: { flexDirection: 'row', gap: 12, backgroundColor: Colors.white, borderRadius: Radius.md, padding: 14, marginBottom: 10, ...Shadow.sm },
   channelEmoji: { fontSize: 22 },
+  socialGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  social: { width: '48%', flexGrow: 1, alignItems: 'center', gap: 4, backgroundColor: Colors.white, borderRadius: Radius.md, padding: 14, ...Shadow.sm },
   channelTitle: { fontSize: FontSize.base, fontWeight: '700', color: Colors.gray900 },
   channelDesc: { fontSize: FontSize.xs, color: Colors.gray500, marginTop: 2, lineHeight: 17 },
   channelValue: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray700, marginTop: 4 },
