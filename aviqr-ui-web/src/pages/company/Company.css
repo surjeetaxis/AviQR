@@ -20,6 +20,10 @@
 
 /* Contact */
 .contact-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+.social-grid { grid-template-columns: repeat(4,1fr); }
+.social-card { display: block; text-decoration: none; color: inherit; transition: border-color .12s; }
+.social-card:hover { border-color: var(--primary, #10b981); }
+.social-heading { font-size: 20px; font-weight: 800; text-align: center; margin: 0 0 18px; }
 .contact-card { background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: var(--radius-lg); padding: 24px; text-align: center; }
 .contact-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--green-light); color: var(--green-dark); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
 .contact-title { font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 6px; }
@@ -64,4 +68,5 @@
   .company-title { font-size: 30px; }
   .value-grid { grid-template-columns: repeat(2,1fr); }
   .contact-grid { grid-template-columns: 1fr; }
+  .social-grid { grid-template-columns: repeat(2,1fr); }
 }
