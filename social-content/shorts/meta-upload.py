@@ -28,6 +28,25 @@ GRAPH = 'https://graph.facebook.com/v26.0'
 RUPLOAD = 'https://rupload.facebook.com'
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 PLATFORMS = ('instagram', 'facebook')
+# A reply prompt per language ("DEMO" stays in Latin so replies are easy to spot) and the follow line from i18n _end.
+ASK = {
+    'en': "Want this for your restaurant or hotel? Comment DEMO and we'll show you \U0001F447",
+    'hi': 'अपने रेस्टोरेंट या होटल के लिए चाहिए? कमेंट में DEMO लिखें, हम दिखाएँगे \U0001F447',
+    'ta': 'உங்கள் உணவகம் அல்லது ஹோட்டலுக்கு வேண்டுமா? கமெண்டில் DEMO என்று எழுதுங்கள், நாங்கள் காட்டுகிறோம் \U0001F447',
+    'te': 'మీ రెస్టారెంట్ లేదా హోటల్‌కు కావాలా? కామెంట్‌లో DEMO అని రాయండి, మేము చూపిస్తాము \U0001F447',
+    'kn': 'ನಿಮ್ಮ ರೆಸ್ಟೋರೆಂಟ್ ಅಥವಾ ಹೋಟೆಲ್‌ಗೆ ಬೇಕೆ? ಕಾಮೆಂಟ್‌ನಲ್ಲಿ DEMO ಎಂದು ಬರೆಯಿರಿ, ನಾವು ತೋರಿಸುತ್ತೇವೆ \U0001F447',
+    'ml': 'നിങ്ങളുടെ റെസ്റ്റോറന്റിനോ ഹോട്ടലിനോ വേണോ? കമന്റിൽ DEMO എന്ന് എഴുതൂ, ഞങ്ങൾ കാണിച്ചുതരാം \U0001F447',
+    'bn': 'আপনার রেস্তোরাঁ বা হোটেলের জন্য চান? কমেন্টে DEMO লিখুন, আমরা দেখিয়ে দেব \U0001F447',
+    'mr': 'तुमच्या रेस्टॉरंट किंवा हॉटेलसाठी हवे आहे? कमेंटमध्ये DEMO लिहा, आम्ही दाखवू \U0001F447',
+    'gu': 'તમારા રેસ્ટોરન્ટ કે હોટેલ માટે જોઈએ છે? કમેન્ટમાં DEMO લખો, અમે બતાવીશું \U0001F447',
+}
+FOLLOW = {
+    'en': 'Follow for a new feature every day', 'hi': 'हर दिन एक नया फ़ीचर देखने के लिए फ़ॉलो करें',
+    'ta': 'தினமும் ஒரு புதிய அம்சத்திற்கு ஃபாலோ செய்யுங்கள்', 'te': 'రోజుకో కొత్త ఫీచర్ కోసం ఫాలో అవ్వండి',
+    'kn': 'ದಿನಕ್ಕೊಂದು ಹೊಸ ವೈಶಿಷ್ಟ್ಯಕ್ಕಾಗಿ ಫಾಲೋ ಮಾಡಿ', 'ml': 'ദിവസവും ഒരു പുതിയ ഫീച്ചറിനായി ഫോളോ ചെയ്യൂ',
+    'bn': 'প্রতিদিন নতুন ফিচারের জন্য ফলো করুন', 'mr': 'रोज नव्या फीचरसाठी फॉलो करा', 'gu': 'રોજ નવા ફીચર માટે ફૉલો કરો',
+}
+EXTRA_TAGS = '#restaurantowner #restaurantbusiness #hotelmanagement'
 
 
 def api(method, path, **params):
@@ -81,6 +100,13 @@ def facebook(cfg, video, caption):
     api('POST', f'{page}/video_reels', upload_phase='finish', video_id=start['video_id'], video_state='PUBLISHED',
         description=caption, access_token=token)
     return start['video_id']
+
+
+def make_caption(m):
+    """Title, a DEMO reply prompt and the description in the Short's language, plus a follow line."""
+    lang = m.get('lang') if m.get('lang') in ASK else 'en'
+    description = m['description'].rstrip() + ' ' + EXTRA_TAGS
+    return '\n\n'.join((m['title'], ASK[lang], description, f"{FOLLOW[lang]} \u00B7 aviqr.com"))[:2200]
 
 
 def due(late, ledger, start=None):
@@ -171,7 +197,7 @@ def main():
     for meta, platforms in todo:
         m = json.load(open(meta))
         video = os.path.join(os.path.dirname(meta), m['video'])
-        caption = f"{m['title']}\n\n{m['description']}"[:2200]
+        caption = make_caption(m)
         for platform in platforms:
             if a.only and platform != a.only:
                 continue
