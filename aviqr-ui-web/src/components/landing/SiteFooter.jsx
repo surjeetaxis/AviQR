@@ -6,6 +6,7 @@ const SOCIAL = [
   ['YouTube', 'https://www.youtube.com/@aviqros'],
   ['Instagram', 'https://www.instagram.com/aviqr_app/'],
   ['Facebook', 'https://www.facebook.com/1306724499192298'],
+  ['LinkedIn', 'https://www.linkedin.com/in/aviqr-os-4a1719437/'],
 ];
 
 export default function SiteFooter({ isHome = false }) {
