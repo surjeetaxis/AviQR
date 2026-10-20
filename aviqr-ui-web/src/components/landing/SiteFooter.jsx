@@ -1,6 +1,13 @@
 import { Link } from 'react-router-dom';
 import LogoMark from './LogoMark.jsx';
 
+// A new feature video every day on each of these.
+const SOCIAL = [
+  ['YouTube', 'https://www.youtube.com/@aviqros'],
+  ['Instagram', 'https://www.instagram.com/aviqr_app/'],
+  ['Facebook', 'https://www.facebook.com/1306724499192298'],
+];
+
 export default function SiteFooter({ isHome = false }) {
   const base = isHome ? '' : '/';
 
@@ -37,6 +44,12 @@ export default function SiteFooter({ isHome = false }) {
             <Link to="/login">Sign in</Link>
             <Link to="/register">Register</Link>
             <Link to="/login?role=admin">Admin login</Link>
+          </div>
+          <div className="footer-col">
+            <div className="footer-col-title">Follow us</div>
+            {SOCIAL.map(([name, url]) => (
+              <a key={name} href={url} target="_blank" rel="noopener noreferrer">{name}</a>
+            ))}
           </div>
           <div className="footer-col">
             <div className="footer-col-title">Legal</div>

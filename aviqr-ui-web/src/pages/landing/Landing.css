@@ -294,7 +294,7 @@
 .footer-inner { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 280px 1fr; gap: 48px; }
 .footer-tagline { font-size: 13px; color: var(--gray-500); margin-bottom: 8px; }
 .footer-copy { font-size: 12px; color: var(--gray-600); }
-.footer-links { display: grid; grid-template-columns: repeat(4,1fr); gap: 24px; }
+.footer-links { display: grid; grid-template-columns: repeat(5,1fr); gap: 24px; }
 .footer-col { display: flex; flex-direction: column; gap: 10px; }
 .footer-col-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--gray-500); margin-bottom: 4px; }
 .footer-col a { font-size: 13.5px; color: var(--gray-400); transition: color .12s; }
