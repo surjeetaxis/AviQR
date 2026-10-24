@@ -17,6 +17,8 @@ node shorts/render.mjs --plan-only --start 2026-11-01  # re-plan without renderi
 
 Needs Chrome and ffmpeg. Output (git-ignored): `shorts/out/videos/` and `shorts/out/by-date/<date>/1200-<id>.{mp4,png,json}`, alternating website Shorts and product clips. Default posting time is 12:00 IST (`--time`).
 
+**Sound:** the Shorts and demos are rendered with a silent track. After planning, `python3 shorts/add-music.py --from <first date>` replaces it with generated background music (needs numpy; the video is copied, not re-encoded) and marks each JSON `"music": true`. Then rsync `by-date/` to the server again.
+
 ## Publish (AviQR server)
 
 `youtube-upload.py` and `meta-upload.py` are the FirstWords uploaders, pointed at `shorts/out/` and their own config folders (`~/.config/aviqr-youtube`, `~/.config/aviqr-meta`). On the server they live in `/opt/aviqr-shorts/` with a `.venv` (`google-api-python-client google-auth-oauthlib requests`) and the rendered `out/by-date/` copied up with rsync.
