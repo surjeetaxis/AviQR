@@ -120,8 +120,11 @@ def main():
     from googleapiclient.discovery import build
     youtube = build('youtube', 'v3', credentials=credentials(a.auth), cache_discovery=False)
     if a.auth:
-        me = youtube.channels().list(part='snippet', mine=True).execute()['items'][0]['snippet']['title']
-        print(f'Signed in as channel: {me}')
+        items = youtube.channels().list(part='snippet', mine=True).execute().get('items', [])
+        for ch in items:  # two channels can share a name, so show the handle and ID too
+            print(f"Signed in as channel: {ch['snippet']['title']} {ch['snippet'].get('customUrl', '')} ({ch['id']})")
+        if not items:
+            print('Signed in, but this account has no YouTube channel.')
         return
     for meta in todo:
         vid, when = upload(youtube, meta)
