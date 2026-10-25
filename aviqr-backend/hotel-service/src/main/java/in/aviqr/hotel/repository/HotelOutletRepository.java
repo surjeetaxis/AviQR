@@ -6,4 +6,5 @@ import java.util.*;
 public interface HotelOutletRepository extends JpaRepository<HotelOutlet, UUID> {
     List<HotelOutlet> findByHotelId(UUID hotelId);
     List<HotelOutlet> findByHotelIdAndActiveTrue(UUID hotelId);
+    boolean existsByHotelIdAndShopIdAndActiveTrue(UUID hotelId, String shopId);
 }

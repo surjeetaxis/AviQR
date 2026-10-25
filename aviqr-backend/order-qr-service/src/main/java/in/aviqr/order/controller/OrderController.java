@@ -130,8 +130,20 @@ public class OrderController {
             @PathVariable UUID id, @RequestParam String status,
             @RequestHeader("X-User-Id") String uid,
             @RequestHeader(value="X-User-Role", defaultValue="") String role) {
-        if ("CUSTOMER".equals(role) && !"CANCELLED".equalsIgnoreCase(status))
-            return ResponseEntity.status(403).body(ApiResponse.error("Customers may only cancel orders"));
+        // OrderScopeSecurity has already confirmed the caller is staff of this order's
+        // shop or the customer who placed it; these rules narrow what each may do.
+        if ("ORDER_VIEWER".equals(role))
+            return ResponseEntity.status(403).body(ApiResponse.error("View-only staff cannot change orders"));
+        if ("CUSTOMER".equals(role)) {
+            if (!"CANCELLED".equalsIgnoreCase(status))
+                return ResponseEntity.status(403).body(ApiResponse.error("Customers may only cancel orders"));
+            // Once the kitchen has accepted it, cancelling is the shop's call.
+            boolean cancellable = service.getById(id)
+                .map(o -> o.getStatus() == OrderStatus.PENDING_PAYMENT || o.getStatus() == OrderStatus.NEW)
+                .orElse(false);
+            if (!cancellable)
+                return ResponseEntity.status(409).body(ApiResponse.error("This order can no longer be cancelled — please ask the staff"));
+        }
         return ResponseEntity.ok(ApiResponse.ok("Status updated", service.updateStatus(id, status, uid)));
     }
 
