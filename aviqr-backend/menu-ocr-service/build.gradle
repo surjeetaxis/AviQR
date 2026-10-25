@@ -17,7 +17,7 @@ dependencies {
     // Image upload (menu item photos, shop logo) — S3-backed storage
     implementation platform('software.amazon.awssdk:bom:2.28.11')
     implementation 'software.amazon.awssdk:s3'
-    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
-    runtimeOnly  'io.jsonwebtoken:jjwt-impl:0.12.6'
-    runtimeOnly  'io.jsonwebtoken:jjwt-jackson:0.12.6'
+    implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
+    runtimeOnly  'io.jsonwebtoken:jjwt-impl:0.13.0'
+    runtimeOnly  'io.jsonwebtoken:jjwt-jackson:0.13.0'
 }
