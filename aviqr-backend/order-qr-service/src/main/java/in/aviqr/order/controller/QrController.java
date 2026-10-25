@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-@RestController @RequestMapping("/api/v1/qr-codes") @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j @RestController @RequestMapping("/api/v1/qr-codes") @RequiredArgsConstructor
 public class QrController {
     private final QrService service;
     private final QrCodeRepository qrRepo;
@@ -60,7 +60,7 @@ public class QrController {
             return ResponseEntity.ok(ApiResponse.ok("Marketing QR updated",
                 service.updateMarketing(id, body.get("label"), body.get("targetUrl"), body.get("campaign"))));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(in.aviqr.security.SafeErrorMessages.forClient(e, log)));
         }
     }
 

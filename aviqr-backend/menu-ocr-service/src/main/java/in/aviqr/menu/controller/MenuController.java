@@ -232,8 +232,11 @@ public class MenuController {
                 shopId, result.getCategoriesCreated(), result.getItemsCreated(), result.getErrors().size());
             return ResponseEntity.ok(ApiResponse.ok("Import complete", result));
         } catch (Exception e) {
+            // A parser exception can quote file internals or library class names; only
+            // our own validation messages are shown to the uploader.
             log.warn("Menu import failed for shop {}: {}", shopId, e.getMessage());
-            return ResponseEntity.badRequest().body(ApiResponse.error("Could not read file: " + e.getMessage()));
+            return ResponseEntity.badRequest().body(ApiResponse.error(in.aviqr.security.SafeErrorMessages.isUserFacing(e)
+                ? "Could not read file: " + e.getMessage() : "Could not read file — check it is a valid CSV or Excel menu"));
         }
     }
 
