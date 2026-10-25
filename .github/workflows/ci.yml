@@ -16,7 +16,10 @@ concurrency:
 jobs:
   backend:
     name: Backend (build + unit tests)
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04 on 2026-10-25, whose postgresql-client is 18.
+    # A v18 pg_dump writes settings (SET transaction_timeout) that the postgres:16
+    # service below rejects on restore. 24.04 ships client 16, matching the service.
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16
@@ -46,7 +49,14 @@ jobs:
       - name: Verify encrypted backup and disposable restore
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y postgresql-client gnupg ripgrep
+          sudo apt-get install -y postgresql-client-16 gnupg ripgrep
+          # pg_dump output only restores into a server of the same or newer major version.
+          client=$(pg_dump --version | grep -oE '[0-9]+' | head -1)
+          server=$(psql -h 127.0.0.1 -p 55486 -U security_test -d aviqr_security_test -tAc 'SHOW server_version_num' | cut -c1-2)
+          if [ "$client" != "$server" ]; then
+            echo "::error::pg_dump is v$client but the CI database is v$server; install postgresql-client-$server"
+            exit 1
+          fi
           AVIQR_SECURITY_TEST_PG_PORT=55486 bash deploy/security/test-backup-restore.sh
 
       - name: Upload test reports
