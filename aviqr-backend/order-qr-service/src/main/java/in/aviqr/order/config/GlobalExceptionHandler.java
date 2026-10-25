@@ -30,8 +30,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse<Void>> handleRuntime(RuntimeException ex) {
-        log.warn("Business error: {}", ex.getMessage());
-        return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
+        // User-written messages pass through; database, framework and upstream errors do not.
+        return ResponseEntity.badRequest().body(ApiResponse.error(in.aviqr.security.SafeErrorMessages.forClient(ex, log)));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

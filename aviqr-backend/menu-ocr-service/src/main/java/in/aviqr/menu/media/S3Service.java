@@ -25,8 +25,10 @@ public class S3Service {
     // All AviQR uploads live under this prefix — the bucket is shared with other apps.
     private static final String KEY_PREFIX = "aviqr";
 
-    public String upload(MultipartFile file, String folder) throws Exception {
-        String key = "%s/%s/%s%s".formatted(KEY_PREFIX, sanitizeFolder(folder), UUID.randomUUID(), extensionOf(file));
+    /** {@code type} is the type detected from the file's bytes; it sets both the stored
+     *  Content-Type and the key's extension, so neither follows the uploader's claims. */
+    public String upload(MultipartFile file, String folder, UploadType type) throws Exception {
+        String key = "%s/%s/%s%s".formatted(KEY_PREFIX, sanitizeFolder(folder), UUID.randomUUID(), type.extension);
         try (S3Client s3 = S3Client.builder()
                 .region(Region.of(regionName))
                 .credentialsProvider(DefaultCredentialsProvider.create())
@@ -35,7 +37,7 @@ public class S3Service {
                 PutObjectRequest.builder()
                     .bucket(bucket)
                     .key(key)
-                    .contentType(file.getContentType())
+                    .contentType(type.contentType)
                     .build(),
                 RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
         }
@@ -47,16 +49,5 @@ public class S3Service {
     private String sanitizeFolder(String folder) {
         String f = folder == null ? "" : folder.replaceAll("[^a-zA-Z0-9_-]", "");
         return f.isBlank() ? "misc" : f;
-    }
-
-    private String extensionOf(MultipartFile file) {
-        String name = file.getOriginalFilename();
-        if (name != null && name.contains(".")) return name.substring(name.lastIndexOf('.')).toLowerCase();
-        return switch (String.valueOf(file.getContentType())) {
-            case "image/png"  -> ".png";
-            case "image/webp" -> ".webp";
-            case "image/gif"  -> ".gif";
-            default -> ".jpg";
-        };
     }
 }
