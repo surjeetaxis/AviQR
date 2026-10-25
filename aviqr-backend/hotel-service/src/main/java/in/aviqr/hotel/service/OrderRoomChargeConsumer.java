@@ -14,6 +14,7 @@ import java.util.UUID;
 @Service @RequiredArgsConstructor @Slf4j
 public class OrderRoomChargeConsumer {
     private final RoomChargeRepository chargeRepo;
+    private final RoomChargeEligibility eligibility;
 
     @RabbitListener(queues = RabbitMQConfig.ORDER_NEW_QUEUE)
     public void onNewOrder(Map<String, Object> event) {
@@ -24,8 +25,21 @@ public class OrderRoomChargeConsumer {
             log.warn("ROOM_CHARGE order {} missing hotelId/roomNumber — skipping", event.get("orderId"));
             return;
         }
+        // order-service checks this before accepting the order; re-check here so a
+        // stale or forged event can never post to a folio on its own.
+        UUID hotelId;
+        try { hotelId = UUID.fromString(hotelIdStr); }
+        catch (IllegalArgumentException e) {
+            log.warn("ROOM_CHARGE order {} has an invalid hotelId — skipping", event.get("orderId"));
+            return;
+        }
+        if (!eligibility.allows(hotelId, str(event, "shopId"), roomNumber)) {
+            log.warn("ROOM_CHARGE order {} not eligible (shop {} / room {} at hotel {}) — not posted to the folio",
+                event.get("orderId"), str(event, "shopId"), roomNumber, hotelIdStr);
+            return;
+        }
         chargeRepo.save(RoomCharge.builder()
-            .hotelId(UUID.fromString(hotelIdStr))
+            .hotelId(hotelId)
             .roomNumber(roomNumber)
             .shopId(str(event, "shopId"))
             .orderId(str(event, "orderId"))

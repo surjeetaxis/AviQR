@@ -29,6 +29,9 @@ public class OrderService {
     @Value("${shop.service.url:http://shop-mall-service}")
     private String shopServiceUrl;
 
+    @Value("${hotel.service.url:http://hotel-service}")
+    private String hotelServiceUrl;
+
     @Transactional
     public OrderResponse create(String shopId, String customerId, CreateOrderRequest req, boolean selfService) {
         if(selfService)menuPricing.apply(shopId,req);
@@ -53,6 +56,9 @@ public class OrderService {
         PaymentMethod paymentMethod = PaymentMethod.valueOf(req.getPaymentMethod().toUpperCase());
         if (paymentMethod == PaymentMethod.ROOM_CHARGE && (req.getHotelId() == null || req.getRoomNumber() == null || req.getRoomNumber().isBlank())) {
             throw new IllegalArgumentException("hotelId and roomNumber are required for ROOM_CHARGE orders");
+        }
+        if (paymentMethod == PaymentMethod.ROOM_CHARGE && !roomChargeAllowed(shopId, req.getHotelId(), req.getRoomNumber())) {
+            throw new IllegalArgumentException("This order can't be charged to that room — please choose another payment method");
         }
 
         // Self-service orders (customer QR ordering) are held back from the kitchen until a
@@ -122,6 +128,25 @@ public class OrderService {
         } catch (Exception e) { log.warn("Failed to publish order event: {}", e.getMessage()); }
 
         return toDto(saved);
+    }
+
+    /** The hotel and room on a ROOM_CHARGE order come from the guest's browser, and the
+     *  order skips the payment gate, so hotel-service must confirm the shop belongs to
+     *  that hotel and the room has a guest checked in. Fails closed: if hotel-service
+     *  can't be reached, the guest picks another payment method instead. */
+    boolean roomChargeAllowed(String shopId, UUID hotelId, String roomNumber) {
+        try {
+            String url = org.springframework.web.util.UriComponentsBuilder
+                .fromUriString(hotelServiceUrl + "/api/v1/hotels/internal/{hotelId}/room-charge-eligibility")
+                .queryParam("shopId", shopId).queryParam("roomNumber", roomNumber.trim())
+                .buildAndExpand(hotelId).encode().toUriString();
+            @SuppressWarnings("unchecked")
+            Map<String,Object> resp = restTemplate.getForObject(java.net.URI.create(url), Map.class);
+            return resp != null && Boolean.TRUE.equals(resp.get("allowed"));
+        } catch (Exception e) {
+            log.warn("Room-charge eligibility check failed for shop {} hotel {}: {}", shopId, hotelId, e.getMessage());
+            return false;
+        }
     }
 
     /** Does this uid own shopId? Used for roles like SUPPLIER that manage multiple
@@ -194,12 +219,34 @@ public class OrderService {
     @Transactional
     public OrderResponse updateStatus(UUID id, String status, String userId) {
         Order order = repo.findById(id).orElseThrow(() -> new RuntimeException("Order not found: " + id));
-        order.setStatus(OrderStatus.valueOf(status.toUpperCase()));
+        OrderStatus target;
+        try { target = OrderStatus.valueOf(status.toUpperCase()); }
+        catch (IllegalArgumentException e) { throw new IllegalArgumentException("Unknown order status: " + status); }
+        if (order.getStatus() == target) return toDto(order); // repeated click — nothing to do
+        if (!isAllowedTransition(order.getStatus(), target))
+            throw new IllegalStateException("Cannot move an order from " + order.getStatus() + " to " + target);
+        order.setStatus(target);
         if (status.equalsIgnoreCase("ACCEPTED"))   order.setAcceptedAt(LocalDateTime.now());
         if (status.equalsIgnoreCase("COMPLETED"))  order.setCompletedAt(LocalDateTime.now());
         Order saved = repo.save(order);
         publishStatusEvent(saved, status.toUpperCase());
         return toDto(saved);
+    }
+
+    // Kitchen progression; a status update may only move forward along it.
+    private static final List<OrderStatus> FLOW = List.of(
+        OrderStatus.NEW, OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.COMPLETED);
+
+    /** Rules for the generic status endpoint. Leaving PENDING_PAYMENT is only possible
+     *  through confirmPayment / syncPaymentCaptured, so a status update can never
+     *  release an unpaid order to the kitchen. Finished orders are never reopened. */
+    public static boolean isAllowedTransition(OrderStatus from, OrderStatus to) {
+        if (from == null || to == null || from == to) return false;
+        if (from == OrderStatus.COMPLETED || from == OrderStatus.CANCELLED || from == OrderStatus.REJECTED) return false;
+        if (to == OrderStatus.CANCELLED) return true;
+        if (to == OrderStatus.REJECTED) return from == OrderStatus.PENDING_PAYMENT || from == OrderStatus.NEW;
+        if (from == OrderStatus.PENDING_PAYMENT || to == OrderStatus.PENDING_PAYMENT) return false;
+        return FLOW.indexOf(to) > FLOW.indexOf(from);
     }
 
     /** Read-only lookup by the code shown on the customer's confirmation screen —

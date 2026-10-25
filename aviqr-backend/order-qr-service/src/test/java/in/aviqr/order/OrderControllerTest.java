@@ -185,6 +185,53 @@ class OrderControllerTest {
            .andExpect(jsonPath("$.data.status").value("ACCEPTED"));
     }
 
+    @Test void orderViewerCannotChangeStatus() throws Exception {
+        var id = UUID.randomUUID();
+        when(orderService.getById(id)).thenReturn(Optional.of(sampleResponse()));
+        mvc.perform(put("/api/v1/orders/" + id + "/status?status=ACCEPTED")
+                .header("X-User-Id", "viewer-1").header("X-User-Role", "ORDER_VIEWER").header("X-Shop-Id", "shop-101"))
+           .andExpect(status().isForbidden());
+        Mockito.verify(orderService, Mockito.never()).updateStatus(any(), any(), any());
+    }
+
+    @Test void customerCanCancelOwnNewOrder() throws Exception {
+        var id = UUID.randomUUID();
+        var resp = sampleResponse(); resp.setCustomerId("customer-a");
+        when(orderService.getById(id)).thenReturn(Optional.of(resp));
+        when(orderService.updateStatus(eq(id), eq("CANCELLED"), any())).thenReturn(resp);
+        mvc.perform(put("/api/v1/orders/" + id + "/status?status=CANCELLED")
+                .header("X-User-Id", "customer-a").header("X-User-Role", "CUSTOMER"))
+           .andExpect(status().isOk());
+    }
+
+    @Test void customerCannotCancelOnceKitchenAccepted() throws Exception {
+        var id = UUID.randomUUID();
+        var resp = sampleResponse(); resp.setCustomerId("customer-a"); resp.setStatus(OrderStatus.PREPARING);
+        when(orderService.getById(id)).thenReturn(Optional.of(resp));
+        mvc.perform(put("/api/v1/orders/" + id + "/status?status=CANCELLED")
+                .header("X-User-Id", "customer-a").header("X-User-Role", "CUSTOMER"))
+           .andExpect(status().isConflict());
+        Mockito.verify(orderService, Mockito.never()).updateStatus(any(), any(), any());
+    }
+
+    @Test void customerCannotCancelSomeoneElsesOrder() throws Exception {
+        var id = UUID.randomUUID();
+        var resp = sampleResponse(); resp.setCustomerId("customer-a");
+        when(orderService.getById(id)).thenReturn(Optional.of(resp));
+        mvc.perform(put("/api/v1/orders/" + id + "/status?status=CANCELLED")
+                .header("X-User-Id", "customer-b").header("X-User-Role", "CUSTOMER"))
+           .andExpect(status().isForbidden());
+    }
+
+    @Test void ownerOfAnotherShopCannotChangeStatus() throws Exception {
+        var id = UUID.randomUUID();
+        when(orderService.getById(id)).thenReturn(Optional.of(sampleResponse()));
+        when(orderService.isShopOwnedBy("shop-101", "owner-b")).thenReturn(false);
+        mvc.perform(put("/api/v1/orders/" + id + "/status?status=ACCEPTED")
+                .header("X-User-Id", "owner-b").header("X-User-Role", "OWNER").header("X-Shop-Id", "shop-999"))
+           .andExpect(status().isForbidden());
+    }
+
     // ── GET /api/v1/orders/{id} ───────────────────────────────────────────────
 
     @Test

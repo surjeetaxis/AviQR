@@ -48,6 +48,11 @@ public class AggregatorWebhookController {
     private final OrderRepository orderRepo;
     private final OrderService    orderService;
     private final AggregatorShopMappingRepository mappingRepo;
+    private final com.fasterxml.jackson.databind.ObjectMapper json;
+    private final in.aviqr.order.config.OrderScopeSecurity scope;
+
+    // Only these roles may change which Zomato/Swiggy restaurant feeds a shop.
+    private static final Set<String> MAPPING_WRITE_ROLES = Set.of("OWNER", "MANAGER", "ADMIN", "SUPPORT");
 
     @Value("${aggregator.zomato.secret:}")  private String zomatoSecret;
     @Value("${aggregator.swiggy.token:}")   private String swiggyToken;
@@ -70,30 +75,21 @@ public class AggregatorWebhookController {
      */
     @PostMapping("/zomato/webhook")
     public ResponseEntity<String> zomatoWebhook(
-            @RequestBody Map<String, Object> payload,
+            @RequestBody String body,
             @RequestHeader(value = "X-Zomato-Signature", required = false) String signature) {
 
-        log.info("Zomato webhook received: orderId={}", payload.get("order_id"));
-
-        // 1. Verify signature (skip in dev if secret not set)
-        if (!zomatoSecret.isBlank() && !verifyZomatoSignature(payload.toString(), signature)) {
+        // Fail closed: with no secret configured there is no way to tell a real
+        // Zomato push from a forged one, so nothing is accepted.
+        if (zomatoSecret.isBlank()) {
+            log.error("Zomato webhook rejected: aggregator.zomato.secret is not configured");
+            return ResponseEntity.status(503).body("Webhook not configured");
+        }
+        // The HMAC covers the exact bytes Zomato sent, so verify before parsing.
+        if (!verifyZomatoSignature(body, signature)) {
             log.warn("Zomato webhook signature verification FAILED");
             return ResponseEntity.status(401).body("Invalid signature");
         }
-
-        if (payload.get("order_id") == null) {
-            log.warn("Zomato webhook missing order_id");
-            return ResponseEntity.status(400).body("Missing order_id");
-        }
-        try {
-            Order order = mapZomatoOrder(payload);
-            orderRepo.save(order);
-            log.info("Zomato order mapped: {} → AviQR {}", payload.get("order_id"), order.getOrderNumber());
-            return ResponseEntity.ok("OK");
-        } catch (Exception e) {
-            log.error("Zomato webhook processing failed", e);
-            return ResponseEntity.status(400).body("Processing error: " + e.getMessage());
-        }
+        return ingest("Zomato", "ZOM-", body, this::mapZomatoOrder);
     }
 
     // ── Swiggy Webhook ──────────────────────────────────────────────────────
@@ -113,28 +109,50 @@ public class AggregatorWebhookController {
      */
     @PostMapping("/swiggy/webhook")
     public ResponseEntity<String> swiggyWebhook(
-            @RequestBody Map<String, Object> payload,
+            @RequestBody String body,
             @RequestHeader(value = "X-Swiggy-Token", required = false) String token) {
 
-        log.info("Swiggy webhook received: orderId={}", payload.get("order_id"));
-
-        if (!swiggyToken.isBlank() && !swiggyToken.equals(token)) {
+        if (swiggyToken.isBlank()) {
+            log.error("Swiggy webhook rejected: aggregator.swiggy.token is not configured");
+            return ResponseEntity.status(503).body("Webhook not configured");
+        }
+        if (!constantTimeEquals(swiggyToken, token)) {
             log.warn("Swiggy webhook token verification FAILED");
             return ResponseEntity.status(401).body("Invalid token");
         }
+        return ingest("Swiggy", "SWG-", body, this::mapSwiggyOrder);
+    }
 
-        if (payload.get("order_id") == null) {
-            log.warn("Swiggy webhook missing order_id");
+    /** Shared tail of both webhooks, run only after the caller is authenticated. */
+    private ResponseEntity<String> ingest(String platform, String prefix, String body,
+                                          java.util.function.Function<Map<String, Object>, Order> mapper) {
+        Map<String, Object> payload;
+        try {
+            payload = json.readValue(body, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            return ResponseEntity.status(400).body("Invalid JSON");
+        }
+        if (payload == null || payload.get("order_id") == null) {
+            log.warn("{} webhook missing order_id", platform);
             return ResponseEntity.status(400).body("Missing order_id");
         }
+        log.info("{} webhook received: orderId={}", platform, payload.get("order_id"));
+        // Platforms retry deliveries; a replayed push must not create a second order.
+        if (orderRepo.findByOrderNumber(prefix + str(payload, "order_id")).isPresent()) {
+            log.info("{} webhook duplicate for orderId={} — ignored", platform, payload.get("order_id"));
+            return ResponseEntity.ok("Duplicate");
+        }
         try {
-            Order order = mapSwiggyOrder(payload);
+            Order order = mapper.apply(payload);
             orderRepo.save(order);
-            log.info("Swiggy order mapped: {} → AviQR {}", payload.get("order_id"), order.getOrderNumber());
+            log.info("{} order mapped: {} → AviQR {}", platform, payload.get("order_id"), order.getOrderNumber());
             return ResponseEntity.ok("OK");
+        } catch (UnmappedRestaurantException e) {
+            log.warn("{} webhook for unmapped restaurant {} — rejected", platform, e.getMessage());
+            return ResponseEntity.status(404).body("Unknown restaurant");
         } catch (Exception e) {
-            log.error("Swiggy webhook processing failed", e);
-            return ResponseEntity.status(400).body("Processing error: " + e.getMessage());
+            log.error("{} webhook processing failed", platform, e);
+            return ResponseEntity.status(400).body("Processing error");
         }
     }
 
@@ -148,10 +166,18 @@ public class AggregatorWebhookController {
      */
     @PostMapping("/mapping")
     public ResponseEntity<ApiResponse<AggregatorShopMapping>> saveMapping(
-            @RequestBody Map<String, Object> req) {
+            @RequestBody Map<String, Object> req, jakarta.servlet.http.HttpServletRequest http) {
         String shopId    = str(req, "shopId");
         String platform  = str(req, "platform");
         String aggShopId = str(req, "aggregatorShopId");
+        // shopId comes from the body, so OrderScopeSecurity's path check never sees it.
+        if (shopId == null || !MAPPING_WRITE_ROLES.contains(Optional.ofNullable(http.getHeader("X-User-Role")).orElse(""))
+                || !scope.staff(shopId, http))
+            return ResponseEntity.status(403).body(ApiResponse.error("Shop access denied"));
+        // One restaurant ID may feed only one shop, or its orders would go to whoever linked it last.
+        var taken = mappingRepo.findByPlatformAndAggregatorShopId(platform, aggShopId);
+        if (taken.isPresent() && !shopId.equals(taken.get().getShopId()))
+            return ResponseEntity.status(409).body(ApiResponse.error("This restaurant ID is already linked to another shop"));
         AggregatorShopMapping mapping = mappingRepo.findByShopIdAndPlatform(shopId, platform)
             .orElseGet(AggregatorShopMapping::new);
         mapping.setShopId(shopId);
@@ -168,7 +194,10 @@ public class AggregatorWebhookController {
      * GET /api/v1/aggregator/mapping/{shopId}
      */
     @GetMapping("/mapping/{shopId}")
-    public ResponseEntity<ApiResponse<List<AggregatorShopMapping>>> getMapping(@PathVariable String shopId) {
+    public ResponseEntity<ApiResponse<List<AggregatorShopMapping>>> getMapping(@PathVariable String shopId,
+            jakarta.servlet.http.HttpServletRequest http) {
+        if (!scope.staff(shopId, http))
+            return ResponseEntity.status(403).body(ApiResponse.error("Shop access denied"));
         return ResponseEntity.ok(ApiResponse.ok(mappingRepo.findByShopId(shopId)));
     }
 
@@ -255,22 +284,35 @@ public class AggregatorWebhookController {
         }).collect(java.util.stream.Collectors.toList());
     }
 
-    /** Resolve aggregator's restaurant ID → AviQR shopId from mapping table */
+    /** Resolve aggregator's restaurant ID → AviQR shopId from mapping table. An unmapped
+     *  ID is rejected rather than used as a shopId, so a push can never land in a shop
+     *  that has not linked that restaurant. */
     private String resolveShopId(String platform, String aggShopId) {
         return mappingRepo.findByPlatformAndAggregatorShopId(platform, aggShopId)
             .map(AggregatorShopMapping::getShopId)
-            .orElse(aggShopId); // unmapped — fall back to the raw aggregator id
+            .orElseThrow(() -> new UnmappedRestaurantException(aggShopId));
+    }
+
+    private static class UnmappedRestaurantException extends RuntimeException {
+        UnmappedRestaurantException(String aggShopId) { super(aggShopId); }
     }
 
     private boolean verifyZomatoSignature(String payload, String signature) {
-        if (signature == null) return false;
+        if (signature == null || payload == null) return false;
         try {
             javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
             mac.init(new javax.crypto.spec.SecretKeySpec(
                 zomatoSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256"));
             byte[] hash = mac.doFinal(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash).equals(signature);
+            return constantTimeEquals(HexFormat.of().formatHex(hash), signature.trim().toLowerCase());
         } catch (Exception e) { return false; }
+    }
+
+    private static boolean constantTimeEquals(String expected, String supplied) {
+        if (expected == null || supplied == null) return false;
+        return java.security.MessageDigest.isEqual(
+            expected.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+            supplied.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     private String str(Map<String, Object> m, String k) {
