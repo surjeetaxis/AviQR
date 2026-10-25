@@ -100,7 +100,13 @@ class BookingVoucherServiceTest {
         assertThat(v.balanceDue()).isEqualByComparingTo("7700");
         assertThat(v.specialRequests()).isEqualTo("Late arrival <script>");
         assertThat(v.emailHint()).isEqualTo("a***@example.com");
-        assertThat(v.toString()).doesNotContain("98765").doesNotContain("101");
+        // Identifiers and the token are random or opaque, so they may contain "101" or
+        // "98765" by chance (a random hotel UUID did, failing CI). Check every other field.
+        String withoutIds = v.toString()
+            .replace(String.valueOf(v.hotelId()), "<hotel>")
+            .replace(String.valueOf(v.reservationId()), "<reservation>")
+            .replace(String.valueOf(v.voucherToken()), "<token>");
+        assertThat(withoutIds).doesNotContain("98765").doesNotContain("101");
         assertThat(v.preCheckedIn()).isFalse();
     }
 
