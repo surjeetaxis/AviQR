@@ -3,11 +3,15 @@ package in.aviqr.gateway.config;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import reactor.core.publisher.Mono;
 
 @Configuration
 public class GatewayConfig {
-    @Bean
+    // @Primary: RequestRateLimiterGatewayFilterFactory injects one default KeyResolver.
+    // With a second resolver (userKeyResolver below) and no primary, the gateway fails
+    // to start. Routes that want the per-user bucket name userKeyResolver explicitly.
+    @Bean @Primary
     public KeyResolver ipKeyResolver(ClientIpResolver ips) {
         return exchange -> {
             String ip = ips.resolve(exchange);
