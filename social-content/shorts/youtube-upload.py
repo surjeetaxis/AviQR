@@ -57,7 +57,8 @@ def due(ahead, ledger):
     for meta in sorted(glob.glob(os.path.join(SHORTS, 'by-date', '*', '*.json'))):
         date = datetime.date.fromisoformat(os.path.basename(os.path.dirname(meta)))
         if today <= date <= last and os.path.relpath(meta, SHORTS) not in ledger:
-            out.append(meta)
+            if json.load(open(meta)).get('youtube', True):  # youtube:false = extra Instagram/Facebook-only Reels
+                out.append(meta)
     return out
 
 
