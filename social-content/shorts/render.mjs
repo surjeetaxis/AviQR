@@ -151,7 +151,7 @@ export const SHORTS = [
 // with the hook above it. from/to are seconds in the source video (its chapter marks); crop is [width, x] of the
 // 1920x1080 source to keep (default drops the 320px sidebar; the customer flow keeps just the phone).
 const DEMOS = path.join(HERE, '..', 'youtube', 'out', 'final');
-const CLIPS = [
+export const CLIPS = [
   { id: '31-owner-new-order', src: '07-owner-order-flow', from: 8.5, to: 21.0, hook: 'A new order lands. One tap to accept.',
     caps: ['A real order arrives on the owner dashboard', 'Accept it and it goes straight to the kitchen'],
     title: 'A new order arrives on the restaurant dashboard', tags: ['restaurant dashboard', 'online orders', 'order management'] },

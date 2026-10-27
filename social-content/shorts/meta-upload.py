@@ -18,13 +18,19 @@ One-time setup:
 Every 30 minutes (cron):
   .venv/bin/python meta-upload.py
 
-Limits: Instagram allows 50 API posts per 24 hours.
+Besides the Shorts it posts the full demos (reel:false) to Facebook only, as normal Page videos, and their vertical
+trailers (render-trailers.py, "full" names the demo) with the demo's YouTube link. youtube:false entries are
+Instagram/Facebook-only extras.
+
+Limits: Instagram allows 100 API posts per 24 hours; this posts about 6-8.
 """
 import argparse, datetime, glob, json, os, sys, time
 
 SHORTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out')
 CONFIG = os.path.expanduser('~/.config/aviqr-meta')
 GRAPH = 'https://graph.facebook.com/v26.0'
+GRAPH_VIDEO = 'https://graph-video.facebook.com/v26.0'
+YOUTUBE = 'https://www.youtube.com/@aviqros'
 RUPLOAD = 'https://rupload.facebook.com'
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 PLATFORMS = ('instagram', 'facebook')
@@ -102,11 +108,41 @@ def facebook(cfg, video, caption):
     return start['video_id']
 
 
+def facebook_video(cfg, video, m):
+    """A full demo as a normal Facebook Page video (Reels are capped at 90 seconds there), sent in chunks."""
+    import requests
+    token, size = cfg['page_token'], os.path.getsize(video)
+    url = f"{GRAPH_VIDEO}/{cfg['page_id']}/videos"
+    start = api('POST', url, upload_phase='start', file_size=size, access_token=token)
+    session, offset, end = start['upload_session_id'], int(start['start_offset']), int(start['end_offset'])
+    with open(video, 'rb') as fh:
+        while offset < end:
+            fh.seek(offset)
+            r = requests.post(url, data={'upload_phase': 'transfer', 'upload_session_id': session, 'start_offset': offset,
+                                         'access_token': token}, files={'video_file_chunk': ('chunk', fh.read(end - offset))},
+                              timeout=600)
+            body = r.json()
+            if 'error' in body:
+                raise RuntimeError(f"transfer: {body['error'].get('message')}")
+            offset, end = int(body['start_offset']), int(body['end_offset'])
+    api('POST', url, upload_phase='finish', upload_session_id=session, title=m['title'][:255],
+        description=m['description'][:5000], access_token=token)
+    return start['video_id']
+
+
+def youtube_link(m):
+    """https://youtu.be/<id> of the demo a trailer points to, once the YouTube uploader has sent it."""
+    path = os.path.join(SHORTS, 'uploaded.json')
+    entry = json.load(open(path)).get(m.get('full', '')) if os.path.exists(path) and m.get('full') else None
+    return f"https://youtu.be/{entry['id']}" if entry else YOUTUBE
+
+
 def make_caption(m):
     """Title, a DEMO reply prompt and the description in the Short's language, plus a follow line."""
     lang = m.get('lang') if m.get('lang') in ASK else 'en'
     description = m['description'].rstrip() + ' ' + EXTRA_TAGS
-    return '\n\n'.join((m['title'], ASK[lang], description, f"{FOLLOW[lang]} \u00B7 aviqr.com"))[:2200]
+    watch = f"\u25B6 {youtube_link(m)}" if m.get('full') else None
+    return '\n\n'.join(p for p in (m['title'], watch, ASK[lang], description, f"{FOLLOW[lang]} \u00B7 aviqr.com") if p)[:2200]
 
 
 def due(late, ledger, start=None):
@@ -119,9 +155,9 @@ def due(late, ledger, start=None):
             continue
         hhmm = os.path.basename(meta)[:4]
         when = datetime.datetime.fromisoformat(f'{date}T{hhmm[:2]}:{hhmm[2:]}:00').replace(tzinfo=IST)
-        if not json.load(open(meta)).get('reel', True):  # full-length landscape demos are YouTube-only
-            continue
-        todo = [p for p in PLATFORMS if p not in ledger.get(os.path.relpath(meta, SHORTS), {})]
+        # Full demos (reel:false) are not Reels: they go to Facebook as normal Page videos.
+        platforms = PLATFORMS if json.load(open(meta)).get('reel', True) else ('facebook',)
+        todo = [p for p in platforms if p not in ledger.get(os.path.relpath(meta, SHORTS), {})]
         if now - datetime.timedelta(hours=late) <= when <= now and todo:
             out.append((meta, todo))
     return out
@@ -202,7 +238,10 @@ def main():
             if a.only and platform != a.only:
                 continue
             try:
-                post_id = (instagram if platform == 'instagram' else facebook)(cfg, video, caption)
+                if not m.get('reel', True):
+                    post_id = facebook_video(cfg, video, m)
+                else:
+                    post_id = (instagram if platform == 'instagram' else facebook)(cfg, video, caption)
             except Exception as e:
                 failed += 1
                 print(f'{platform} failed for {os.path.basename(meta)[:-5]}: {e}')
