@@ -25,6 +25,8 @@ Needs Chrome and ffmpeg. Output (git-ignored): `shorts/out/videos/` and `shorts/
 
 **How-to videos:** `render-howtos.py` makes five 16:9 "how to" videos for YouTube search (QR menu, QR table ordering, the restaurant dashboard, hotel guest requests, staff logins). Each is cut from the masked demo recordings in `../youtube/out/final/demo-*` (plus `04`, `06` and `08`; `07` and `12` show unmasked demo names, so they are not used), narrated step by step, with chapters in the description. Output goes to `out/howto/`. They are `reel: false`, so Facebook gets them as Page videos.
 
+**Schedule (from 2026-11-07):** `replan-cadence.py --start <date>` lays out every unsent video again. Each day gets three Shorts at 09:30, 15:30 and 18:30 IST, each in a different language. All nine languages stay, because the first stats showed Tamil, Bengali and Gujarati doing best. A full demo and its trailer go out every second day at 17:00, and a how-to every Tuesday at 11:00. Run it on the server, and locally with `--ledgers <copies>`, so both plans stay equal.
+
 **Weekly stats:** `stats-report.py` (the same file as FirstWords' `scripts/stats-report.py`) writes `out/stats/report-<date>.md`. It shows views, likes and comments by format, by language and for the top videos, with the change since the last run:
 `.venv/bin/python stats-report.py --shorts out --youtube-config ~/.config/aviqr-youtube --meta-config ~/.config/aviqr-meta`
 
