@@ -142,3 +142,6 @@ gcp-*.json
 # also where the exposed GCP key above lived, hence its own rule staying put.
 # =========================
 /aviqr files/
+
+# Lead files hold business contact details: keep them local
+sales/leads/
