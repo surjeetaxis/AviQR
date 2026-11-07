@@ -47,7 +47,26 @@ REGISTER_TIMEOUT_TRIES=60   # 60 * 3s = 180s for the new instance to register+le
 
 mkdir -p "$STATE_DIR"
 
-active=$(cat "$STATE_FILE" 2>/dev/null || echo primary)
+# Which variant is live comes from systemd, not only from the state file: a reboot starts the
+# enabled primary units whatever the file says, and trusting a stale "alt" made the script
+# "start" the already-running primary, wait for a second instance that never came, then stop
+# the only running one (order-qr-service, 2026-11-07). The file only breaks a tie when both run.
+primary_up=$(systemctl is-active --quiet "aviqr-${SVC}" && echo 1 || echo 0)
+alt_up=$(systemctl is-active --quiet "aviqr-${SVC}-alt" && echo 1 || echo 0)
+need=2  # old + new instance registered at once
+if [ "$primary_up$alt_up" = "10" ]; then
+  active=primary
+elif [ "$primary_up$alt_up" = "01" ]; then
+  active=alt
+elif [ "$primary_up$alt_up" = "11" ]; then
+  active=$(cat "$STATE_FILE" 2>/dev/null || echo primary)
+else
+  # Neither runs: the service is already down, so there is nothing to keep up. Start the
+  # primary and only wait for it alone.
+  echo "[blue-green] $SVC: neither variant is running — starting aviqr-${SVC} on its own"
+  active=alt
+  need=1
+fi
 if [ "$active" = "primary" ]; then
   inactive_unit="aviqr-${SVC}-alt"
   active_unit="aviqr-${SVC}"
@@ -82,18 +101,20 @@ for i in $(seq 1 "$REGISTER_TIMEOUT_TRIES"); do
   # was healthy seconds later. `|| true` neutralizes the pipeline's exit
   # status without touching what grep already wrote to $count.
   count=$(curl -s "http://localhost:8761/eureka/apps/${EUREKA_APP}" 2>/dev/null | grep -c '<instance>' || true)
-  if [ "$count" -ge 2 ]; then registered=1; break; fi
+  if [ "$count" -ge "$need" ]; then registered=1; break; fi
   sleep 3
 done
 
 if [ "$registered" -ne 1 ]; then
-  echo "[blue-green] $SVC: new instance ($inactive_unit) never reached 2 registered Eureka instances — aborting this service, stopping it, leaving $active_unit as-is"
-  sudo systemctl stop "$inactive_unit" || true
+  echo "[blue-green] $SVC: new instance ($inactive_unit) never reached $need registered Eureka instance(s) — aborting this service, stopping it, leaving $active_unit as-is"
+  [ "$need" -eq 1 ] || sudo systemctl stop "$inactive_unit" || true
   exit 1
 fi
 
-echo "[blue-green] $SVC: $inactive_unit healthy alongside $active_unit — stopping old ($active_unit)"
-sudo systemctl stop "$active_unit"
+if [ "$need" -eq 2 ]; then
+  echo "[blue-green] $SVC: $inactive_unit healthy alongside $active_unit — stopping old ($active_unit)"
+  sudo systemctl stop "$active_unit"
+fi
 
 echo -n "$new_state" > "$STATE_FILE"
 echo "[blue-green] $SVC: switched active -> $new_state ($inactive_unit)"
