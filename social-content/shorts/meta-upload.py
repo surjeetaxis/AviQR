@@ -99,6 +99,20 @@ def instagram(cfg, video, caption):
         raise
 
 
+def instagram_with_copy(cfg, video, caption, name):
+    """Instagram sometimes rejects a file with ProcessingFailedError on every try, while an identical-looking file passes.
+    A re-encoded copy in out/alt/<name>.mp4 (made by firstwords' scripts/alt-encode.py: constant frame rate, 48 kHz
+    stereo) is then tried straight away."""
+    try:
+        return instagram(cfg, video, caption)
+    except RuntimeError as e:
+        alt = os.path.join(SHORTS, 'alt', f'{name}.mp4')
+        if 'ProcessingFailed' not in str(e) or not os.path.exists(alt):
+            raise
+        print(f'instagram rejected {name}, trying the re-encoded copy')
+        return instagram(cfg, alt, caption)
+
+
 def facebook(cfg, video, caption):
     token, page = cfg['page_token'], cfg['page_id']
     start = api('POST', f'{page}/video_reels', upload_phase='start', access_token=token)
@@ -240,8 +254,10 @@ def main():
             try:
                 if not m.get('reel', True):
                     post_id = facebook_video(cfg, video, m)
+                elif platform == 'instagram':
+                    post_id = instagram_with_copy(cfg, video, caption, os.path.basename(meta)[5:-5])
                 else:
-                    post_id = (instagram if platform == 'instagram' else facebook)(cfg, video, caption)
+                    post_id = facebook(cfg, video, caption)
             except Exception as e:
                 failed += 1
                 print(f'{platform} failed for {os.path.basename(meta)[:-5]}: {e}')
