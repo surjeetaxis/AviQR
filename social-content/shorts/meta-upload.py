@@ -31,7 +31,8 @@ CONFIG = os.path.expanduser('~/.config/aviqr-meta')
 GRAPH = 'https://graph.facebook.com/v26.0'
 GRAPH_VIDEO = 'https://graph-video.facebook.com/v26.0'
 YOUTUBE = 'https://www.youtube.com/@aviqros'
-RUPLOAD = 'https://rupload.facebook.com'
+MEDIA_DIR = os.path.join(SHORTS, 'ig-media')
+MEDIA_URL = 'https://aviqr.com/ig-media'
 IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 PLATFORMS = ('instagram', 'facebook')
 # A reply prompt per language ("DEMO" stays in Latin so replies are easy to spot) and the follow line from i18n _end.
@@ -76,19 +77,29 @@ def push(url, token, video):
 
 
 def instagram(cfg, video, caption):
+    """Instagram downloads the Reel from a short-lived link on aviqr.com (nginx serves MEDIA_DIR, see
+    aviqr-backend/deploy/nginx/aviqr.conf). The direct rupload route failed with ProcessingFailedError on most Reels
+    over ~20 s from Nov 2026 on."""
+    import secrets
     token, ig = cfg['page_token'], cfg['ig_user_id']
-    box = api('POST', f'{ig}/media', media_type='REELS', upload_type='resumable', caption=caption,
-              share_to_feed='true', access_token=token)['id']
-    push(f'{RUPLOAD}/ig-api-upload/v26.0/{box}', token, video)
-    for _ in range(60):  # Instagram transcodes before it will publish
-        status = api('GET', box, fields='status_code,status', access_token=token)
-        if status['status_code'] == 'FINISHED':
-            break
-        if status['status_code'] == 'ERROR':
-            raise RuntimeError(f"Instagram processing failed: {status.get('status')}")
-        time.sleep(10)
-    else:
-        raise RuntimeError('Instagram processing timed out')
+    os.makedirs(MEDIA_DIR, exist_ok=True)
+    name = secrets.token_urlsafe(16) + '.mp4'  # unguessable, and gone once Instagram has the file
+    link = os.path.join(MEDIA_DIR, name)
+    os.link(video, link)
+    try:
+        box = api('POST', f'{ig}/media', media_type='REELS', video_url=f'{MEDIA_URL}/{name}', caption=caption,
+                  share_to_feed='true', access_token=token)['id']
+        for _ in range(60):  # Instagram fetches and transcodes before it will publish
+            status = api('GET', box, fields='status_code,status', access_token=token)
+            if status['status_code'] == 'FINISHED':
+                break
+            if status['status_code'] == 'ERROR':
+                raise RuntimeError(f"Instagram processing failed: {status.get('status')}")
+            time.sleep(10)
+        else:
+            raise RuntimeError('Instagram processing timed out')
+    finally:
+        os.remove(link)
     try:
         return api('POST', f'{ig}/media_publish', creation_id=box, access_token=token)['id']
     except RuntimeError:
@@ -97,20 +108,6 @@ def instagram(cfg, video, caption):
         if api('GET', box, fields='status_code', access_token=token)['status_code'] == 'PUBLISHED':
             return box
         raise
-
-
-def instagram_with_copy(cfg, video, caption, name):
-    """Instagram sometimes rejects a file with ProcessingFailedError on every try, while an identical-looking file passes.
-    A re-encoded copy in out/alt/<name>.mp4 (made by firstwords' scripts/alt-encode.py: constant frame rate, 48 kHz
-    stereo) is then tried straight away."""
-    try:
-        return instagram(cfg, video, caption)
-    except RuntimeError as e:
-        alt = os.path.join(SHORTS, 'alt', f'{name}.mp4')
-        if 'ProcessingFailed' not in str(e) or not os.path.exists(alt):
-            raise
-        print(f'instagram rejected {name}, trying the re-encoded copy')
-        return instagram(cfg, alt, caption)
 
 
 def facebook(cfg, video, caption):
@@ -255,7 +252,7 @@ def main():
                 if not m.get('reel', True):
                     post_id = facebook_video(cfg, video, m)
                 elif platform == 'instagram':
-                    post_id = instagram_with_copy(cfg, video, caption, os.path.basename(meta)[5:-5])
+                    post_id = instagram(cfg, video, caption)
                 else:
                     post_id = facebook(cfg, video, caption)
             except Exception as e:

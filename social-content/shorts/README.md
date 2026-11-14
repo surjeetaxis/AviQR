@@ -29,6 +29,6 @@ Needs Chrome and ffmpeg. Output (git-ignored): `shorts/out/videos/` and `shorts/
 
 - YouTube: channel on aviqradmin@gmail.com. Its own Google Cloud project (the FirstWords project's quota is used up by FirstWords). `--auth` once on a machine with a browser, then copy `token.json` up. Cron daily, `--ahead 2`.
 - Full demos (`reel: false`) go to Facebook only, as normal Page videos sent in chunks; `youtube: false` entries (the trailers) are skipped by the YouTube uploader.
-- Instagram @aviqr and the Aviqr Facebook Page (ID 1306724499192298): `meta-upload.py --setup --app-id <id> --page-id 1306724499192298` on the server. Cron every 30 minutes.
+- Instagram @aviqr and the Aviqr Facebook Page (ID 1306724499192298): `meta-upload.py --setup --app-id <id> --page-id 1306724499192298` on the server. Cron every 30 minutes. Instagram downloads each Reel from `https://aviqr.com/ig-media/<random>.mp4`: the uploader hard-links the file into `out/ig-media/` only while Instagram fetches it (the direct upload route started rejecting most Reels over ~20 s in November 2026).
 
 The server's `uploaded.json` and `meta-uploaded.json` are the source of truth; never copy them back over.
