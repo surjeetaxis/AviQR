@@ -8,7 +8,7 @@ The trailers are youtube:false and carry "full" (the demo's ledger key), so meta
 Usage (from social-content/): python3 shorts/render-trailers.py --from 2026-10-28 [--jobs 4]
 Output: shorts/out/trailers/trailer-<demo>.{mp4,png,json}, linked into by-date/ as 1700-trailer-<demo>.*
 """
-import argparse, glob, importlib.util, json, os, subprocess, tempfile
+import argparse, glob, importlib.util, json, os, re, subprocess, tempfile
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image, ImageDraw, ImageFont
 
@@ -44,6 +44,13 @@ def overlay(path):
     img.save(path)
 
 
+def without_chapters(description):
+    """The demo's description minus its chapter list ("0:03 ..."): the times don't fit the trailer, and the long
+    caption makes Instagram fail with ProcessingFailedError."""
+    text = re.sub(r'(?m)^\d+:\d\d(:\d\d)? .*\n?', '', description)
+    return re.sub(r'\n{3,}', '\n\n', text).strip()
+
+
 def render(job):
     meta_path, end_lines = job
     m = json.load(open(meta_path))
@@ -75,7 +82,7 @@ def render(job):
     os.replace(out + '.part.mp4', out + '.mp4')
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-ss', '8', '-i', out + '.mp4', '-frames:v', '1', out + '.png'], check=True)
     meta = {k: v for k, v in m.items() if k not in ('date', 'time_ist', 'video', 'cover', 'reel', 'short', 'music')}
-    meta.update({'youtube': False, 'voice': True, 'trailer_of': name})
+    meta.update({'youtube': False, 'voice': True, 'trailer_of': name, 'description': without_chapters(m.get('description', ''))})
     with open(out + '.json', 'w') as fh:
         json.dump(meta, fh, indent=1, ensure_ascii=False)
     return out
